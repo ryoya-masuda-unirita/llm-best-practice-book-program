@@ -69,7 +69,7 @@ async def main(
     else:
         raise ValueError(f"Unsupported LLM provider: {llm_provider.value}")
 
-    result.save_as_json(f"{llm_provider.value}_{uuid4().hex}.json")
+    result.save_as_json(f"outputs/{llm_provider.value}_{uuid4().hex}.json")
 
 
 if __name__ == "__main__":
