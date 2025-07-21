@@ -7,7 +7,7 @@ import click
 from google.genai.types import GenerateContentConfig
 
 from src.llms import google_genai_client, openai_client
-from src.logger import make_logger, llm_logger
+from src.logger import llm_logger, make_logger
 from src.model import CharacterResponse, LLMProvider
 from src.prompt import make_prompt
 
@@ -16,7 +16,7 @@ logger = make_logger(__name__)
 
 async def request_openai(user_id: str) -> tuple[CharacterResponse, str]:
     prompt = make_prompt()
-    
+
     start_time = time.time()
     try:
         result = await openai_client.beta.chat.completions.parse(
@@ -27,11 +27,11 @@ async def request_openai(user_id: str) -> tuple[CharacterResponse, str]:
         )
         end_time = time.time()
         latency_ms = int((end_time - start_time) * 1000)
-        
+
         parsed_result = result.choices[0].message.parsed
         input_text = str(prompt)
         output_text = str(parsed_result.model_dump())
-        
+
         prompt_id = await llm_logger.log_llm_request(
             model="gpt-4o-mini",
             user_id=user_id,
@@ -41,15 +41,15 @@ async def request_openai(user_id: str) -> tuple[CharacterResponse, str]:
             temperature=1.0,
             latency_ms=latency_ms,
             status_code=200,
-            metadata={"usage": result.usage.model_dump() if result.usage else None}
+            metadata={"usage": result.usage.model_dump() if result.usage else None},
         )
-        
+
         return parsed_result, prompt_id
-        
+
     except Exception as e:
         end_time = time.time()
         latency_ms = int((end_time - start_time) * 1000)
-        
+
         await llm_logger.log_llm_request(
             model="gpt-4o-mini",
             provider=LLMProvider.OPENAI,
@@ -59,14 +59,14 @@ async def request_openai(user_id: str) -> tuple[CharacterResponse, str]:
             latency_ms=latency_ms,
             status_code=500,
             user_id=user_id,
-            metadata={"error": str(e)}
+            metadata={"error": str(e)},
         )
         raise
 
 
 async def request_gemini(user_id: str) -> tuple[CharacterResponse, str]:
     prompt = make_prompt()
-    
+
     start_time = time.time()
     try:
         result = await google_genai_client.aio.models.generate_content(
@@ -81,10 +81,10 @@ async def request_gemini(user_id: str) -> tuple[CharacterResponse, str]:
         )
         end_time = time.time()
         latency_ms = int((end_time - start_time) * 1000)
-        
+
         input_text = str(prompt)
         output_text = str(result.parsed.model_dump())
-        
+
         prompt_id = await llm_logger.log_llm_request(
             model="gemini-2.5-flash",
             provider=LLMProvider.GEMINI,
@@ -94,15 +94,15 @@ async def request_gemini(user_id: str) -> tuple[CharacterResponse, str]:
             temperature=2.0,
             latency_ms=latency_ms,
             status_code=200,
-            metadata={"usage_metadata": result.usage_metadata.model_dump() if result.usage_metadata else None}
+            metadata={"usage_metadata": result.usage_metadata.model_dump() if result.usage_metadata else None},
         )
-        
+
         return result.parsed, prompt_id
-        
+
     except Exception as e:
         end_time = time.time()
         latency_ms = int((end_time - start_time) * 1000)
-        
+
         await llm_logger.log_llm_request(
             model="gemini-2.5-flash",
             provider=LLMProvider.GEMINI,
@@ -112,7 +112,7 @@ async def request_gemini(user_id: str) -> tuple[CharacterResponse, str]:
             latency_ms=latency_ms,
             status_code=500,
             user_id=user_id,
-            metadata={"error": str(e)}
+            metadata={"error": str(e)},
         )
         raise
 
@@ -156,7 +156,7 @@ async def main(
 
     output_filename = f"outputs/{llm_provider.value}_{uuid4().hex}.json"
     result.save_as_json(output_filename)
-    
+
     logger.info(f"Result saved to: {output_filename}")
     logger.info(f"Structured log prompt_id: {prompt_id}")
     logger.info("Check ./logs/ and ./prompt_storage/ directories for structured logs")

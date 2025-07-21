@@ -1,7 +1,5 @@
 import json
-from datetime import datetime
 from enum import StrEnum
-from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -72,26 +70,3 @@ class CharacterResponse(BaseModel):
 
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(self.model_dump(), f, indent=4, ensure_ascii=False)
-
-
-class LLMStructuredLog(BaseModel):
-    """Structured log entry for LLM operations."""
-
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-        arbitrary_types_allowed=True,
-    )
-
-    timestamp: datetime = Field(default_factory=datetime.now, description="ログの記録時刻")
-    prompt_id: str = Field(..., description="プロンプトの一意識別子")
-    user_id: Optional[str] = Field(None, description="ユーザー識別子")
-    model: str = Field(..., description="使用したLLMモデル名")
-    temperature: float = Field(..., description="生成時の温度パラメータ")
-    input_text: str = Field(..., description="入力プロンプト")
-    output_text: str = Field(..., description="LLMの出力")
-    latency_ms: int = Field(..., description="応答時間（ミリ秒）")
-    status_code: int = Field(..., description="API呼び出しのステータス")
-    provider: LLMProvider = Field(..., description="LLMプロバイダー")
-    metadata: Optional[Dict[str, Any]] = Field(default=None, description="追加のメタデータ")
