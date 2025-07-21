@@ -74,4 +74,7 @@ docstring-code-line-length = "dynamic"
 [tool.uv.workspace]
 members = [
     "chapter_2/section_1",
+    "chapter_2/section_3",
+    "chapter_2/section_4",
+    "chapter_2/section_2",
 ]
