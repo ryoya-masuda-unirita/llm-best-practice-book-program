@@ -1,0 +1,3 @@
+# Conservative variables for character_generation template
+target_language: "Japanese"
+creativity_level: "low"
