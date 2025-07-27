@@ -210,3 +210,6 @@ __marimo__/
 .claud/*
 
 .DS_Store
+
+CLAUDE.md
+.claude/*
