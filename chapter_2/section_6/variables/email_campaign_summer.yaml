@@ -1,0 +1,6 @@
+# 夏のキャンペーン用メール変数設定
+campaign_name: "サマーセール2024"
+product_name: "夏物ウェア全品"
+discount_rate: 30
+campaign_period: "2024年7月1日〜7月31日"
+target_segment: "20-30代の女性顧客"

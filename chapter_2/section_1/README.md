@@ -1,120 +1,422 @@
-# LLMを使用した基本的なキャラクター生成ツール
+# Chapter 2 Section 1: 構造化出力を用いたLLM基本実装
 
 ## 概要
 
-このプロジェクトは、LLM（大規模言語モデル）を使用してフィクションのキャラクターを生成する基本的なツールです。OpenAIとGeminiの両方のLLMプロバイダーをサポートし、構造化されたJSON形式で出力を提供します。
+このプロジェクトは、**構造化出力（Structured Outputs）** を用いたLLM（大規模言語モデル）の基本実装を示すサンプルコードです。OpenAI GPTシリーズ（GPT-4o、GPT-5など）とGoogle Gemini 2.5シリーズの両方に対応し、複数のモデルから選択して利用できます。Pydanticモデルを活用して型安全なLLM応答を実現します。
 
-## 主要な機能
+フィクションのキャラクター情報（名前、性別、年齢、性格特性）を生成するユースケースを通じて、構造化出力の実践的な実装方法を学ぶことができます。
 
-### 1. キャラクター生成
+## 機能
 
-- **詳細な性格特性**を持つフィクションキャラクターの生成
-- **複数のLLMプロバイダー**（OpenAI、Gemini）のサポート
-- **JSON形式**での一貫した出力
+- **構造化出力**: PydanticモデルをAPI応答形式として直接利用
+- **マルチプロバイダー対応**: OpenAIとGoogle Gemini APIの両方をサポート
+- **モデル選択**: 各プロバイダーで複数のモデルから選択可能
+- **非同期処理**: async/awaitパターンによる効率的なAPI呼び出し
+- **型安全性**: Pydanticによる厳密な型検証とバリデーション
+- **CLIインターフェース**: Clickライブラリを使用した使いやすいコマンドラインツール
+- **環境変数管理**: python-dotenvによる安全なAPIキー管理
+- **ログ出力**: 詳細なログ機能による実行状況の可視化
+- **JSON出力**: 生成結果をJSON形式でファイルに保存
 
-### 2. LLMプロバイダー
+## プロジェクト構成
 
-- **OpenAI**: GPT-4o-miniモデルを使用
-- **Gemini**: Gemini-2.5-Flashモデルを使用
+### ディレクトリ構成
 
-### 3. 構造化データ
-
-- **Pydanticモデル**を使用した型安全な応答処理
-- **検証済み出力**で一貫したデータ構造を保証
-
-## 使用方法
-
-### 基本的な使用
-
-```bash
-# キャラクター生成の実行（デフォルトはGemini）
-python -m src.main
-
-# OpenAIを使用する場合
-python -m src.main --llm-provider openai
+```
+chapter_2/section_1/
+├── src/
+│   ├── __init__.py              # パッケージ初期化
+│   ├── config.py                # 設定管理（API キー読み込み）
+│   ├── logger.py                # ロギング設定
+│   ├── main.py                  # メインエントリーポイント
+│   ├── client/
+│   │   ├── __init__.py
+│   │   └── llm_client.py        # LLMクライアント初期化
+│   ├── model/
+│   │   ├── __init__.py
+│   │   └── model.py             # Pydanticデータモデル定義
+│   └── prompt/
+│       ├── __init__.py
+│       └── prompt.py            # プロンプト生成ロジック
+├── outputs/                      # 生成結果の保存先（自動作成）
+├── .envrc.example                # 環境変数設定のサンプル
+├── pyproject.toml                # プロジェクト依存関係
+├── README.md                     # このファイル
+└── CLAUDE.md                     # プロジェクト状態レポート
 ```
 
-### コマンドラインオプション
+### アーキテクチャ
 
-```bash
-# ヘルプの表示
-python -m src.main --help
+このプロジェクトは、以下の3層アーキテクチャで構成されています：
 
-# 利用可能なオプション:
-# --llm-provider, -lp [openai|gemini]  使用するLLMプロバイダー（デフォルト: gemini）
+```
+┌─────────────────────────────────────────┐
+│         CLI Layer (main.py)             │
+│     - コマンドライン引数解析             │
+│     - 出力ディレクトリ管理               │
+└─────────────────┬───────────────────────┘
+                  │
+┌─────────────────▼───────────────────────┐
+│      Business Logic Layer               │
+│  - プロンプト生成 (prompt.py)           │
+│  - LLMクライアント管理 (llm_client.py)  │
+│  - データモデル (model.py)              │
+└─────────────────┬───────────────────────┘
+                  │
+┌─────────────────▼───────────────────────┐
+│      Infrastructure Layer               │
+│  - 設定管理 (config.py)                 │
+│  - ログ管理 (logger.py)                 │
+│  - 外部API (OpenAI, Gemini)             │
+└─────────────────────────────────────────┘
 ```
 
-## 出力例
+### 実装の詳細
 
-生成されたキャラクターデータは`outputs`ディレクトリに保存されます。ファイル名は使用したプロバイダーと一意のIDを含みます（例：`gemini_213aae3ccf6648b392c6ee51f0a3bfeb.json`）。
+#### 1. データモデル (`src/model/model.py`)
 
-出力JSONの例：
+Pydanticを使用して、厳密に型付けされたデータモデルを定義します：
+
+```python
+class Gender(StrEnum):
+    FEMALE = "female"
+    MALE = "male"
+
+class CharacterPersonality(BaseModel):
+    short_personality: str
+    description: str
+
+class CharacterResponse(BaseModel):
+    first_name: str
+    last_name: str
+    gender: Gender
+    age: int  # 0-100
+    personalities: list[CharacterPersonality]  # 3つの性格特性
+```
+
+**ポイント**:
+- `frozen=True`により不変オブジェクトを保証
+- `validate_assignment=True`で代入時のバリデーションを有効化
+- Fieldディスクリプタで詳細な制約を定義（`ge=0, le=100`など）
+
+#### 2. LLMクライアント (`src/client/llm_client.py`)
+
+OpenAIとGeminiの両方のクライアントを初期化し、利用可能なモデルを定義します：
+
+```python
+class LLMProvider(StrEnum):
+    OPENAI = "openai"
+    GEMINI = "gemini"
+
+class OpenAIModel(StrEnum):
+    GPT_5 = "gpt-5"
+    GPT_5_MINI = "gpt-5-mini"
+    GPT_5_NANO = "gpt-5-nano"
+    GPT_4_1 = "gpt-4.1"
+    GPT_4_1_MINI = "gpt-4.1-mini"
+    GPT_4_1_NANO = "gpt-4.1-nano"
+    GPT_4O = "gpt-4o"
+    GPT_4O_MINI = "gpt-4o-mini"
+
+class GeminiModel(StrEnum):
+    GEMINI_2_5_PRO = "gemini-2.5-pro"
+    GEMINI_2_5_FLASH = "gemini-2.5-flash"
+    GEMINI_2_5_FLASH_LITE = "gemini-2.5-flash-lite"
+
+google_genai_client = genai.Client(api_key=config.gemini_api_key)
+openai_client = AsyncOpenAI(api_key=config.openai_api_key)
+```
+
+**ポイント**:
+- 列挙型（`StrEnum`）でプロバイダーとモデルを型安全に管理
+- 設定情報から安全にAPIキーを取得
+- 各プロバイダーで利用可能なモデルを明示的に定義
+
+**利用可能なモデル**:
+
+OpenAI:
+- `gpt-5`, `gpt-5-mini`, `gpt-5-nano`
+- `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`
+- `gpt-4o`, `gpt-4o-mini`
+
+Gemini:
+- `gemini-2.5-pro`
+- `gemini-2.5-flash`
+- `gemini-2.5-flash-lite`
+
+#### 3. プロンプト生成 (`src/prompt/prompt.py`)
+
+スキーマ情報を埋め込んだプロンプトを動的に生成します：
+
+```python
+def make_prompt() -> list:
+    params = CharacterResponse.detailed_model()
+    param_dump = json.dumps(params, indent=2, ensure_ascii=False)
+    return [
+        {
+            "role": "system",
+            "content": f"""あなたは創造的なキャラクタージェネレーターです。
+以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：
+
+{param_dump}
+..."""
+        },
+        ...
+    ]
+```
+
+**ポイント**:
+- モデルから自動的にスキーマ情報を抽出
+- システムプロンプトにスキーマを埋め込むことで、出力の一貫性を確保
+
+#### 4. API呼び出し (`src/main.py`)
+
+##### OpenAI実装
+
+```python
+async def request_openai(model: OpenAIModel) -> CharacterResponse:
+    prompt = make_prompt()
+    result = await openai_client.beta.chat.completions.parse(
+        model=model,  # モデルをパラメータとして受け取る
+        messages=prompt,
+        response_format=CharacterResponse,  # Pydanticモデルを直接指定
+        temperature=1.0,
+    )
+    return result.choices[0].message.parsed
+```
+
+**特徴**:
+- `beta.chat.completions.parse()`で構造化出力をサポート
+- `response_format`パラメータにPydanticモデルを直接渡せる
+- 返り値は自動的にPydanticモデルにパースされる
+- モデルはCLI引数から動的に選択可能
+
+##### Gemini実装
+
+```python
+async def request_gemini(model: GeminiModel) -> CharacterResponse:
+    prompt = make_prompt()
+    result = await google_genai_client.aio.models.generate_content(
+        model=model,  # モデルをパラメータとして受け取る
+        contents=prompt[-1]["content"],
+        config=GenerateContentConfig(
+            system_instruction=prompt[0]["content"],
+            response_mime_type="application/json",
+            response_schema=CharacterResponse,  # Pydanticモデルを指定
+            temperature=2.0,
+        ),
+    )
+    return result.parsed
+```
+
+**特徴**:
+- `response_schema`でPydanticモデルを指定
+- `response_mime_type="application/json"`でJSON形式を強制
+- system_instructionとcontentsを分離して指定
+- モデルはCLI引数から動的に選択可能
+
+#### 5. 設定管理 (`src/config.py`)
+
+環境変数からAPIキーを安全に読み込みます：
+
+```python
+class Config(BaseModel):
+    model_config = ConfigDict(
+        validate_assignment=True,
+        frozen=True,
+        extra="ignore",
+        arbitrary_types_allowed=True,
+    )
+
+    if os.path.exists(".envrc"):
+        load_dotenv(".envrc")
+
+    gemini_api_key: Secret[str] = Field(default=os.environ["GEMINI_API_KEY"])
+    openai_api_key: Secret[str] = Field(default=os.environ["OPENAI_API_KEY"])
+```
+
+**ポイント**:
+- `Secret[str]`型でAPIキーを保護（ログ出力時に自動マスキング）
+- Pydanticの検証機能で環境変数の存在をチェック
+
+## 使い方
+
+### 環境構成
+
+- **Python**: 3.13.2以上
+- **依存ライブラリ**:
+  - click>=8.3.0
+  - google-genai>=1.45.0
+  - openai>=2.4.0
+  - pydantic>=2.12.2
+  - python-dotenv>=1.1.1
+
+### セットアップ
+
+1. **環境変数ファイルの作成**
+
+```bash
+# .envrc.exampleをコピーして.envrcを作成
+cp .envrc.example .envrc
+
+# エディタで.envrcを開き、APIキーを設定
+# .envrc
+OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
+GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+```
+
+2. **依存関係のインストール**
+
+```bash
+# uvを使用する場合（推奨）
+uv sync
+
+# pipを使用する場合
+pip install -e .
+```
+
+### 使用方法、実行方法
+
+#### 基本的な使い方
+
+```bash
+# Gemini APIを使用（プロバイダーとモデルを指定）
+uv run python -m src.main --llm-provider gemini --model gemini-2.5-flash
+
+# OpenAI APIを使用
+uv run python -m src.main --llm-provider openai --model gpt-4o-mini
+
+# 短縮オプション
+uv run python -m src.main -lp openai -m gpt-4o
+```
+
+#### モデル選択の例
+
+```bash
+# OpenAIの各モデルを使用
+uv run python -m src.main -lp openai -m gpt-5
+uv run python -m src.main -lp openai -m gpt-4.1-mini
+uv run python -m src.main -lp openai -m gpt-4o-mini
+
+# Geminiの各モデルを使用
+uv run python -m src.main -lp gemini -m gemini-2.5-pro
+uv run python -m src.main -lp gemini -m gemini-2.5-flash
+uv run python -m src.main -lp gemini -m gemini-2.5-flash-lite
+```
+
+#### 出力先の指定
+
+```bash
+# カスタム出力ディレクトリを指定
+uv run python -m src.main -lp gemini -m gemini-2.5-flash --output-directory ./custom_output
+
+# 短縮オプション
+uv run python -m src.main -lp openai -m gpt-4o -od ./my_characters
+```
+
+#### ヘルプの表示
+
+```bash
+uv run python -m src.main --help
+```
+
+**出力例**:
+```
+Usage: python -m src.main [OPTIONS]
+
+Options:
+  -lp, --llm-provider [OPENAI|GEMINI]
+                                  The LLM provider to use.  [required]
+  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
+                                  The model to use for the request.
+                                  [required]
+  -od, --output-directory PATH    The directory to save output files.
+  --help                          Show this message and exit.
+```
+
+### 出力例
+
+実行すると、以下のような構造化されたJSONファイルが生成されます：
+
+**ファイル名**: `outputs/gemini_a1b2c3d4e5f6.json`
 
 ```json
 {
-  "first_name": "太郎",
-  "last_name": "山田",
-  "gender": "male",
-  "age": 28,
-  "personalities": [
-    {
-      "short_personality": "冒険好き",
-      "description": "新しい場所や経験を常に求めている。未知の領域に足を踏み入れることに喜びを感じる。"
-    },
-    {
-      "short_personality": "分析的",
-      "description": "物事を論理的に考え、詳細に分析することを好む。問題解決において体系的なアプローチを取る。"
-    },
-    {
-      "short_personality": "忠実",
-      "description": "友人や家族に対して非常に忠実で、困っている人を助けることを厭わない。信頼関係を何よりも大切にする。"
-    }
-  ]
+    "first_name": "蒼",
+    "last_name": "雨宮",
+    "gender": "male",
+    "age": 28,
+    "personalities": [
+        {
+            "short_personality": "内向的な思索家",
+            "description": "常に深く物事を考え、静かな場所を好む。表面的な会話よりも、哲学的な議論に心を開く。"
+        },
+        {
+            "short_personality": "完璧主義者",
+            "description": "すべてのタスクに最高の基準を求め、細部にこだわる。しばしば自分自身に対して厳しすぎることがある。"
+        },
+        {
+            "short_personality": "忠実な友人",
+            "description": "一度信頼関係を築くと、どんな困難な状況でも友人を支える。約束を何よりも大切にする。"
+        }
+    ]
 }
 ```
 
-## 設定
-
-環境変数または.envファイルで以下の設定が必要です：
-
+**実行ログ例**:
 ```
-OPENAI_API_KEY=your_openai_api_key
-GEMINI_API_KEY=your_gemini_api_key
+[2025-10-17 10:30:45] [INFO] [__main__] [main.py:82] [main] LLM provider: gemini
+Model: gemini-2.5-flash
+Output directory: outputs
+[2025-10-17 10:30:47] [INFO] [__main__] [main.py:103] [main] File saved to outputs/gemini_a1b2c3d4e5f6.json
 ```
 
-## 技術的詳細
+### テスト方法
 
-### キャラクターモデル
+現在、このセクションにはユニットテストは含まれていません。手動テストは以下の方法で行います：
 
-キャラクターデータは以下のフィールドを含みます：
+#### 1. OpenAI APIのテスト
 
-- `first_name`: キャラクターの名
-- `last_name`: キャラクターの姓
-- `gender`: 性別（"male"または"female"）
-- `age`: 年齢（0〜100の整数）
-- `personalities`: 性格特性のリスト（3つの特性）
-  - `short_personality`: 性格の短い説明
-  - `description`: 性格の詳細な説明
+```bash
+# 異なるモデルでテスト
+uv run python -m src.main -lp openai -m gpt-4o-mini -od test_outputs
+uv run python -m src.main -lp openai -m gpt-4o -od test_outputs
+```
 
-### プロンプト設計
+期待される動作：
+- `test_outputs`ディレクトリが作成される
+- `openai_XXXXXXXX.json`形式のファイルが生成される
+- JSONファイルが`CharacterResponse`スキーマに準拠している
 
-システムプロンプトは以下の指示を含みます：
+#### 2. Gemini APIのテスト
 
-1. 創造的なキャラクタージェネレーターとして機能する
-2. 詳細な情報を持つフィクションのキャラクターを生成する
-3. 指定された構造に厳密に従ったJSONオブジェクトで応答する
-4. 応答は有効なJSONであること
-5. すべての必須フィールドが含まれていること
-6. 性別は「female」または「male」のいずれかであること
-7. 年齢は0から100の間であること
-8. 正確に3つの性格特性が提供されていること
+```bash
+# 異なるモデルでテスト
+uv run python -m src.main -lp gemini -m gemini-2.5-flash -od test_outputs
+uv run python -m src.main -lp gemini -m gemini-2.5-pro -od test_outputs
+```
 
-## アーキテクチャ
+期待される動作：
+- `test_outputs`ディレクトリが作成される
+- `gemini_XXXXXXXX.json`形式のファイルが生成される
+- JSONファイルが`CharacterResponse`スキーマに準拠している
 
-### 主要コンポーネント
+#### 3. バリデーションの確認
 
-- **main.py**: メインのエントリーポイント、LLMプロバイダーの選択と実行を管理
-- **model.py**: Pydanticを使用したデータモデルの定義
-- **prompt.py**: LLMへのプロンプトの生成
-- **llms.py**: OpenAIとGeminiのクライアント設定
-- **config.py**: 環境変数と設定の管理
+生成されたJSONファイルが正しい構造を持っているか確認：
+
+```bash
+# jqを使用してJSONを検証
+cat test_outputs/gemini_*.json | jq .
+
+# Pythonで読み込みテスト
+python -c "
+from src.model.model import CharacterResponse
+import json
+
+with open('test_outputs/gemini_*.json') as f:
+    data = json.load(f)
+    character = CharacterResponse(**data)
+    print(f'Valid! {character.first_name} {character.last_name}')
+"
+```

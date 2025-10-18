@@ -1,0 +1,45 @@
+{
+  "prompt_id": "c9141076-880d-44f0-bbcd-1da4976e3976",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「35」歳です。\nFormulate a character who is a fierce warrior princess leading her people to freedom.\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Lyra",
+    "last_name": "Stormblade",
+    "gender": "female",
+    "age": 35,
+    "personalities": [
+      {
+        "short_personality": "Courageous",
+        "description": "Lyra embodies bravery in the face of danger. She fearlessly leads her warriors into battle, inspiring them with her unwavering spirit and determination to fight for their freedom. Her courage is not just physical; she stands up for her beliefs, often challenging traditions and decisions that she knows are unjust."
+      },
+      {
+        "short_personality": "Compassionate",
+        "description": "Despite her fierce exterior, Lyra has a deep compassion for her people. She genuinely cares for their well-being and often goes out of her way to ensure that their needs are met. This compassion makes her a beloved leader, as she listens to her people's concerns and fights not just for victory, but for a future where they can live without fear."
+      },
+      {
+        "short_personality": "Strategic",
+        "description": "Lyra is not only a warrior but also a brilliant strategist. She meticulously plans her battles, always considering the strengths and weaknesses of her enemies, as well as her own troops. This strategic mind has earned her numerous victories, as she anticipates the moves of her adversaries and adapts her tactics on the fly."
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:08:28.282857",
+  "metadata": {
+    "request_id": "47fae65d-412e-4479-91ec-382b3274735c",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 35,
+      "additional_instructions": "Formulate a character who is a fierce warrior princess leading her people to freedom."
+    }
+  }
+}

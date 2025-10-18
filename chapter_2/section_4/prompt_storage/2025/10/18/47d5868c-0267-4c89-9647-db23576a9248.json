@@ -1,0 +1,45 @@
+{
+  "prompt_id": "47d5868c-0267-4c89-9647-db23576a9248",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「33」歳です。\n隠された目的を持つカリスマ的な海賊船長のキャラクターを作成してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Ronan",
+    "last_name": "Stormrider",
+    "gender": "male",
+    "age": 33,
+    "personalities": [
+      {
+        "short_personality": "カリスマ的",
+        "description": "人々を惹きつける不思議な魅力を持っており、仲間たちをまとめる能力に長けている。高い自信を持つ彼は、常に周囲を引き込む存在であり、忠誠心を育むリーダーの資質を持ち合わせている。"
+      },
+      {
+        "short_personality": "狡猾",
+        "description": "常に先を見越して行動する戦略家であり、予測不可能な方策を講じることで敵を翻弄する。彼の計画は緻密で、時には非情だが、その知恵と計略によって多くの困難を乗り越えてきた。"
+      },
+      {
+        "short_personality": "謎めいた",
+        "description": "過去を決して明かさず、彼の真の目的は常に謎に包まれている。友人からも敵からも、その背後に隠された意図や目標を読み解くことは難しいが、彼の秘密が明らかになる時、運命が大きく変わる可能性がある。"
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:11:06.106066",
+  "metadata": {
+    "request_id": "efe64ed6-74ed-4fd8-9c7f-1727a8b4389d",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 33,
+      "additional_instructions": "隠された目的を持つカリスマ的な海賊船長のキャラクターを作成してください。"
+    }
+  }
+}

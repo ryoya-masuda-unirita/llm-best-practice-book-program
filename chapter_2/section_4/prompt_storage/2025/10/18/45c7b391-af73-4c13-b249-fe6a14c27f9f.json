@@ -1,0 +1,45 @@
+{
+  "prompt_id": "45c7b391-af73-4c13-b249-fe6a14c27f9f",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「78」歳です。\n自然との深いつながりを持つ賢明な癒し手のキャラクターを考案してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Eldrin",
+    "last_name": "Mosswood",
+    "gender": "male",
+    "age": 78,
+    "personalities": [
+      {
+        "short_personality": "賢明な思慮深さ",
+        "description": "Eldrinは常に深い思慮を持って行動し、人生の経験から得た知恵を周囲の人々と分かち合います。彼のアドバイスはしばしば心の平和をもたらし、他者の心の傷を癒す力があります。"
+      },
+      {
+        "short_personality": "自然との結びつき",
+        "description": "彼は自然の声を聞くことができる特別な能力を持ち、木々や小川、動物たちとの対話を通じて深い感情的な絆を築いています。このつながりにより、Eldrinは環境を守ることの重要性を強く感じており、周囲の自然を尊重し、育てることに情熱を注いでいます。"
+      },
+      {
+        "short_personality": "穏やかな性格",
+        "description": "Eldrinは極めて穏やかで忍耐強い性格を持ち、どんな困難にも冷静に対処します。彼の落ち着きは周囲の人々に安心感を与え、緊張した状況を和らげる特別な力があります。"
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:11:06.479875",
+  "metadata": {
+    "request_id": "25a49f59-2ea1-42ff-8cf5-539af8d5c297",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 78,
+      "additional_instructions": "自然との深いつながりを持つ賢明な癒し手のキャラクターを考案してください。"
+    }
+  }
+}

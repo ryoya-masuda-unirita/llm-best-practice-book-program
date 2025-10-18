@@ -1,0 +1,45 @@
+{
+  "prompt_id": "bb21540f-7170-4012-aac0-97e95a294f01",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「26」歳です。\n宮廷で陰謀に巻き込まれる華麗な舞踏家のキャラクターを作成してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "セリーヌ",
+    "last_name": "ラシェ",
+    "gender": "female",
+    "age": 26,
+    "personalities": [
+      {
+        "short_personality": "魅力的で謎めいた",
+        "description": "彼女はその美しさと優雅さで多くの人々を魅了するが、内には複雑な感情と計画を隠し持っている。舞踏家としての技術は卓越しており、舞台上では誰もが彼女に目を奪われる。しかし、彼女が歌い踊るその裏には、隠された陰謀が渦巻いている。"
+      },
+      {
+        "short_personality": "機知に富んだ",
+        "description": "セリーヌは非常に聡明で、状況を瞬時に読み取り、適切な言葉を用いて人々を操る能力に長けている。宮廷内の複雑な人間関係や駆け引きを把握し、必要に応じて巧みに立ち回ることができる。彼女の頭の良さは、彼女が直面する陰謀に対抗するための重要な武器となる。"
+      },
+      {
+        "short_personality": "大胆不敵",
+        "description": "セリーヌは恐れを知らず、目の前に立ちはだかる試練にも果敢に挑む姿勢を持っている。彼女は自らの信念を貫くためにリスクを引き受け、周囲が何を言おうとも、自分の道を進む強い意志を持っている。この大胆さが、彼女を宮廷の陰謀に巻き込む要因の一つでもある。"
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:16:59.090658",
+  "metadata": {
+    "request_id": "47717d2c-3501-441e-886c-0033176747cb",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 26,
+      "additional_instructions": "宮廷で陰謀に巻き込まれる華麗な舞踏家のキャラクターを作成してください。"
+    }
+  }
+}

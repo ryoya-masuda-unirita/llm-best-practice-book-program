@@ -1,0 +1,45 @@
+{
+  "prompt_id": "00965c92-3ef9-4e3a-9763-e7870fa59235",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「18」歳です。\n自分の価値を証明したいと熱望する若い魔法使いのキャラクターを開発してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Kaito",
+    "last_name": "Tsubasa",
+    "gender": "male",
+    "age": 18,
+    "personalities": [
+      {
+        "short_personality": "決然とした",
+        "description": "Kaitoは目標に向かって常に前進する決意を持っており、どんな困難も乗り越えようとする姿勢を持っています。彼は自分の魔法のスキルを向上させるために努力を惜しまず、挑戦を恐れません。"
+      },
+      {
+        "short_personality": "自己価値を探求する",
+        "description": "Kaitoは自分の存在意義を見つけるために、他人に認められることを強く望んでいます。そのため、結果を出すことに執着し、自信をつけるために様々な試練に挑むことが多いです。"
+      },
+      {
+        "short_personality": "理想主義者",
+        "description": "彼は理想的な世界を夢見ており、力を持つ者がその力を正しく使うべきだと信じています。そのため、他者を助けるために自分の魔法を使い、悪を打ち倒すことに強い情熱を抱いています。"
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:17:26.341659",
+  "metadata": {
+    "request_id": "7d7c28fc-1f2c-4cd7-8137-c38c900b1df8",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 18,
+      "additional_instructions": "自分の価値を証明したいと熱望する若い魔法使いのキャラクターを開発してください。"
+    }
+  }
+}

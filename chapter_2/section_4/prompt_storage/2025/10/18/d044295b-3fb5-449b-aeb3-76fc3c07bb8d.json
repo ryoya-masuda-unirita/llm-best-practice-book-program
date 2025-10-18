@@ -1,0 +1,45 @@
+{
+  "prompt_id": "d044295b-3fb5-449b-aeb3-76fc3c07bb8d",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「19」歳です。\n失われた財宝を探し求める冒険好きな探検家のキャラクターを設計してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "アリス",
+    "last_name": "オルシャン",
+    "gender": "female",
+    "age": 19,
+    "personalities": [
+      {
+        "short_personality": "冒険心旺盛",
+        "description": "未知の場所への探検を楽しむ冒険心旺盛な性格で、どんな困難にも立ち向かう勇気を持っています。彼女の心の中には冒険が渇望されており、常に新しい経験を求めています。"
+      },
+      {
+        "short_personality": "好奇心が強い",
+        "description": "物事に対して強い好奇心を持ち、特に歴史や文化に関する知識を深めることに興味を抱いています。彼女は他人の話をしっかりと聞き、自分の理解を深めるために質問をすることが多いです。"
+      },
+      {
+        "short_personality": "社交的",
+        "description": "さまざまな人々との交流を楽しむ社交的な性格であり、多様なバックグラウンドを持つ人たちとの関係を築くのが得意です。新しい友達を作ることに喜びを感じ、彼らとの冒険を共にすることを楽しんでいます。"
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:17:23.149106",
+  "metadata": {
+    "request_id": "2b3ccd12-cfad-4018-97f4-f209d3f7a540",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 19,
+      "additional_instructions": "失われた財宝を探し求める冒険好きな探検家のキャラクターを設計してください。"
+    }
+  }
+}

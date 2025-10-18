@@ -1,0 +1,45 @@
+{
+  "prompt_id": "0b3a0d25-17dd-4ff3-a7e9-2fc0d0f7ba92",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「38」歳です。\n異国の地を旅する抜け目のない商人のキャラクターを開発してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Elara",
+    "last_name": "Valenwood",
+    "gender": "female",
+    "age": 38,
+    "personalities": [
+      {
+        "short_personality": "抜け目ない",
+        "description": "常に周囲の状況を観察し、チャンスを逃さない性格。鋭い洞察力を持ち、他人の心理を読み取ることが得意であるため、商談を有利に進めることができる。"
+      },
+      {
+        "short_personality": "冒険心",
+        "description": "新しい土地や文化に対する興味が旺盛で、どんな困難にも立ち向かう強い意志を持っている。未知の世界を探索することを楽しみ、彼女の事業に新しいアイディアを取り入れることを怠らない。"
+      },
+      {
+        "short_personality": "社交的",
+        "description": "さまざまなバックグラウンドを持つ人々と交流することで、人脈を広げることが得意。誰に対してもフレンドリーで接しやすく、信頼を築くのが早い。商人としての彼女の成功は、この人間関係の構築に支えられている。"
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:16:54.537643",
+  "metadata": {
+    "request_id": "6f601197-e27f-4fb2-80f8-a2ae4ee4fc3a",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 38,
+      "additional_instructions": "異国の地を旅する抜け目のない商人のキャラクターを開発してください。"
+    }
+  }
+}

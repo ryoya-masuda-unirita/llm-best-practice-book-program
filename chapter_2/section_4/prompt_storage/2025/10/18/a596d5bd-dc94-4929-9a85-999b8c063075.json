@@ -1,0 +1,45 @@
+{
+  "prompt_id": "a596d5bd-dc94-4929-9a85-999b8c063075",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「30」歳です。\n贖罪を求める勇敢な騎士のキャラクターを設計してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Eldrin",
+    "last_name": "Farcrest",
+    "gender": "male",
+    "age": 30,
+    "personalities": [
+      {
+        "short_personality": "勇敢",
+        "description": "Eldrinは困難な状況に直面しても恐れず、常に立ち向かう勇敢な心を持っています。彼は騎士としての義務を果たすため、どんな危険にも挑む姿勢を崩しません。"
+      },
+      {
+        "short_personality": "贖罪を求める",
+        "description": "過去の過ちから逃れられないEldrinは、贖罪を求める心に燃えています。彼は自らの行動を反省し、被害者に償うために助けを必要とする人々を見捨てることは決してありません。"
+      },
+      {
+        "short_personality": "思慮深い",
+        "description": "Eldrinはその勇敢さの裏に深い思考力を持っており、行動を起こす前に状況を冷静に分析します。彼は常に道徳的選択を重視し、判断を誤ることがないよう努めています。"
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:16:39.227064",
+  "metadata": {
+    "request_id": "ad25baed-612e-4970-8139-be260ca8760c",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 30,
+      "additional_instructions": "贖罪を求める勇敢な騎士のキャラクターを設計してください。"
+    }
+  }
+}

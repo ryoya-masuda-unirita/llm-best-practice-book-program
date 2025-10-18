@@ -1,0 +1,45 @@
+{
+  "prompt_id": "dbb3d205-e2fc-4d12-888b-b3fc2adcc6dc",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「23」歳です。\n海の生物と心を通わせる孤独な漁師のキャラクターを開発してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Mira",
+    "last_name": "Nerida",
+    "gender": "female",
+    "age": 23,
+    "personalities": [
+      {
+        "short_personality": "感受性豊か",
+        "description": "Miraは非常に感受性が高く、周囲の自然や海の生物の声に敏感です。彼女は波のささやきや潮の香りを心で感じ取り、他の人々には見えない海の世界の微細な変化に気づく能力があります。"
+      },
+      {
+        "short_personality": "内向的",
+        "description": "彼女は内向的な性格で、人との交流は少なく、主に海での孤独を楽しみます。孤独な時間を持つことで、彼女は自己反省を深め、新たな視点を得ることができます。人間関係よりも海の生物とのつながりを重視しています。"
+      },
+      {
+        "short_personality": "共感的",
+        "description": "Miraは海の生物に対して並外れた共感能力を持っており、彼女はそれらをただの漁獲物として見るのではなく、一つ一つの命に寄り添います。この共感が彼女の漁師としての活動に影響を与え、サステナブルな漁業を実践しています。"
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:17:27.778836",
+  "metadata": {
+    "request_id": "f22f7a8c-1f65-4a0a-a73b-d0cebde8fcb9",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 23,
+      "additional_instructions": "海の生物と心を通わせる孤独な漁師のキャラクターを開発してください。"
+    }
+  }
+}

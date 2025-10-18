@@ -1,0 +1,45 @@
+{
+  "prompt_id": "bb6bd9b3-f804-478a-b8ae-e67736147ddc",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「55」歳です。\n家族の名誉を守るために戦う忠実な侍のキャラクターを設計してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Takeshi",
+    "last_name": "Miyamoto",
+    "gender": "male",
+    "age": 55,
+    "personalities": [
+      {
+        "short_personality": "忠誠心が強い, 伝統重視, 機知に富んだ",
+        "description": "Takeshiは家族と伝統に対する強い忠誠心を持ち、名誉のために戦うことを誇りに思っています。彼の行動は常に家族の名を守ることを第一に考えて行われ、祖先から受け継いだ価値観を重視しています。"
+      },
+      {
+        "short_personality": "冷静沈着, 経験豊富, 慎重",
+        "description": "彼は長い戦士としてのキャリアを通じて培った経験から、冷静沈着な判断力を持っています。特に戦闘では一歩引いた視点で状況を判断し、無駄な危険を避けることができる慎重な性格です。"
+      },
+      {
+        "short_personality": "師匠肌, 寛大, 支援的",
+        "description": "Takeshiは若い武士たちに対して師匠としての役割を果たすことを好んでいます。彼は自らの経験を教え、寛大に技を伝授することで、次の世代を育てることに情熱を燃やしています。また、仲間を助けるために常に手を差し伸べる支援的な一面も持っています。"
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:17:28.128246",
+  "metadata": {
+    "request_id": "2da690c5-70d6-4602-b53d-c664ebf0622e",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 55,
+      "additional_instructions": "家族の名誉を守るために戦う忠実な侍のキャラクターを設計してください。"
+    }
+  }
+}

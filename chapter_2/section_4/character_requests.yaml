@@ -1,0 +1,100 @@
+requests:
+  - gender: female
+    age: 25
+    additional_instructions: "謎めいた過去を持つ熟練の弓使いのキャラクターを作成してください。"
+  - gender: male
+    age: 30
+    additional_instructions: "贖罪を求める勇敢な騎士のキャラクターを設計してください。"
+  - gender: male
+    age: 18
+    additional_instructions: "自分の価値を証明したいと熱望する若い魔法使いのキャラクターを開発してください。"
+  - gender: female
+    age: 22
+    additional_instructions: "黄金の心を持つ狡猾な盗賊のキャラクターを作成してください。"
+  - gender: male
+    age: 78
+    additional_instructions: "自然との深いつながりを持つ賢明な癒し手のキャラクターを考案してください。"
+  - gender: female
+    age: 35
+    additional_instructions: "民を自由へと導く猛烈な戦士の王女のキャラクターを構築してください。"
+  - gender: male
+    age: 40
+    additional_instructions: "名誉の掟を持つ歴戦の傭兵のキャラクターを作成してください。"
+  - gender: female
+    age: 19
+    additional_instructions: "失われた財宝を探し求める冒険好きな探検家のキャラクターを設計してください。"
+  - gender: male
+    age: 52
+    additional_instructions: "戦時下の狡猾な戦略家のキャラクターを開発してください。"
+  - gender: female
+    age: 27
+    additional_instructions: "秘密の正体を持つ才能ある音楽家のキャラクターを作成してください。"
+  - gender: male
+    age: 60
+    additional_instructions: "平和な農民になった退役軍人のキャラクターを考案してください。"
+  - gender: female
+    age: 45
+    additional_instructions: "悲劇的な歴史を持つ強力な魔術師のキャラクターを構築してください。"
+  - gender: male
+    age: 33
+    additional_instructions: "隠された目的を持つカリスマ的な海賊船長のキャラクターを作成してください。"
+  - gender: female
+    age: 21
+    additional_instructions: "古代文明を研究する情熱的な考古学者のキャラクターを作成してください。"
+  - gender: male
+    age: 67
+    additional_instructions: "内なる平和を求める禁欲的な僧侶のキャラクターを設計してください。"
+  - gender: female
+    age: 38
+    additional_instructions: "異国の地を旅する抜け目のない商人のキャラクターを開発してください。"
+  - gender: male
+    age: 24
+    additional_instructions: "革命的な芸術を追求する才能ある画家のキャラクターを作成してください。"
+  - gender: female
+    age: 32
+    additional_instructions: "冷酷だが複雑な道徳観を持つ暗殺者のキャラクターを考案してください。"
+  - gender: male
+    age: 20
+    additional_instructions: "王国の期待に苦しむ若き王子のキャラクターを構築してください。"
+  - gender: female
+    age: 72
+    additional_instructions: "未来を予見する力を持つ神秘的な預言者のキャラクターを設計してください。"
+  - gender: male
+    age: 44
+    additional_instructions: "伝説の武器を鍛える頑固な鍛冶職人のキャラクターを開発してください。"
+  - gender: female
+    age: 26
+    additional_instructions: "宮廷で陰謀に巻き込まれる華麗な舞踏家のキャラクターを作成してください。"
+  - gender: male
+    age: 48
+    additional_instructions: "超常現象を調査する冷静な探偵のキャラクターを考案してください。"
+  - gender: female
+    age: 29
+    additional_instructions: "禁断の知識を追求する野心的な錬金術師のキャラクターを作成してください。"
+  - gender: male
+    age: 55
+    additional_instructions: "家族の名誉を守るために戦う忠実な侍のキャラクターを設計してください。"
+  - gender: female
+    age: 23
+    additional_instructions: "海の生物と心を通わせる孤独な漁師のキャラクターを開発してください。"
+  - gender: male
+    age: 35
+    additional_instructions: "不正を暴く情熱的なジャーナリストのキャラクターを作成してください。"
+  - gender: female
+    age: 42
+    additional_instructions: "都市を影から守る謎めいた義賊のキャラクターを考案してください。"
+  - gender: male
+    age: 28
+    additional_instructions: "時空を旅する運命に選ばれた図書館司書のキャラクターを構築してください。"
+  - gender: female
+    age: 65
+    additional_instructions: "伝統的な薬草学を守る知恵深い村の長老のキャラクターを設計してください。"
+  - gender: male
+    age: 16
+    additional_instructions: "家族の期待と自分の夢の間で葛藤する若い曲芸師のキャラクターを開発してください。"
+  - gender: female
+    age: 50
+    additional_instructions: "過去の罪を償おうとする元スパイのキャラクターを作成してください。"
+  - gender: male
+    age: 41
+    additional_instructions: "異世界との境界を守護する孤高の番人のキャラクターを考案してください。"

@@ -1,0 +1,45 @@
+{
+  "prompt_id": "553035ad-d64e-4036-94ed-89975a767bdd",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「19」歳です。\n失われた財宝を探し求める冒険好きな探検家のキャラクターを設計してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Elara",
+    "last_name": "Morrigan",
+    "gender": "female",
+    "age": 19,
+    "personalities": [
+      {
+        "short_personality": "勇敢で冒険心旺盛",
+        "description": "Elaraは常に新しい冒険を求めており、危険を恐れずに未知の場所に飛び込む勇気を持っています。彼女の好奇心は、彼女をさまざまな場所に導き、各地の文化や歴史を学ぶことへと駆り立てます。"
+      },
+      {
+        "short_personality": "知識欲が強い",
+        "description": "Elaraは古代の伝承や失われた財宝に関する知識を深めることが好きで、歴史や考古学に関する本を常に手元に置いています。彼女の探求心は、彼女を財宝の発見へと導く大きな力となっています。"
+      },
+      {
+        "short_personality": "社交的で人懐っこい",
+        "description": "Elaraは新しい人々と出会うことを楽しみ、彼らの考えや経験から学ぶことに熱心です。彼女の明るい性格と社交的な性質は、旅の途中で友人を作る助けとなり、仲間の絆を強める理由になっています。"
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:16:43.492477",
+  "metadata": {
+    "request_id": "966b5a24-dc31-4639-8747-53da7e5c6eb2",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 19,
+      "additional_instructions": "失われた財宝を探し求める冒険好きな探検家のキャラクターを設計してください。"
+    }
+  }
+}

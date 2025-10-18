@@ -1,0 +1,45 @@
+{
+  "prompt_id": "220a0148-9b0a-48ac-951e-0f898ba2eb58",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「32」歳です。\n冷酷だが複雑な道徳観を持つ暗殺者のキャラクターを考案してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Elena",
+    "last_name": "Valkyrie",
+    "gender": "female",
+    "age": 32,
+    "personalities": [
+      {
+        "short_personality": "冷酷な決断力",
+        "description": "状況に応じて迅速かつ冷静に決断を下し、感情を排除します。彼女の冷徹な判断力は、任務を遂行する際に妨げるものがないようにします。"
+      },
+      {
+        "short_personality": "複雑な道徳観",
+        "description": "明確な善悪の区別を持たず、彼女自身の信念に基づいて選択をします。他者に冷淡に見えることもありますが、彼女の心の中では自己の正義感に従っています。"
+      },
+      {
+        "short_personality": "孤独な戦士",
+        "description": "人間関係を避け、深い信頼を持つことができる相手がいないため、孤独を感じています。しかし、孤独こそが彼女に冷静さと集中力を与える源でもあります。"
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:17:22.535800",
+  "metadata": {
+    "request_id": "d65fc8d8-8eaf-45a4-a114-9883739f5251",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 32,
+      "additional_instructions": "冷酷だが複雑な道徳観を持つ暗殺者のキャラクターを考案してください。"
+    }
+  }
+}

@@ -1,13 +1,16 @@
 import asyncio
+import os
 from functools import wraps
 from uuid import uuid4
 
 import click
-from openai import AsyncOpenAI
-from src.llms import LLMClientWithFallback, LLMRequestRetryOptions, google_genai_client, openai_client
+
+from src.client.llm_client import GeminiModel, LLMProvider, OpenAIModel
 from src.logger import make_logger
-from src.model import CharacterResponse, FailedResponse, LLMProvider
-from src.prompt import make_prompt
+from src.model.llmops_log import StorageType
+from src.model.model import CharacterRequests
+from src.service.llmops_logger import create_llmops_logger
+from src.service.request_llm import batch_request_gemini, batch_request_openai
 
 logger = make_logger(__name__)
 
@@ -22,99 +25,117 @@ def async_cmd(func):
 
 @click.command()
 @click.option(
-    "--timeout",
-    "-t",
+    "--request-file",
+    "-rf",
+    type=click.Path(exists=True),
+    required=True,
+    help="Path to the YAML file containing character generation requests.",
+)
+@click.option(
+    "--llm-provider",
+    "-lp",
+    type=click.Choice(LLMProvider),
+    default=LLMProvider.GEMINI,
+    required=True,
+    help="The LLM provider to use.",
+)
+@click.option(
+    "--model",
+    "-m",
+    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str()),
+    required=True,
+    help="The model to use for the request.",
+)
+@click.option(
+    "--output-directory",
+    "-od",
+    type=click.Path(),
+    default="outputs",
+    required=False,
+    help="The directory to save output files.",
+)
+@click.option(
+    "--parallelism",
+    "-p",
     type=int,
-    default=10,
-    help="Timeout for the LLM request in seconds. Default: 10.",
+    default=5,
+    help="Number of parallel requests to make.",
 )
 @click.option(
-    "--max-retries",
-    "-r",
-    type=int,
-    default=3,
-    help="Maximum number of retries for the LLM request. Default: 3.",
+    "--user-id",
+    "-u",
+    type=str,
+    default="default_user",
+    help="User ID for logging purposes.",
 )
 @click.option(
-    "--exponential-backoff",
-    "-eb",
-    is_flag=True,
-    default=False,
-    help="Enable exponential backoff for retries. Default: False.",
-)
-@click.option(
-    "--backoff-factor",
-    "-bf",
-    type=float,
-    default=2.0,
-    help="Backoff factor for exponential backoff. Default: 2.0.",
-)
-@click.option(
-    "--max-backoff",
-    "-mb",
-    type=int,
-    default=60,
-    help="Maximum backoff time in seconds for exponential backoff. Default: 60.",
-)
-@click.option(
-    "--jitter",
-    "-j",
-    is_flag=True,
-    default=False,
-    help="Enable jitter for the backoff time. Default: False.",
+    "--storage-type",
+    "-st",
+    type=click.Choice(StorageType),
+    default=StorageType.LOCAL,
+    help="The storage type for prompt logging.",
 )
 @async_cmd
 async def main(
-    timeout: int,
-    max_retries: int = 3,
-    exponential_backoff: bool = False,
-    backoff_factor: float = 2.0,
-    max_backoff: int = 60,
-    jitter: bool = False,
+    request_file: str,
+    llm_provider: LLMProvider,
+    model: str,
+    output_directory: str = "outputs",
+    parallelism: int = 5,
+    user_id: str = "default_user",
+    storage_type: StorageType = StorageType.LOCAL,
 ):
-    logger.info(f"""Params:
-Timeout: {timeout} seconds
-Max Retries: {max_retries}
-Exponential Backoff: {exponential_backoff}
-Backoff Factor: {backoff_factor}
-Max Backoff: {max_backoff} seconds
-Jitter: {jitter}
-""")
+    logger.info(f"""Request file: {request_file}
+LLM provider: {llm_provider.value}
+Model: {model}
+Output directory: {output_directory}
+Parallelism: {parallelism}
+User ID: {user_id}
+Storage type: {storage_type.value}""")
 
-    prompt = make_prompt()
+    if llm_provider == LLMProvider.OPENAI and model not in OpenAIModel.list_str():
+        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
+    if llm_provider == LLMProvider.GEMINI and model not in GeminiModel.list_str():
+        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
 
-    # Create a client with fallback
-    client_with_fallback = LLMClientWithFallback(
-        primary_client=openai_client,
-        fallback_client=google_genai_client,
-    )
+    # Load character requests from YAML file
+    logger.info(f"Loading character requests from {request_file}")
+    character_requests_data = CharacterRequests.load_from_yaml(request_file)
+    character_requests = character_requests_data.requests
+    logger.info(f"Loaded {len(character_requests)} character requests")
 
-    # Use the client with fallback
-    logger.info("Attempting to use LLM with fallback")
-    response = await client_with_fallback.request_with_fallback(
-        prompt=prompt,
-        result_type=CharacterResponse,
-        retry_options=LLMRequestRetryOptions(
-            timeout_second=timeout,
-            max_retries=max_retries,
-            do_exponential_backoff=exponential_backoff,
-            exponential_backoff_factor=backoff_factor,
-            max_backoff=max_backoff,
-            jitter=jitter,
-        ),
-    )
+    os.makedirs(output_directory, exist_ok=True)
 
-    # Handle the response
-    if isinstance(response, FailedResponse):
-        logger.error(f"All LLM requests failed: {response.error}")
-        return
+    # Process requests in batch
+    llmops_logger = create_llmops_logger(logger_name="llmops", storage_type=storage_type)
+    if llm_provider == LLMProvider.OPENAI:
+        results = await batch_request_openai(
+            character_requests=character_requests,
+            model=model,
+            llmops_logger=llmops_logger,
+            user_id=user_id,
+            parallelism=parallelism,
+        )
+    elif llm_provider == LLMProvider.GEMINI:
+        results = await batch_request_gemini(
+            character_requests=character_requests,
+            model=model,
+            llmops_logger=llmops_logger,
+            user_id=user_id,
+            parallelism=parallelism,
+        )
+    else:
+        raise ValueError(f"Unsupported LLM provider: {llm_provider.value}")
 
-    # Determine which provider was used based on the client type
-    provider = (
-        LLMProvider.OPENAI if isinstance(client_with_fallback.primary_client, AsyncOpenAI) else LLMProvider.GEMINI
-    )
-    logger.info(f"Successfully received response: {response}")
-    response.save_as_json(f"{provider.value}_{uuid4().hex}.json")
+    # Save results to individual JSON files
+    logger.info(f"Saving {len(results)} character responses to {output_directory}")
+    for i, result in enumerate(results):
+        file_name = f"{llm_provider.value}_{i + 1:03d}_{uuid4().hex[:8]}.json"
+        file_path = os.path.join(output_directory, file_name)
+        result.save_as_json(file_path)
+        logger.info(f"Saved character {i + 1} to {file_path}")
+
+    logger.info(f"Batch processing complete. Generated {len(results)} characters.")
 
 
 if __name__ == "__main__":

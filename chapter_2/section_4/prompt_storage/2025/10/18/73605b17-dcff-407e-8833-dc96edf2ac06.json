@@ -1,0 +1,45 @@
+{
+  "prompt_id": "73605b17-dcff-407e-8833-dc96edf2ac06",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「27」歳です。\nCraft a character who is a talented musician with a secret identity.\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Luna",
+    "last_name": "Moriarty",
+    "gender": "female",
+    "age": 27,
+    "personalities": [
+      {
+        "short_personality": "Creative",
+        "description": "Luna possesses a vivid imagination and thinks outside the box, which allows her to create compelling music that resonates deeply with her audience. Her creativity extends beyond music, influencing her choice of fashion and art, making her a trendsetter in her community."
+      },
+      {
+        "short_personality": "Mysterious",
+        "description": "Living a double life, Luna balances her public persona as a talented musician with her secret identity as an enigmatic street artist. This adds layers to her character, as she often leaves clues about her true self in her artwork, intriguing fans and art enthusiasts alike."
+      },
+      {
+        "short_personality": "Empathetic",
+        "description": "Luna has a remarkable ability to connect with people on an emotional level. She draws inspiration from their stories, which not only enriches her music but also compels her to be a voice for the voiceless. Her empathy drives her to use her platform for social causes, making her a beloved figure in her community."
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:08:27.843099",
+  "metadata": {
+    "request_id": "fc211ce5-99c4-452c-b11b-884089f8421d",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 27,
+      "additional_instructions": "Craft a character who is a talented musician with a secret identity."
+    }
+  }
+}

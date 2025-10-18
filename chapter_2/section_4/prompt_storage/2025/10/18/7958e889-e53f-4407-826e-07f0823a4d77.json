@@ -1,0 +1,45 @@
+{
+  "prompt_id": "7958e889-e53f-4407-826e-07f0823a4d77",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「45」歳です。\n悲劇的な歴史を持つ強力な魔術師のキャラクターを構築してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Elara",
+    "last_name": "Moonshadow",
+    "gender": "female",
+    "age": 45,
+    "personalities": [
+      {
+        "short_personality": "Determined",
+        "description": "Elara possesses an unyielding determination, often driving her to pursue her goals relentlessly. Despite the tragedies of her past, she refuses to let them define her and is determined to protect those she loves, using her magic to shield and empower them."
+      },
+      {
+        "short_personality": "Mysterious",
+        "description": "Her tragic history has shrouded Elara in an air of mystery. She rarely speaks of her past, preferring to keep her experiences locked away, which intrigues and intimidates those around her. This enigmatic nature adds to her persona, making others wonder about the secrets she harbors."
+      },
+      {
+        "short_personality": "Compassionate",
+        "description": "Beneath her powerful exterior, Elara has a deeply compassionate soul. Her experiences have taught her the importance of empathy and kindness, and she often uses her magic not just for combat, but to heal and support others in their times of need. This compassion often leads her to mentor young witches and wizards."
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:16:48.197285",
+  "metadata": {
+    "request_id": "5b706ed0-2ace-48dd-a5d9-ea4775db8161",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 45,
+      "additional_instructions": "悲劇的な歴史を持つ強力な魔術師のキャラクターを構築してください。"
+    }
+  }
+}

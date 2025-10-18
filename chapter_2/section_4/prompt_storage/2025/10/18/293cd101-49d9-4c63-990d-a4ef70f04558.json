@@ -1,0 +1,45 @@
+{
+  "prompt_id": "293cd101-49d9-4c63-990d-a4ef70f04558",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「60」歳です。\n平和な農民になった退役軍人のキャラクターを考案してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Jack",
+    "last_name": "Harrison",
+    "gender": "male",
+    "age": 60,
+    "personalities": [
+      {
+        "short_personality": "温厚",
+        "description": "ジャックは非常に温厚で、周囲の人々に対して優しい性格を持っています。退役軍人としての経験から、他人の苦しみを理解し、共感を示すことが得意です。いつでも手を差し伸べる準備ができていて、コミュニティの人々に信頼される存在です。"
+      },
+      {
+        "short_personality": "内向的",
+        "description": "彼は内向的な性格で、一人の時間を大切にしています。直感的で深く考え込むタイプであり、平和な農作業に没頭することで心の安らぎを見つけています。社交的な場は苦手ですが、本当に親しい人々との時間には喜びを感じます。"
+      },
+      {
+        "short_personality": "敬虔",
+        "description": "ジャックは敬虔な信仰心を持つ人物でもあり、日々の生活や仕事においてその信念が反映されています。農業を通じて大地や自然への感謝を忘れず、毎日の忙しさの中でも、静かな祈りの時間を持つことで心を整えています。"
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:11:06.533351",
+  "metadata": {
+    "request_id": "21339051-a2b4-40d0-834c-9163cf5a2306",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 60,
+      "additional_instructions": "平和な農民になった退役軍人のキャラクターを考案してください。"
+    }
+  }
+}

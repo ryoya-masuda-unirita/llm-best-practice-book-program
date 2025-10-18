@@ -1,0 +1,45 @@
+{
+  "prompt_id": "80da606c-a3f7-4283-9063-7c1e8334c785",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「18」歳です。\n自分の価値を証明したいと熱望する若い魔法使いのキャラクターを開発してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Ronan",
+    "last_name": "Mirage",
+    "gender": "male",
+    "age": 18,
+    "personalities": [
+      {
+        "short_personality": "Ambitious",
+        "description": "Ronan is driven by an intense desire to prove his worth as a young wizard. He is always setting high goals for himself and strives to achieve them, even if it means taking risks that others might shy away from."
+      },
+      {
+        "short_personality": "Curious",
+        "description": "Ronan possesses an insatiable curiosity about the magical world and beyond. He constantly seeks knowledge, exploring ancient texts, and experimenting with spells, eager to learn and understand the complexities of magic."
+      },
+      {
+        "short_personality": "Determined",
+        "description": "When faced with challenges, Ronan does not back down easily. His determination fuels his persistence, pushing him to overcome obstacles that stand in his way, whether they are from external adversaries or his own self-doubt."
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:16:37.616595",
+  "metadata": {
+    "request_id": "8c42ef14-d7b5-44ec-a929-3c1d7fe49a81",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 18,
+      "additional_instructions": "自分の価値を証明したいと熱望する若い魔法使いのキャラクターを開発してください。"
+    }
+  }
+}

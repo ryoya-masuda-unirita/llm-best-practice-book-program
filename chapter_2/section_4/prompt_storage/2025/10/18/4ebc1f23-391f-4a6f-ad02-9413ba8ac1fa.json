@@ -1,0 +1,45 @@
+{
+  "prompt_id": "4ebc1f23-391f-4a6f-ad02-9413ba8ac1fa",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「30」歳です。\nDesign a character who is a brave knight seeking redemption.\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Gareth",
+    "last_name": "Silverwind",
+    "gender": "male",
+    "age": 30,
+    "personalities": [
+      {
+        "short_personality": "Brave",
+        "description": "Gareth possesses an unwavering courage that drives him to protect the weak and confront danger head-on. He never backs down from a challenge and often volunteers for the most perilous missions, driven by a deep-seated belief in justice."
+      },
+      {
+        "short_personality": "Haunted",
+        "description": "Despite his bravery, Gareth is haunted by the mistakes of his past, particularly a failed mission that led to the loss of innocent lives. This guilt shapes his decisions and compels him to seek redemption, pushing him to go to great lengths to right his wrongs."
+      },
+      {
+        "short_personality": "Noble",
+        "description": "Gareth embodies a strong sense of honor and integrity. He always holds himself to a high moral standard and treats everyone with respect, regardless of their status. His noble heart inspires those around him and drives him to uplift others in their darkest times."
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:08:27.535122",
+  "metadata": {
+    "request_id": "cbfb5d19-f7e8-4878-a0c3-44ce4075e71e",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 30,
+      "additional_instructions": "Design a character who is a brave knight seeking redemption."
+    }
+  }
+}

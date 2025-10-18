@@ -1,0 +1,45 @@
+{
+  "prompt_id": "e63339c0-d19e-43fb-84b9-6045ec474cc2",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「52」歳です。\n戦時下の狡猾な戦略家のキャラクターを開発してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Victor",
+    "last_name": "Kravchenko",
+    "gender": "male",
+    "age": 52,
+    "personalities": [
+      {
+        "short_personality": "狡猾で計算高い",
+        "description": "Victorは常に次の一手を考えており、敵の動きを予測する能力に長けています。戦場では彼の計算された策略が功を奏し、多くの勝利を収めてきました。"
+      },
+      {
+        "short_personality": "冷静沈着",
+        "description": "困難な状況でも決して動じない彼は、いつも冷静さを保ち、部下に的確な指示を出します。彼の穏やかな態度は、周囲の人々にも安心感を与えています。"
+      },
+      {
+        "short_personality": "魅力的で説得力がある",
+        "description": "Victorは言葉の力を最大限に活用し、他者を魅了する能力があります。彼の説得力は、同盟を築き、敵を取り込む際に非常に有効です。"
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:11:05.519135",
+  "metadata": {
+    "request_id": "18290d43-532a-4849-aeae-1fc336cd8cba",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 52,
+      "additional_instructions": "戦時下の狡猾な戦略家のキャラクターを開発してください。"
+    }
+  }
+}

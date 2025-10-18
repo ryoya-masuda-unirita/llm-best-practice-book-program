@@ -1,0 +1,45 @@
+{
+  "prompt_id": "71f01a92-612e-4e26-903e-df9ea059b600",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「50」歳です。\n過去の罪を償おうとする元スパイのキャラクターを作成してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "ミラ",
+    "last_name": "ハルトマン",
+    "gender": "female",
+    "age": 50,
+    "personalities": [
+      {
+        "short_personality": "悔い深い",
+        "description": "ミラは過去の行動に強い悔いを抱いている。彼女はかつて国家のために数々の危険な任務をこなしたが、その中で無数の人々に傷を与えてしまったことに深く心を痛めている。自らが犯した過ちを正すために、彼女は新たな生き方を模索している。"
+      },
+      {
+        "short_personality": "慎重",
+        "description": "ミラはかつてのスパイとして、非常に慎重な性格を持っている。彼女は常に周囲を観察し、敵の動きを予測する能力が高い。新しい環境に飛び込む際には、十分な情報を収集し、計画を練ることを心がけている。この慎重さは、今の彼女にとって不可欠な生存戦略でもある。"
+      },
+      {
+        "short_personality": "献身的",
+        "description": "過去の罪を償うことを決意したミラは、他者を助けることに全力を尽くすようになった。彼女は地域の受刑者支援プログラムや孤児院にボランティアとして参加し、自己を投資することで意味のある生き方を見つけようとしている。そんな彼女の優しさは、かつての冷酷なスパイというイメージとは真逆の存在である。"
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:17:08.977293",
+  "metadata": {
+    "request_id": "d69b39c1-d792-40b4-a215-0442b5d5caac",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 50,
+      "additional_instructions": "過去の罪を償おうとする元スパイのキャラクターを作成してください。"
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "prompt_id": "13f95b54-6dd4-4f17-89e3-d34d0e822cbe",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「44」歳です。\n伝説の武器を鍛える頑固な鍛冶職人のキャラクターを開発してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Galen",
+    "last_name": "Ironfist",
+    "gender": "male",
+    "age": 44,
+    "personalities": [
+      {
+        "short_personality": "頑固",
+        "description": "Galenは一度決めたことは絶対に曲げず、自分の信念を貫く頑固者です。伝説の武器を鍛えるという彼の使命に対しては、妥協を許さず、完璧を追求します。"
+      },
+      {
+        "short_personality": "情熱的",
+        "description": "彼は鍛冶仕事に対して非常に情熱を持っています。素材を火にかけ、形を整えるその過程は、彼にとって生き甲斐であり、毎日新たな挑戦を楽しむ源となっています。"
+      },
+      {
+        "short_personality": "独創的",
+        "description": "Galenは独自の鋳造法を持ち、新しいアイデアを取り入れるクリエイティブな一面もあります。彼の作品には、伝説にふさわしいユニークさがあり、他の鍛冶職人から一線を画しています。"
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:16:58.836382",
+  "metadata": {
+    "request_id": "d4cd5daa-3d08-4519-aeb6-544e82e652d8",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 44,
+      "additional_instructions": "伝説の武器を鍛える頑固な鍛冶職人のキャラクターを開発してください。"
+    }
+  }
+}

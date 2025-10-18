@@ -1,3 +1,0 @@
-./logs/**/*.jsonl
-./prompt_storage/**/*.json
-.output/**/*.json

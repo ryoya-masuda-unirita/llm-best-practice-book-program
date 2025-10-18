@@ -1,0 +1,45 @@
+{
+  "prompt_id": "ff46341a-5a33-4ed2-8838-5598801b4a84",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「52」歳です。\n戦時下の狡猾な戦略家のキャラクターを開発してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Victor",
+    "last_name": "Tarnov",
+    "gender": "male",
+    "age": 52,
+    "personalities": [
+      {
+        "short_personality": "狡猾な戦略家",
+        "description": "常に先を見越して物事を考える冷静沈着な性格。彼はどんな状況でも有利な立場に立つことを好み、必要に応じて他人を操ることにも躊躇しない。戦術的な思考を持ち、自身の利益のために戦争の混乱を利用することに長けている。"
+      },
+      {
+        "short_personality": "冷酷無情",
+        "description": "彼の目的を達成するためには、手段を選ばない冷酷さを持つ。人間関係や感情に捉われることなく、必要とあれば味方さえも犠牲にする覚悟がある。そのため、信頼されることは少なく、周囲から恐れられています。"
+      },
+      {
+        "short_personality": "観察眼の持ち主",
+        "description": "周囲の状況に対する鋭い観察力を持ち、他人の行動や隠された意図を読み取る能力に優れています。彼は情報を集めることに長けており、その情報を戦略に組み込むことによって、敵を巧妙に欺くことができる。"
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:16:45.222730",
+  "metadata": {
+    "request_id": "c87b31f8-348d-492d-bf75-71d5dd4b7a38",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 52,
+      "additional_instructions": "戦時下の狡猾な戦略家のキャラクターを開発してください。"
+    }
+  }
+}

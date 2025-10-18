@@ -1,298 +1,556 @@
-# 構造化プロンプトテンプレートシステム
-
-このプロジェクトは、LLMベストプラクティス本の第2章第6項で説明されている、LLMアプリケーションにおけるプロンプトの構造的テンプレート化のベストプラクティスを実装したものです。外部YAMLテンプレートと変数ファイルを通じて、プロンプトロジックをビジネスロジックから分離する方法を示しています。
+# Chapter 2 Section 6: プロンプトを構造的にテンプレート化する
 
 ## 概要
 
-このプロジェクトは、構造化プロンプトテンプレートを使用して詳細な性格を持つフィクションキャラクターを生成するキャラクター生成システムを実装しています。Pythonコードにプロンプトをハードコーディングする代わりに、以下を使用しています：
+このプロジェクトは、**構造化されたテンプレート化プロンプト（Structured Template Prompting）** の実装を示すサンプルコードです。プロンプトをソースコードから分離し、YAML形式のテンプレートファイルとして管理することで、再利用性、保守性、可読性を飛躍的に向上させます。Jinja2テンプレートエンジンを活用して動的に変数を注入し、最終的なプロンプトを生成します。
 
-- **YAMLテンプレート** - プロンプト構造とコンテンツ用
-- **変数ファイル** - 異なるシナリオと設定用
-- **Jinja2テンプレート** - 動的コンテンツ注入用
-- **スキーマ検証** - テンプレート一貫性用
-- **CLI統合** - 簡単なテンプレートと変数管理用
+キャラクター生成、商品説明文作成、メール文面生成といった複数のユースケースを通じて、プロンプトテンプレート化のベストプラクティスを学ぶことができます。
 
-## 主要機能
+## 機能
 
-### 🎯 テンプレート管理
-- `templates/`ディレクトリの外部YAMLテンプレートファイル
-- 複数のテンプレートタイプ（デフォルト、クリエイティブ、シンプル）
-- テンプレートのバージョン管理とメタデータ
-- Jinja2による動的コンテンツ生成
+- **テンプレートベースのプロンプト管理**: YAMLファイルでプロンプト構造を定義
+- **動的変数注入**: Jinja2を使用した柔軟な変数置換とロジック（条件分岐、ループなど）
+- **テンプレートバリデーション**: 必須変数の存在チェックによる実行時エラーの防止
+- **複数テンプレートのサポート**: キャラクター生成、商品説明、メールなど多様なユースケース
+- **変数ファイル管理**: テンプレートとデータを完全に分離した設計
+- **マルチプロバイダー対応**: OpenAIとGoogle Gemini APIの両方をサポート
+- **型安全な構造化出力**: Pydanticモデルによる厳密な型検証
+- **包括的なテストスイート**: TemplateEngineとプロンプト生成の網羅的テスト
+- **CLIインターフェース**: 使いやすいコマンドラインツール
+- **Makefileサポート**: 一般的なタスクを簡単に実行
 
-### 📝 変数ファイルシステム
-- `variables/`ディレクトリのYAML変数ファイル
-- 事前設定されたシナリオ（ファンタジー、SF、年齢グループ）
-- ファイルベース設定によるCLIパラメータのオーバーライド
-- 非エンジニア向けフレンドリーフォーマット
+## プロジェクト構成
 
-### 🔧 CLIインターフェース
-- 利用可能なテンプレートと変数ファイルの一覧表示
-- 特定のテンプレートでのキャラクター生成
-- テンプレート情報と変数の検査
-- 複数のLLMプロバイダーサポート（OpenAI、Gemini）
-
-### 🛡️ 検証とエラーハンドリング
-- テンプレートスキーマ検証
-- 変数の型チェックとデフォルト値
-- レガシープロンプトへの graceful fallback
-- 包括的なエラーレポート
-
-## プロジェクト構造
+### ディレクトリ構成
 
 ```
-src/
-├── main.py              # コマンドグループ付きCLIエントリーポイント
-├── template_engine.py   # Jinja2付きコアテンプレートエンジン
-├── prompt.py           # テンプレート統合付きプロンプト生成
-├── model.py            # キャラクターデータ用Pydanticモデル
-├── llms.py             # LLMクライアント設定
-├── config.py           # 環境設定
-└── logger.py           # 集中ログ
-
-templates/              # YAMLプロンプトテンプレート
-├── character_generation.yaml    # デフォルトキャラクターテンプレート
-├── creative_character.yaml      # クリエイティブ/ファンタジーテンプレート
-└── simple_character.yaml        # シンプル/親しみやすいテンプレート
-
-variables/              # YAML変数ファイル
-├── character_generation_default.yaml
-├── character_generation_conservative.yaml
-├── creative_character_fantasy.yaml
-├── creative_character_scifi.yaml
-├── simple_character_teenager.yaml
-└── simple_character_elderly.yaml
-
-outputs/                # 生成されたキャラクターJSONファイル
+chapter_2/section_6/
+├── src/
+│   ├── __init__.py              # パッケージ初期化
+│   ├── config.py                # 設定管理（API キー読み込み）
+│   ├── logger.py                # ロギング設定
+│   ├── main.py                  # メインエントリーポイント
+│   ├── client/
+│   │   ├── __init__.py
+│   │   └── llm_client.py        # LLMクライアント初期化
+│   ├── model/
+│   │   ├── __init__.py
+│   │   └── model.py             # Pydanticデータモデル定義
+│   ├── prompt/
+│   │   ├── __init__.py
+│   │   └── prompt.py            # プロンプト生成ロジック
+│   └── service/
+│       ├── __init__.py
+│       ├── request_llm.py       # LLM APIリクエスト処理
+│       └── template_engine.py   # テンプレートエンジン実装
+├── templates/                    # プロンプトテンプレートファイル
+│   ├── character_generation.yaml # キャラクター生成テンプレート
+│   ├── product_description.yaml  # 商品説明文テンプレート
+│   ├── email_formal.yaml         # フォーマルメールテンプレート
+│   └── email_casual.yaml         # カジュアルメールテンプレート
+├── variables/                    # テンプレート変数定義ファイル
+│   ├── character_artist.yaml     # 芸術家キャラクター変数
+│   ├── character_detective.yaml  # 探偵キャラクター変数
+│   ├── product_electronics.yaml  # 家電商品変数
+│   ├── product_apparel.yaml      # アパレル商品変数
+│   ├── email_campaign_summer.yaml # サマーキャンペーン変数
+│   └── email_campaign_winter.yaml # ウィンターキャンペーン変数
+├── tests/                        # テストファイル
+│   ├── __init__.py
+│   ├── conftest.py              # pytest設定とフィクスチャ
+│   ├── test_template_engine.py  # TemplateEngineのテスト
+│   └── test_prompt.py           # プロンプト生成のテスト
+├── outputs/                      # 生成結果の保存先（自動作成）
+├── .envrc.example                # 環境変数設定のサンプル
+├── pyproject.toml                # プロジェクト依存関係
+├── Makefile                      # タスク自動化
+├── README.md                     # このファイル
+└── CLAUDE.md                     # プロジェクト状態レポート
 ```
 
-## クイックスタート
+### アーキテクチャ
 
-### インストール
+このプロジェクトは、テンプレート駆動型の4層アーキテクチャで構成されています：
+
+```
+┌───────────────────────────────────────────────┐
+│         CLI Layer (main.py)                   │
+│     - コマンドライン引数解析                   │
+│     - 出力ディレクトリ管理                     │
+└──────────────────┬────────────────────────────┘
+                   │
+┌──────────────────▼────────────────────────────┐
+│      Business Logic Layer                     │
+│  - プロンプト生成 (prompt.py)                 │
+│  - LLMリクエスト処理 (request_llm.py)         │
+│  - データモデル (model.py)                    │
+└──────────────────┬────────────────────────────┘
+                   │
+┌──────────────────▼────────────────────────────┐
+│      Template Layer                           │
+│  - テンプレートエンジン (template_engine.py)  │
+│  - YAMLテンプレート (templates/)              │
+│  - 変数定義 (variables/)                      │
+└──────────────────┬────────────────────────────┘
+                   │
+┌──────────────────▼────────────────────────────┐
+│      Infrastructure Layer                     │
+│  - 設定管理 (config.py)                       │
+│  - ログ管理 (logger.py)                       │
+│  - 外部API (OpenAI, Gemini)                   │
+└───────────────────────────────────────────────┘
+```
+
+### 実装の詳細
+
+#### 1. テンプレートエンジン (`src/service/template_engine.py`)
+
+Jinja2を使用した構造化テンプレート管理の中核実装です：
+
+```python
+class TemplateEngine:
+    """
+    Template engine for loading and rendering YAML-based prompt templates.
+
+    This class implements structured template prompting by:
+    1. Loading YAML templates from a designated directory
+    2. Rendering templates with dynamic variables using Jinja2
+    3. Validating that all required variables are provided
+    """
+
+    def __init__(self, template_dir: str | Path = "templates"):
+        """Initialize with template directory path."""
+        self.template_dir = Path(template_dir)
+        # Setup Jinja2 environment with proper settings
+        self.env = Environment(
+            loader=FileSystemLoader(str(self.template_dir)),
+            trim_blocks=True,
+            lstrip_blocks=True,
+            keep_trailing_newline=True,
+        )
+```
+
+**主要機能**:
+
+1. **`get_template_variables()`**: テンプレートで使用されている変数を抽出
+2. **`validate_variables()`**: 必須変数が全て提供されているか検証
+3. **`render_template()`**: テンプレートを変数でレンダリングしてYAMLをパース
+4. **`render_prompt_messages()`**: LLM API形式のメッセージリストを生成
+
+**ポイント**:
+- `trim_blocks`と`lstrip_blocks`でYAMLインデントを適切に処理
+- `meta.find_undeclared_variables()`で必須変数を自動検出
+- テンプレート読み込み時のバリデーションで早期エラー検出
+
+#### 2. YAMLテンプレート (`templates/character_generation.yaml`)
+
+プロンプト構造をYAML形式で定義します：
+
+```yaml
+system_prompt: >-
+  あなたは創造的なキャラクタージェネレーターです。
+
+  あなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。
+
+  以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：
+
+  {{ response_schema | indent(2) }}
+
+  以下を確認してください：
+  1. 応答は有効なJSONであること
+  2. すべてのフィールドが含まれていること
+  3. 性別は指定された値であること
+  4. 年齢は指定された値であること
+  5. 正確に3つの性格特性が提供されていること
+
+user_prompt: >-
+  ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。
+
+  性別は「{{ gender }}」、年齢は「{{ age }}」歳です。
+{% if additional_instructions %}
+
+  {{ additional_instructions }}
+{% endif %}
+```
+
+**特徴**:
+- `{{ variable }}`形式でプレースホルダーを定義
+- `{% if %}...{% endif %}`で条件分岐
+- `{{ variable | filter }}`でJinja2フィルタを適用（例: `indent(2)`）
+- `>-`構文で複数行テキストを改行なしで結合
+
+#### 3. 変数ファイル (`variables/character_artist.yaml`)
+
+テンプレートに注入するデータを別ファイルで管理：
+
+```yaml
+# 芸術家キャラクター生成用変数設定
+gender: "female"
+age: 28
+additional_instructions: "このキャラクターは画家で、感受性が豊かです。情熱的で自由奔放な性格ですが、繊細な一面も持っています。"
+```
+
+**メリット**:
+- テンプレートとデータの完全な分離
+- 同じテンプレートで異なるデータセットを簡単に切り替え
+- 非エンジニアでも変数ファイルを編集可能
+
+#### 4. プロンプト生成 (`src/prompt/prompt.py`)
+
+テンプレートエンジンを使用してプロンプトを生成：
+
+```python
+# Initialize template engine with the templates directory
+_template_dir = Path(__file__).parent.parent.parent / "templates"
+_template_engine = TemplateEngine(template_dir=_template_dir)
+
+def make_prompt(character_request: CharacterRequest) -> list:
+    """
+    Generate a structured prompt using template-based approach.
+
+    This function demonstrates the structured template prompting practice by:
+    1. Separating prompt logic from code (templates stored in YAML)
+    2. Using Jinja2 for dynamic variable injection
+    3. Validating that all required variables are provided
+    """
+    # Prepare the response schema for the template
+    params = CharacterResponse.detailed_model()
+    response_schema = json.dumps(params, indent=2, ensure_ascii=False)
+
+    # Define variables to inject into the template
+    template_variables = {
+        "response_schema": response_schema,
+        "gender": character_request.gender.value,
+        "age": character_request.age,
+        "additional_instructions": character_request.additional_instructions or "",
+    }
+
+    # Render the template with validation
+    return _template_engine.render_prompt_messages(
+        template_name="character_generation.yaml",
+        variables=template_variables,
+        validate=True,  # Ensure all required variables are provided
+    )
+```
+
+**ポイント**:
+- テンプレートエンジンをモジュールレベルで初期化（効率化）
+- `validate=True`で必須変数の存在を保証
+- スキーマ情報を動的に生成してテンプレートに注入
+
+#### 5. データモデル (`src/model/model.py`)
+
+リクエストとレスポンスのPydanticモデル：
+
+```python
+class CharacterRequest(BaseModel):
+    """Request model for character generation."""
+    gender: Gender = Field(..., description="The gender of the character.")
+    age: int = Field(..., description="The age of the character.", ge=0, le=100)
+    additional_instructions: Optional[str] = Field(
+        ..., description="Additional instructions for character generation."
+    )
+
+class CharacterResponse(BaseModel):
+    """Response model for generated character."""
+    first_name: str = Field(..., description="The first name of the character.")
+    last_name: str = Field(..., description="The last name of the character.")
+    gender: Gender = Field(Gender.MALE, description="The gender of the character.")
+    age: int = Field(..., description="The age of the character.", ge=0, le=100)
+    personalities: list[CharacterPersonality] = Field(
+        ..., description="The three most important personality traits of the character."
+    )
+
+    @staticmethod
+    def detailed_model() -> dict:
+        """Generate a detailed schema for prompt inclusion."""
+        # Creates a human-readable schema representation for the prompt
+        ...
+```
+
+**特徴**:
+- `frozen=True`で不変オブジェクトを保証
+- `validate_assignment=True`で代入時のバリデーション
+- `detailed_model()`メソッドでプロンプト用のスキーマ説明を生成
+
+#### 6. LLM APIリクエスト (`src/service/request_llm.py`)
+
+OpenAIとGeminiの両方に対応したAPI呼び出し：
+
+```python
+async def request_openai(model: OpenAIModel) -> CharacterResponse:
+    character_request = CharacterRequest(
+        gender=Gender.MALE,
+        age=25,
+        additional_instructions="このキャラクターは冒険好きで、好奇心旺盛です。",
+    )
+    prompt = make_prompt(character_request)
+    result = await openai_client.beta.chat.completions.parse(
+        model=model,
+        messages=prompt,  # Template-generated messages
+        response_format=CharacterResponse,
+        temperature=1.0,
+    )
+    return result.choices[0].message.parsed
+
+async def request_gemini(model: GeminiModel) -> CharacterResponse:
+    character_request = CharacterRequest(
+        gender=Gender.FEMALE,
+        age=30,
+        additional_instructions="このキャラクターは知的で、洞察力に優れています。",
+    )
+    prompt = make_prompt(character_request)
+    result = await google_genai_client.aio.models.generate_content(
+        model=model,
+        contents=prompt[-1]["content"],
+        config=GenerateContentConfig(
+            system_instruction=prompt[0]["content"],
+            response_mime_type="application/json",
+            response_schema=CharacterResponse,
+            temperature=2.0,
+        ),
+    )
+    return result.parsed
+```
+
+**ポイント**:
+- テンプレート生成されたプロンプトをそのままAPI呼び出しに使用
+- プロンプトロジックはテンプレートに集約され、コードは簡潔
+
+## 使い方
+
+### 環境構成
+
+- **Python**: 3.13.2以上
+- **依存ライブラリ**:
+  - click>=8.3.0 (CLIインターフェース)
+  - google-genai>=1.45.0 (Gemini API)
+  - jinja2>=3.1.6 (テンプレートエンジン)
+  - openai>=2.4.0 (OpenAI API)
+  - pydantic>=2.12.2 (データモデル)
+  - python-dotenv>=1.1.1 (環境変数管理)
+  - pyyaml>=6.0.3 (YAMLパーサー)
+
+### セットアップ
+
+1. **環境変数ファイルの作成**
 
 ```bash
-# 依存関係のインストール
+# .envrc.exampleをコピーして.envrcを作成
+cp .envrc.example .envrc
+
+# エディタで.envrcを開き、APIキーを設定
+# .envrc
+OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
+GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+```
+
+2. **依存関係のインストール**
+
+```bash
+# uvを使用する場合（推奨）
 uv sync
 
-# 環境変数の設定
-cp .envrc.example .envrc
-# .envrcをAPIキーで編集
+# または make コマンド
+make install
+
+# pipを使用する場合
+pip install -e .
 ```
 
-### 基本的な使用方法
+### 使用方法、実行方法
+
+#### 基本的な使い方
 
 ```bash
-# 利用可能なテンプレートの一覧表示
-uv run python -m src.main list-templates
+# Gemini APIを使用（デフォルト）
+uv run python -m src.main --llm-provider gemini --model gemini-2.0-flash-exp
 
-# 利用可能な変数ファイルの一覧表示
-uv run python -m src.main list-variables
+# OpenAI APIを使用
+uv run python -m src.main --llm-provider openai --model gpt-4o
 
-# デフォルトテンプレートと変数でキャラクター生成
-uv run python -m src.main generate \
-  --template character_generation \
-  --variable-file variables/character_generation_default.yaml
-
-# ファンタジーキャラクターの生成
-uv run python -m src.main generate \
-  --template creative_character \
-  --variable-file variables/creative_character_fantasy.yaml
-
-# GeminiではなくOpenAIを使用
-uv run python -m src.main generate \
-  --template simple_character \
-  --variable-file variables/simple_character_teenager.yaml \
-  --llm-provider OPENAI
+# Makefileを使用
+make run-gemini
+make run-openai
 ```
 
-### テンプレート情報
+#### 出力先の指定
 
 ```bash
-# テンプレート詳細の表示
-uv run python -m src.main template-info --template character_generation
+# カスタム出力ディレクトリを指定
+uv run python -m src.main -lp openai -m gpt-4o-mini -od ./custom_output
 
-# 出力にはテンプレート変数、型、説明が表示される
+# 短縮オプション
+uv run python -m src.main -lp gemini -m gemini-2.0-flash-exp -od ./my_characters
 ```
 
-## テンプレートシステムアーキテクチャ
-
-### テンプレート構造
-
-各YAMLテンプレートには以下が含まれます：
-
-```yaml
-name: "template_name"
-description: "テンプレートの説明"
-version: "1.0"
-
-variables:
-  variable_name:
-    type: string
-    description: "変数の説明"
-    required: true/false
-    default: "デフォルト値"
-
-system_prompt: |
-  {{ variable_name }} プレースホルダー付きのシステムプロンプト
-
-user_prompt: |
-  条件付きロジック付きのユーザープロンプト:
-  {% if condition %}
-  追加コンテンツ
-  {% endif %}
-```
-
-### 変数ファイル形式
-
-```yaml
-# 変数設定を説明するコメント
-variable_name: "値"
-another_variable: "別の値"
-```
-
-### テンプレートエンジン機能
-
-- **Jinja2統合**: 条件文、ループ、フィルターを含む完全なテンプレート機能
-- **変数検証**: 型チェックと必須フィールドの強制
-- **動的ローディング**: ランタイムテンプレートと変数ファイルの発見
-- **エラーハンドリング**: 失敗時のレガシープロンプトへの graceful fallback
-- **スキーマ注入**: Pydanticモデルスキーマの自動注入
-
-## 利用可能なテンプレート
-
-### character_generation
-**デフォルトキャラクター生成テンプレート**
-- 変数: `target_language`, `creativity_level`
-- 用途: 一般的なキャラクター作成
-- 変数ファイル: `character_generation_default.yaml`, `character_generation_conservative.yaml`
-
-### creative_character
-**ファンタジー/SF設定用クリエイティブキャラクターテンプレート**
-- 変数: `fantasy_setting`, `character_background`
-- 用途: ファンタジーゲーム、創作文芸、世界観構築
-- 変数ファイル: `creative_character_fantasy.yaml`, `creative_character_scifi.yaml`
-
-### simple_character
-**親しみやすい性格用シンプルキャラクターテンプレート**
-- 変数: `age_range`, `personality_focus`
-- 用途: リアリスティックフィクション、教育コンテンツ
-- 変数ファイル: `simple_character_teenager.yaml`, `simple_character_elderly.yaml`
-
-## 開発コマンド
+#### ヘルプの表示
 
 ```bash
-# コード品質
-uv run ruff check src/          # コードのlint
-uv run ruff format src/         # コードのフォーマット
-uv run mypy src/               # 型チェック
-
-# テンプレートのテスト
-uv run python -m src.main list-templates
-uv run python -m src.main template-info --template character_generation
-uv run python -m src.main list-variables
+uv run python -m src.main --help
 ```
 
-## 環境設定
+**出力例**:
+```
+Usage: python -m src.main [OPTIONS]
 
-必要なAPIキーで`.envrc`ファイルを作成：
+Options:
+  -lp, --llm-provider [openai|gemini]
+                                  The LLM provider to use.  [required]
+  -m, --model TEXT                The model to use for the request.  [required]
+  -od, --output-directory PATH    The directory to save output files.
+  --help                          Show this message and exit.
+```
+
+#### Makefileコマンド一覧
 
 ```bash
-export GEMINI_API_KEY="your_gemini_api_key"
-export OPENAI_API_KEY="your_openai_api_key"
-export LOG_LEVEL="INFO"
+# ヘルプを表示
+make help
+
+# テストを実行
+make test               # 全テスト実行
+make pytest             # ユニットテストのみ
+make pytest-cov         # カバレッジレポート付き
+make test-templates     # テンプレートテストのみ
+
+# コード品質チェック
+make lint               # リンター実行
+make fmt                # コードフォーマット
+make fix                # リントとフォーマットを両方実行
+make mypy               # 型チェック
+
+# LLM実行
+make run-openai         # OpenAI APIで実行
+make run-gemini         # Gemini APIで実行
 ```
 
-## 実証されたベストプラクティス
+### 出力例
 
-### 🔄 関心の分離
-- プロンプトコンテンツをビジネスロジックから分離
-- テンプレート構造を変数データから分離
-- 一貫したスキーマでの複数出力形式（JSON）
+実行すると、以下のような構造化されたJSONファイルが生成されます：
 
-### 📁 外部ファイル管理
-- バージョン管理されたテンプレートと変数
-- 非エンジニアが編集可能なYAML形式
-- Git-friendlyな差分追跡
+**ファイル名**: `outputs/openai_c5339cd3f7b240b3b6e7b113eeacd216.json`
 
-### 🎛️ 設定管理
-- 環境固有の変数ファイル
-- CLIパラメータのオーバーライド
-- デフォルト値の処理
-
-### 🔍 検証とテスト
-- テンプレートのスキーマ検証
-- 変数の型チェック
-- テンプレートレンダリングの検証
-
-### 🚀 運用の卓越性
-- 包括的なログ記録
-- フォールバック付きエラーハンドリング
-- 運用のためのCLIツール
-
-## 高度な使用方法
-
-### カスタムテンプレートの作成
-
-1. `templates/`ディレクトリに新しいYAMLファイルを作成
-2. 変数付きテンプレート構造を定義
-3. `variables/`に対応する変数ファイルを作成
-4. `template-info`コマンドでテスト
-
-### カスタム変数ファイル
-
-1. `variables/`ディレクトリにYAMLファイルを作成
-2. 命名規則に従う: `{template}_{scenario}.yaml`
-3. 対象テンプレートに必要なすべての変数を含める
-4. `generate`コマンドでテスト
-
-### システムの拡張
-
-- テンプレートYAMLに新しいテンプレート変数を追加
-- `main.py`に新しいCLIコマンドを実装
-- カスタムフィルターでテンプレートエンジンを拡張
-- `llms.py`に新しいLLMプロバイダーを追加
-
-## 出力
-
-生成されたキャラクターは`outputs/`ディレクトリにJSONファイルとして保存され、形式は以下のとおりです：
-```
-{llm_provider}_{template}_{variable_file}_{uuid}.json
-```
-
-出力構造の例：
 ```json
 {
-  "first_name": "Elara",
-  "last_name": "Umbril",
-  "gender": "female",
-  "age": 62,
-  "personalities": [
-    {
-      "short_personality": "Enigmatic & Distant",
-      "description": "詳細な性格の説明..."
-    }
-  ]
+    "first_name": "蒼",
+    "last_name": "雨宮",
+    "gender": "male",
+    "age": 25,
+    "personalities": [
+        {
+            "short_personality": "冒険心旺盛",
+            "description": "新しい場所や経験を求め、常に未知への挑戦を楽しむ。好奇心が強く、リスクを恐れず行動する。"
+        },
+        {
+            "short_personality": "社交的",
+            "description": "初対面の人とも打ち解けやすく、会話を楽しむ。多様なバックグラウンドを持つ人々との交流を大切にする。"
+        },
+        {
+            "short_personality": "楽観的",
+            "description": "困難な状況でもポジティブな側面を見つけ、前向きに対処する。失敗を学びの機会と捉える。"
+        }
+    ]
 }
 ```
 
-## このアプローチの利点
+**実行ログ例**:
+```
+[2025-01-18 10:30:45] [INFO] [__main__] [main.py:53] [main] LLM provider: openai
+Model: gpt-4o
+Output directory: outputs
+[2025-01-18 10:30:47] [INFO] [__main__] [main.py:74] [main] File saved to outputs/openai_c5339cd3f7b240b3b6e7b113eeacd216.json
+```
 
-### 開発者向け
-- ✅ メンテナブルで再利用可能なプロンプトコード
-- ✅ 異なるプロンプトの簡単なA/Bテスト
-- ✅ プロンプト変更のバージョン管理
-- ✅ コード重複の削減
+### テスト方法
 
-### 非エンジニア向け
-- ✅ コード変更なしでのプロンプト編集
-- ✅ 変数ファイルでの新しいシナリオ作成
-- ✅ YAMLを通じたプロンプト構造の理解
-- ✅ 迅速な実験と反復
+このプロジェクトには包括的なテストスイートが含まれています。
 
-### 運用チーム向け
-- ✅ ランタイムテンプレート切り替え
-- ✅ 設定駆動の動作
-- ✅ モニタリングとログ統合
-- ✅ ロールバック機能
+#### 1. すべてのテストを実行
 
-この実装は、構造化プロンプトテンプレートがLLMアプリケーション開発を、硬直的でコード重視のアプローチから、技術者と非技術者の両方がプロンプトの改善と実験に貢献できる柔軟で設定駆動のシステムにどのように変革できるかを実証しています。
+```bash
+make test
+# または
+uv run pytest
+```
+
+期待される出力：
+```
+tests/test_prompt.py ....                                    [ 30%]
+tests/test_template_engine.py .............................. [100%]
+
+====== 32 passed in 0.45s ======
+```
+
+#### 2. カバレッジレポート付きテスト
+
+```bash
+make pytest-cov
+```
+
+期待される出力：
+```
+---------- coverage: platform darwin, python 3.13.2 ----------
+Name                                Stmts   Miss  Cover   Missing
+-----------------------------------------------------------------
+src/__init__.py                         0      0   100%
+src/service/template_engine.py         47      0   100%
+src/prompt/prompt.py                   15      0   100%
+-----------------------------------------------------------------
+TOTAL                                  62      0   100%
+
+HTML coverage report generated at htmlcov/index.html
+```
+
+#### 3. 特定のテストのみ実行
+
+```bash
+# TemplateEngineのテストのみ
+uv run pytest tests/test_template_engine.py -v
+
+# プロンプト生成のテストのみ
+uv run pytest tests/test_prompt.py -v
+
+# または Makefile
+make pytest-unit
+```
+
+#### 4. テンプレートの手動テスト
+
+```bash
+# 基本的なテンプレートテスト
+make test-basic
+
+# すべてのテンプレート組み合わせをテスト
+make test-all
+```
+
+#### 5. 失敗したテストのみ再実行
+
+```bash
+make pytest-failed
+# または
+uv run pytest --lf
+```
+
+#### テストの構成
+
+テストスイートは以下のカテゴリで構成されています：
+
+1. **TemplateEngineテスト** (`tests/test_template_engine.py`):
+   - 初期化とディレクトリ検証
+   - 変数抽出機能
+   - 変数バリデーション
+   - テンプレートレンダリング
+   - メッセージフォーマット変換
+   - エッジケース（特殊文字、None値、ネストされたデータ構造など）
+
+2. **プロンプト生成テスト** (`tests/test_prompt.py`):
+   - make_prompt()関数の動作検証
+   - レンダリングされたメッセージ形式の確認
+   - 変数注入の正確性
+
+3. **フィクスチャ** (`tests/conftest.py`):
+   - 一時テンプレートディレクトリの作成
+   - サンプルテンプレートファイルの生成
+   - 各テスト間での独立性確保

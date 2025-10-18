@@ -1,0 +1,45 @@
+{
+  "prompt_id": "01effd4b-3bf2-4b05-b665-b2ccf9cb145a",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「27」歳です。\n秘密の正体を持つ才能ある音楽家のキャラクターを作成してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Maya",
+    "last_name": "Hoshino",
+    "gender": "female",
+    "age": 27,
+    "personalities": [
+      {
+        "short_personality": "内向的で感受性豊か",
+        "description": "Mayaは内向的であり、他人との交流を好まないが、その分、感受性が非常に高く、周囲の環境や人々の感情を鋭く感じ取る能力を持っています。音楽を通じて自らの感情を表現することが得意で、多くの人々に影響を与える力を秘めています。"
+      },
+      {
+        "short_personality": "創造的で情熱的",
+        "description": "Mayaは強い創造力を持ち、独自の音楽スタイルを確立しています。彼女の音楽は心の深い部分に浸透するものであり、聴く人々を魅了し、感動させます。彼女は音楽に対する情熱を持ち続け、その活動に全力を注ぎ込んでいます。"
+      },
+      {
+        "short_personality": "神秘的で自己防衛的",
+        "description": "Mayaは自分の正体を隠すことに長けており、彼女の本当の背景はあまり知られていません。彼女は他人に自分のことを簡単に話さず、神秘的な雰囲気を醸し出します。この防衛的な性質は、彼女が傷つくのを避けるための知恵でもあります。"
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:17:24.475411",
+  "metadata": {
+    "request_id": "a12631d4-ee13-49d9-ab59-7ae18e041ec6",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 27,
+      "additional_instructions": "秘密の正体を持つ才能ある音楽家のキャラクターを作成してください。"
+    }
+  }
+}

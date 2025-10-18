@@ -1,0 +1,45 @@
+{
+  "prompt_id": "493e5982-cbef-461e-8283-71bc8ccabf53",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「67」歳です。\n内なる平和を求める禁欲的な僧侶のキャラクターを設計してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Tenzin",
+    "last_name": "Dorjee",
+    "gender": "male",
+    "age": 67,
+    "personalities": [
+      {
+        "short_personality": "内向的",
+        "description": "Tenzinは、内向的で静かな性格を持ち、他人と深く関わることよりも自己探求に重きを置いています。彼は瞑想の時間を大切にし、心の平穏を求めることに人生の意味を見出しています。"
+      },
+      {
+        "short_personality": "禁欲的",
+        "description": "彼の禁欲的な生き方は、物質的な欲望を超えた精神的な充足を追求することを意味します。Tenzinは毎日の生活において簡素さを尊重し、無駄を省き、真の幸福を見出すために努力しています。"
+      },
+      {
+        "short_personality": "賢明",
+        "description": "Tenzinは多くの経験を通じて得た知恵を持ち、他者にアドバイスすることが得意です。彼の穏やかな言葉は、周囲の人々に希望を与え、彼らが困難に直面したときに支えとなっています。"
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:17:23.136196",
+  "metadata": {
+    "request_id": "e0dfb08c-220d-4705-8ff8-7540226be1f7",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 67,
+      "additional_instructions": "内なる平和を求める禁欲的な僧侶のキャラクターを設計してください。"
+    }
+  }
+}

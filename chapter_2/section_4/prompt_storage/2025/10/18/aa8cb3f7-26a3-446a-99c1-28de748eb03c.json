@@ -1,0 +1,45 @@
+{
+  "prompt_id": "aa8cb3f7-26a3-446a-99c1-28de748eb03c",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「48」歳です。\n超常現象を調査する冷静な探偵のキャラクターを考案してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Elliot",
+    "last_name": "Grayson",
+    "gender": "male",
+    "age": 48,
+    "personalities": [
+      {
+        "short_personality": "冷静",
+        "description": "Elliotは常に冷静沈着で、どんな状況でも感情に流されることなく論理的に考えることができる。超常現象に関する不可解な事件でも、執拗なまでに証拠を追い求め、真実を暴こうとする。"
+      },
+      {
+        "short_personality": "分析的",
+        "description": "彼は優れた分析力を持っており、複雑な事案を細分化し、情報を整理する能力に長けている。どんなに混沌とした状況でも、点と点を結び付けて一貫したストーリーを見出すことができる。"
+      },
+      {
+        "short_personality": "好奇心旺盛",
+        "description": "Elliotは好奇心が強く、常に新しい謎を解明しようと試みる。超自然的な現象に対する興味は尽きることがなく、未知の領域に踏み込むことを恐れない。彼の瞳は常に新たな知識を求めて輝いている。"
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:17:27.517904",
+  "metadata": {
+    "request_id": "8780ebc0-cf5a-4930-9103-c5ab89e187f4",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 48,
+      "additional_instructions": "超常現象を調査する冷静な探偵のキャラクターを考案してください。"
+    }
+  }
+}

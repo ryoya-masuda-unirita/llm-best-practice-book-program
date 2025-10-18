@@ -1,0 +1,45 @@
+{
+  "prompt_id": "c385011b-25e9-4b5b-b264-22c9c9215c5c",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「25」歳です。\n謎めいた過去を持つ熟練の弓使いのキャラクターを作成してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Lira",
+    "last_name": "Thornwood",
+    "gender": "female",
+    "age": 25,
+    "personalities": [
+      {
+        "short_personality": "謎めいた",
+        "description": "Liraは常に神秘的な雰囲気を漂わせている。彼女の過去はほとんど知られておらず、全く新しい物語を持つかのように振る舞う。彼女の目的や感情は常に謎に包まれているため、他人が彼女を理解するのは難しい。"
+      },
+      {
+        "short_personality": "狡猾",
+        "description": "彼女は周囲の状況を把握するのが得意で、常に次の一手を考えている。敵を欺くための策を練り、弓の技術だけでなく、頭脳戦も得意とする。相手の心理を読み取る力があるため、相手の隙をつくのがうまい。"
+      },
+      {
+        "short_personality": "繊細",
+        "description": "内面では非常に感受性豊かで、周囲の人々や自然に対する優しさを持っている。彼女は他人の苦しみを理解し、そのために行動を起こすことができる。表面上は冷たい印象を与えるが、心の奥底には大きな共感と情熱がある。"
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:16:39.461527",
+  "metadata": {
+    "request_id": "1caa9fe8-6e1e-44d4-951a-617b9a58070f",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 25,
+      "additional_instructions": "謎めいた過去を持つ熟練の弓使いのキャラクターを作成してください。"
+    }
+  }
+}

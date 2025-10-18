@@ -1,0 +1,45 @@
+{
+  "prompt_id": "f62c396e-2f2d-4008-b37a-37f7949a2080",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「19」歳です。\nDesign a character who is an adventurous explorer searching for lost treasures.\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Luna",
+    "last_name": "Wright",
+    "gender": "female",
+    "age": 19,
+    "personalities": [
+      {
+        "short_personality": "Curious",
+        "description": "Luna possesses an insatiable curiosity that drives her to explore the uncharted territories of the world. She is always eager to learn new things and is fascinated by the stories behind ancient artifacts and treasures, lending her a sharp observance that helps her discover the nuances of her surroundings."
+      },
+      {
+        "short_personality": "Courageous",
+        "description": "Equipped with an adventurous spirit, Luna embraces challenges head-on. She is brave enough to traverse treacherous terrains and delve into abandoned ruins, often putting herself in risky situations. Her courage inspires those around her and pushes her to take leaps of faith in pursuit of her dreams."
+      },
+      {
+        "short_personality": "Resourceful",
+        "description": "Luna is highly resourceful, able to make the most of any situation. Whether it’s solving complex puzzles to unlock secret treasure maps or using everyday objects for survival in the wild, her quick thinking and ingenuity make her a formidable explorer, capable of overcoming obstacles through innovation."
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:08:28.285374",
+  "metadata": {
+    "request_id": "790530c1-5f16-4ed6-8b0a-9fdbbcf4b917",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 19,
+      "additional_instructions": "Design a character who is an adventurous explorer searching for lost treasures."
+    }
+  }
+}

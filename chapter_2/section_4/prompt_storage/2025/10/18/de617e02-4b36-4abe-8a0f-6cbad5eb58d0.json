@@ -1,0 +1,45 @@
+{
+  "prompt_id": "de617e02-4b36-4abe-8a0f-6cbad5eb58d0",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「30」歳です。\n贖罪を求める勇敢な騎士のキャラクターを設計してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Aric",
+    "last_name": "Valenwood",
+    "gender": "male",
+    "age": 30,
+    "personalities": [
+      {
+        "short_personality": "勇敢で献身的",
+        "description": "彼は常に正義と善に基づいて行動し、他者のために自分を犠牲にできる勇敢さを持っています。困難な状況にあっても、恐れを知らずに立ち向かう姿勢は、周囲の人々に希望を与えます。"
+      },
+      {
+        "short_personality": "自己反省的",
+        "description": "自分の過去の過ちに深く悔い、贖罪を求める心を持っています。この内面的な葛藤は彼の決断に影響を与え、時には自己を責めることもありますが、それが彼をより良い騎士に導いています。"
+      },
+      {
+        "short_personality": "思いやりのあるリーダー",
+        "description": "自分の勇気だけでなく、部下や仲間の感情やニーズを理解し、支える思いやりを持っています。この姿勢により、彼は人々から自然と尊敬され、信頼されるリーダーとしての地位を築いています。"
+      }
+    ]
+  },
+  "created_at": "2025-10-18T07:17:23.257252",
+  "metadata": {
+    "request_id": "381eee50-d42c-4b7e-a1b0-34c8f1022401",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 30,
+      "additional_instructions": "贖罪を求める勇敢な騎士のキャラクターを設計してください。"
+    }
+  }
+}
