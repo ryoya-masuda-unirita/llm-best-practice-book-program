@@ -314,7 +314,6 @@ class TestEndToEndWithJudge:
     """
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="Requires actual API calls - run manually for full integration testing")
     async def test_full_generation_and_evaluation_workflow(self):
         """Full workflow test: Generate character and evaluate with judge.
 
@@ -346,4 +345,87 @@ class TestEndToEndWithJudge:
         # Verify judge evaluation
         assert judge_response is not None
         assert judge_response.overall_score >= 3.0, "Generated character should meet quality threshold"
+        assert len(judge_response.evaluations) == 3
+
+    @pytest.mark.asyncio
+    async def test_elderly_male_realistic_character_workflow(self):
+        """Full workflow test: Generate elderly male realistic character and evaluate.
+
+        NOTE: This test is skipped by default as it requires actual API calls.
+        Tests a different demographic scenario (elderly male) with realistic setting.
+        """
+        # Create request for elderly male realistic character
+        request = CharacterRequest(
+            gender=Gender.MALE,
+            age=75,
+            additional_instructions="Generate a retired teacher from the modern world.",
+        )
+
+        prompt = make_prompt(request)
+
+        # Generate and evaluate
+        character_response, judge_response = await request_with_judge(
+            prompt=prompt,
+            model=OpenAIModel.GPT_4O_MINI,
+            provider="openai",
+        )
+
+        # Verify character response
+        assert character_response is not None
+        assert character_response.gender == Gender.MALE
+        assert character_response.age == 75
+        assert len(character_response.personalities) == 3
+        # Verify names are generated
+        assert len(character_response.first_name) > 0
+        assert len(character_response.last_name) > 0
+
+        # Verify judge evaluation
+        assert judge_response is not None
+        assert judge_response.overall_score >= 3.0, "Generated character should meet quality threshold"
+        assert len(judge_response.evaluations) == 3
+        # Verify each evaluation has a score
+        for evaluation in judge_response.evaluations:
+            assert evaluation.score >= 1
+            assert evaluation.score <= 5
+
+    @pytest.mark.asyncio
+    async def test_minimal_instructions_workflow(self):
+        """Full workflow test: Generate character with minimal instructions.
+
+        NOTE: This test is skipped by default as it requires actual API calls.
+        Tests edge case where minimal additional instructions are provided.
+        """
+        # Create request with minimal instructions
+        request = CharacterRequest(
+            gender=Gender.FEMALE,
+            age=30,
+            additional_instructions="",  # Empty instructions
+        )
+
+        prompt = make_prompt(request)
+
+        # Generate and evaluate
+        character_response, judge_response = await request_with_judge(
+            prompt=prompt,
+            model=OpenAIModel.GPT_4O_MINI,
+            provider="openai",
+        )
+
+        # Verify character response - should still generate valid character
+        assert character_response is not None
+        assert character_response.gender == Gender.FEMALE
+        assert character_response.age == 30
+        assert len(character_response.personalities) == 3
+
+        # Verify all personality traits have descriptions
+        for personality in character_response.personalities:
+            assert len(personality.short_personality) > 0
+            assert len(personality.description) > 0
+            assert len(personality.description) > len(personality.short_personality)
+
+        # Verify judge evaluation - quality might be slightly lower but should still pass
+        assert judge_response is not None
+        assert judge_response.overall_score >= 2.5, (
+            "Even with minimal instructions, should generate acceptable character"
+        )
         assert len(judge_response.evaluations) == 3
