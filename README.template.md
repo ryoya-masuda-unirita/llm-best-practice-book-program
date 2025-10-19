@@ -25,7 +25,7 @@
 ### テスト方法
 
 
-<サンプル>
+<Example>
 # Chapter 2 Section 1: 構造化出力を用いたLLM基本実装
 
 ## 概要
@@ -397,4 +397,4 @@ with open('test_outputs/gemini_*.json') as f:
 "
 ```
 
-</サンプル>
+</Example>
