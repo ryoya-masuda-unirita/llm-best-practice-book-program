@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from httpx_retries import Retry, RetryTransport
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.config import config
 from src.logger import make_logger
 from src.model.model import LLMRequest, LLMResponse
 from src.proxy.circuit_breaker import CircuitBreaker, CircuitBreakerConfig, CircuitBreakerOpenError
@@ -16,11 +17,6 @@ from src.proxy.rate_limiter import RateLimiterConfig, TokenBucketRateLimiter
 from src.proxy.request_queue import QueueConfig, RequestQueue, RequestQueueFullError
 
 logger = make_logger(__name__)
-
-# Proxy configuration
-BACKEND_URL = "http://localhost:8000"  # LLM API server URL
-MAX_RETRIES = 3
-RETRY_BACKOFF_BASE = 2.0  # Exponential backoff base (seconds)
 
 # Initialize components
 rate_limiter = TokenBucketRateLimiter(
@@ -101,7 +97,7 @@ async def make_request_with_retry(
     method: str,
     url: str,
     json_data: dict | None = None,
-    max_retries: int = MAX_RETRIES,
+    max_retries: int = config.proxy_max_retries,
 ) -> dict:
     """
     Make HTTP request with exponential backoff retry logic using httpx-retries.
@@ -130,7 +126,7 @@ async def make_request_with_retry(
     #   - 500-599: Server errors
     retry_policy = Retry(
         total=max_retries,
-        backoff_factor=RETRY_BACKOFF_BASE / 2,  # Divide by 2 because formula is backoff_factor * (2 ** n)
+        backoff_factor=config.proxy_retry_backoff / 2,  # Divide by 2 because formula is backoff_factor * (2 ** n)
         status_forcelist=[429] + list(range(500, 600)),  # Retry on 429 and 5xx
     )
 
@@ -252,12 +248,12 @@ async def proxy_health_check():
     try:
         # Check backend health directly (without controls)
         async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(f"{BACKEND_URL}/health")
+            response = await client.get(f"{config.backend_url}/health")
             response.raise_for_status()
 
         return ProxyHealthResponse(
             status="healthy",
-            backend_url=BACKEND_URL,
+            backend_url=config.backend_url,
         )
     except Exception as e:
         logger.error(f"Proxy health check failed: {e}")
@@ -265,7 +261,7 @@ async def proxy_health_check():
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={
                 "status": "unhealthy",
-                "backend_url": BACKEND_URL,
+                "backend_url": config.backend_url,
                 "error": str(e),
                 "timestamp": time.time(),
             },
@@ -308,7 +304,7 @@ async def backend_health_check():
 
     try:
         # Build backend URL
-        backend_url = f"{BACKEND_URL}/health"
+        backend_url = f"{config.backend_url}/health"
 
         # Create request data for queue
         request_data = {
@@ -390,7 +386,7 @@ async def backend_generate_character(request: LLMRequest):
 
     try:
         # Build backend URL
-        backend_url = f"{BACKEND_URL}/generate"
+        backend_url = f"{config.backend_url}/generate"
 
         # Convert request to dict for backend
         request_body = request.model_dump()

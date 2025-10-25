@@ -4,7 +4,6 @@ GIT_COMMIT := $(shell git rev-parse HEAD)
 DOCKER_REPO := shibui/llm-best-practice
 DOCKERFILE = $(DIR)/Dockerfile.web
 DOCKER_TAG = chapter3_section1
-DOCKER_IMAGE_NAME = $(DOCKER_REPO):$(DOCKER_TAG)_$(GIT_COMMIT)
 
 ############ COMMON COMMANDS ############
 SRC := $(DIR)/
@@ -41,10 +40,38 @@ run-all:
 	@echo "Starting Proxy Server on port 8080..."
 	@uv run uvicorn src.proxy.proxy_server:app --host 0.0.0.0 --port 8080
 
-.PHONY: docker-build
-docker-build:
+############ DOCKER COMMANDS ############
+
+.PHONY: docker-build-web
+docker-build-web:
 	docker build \
 		--platform linux/amd64 \
-		-t $(DOCKER_IMAGE_NAME) \
-		-f $(DOCKERFILE) \
+		-t $(DOCKER_REPO):$(DOCKER_TAG)_web \
+		-f Dockerfile.web \
 		.
+
+.PHONY: docker-build-proxy
+docker-build-proxy:
+	docker build \
+		--platform linux/amd64 \
+		-t $(DOCKER_REPO):$(DOCKER_TAG)_proxy \
+		-f Dockerfile.proxy \
+		.
+
+.PHONY: docker-build
+docker-build: docker-build-web docker-build-proxy
+
+.PHONY: docker-up
+docker-up:
+	docker-compose up -d
+
+.PHONY: docker-down
+docker-down:
+	docker-compose down
+
+.PHONY: docker-logs
+docker-logs:
+	docker-compose logs -f
+
+.PHONY: docker-restart
+docker-restart: docker-down docker-up

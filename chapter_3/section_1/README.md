@@ -52,10 +52,15 @@ chapter_3/section_1/
 │       ├── __init__.py
 │       └── request_llm.py       # LLMリクエスト処理
 ├── .envrc.example               # 環境変数設定のサンプル
+├── .dockerignore                # Docker ビルド除外ファイル
+├── Dockerfile.web               # LLM APIサーバー用Dockerfile
+├── Dockerfile.proxy             # プロキシサーバー用Dockerfile
+├── docker-compose.yml           # Docker Compose設定
 ├── Makefile                     # 開発・実行用コマンド
 ├── pyproject.toml               # プロジェクト依存関係
 ├── README.md                    # このファイル
-└── CLAUDE.md                    # プロジェクト概念説明
+├── CLAUDE.md                    # プロジェクト状態レポート（英語）
+└── DOCKER.md                    # Docker詳細ガイド（英語）
 ```
 
 ### アーキテクチャ
@@ -350,7 +355,17 @@ async def get_metrics():
 
 ### セットアップ
 
-1. **環境変数ファイルの作成**
+#### クイックスタート比較
+
+| 実行方法 | 準備時間 | 用途 | コマンド |
+|---------|---------|------|---------|
+| **Docker Compose** | ⚡ 最速 | 本番・デモ | `make docker-build && make docker-up` |
+| **ローカル実行** | 🔧 中程度 | 開発・デバッグ | `uv sync && make run-all` |
+| **Docker個別** | 🎛️ 時間かかる | 詳細制御 | 個別にdockerコマンド実行 |
+
+#### 共通セットアップ手順
+
+**1. 環境変数ファイルの作成**
 
 ```bash
 # .envrc.exampleをコピーして.envrcを作成
@@ -362,7 +377,9 @@ OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
 GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
 ```
 
-2. **依存関係のインストール**
+#### ローカル実行の場合の追加手順
+
+**2. 依存関係のインストール**
 
 ```bash
 # uvを使用する場合（推奨）
@@ -372,28 +389,91 @@ uv sync
 pip install -e .
 ```
 
+#### Docker実行の場合の追加手順
+
+**2. Dockerイメージのビルド**
+
+```bash
+# 両方のイメージを一度にビルド
+make docker-build
+
+# または個別にビルド
+make docker-build-web    # LLM APIサーバー
+make docker-build-proxy  # プロキシサーバー
+```
+
 ### 使用方法、実行方法
 
 #### サーバーの起動
 
-**オプション1: 両方のサーバーを同時起動（推奨）**
+プロジェクトを実行する方法は3つあります：ローカル実行、Docker個別起動、Docker Compose一括起動。
+
+**方法1: Docker Compose（最も簡単・推奨）**
+
+両方のサーバーをコンテナとして一括起動します：
 
 ```bash
-make run-all
+# イメージのビルド
+make docker-build
+
+# サーバーの起動（バックグラウンド）
+make docker-up
+
+# ログの確認
+make docker-logs
+
+# サーバーの停止
+make docker-down
 ```
 
 これにより以下が起動します：
 - LLM APIサーバー: http://localhost:8000
 - プロキシサーバー: http://localhost:8080
 
-**オプション2: 個別に起動**
+**方法2: ローカル実行（開発向け・ホットリロード対応）**
+
+uvを使用してローカルで直接実行します：
 
 ```bash
+# 両方のサーバーを同時起動
+make run-all
+
+# または個別に起動
 # ターミナル1: LLM APIサーバー
 make run-llm-server
 
 # ターミナル2: プロキシサーバー
 make run-proxy
+```
+
+**方法3: Docker個別起動（上級者向け）**
+
+コンテナを個別に制御したい場合：
+
+```bash
+# イメージのビルド
+docker build -t shibui/llm-best-practice:chapter3_section1_web -f Dockerfile.web .
+docker build -t shibui/llm-best-practice:chapter3_section1_proxy -f Dockerfile.proxy .
+
+# LLM APIサーバーの起動
+docker run -d \
+  --name llm-api-server \
+  -p 8000:8000 \
+  --env-file .envrc \
+  shibui/llm-best-practice:chapter3_section1_web
+
+# プロキシサーバーの起動
+docker run -d \
+  --name llm-proxy-server \
+  -p 8080:8080 \
+  --env-file .envrc \
+  --link llm-api-server \
+  -e BACKEND_URL=http://llm-api-server:8000 \
+  shibui/llm-best-practice:chapter3_section1_proxy
+
+# コンテナの停止と削除
+docker stop llm-api-server llm-proxy-server
+docker rm llm-api-server llm-proxy-server
 ```
 
 #### APIエンドポイントの利用
@@ -539,10 +619,96 @@ FastAPIの自動生成ドキュメントを利用できます：
 [2025-10-25 10:30:52] [INFO] Generate request completed successfully in 1456.78ms (queue size: 0)
 ```
 
+### Docker デプロイメント
+
+#### Docker の利点
+
+Dockerを使用することで、以下の利点が得られます：
+
+1. **環境の一貫性**: 開発、ステージング、本番環境で同じ環境を保証
+2. **依存関係の分離**: システムにPythonや依存ライブラリをインストール不要
+3. **スケーラビリティ**: 複数インスタンスの起動が容易
+4. **ポータビリティ**: どのプラットフォームでも同じように動作
+
+#### Dockerfile の構成
+
+このプロジェクトには2つのDockerfileがあります：
+
+**Dockerfile.web** (LLM APIサーバー):
+- ベースイメージ: `ghcr.io/astral-sh/uv:python3.13-bookworm` (Builder)
+- ランタイム: `python:3.13-slim` (最小サイズ)
+- ポート: 8000
+- マルチステージビルドで最適化（最終イメージサイズ削減）
+
+**Dockerfile.proxy** (プロキシサーバー):
+- 同様のマルチステージビルド構成
+- ポート: 8080
+- レート制限、サーキットブレーカー、リトライ機能を含む
+
+#### Docker Compose の設定
+
+`docker-compose.yml`は両方のサービスを統合管理します：
+
+```yaml
+services:
+  llm-server:
+    image: shibui/llm-best-practice:chapter3_section1_web
+    ports: ["8000:8000"]
+    networks: [llm-network]
+
+  proxy-server:
+    image: shibui/llm-best-practice:chapter3_section1_proxy
+    ports: ["8080:8080"]
+    environment:
+      - BACKEND_URL=http://llm-server:8000
+    networks: [llm-network]
+```
+
+#### Docker 利用時の注意点
+
+1. **環境変数**: `.envrc`ファイルが必要（APIキーを含む）
+2. **ネットワーク**: コンテナ間通信用に`llm-network`ブリッジネットワークを使用
+3. **ポート競合**: ローカル実行中のサーバーを停止してからDockerを起動
+4. **ログ確認**: `make docker-logs`でリアルタイムログを確認可能
+
+#### 本番環境でのDocker利用
+
+本番環境では以下の設定を追加することを推奨します：
+
+```yaml
+# docker-compose.prod.yml
+services:
+  llm-server:
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+```
+
+#### Docker トラブルシューティング
+
+| 問題 | 原因 | 解決方法 |
+|-----|------|---------|
+| ポート競合エラー | 8000/8080が使用中 | `lsof -i :8000` でプロセス確認後、停止 |
+| 環境変数が読み込まれない | `.envrc`ファイルが無い | `cp .envrc.example .envrc` で作成 |
+| イメージビルド失敗 | キャッシュ問題 | `docker builder prune` でキャッシュクリア |
+| コンテナ起動失敗 | ログ確認不足 | `make docker-logs` でエラー詳細確認 |
+| プロキシがバックエンドに接続できない | ネットワーク設定 | `docker network inspect llm-network` で確認 |
+
+詳細なDocker利用ガイドは `DOCKER.md` を参照してください。
+
 ### テスト方法
 
 #### 1. 基本的な動作確認
 
+**ローカル実行の場合**:
 ```bash
 # 両サーバー起動
 make run-all
@@ -550,6 +716,18 @@ make run-all
 # 別ターミナルでヘルスチェック
 curl http://localhost:8080/health
 # 期待: {"status":"healthy","timestamp":...,"_proxy_metadata":{...}}
+```
+
+**Docker実行の場合**:
+```bash
+# Docker Composeで起動
+make docker-up
+
+# ヘルスチェック
+curl http://localhost:8080/health
+
+# ログ確認
+make docker-logs
 ```
 
 #### 2. レート制限のテスト

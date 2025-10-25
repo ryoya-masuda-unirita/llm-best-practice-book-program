@@ -1,0 +1,10 @@
+# direnv configuration example
+# Copy this file to .envrc and update with your actual values
+# Then run: direnv allow
+
+dotenv
+
+# Additional environment variables can be set here
+# Example:
+# export GATEWAY_API_TOKEN="your_secure_token"
+# export GATEWAY_ENABLE_CACHE="true"

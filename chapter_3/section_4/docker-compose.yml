@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  # LLM API Gateway - Centralized gateway for all LLM requests
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    container_name: llm-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GATEWAY_API_TOKEN=${GATEWAY_API_TOKEN:-dev-token-12345}
+      - GATEWAY_MAX_RETRIES=${GATEWAY_MAX_RETRIES:-3}
+      - GATEWAY_RETRY_BACKOFF=${GATEWAY_RETRY_BACKOFF:-2.0}
+      - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT:-30.0}
+      - GATEWAY_ENABLE_CACHE=${GATEWAY_ENABLE_CACHE:-false}
+      - GATEWAY_CACHE_TTL=${GATEWAY_CACHE_TTL:-300}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Backend LLM Server - Original backend service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: llm-backend-server
+    ports:
+      - "8000:8000"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - BACKEND_URL=http://backend:8000
+      - PROXY_URL=http://gateway:8080
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      - gateway
+
+networks:
+  default:
+    name: llm-gateway-network
