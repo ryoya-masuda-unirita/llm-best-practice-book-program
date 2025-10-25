@@ -4,13 +4,7 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13.2"
-dependencies = [
-    "click>=8.3.0",
-    "google-genai>=1.45.0",
-    "openai>=2.4.0",
-    "pydantic>=2.12.2",
-    "python-dotenv>=1.1.1",
-]
+dependencies = []
 
 [dependency-groups]
 dev = [
@@ -79,8 +73,6 @@ docstring-code-line-length = "dynamic"
 
 [tool.uv.workspace]
 members = [
-    "chapter_2/section_1",
-    "chapter_2/section_2",
     "chapter_2/section_3",
     "chapter_2/section_4",
     "chapter_2/section_5",
@@ -90,4 +82,9 @@ members = [
     "chapter_2/section_9",
     "chapter_2/section_10",
     "chapter_2/section_11",
+    "chapter_3/section_1",
+    "chapter_3/section_3",
+    "chapter_2/section_1",
+    "chapter_2/section_2",
+    "chapter_3/section_2",
 ]

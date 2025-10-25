@@ -1,0 +1,40 @@
+FROM ghcr.io/astral-sh/uv:python3.13-bookworm AS base
+ENV UV_LINK_MODE=copy \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# ---- Builder: 依存解決 & venv 作成 ----
+FROM base AS builder
+
+ARG LOCAL_DIR=.
+ENV PROJECT_DIR app
+WORKDIR /${PROJECT_DIR}
+
+# 1) 依存メタのみ先にコピーしてキャッシュ最大化
+COPY ../pyproject.toml ./
+COPY ../uv.lock ./
+
+# 2) 依存同期（本番用のみ）+ キャッシュマウントで高速化
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
+
+# 3) アプリ本体をコピー
+COPY ${LOCAL_DIR}/src/ /${PROJECT_DIR}/src/
+
+# 4) （必要なら）コード反映後に最終同期
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
+
+# ---- Runtime: できるだけ薄く、venv を持ち込み ----
+FROM python:3.13-slim AS runtime
+
+ARG LOCAL_DIR=.
+ENV PROJECT_DIR app
+WORKDIR /${PROJECT_DIR}
+
+# venv を持ち込み（再現性◎）
+COPY --from=builder /app/.venv /app/.venv
+ENV PATH="/app/.venv/bin:$PATH"
+
+# 実行に必要なアプリ資産のみコピー（tests や docs は .dockerignore で除外推奨）
+COPY ${LOCAL_DIR}/src/ /${PROJECT_DIR}/src/
