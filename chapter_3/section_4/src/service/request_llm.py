@@ -1,6 +1,5 @@
-from google.genai.types import GenerateContentConfig
-
-from src.client.llm_client import GeminiModel, OpenAIModel, google_genai_client, openai_client
+from src.client.gateway_client import gateway_client
+from src.client.llm_client import GeminiModel, OpenAIModel
 from src.logger import make_logger
 from src.model.model import CharacterResponse
 
@@ -8,25 +7,48 @@ logger = make_logger(__name__)
 
 
 async def request_openai(model: OpenAIModel, prompt: list[dict]) -> CharacterResponse:
-    result = await openai_client.beta.chat.completions.parse(
+    """Request character generation from OpenAI via the gateway.
+
+    Args:
+        model: OpenAI model to use
+        prompt: Prompt messages
+
+    Returns:
+        Parsed character response
+    """
+    content, processing_time_ms, request_id = await gateway_client.generate(
+        provider="openai",
         model=model,
-        messages=prompt,
-        response_format=CharacterResponse,
-        temperature=1.0,
+        prompt=prompt,
+        response_format=CharacterResponse.model_json_schema(),
+        client_id="llm_server",
     )
-    return result.choices[0].message.parsed
+
+    logger.info(f"Received response from gateway: request_id={request_id}, time={processing_time_ms:.2f}ms")
+
+    # Parse the response into CharacterResponse
+    return CharacterResponse.model_validate(content)
 
 
 async def request_gemini(model: GeminiModel, prompt: list[dict]) -> CharacterResponse:
-    result = await google_genai_client.aio.models.generate_content(
+    """Request character generation from Gemini via the gateway.
+
+    Args:
+        model: Gemini model to use
+        prompt: Prompt messages
+
+    Returns:
+        Parsed character response
+    """
+    content, processing_time_ms, request_id = await gateway_client.generate(
+        provider="gemini",
         model=model,
-        contents=prompt[-1]["content"],
-        config=GenerateContentConfig(
-            system_instruction=prompt[0]["content"],
-            response_mime_type="application/json",
-            response_schema=CharacterResponse,
-            temperature=2.0,
-        ),
+        prompt=prompt,
+        response_format=CharacterResponse.model_json_schema(),
+        client_id="llm_server",
     )
-    logger.info(result)
-    return result.parsed
+
+    logger.info(f"Received response from gateway: request_id={request_id}, time={processing_time_ms:.2f}ms")
+
+    # Parse the response into CharacterResponse
+    return CharacterResponse.model_validate(content)

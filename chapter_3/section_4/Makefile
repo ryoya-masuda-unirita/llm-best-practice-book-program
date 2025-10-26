@@ -2,7 +2,6 @@ DIR := $(shell pwd)
 GIT_COMMIT := $(shell git rev-parse HEAD)
 
 DOCKER_REPO := shibui/llm-best-practice
-DOCKERFILE = $(DIR)/Dockerfile.web
 DOCKER_TAG = chapter3_section4
 
 ############ COMMON COMMANDS ############
@@ -37,33 +36,27 @@ run-api-gateway:
 run-gateway-client:
 	uv run python -m src.api_gateway.example_client
 
-.PHONY: run-all
-run-all:
-	@echo "Starting LLM API Server on port 8000..."
-	@uv run uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000 &
-	@echo "Starting API Gateway Server on port 8080..."
-	@uv run uvicorn src.api_gateway.gateway_server:app --host 0.0.0.0 --port 8080
 
 ############ DOCKER COMMANDS ############
 
-.PHONY: docker-build-web
-docker-build-web:
+.PHONY: docker-build-backend
+docker-build-backend:
 	docker build \
 		--platform linux/amd64 \
-		-t $(DOCKER_REPO):$(DOCKER_TAG)_web \
-		-f Dockerfile.web \
+		-t $(DOCKER_REPO):$(DOCKER_TAG)_backend \
+		-f Dockerfile.backend \
 		.
 
-.PHONY: docker-build-api-gateway
-docker-build-api-gateway:
+.PHONY: docker-build-gateway
+docker-build-gateway:
 	docker build \
 		--platform linux/amd64 \
-		-t $(DOCKER_REPO):$(DOCKER_TAG)_api_gateway \
-		-f Dockerfile.api_gateway \
+		-t $(DOCKER_REPO):$(DOCKER_TAG)_gateway \
+		-f Dockerfile.gateway \
 		.
 
 .PHONY: docker-build
-docker-build: docker-build-web docker-build-api-gateway
+docker-build: docker-build-backend docker-build-gateway
 
 .PHONY: docker-up
 docker-up:

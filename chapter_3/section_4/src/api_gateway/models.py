@@ -12,10 +12,8 @@ class GatewayRequest(BaseModel):
     provider: str = Field(..., description="LLM provider (openai or gemini)")
     model: str = Field(..., description="Model name to use")
     prompt: list[dict[str, str]] = Field(..., description="Prompt messages")
-    temperature: Optional[float] = Field(default=1.0, description="Temperature for generation", ge=0.0, le=2.0)
-    response_format: Optional[dict[str, Any]] = Field(default=None, description="Response format schema")
-    client_id: Optional[str] = Field(default=None, description="Client identifier for tracking and rate limiting")
-    api_token: str = Field(..., description="API token for gateway authentication")
+    response_format: dict[str, Any] = Field(..., description="Response format schema")
+    client_id: Optional[str] = Field(default=None, description="Client identifier for tracking")
 
 
 class GatewayResponse(BaseModel):
@@ -26,7 +24,6 @@ class GatewayResponse(BaseModel):
     model: str = Field(..., description="Model used")
     processing_time_ms: float = Field(..., description="Processing time in milliseconds")
     request_id: str = Field(..., description="Unique request ID for tracking")
-    cached: bool = Field(default=False, description="Whether response was served from cache")
 
 
 class GatewayHealthResponse(BaseModel):

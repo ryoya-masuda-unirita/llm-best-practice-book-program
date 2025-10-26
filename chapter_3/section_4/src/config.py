@@ -23,25 +23,15 @@ class Config(BaseModel):
     )
 
     # Gateway configuration
+    gateway_url: str = Field(
+        default=os.environ.get("GATEWAY_URL", "http://localhost:8080"), description="Gateway server URL"
+    )
     gateway_api_token: Secret[str] = Field(
         default=os.environ.get("GATEWAY_API_TOKEN", "dev-token-12345"),
         description="API token for gateway authentication",
     )
-    gateway_max_retries: int = Field(
-        default=int(os.environ.get("GATEWAY_MAX_RETRIES", "3")), description="Gateway max retries"
-    )
-    gateway_retry_backoff: float = Field(
-        default=float(os.environ.get("GATEWAY_RETRY_BACKOFF", "2.0")), description="Gateway retry backoff in seconds"
-    )
     gateway_timeout: float = Field(
         default=float(os.environ.get("GATEWAY_TIMEOUT", "30.0")), description="Gateway request timeout in seconds"
-    )
-    gateway_enable_cache: bool = Field(
-        default=os.environ.get("GATEWAY_ENABLE_CACHE", "false").lower() == "true",
-        description="Enable response caching in gateway",
-    )
-    gateway_cache_ttl: int = Field(
-        default=int(os.environ.get("GATEWAY_CACHE_TTL", "300")), description="Cache TTL in seconds"
     )
 
 

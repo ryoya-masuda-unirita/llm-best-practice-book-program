@@ -1,45 +1,728 @@
+# Chapter 3 Section 4: LLM API Gateway
 
-# 第4項　LLM APIゲートウェイ
+## Overview
 
-## 概要
-LLM APIゲートウェイは、アプリケーションからLLM APIを直接呼び出すのではなく、専用のゲートウェイサービスを介してリクエストを一元的に管理・中継する設計プラクティスです。このアプローチにより、APIキーの管理、共通機能の集約、セキュリティの強化、そしてLLMプロバイダの変更に対する柔軟性を高めることができます。特に、複数のサービスがLLMを利用するマイクロサービスアーキテクチャや、厳格なガバナンスが求められるエンタープライズ環境において、その価値を最大限に発揮します。本項では、LLM APIゲートウェイの導入によって、LLMを活用したシステム全体の品質と信頼性を向上させるための具体的な方法を解説します。
+This project demonstrates the implementation of an **LLM API Gateway** - a centralized service that manages and routes LLM API requests. The gateway provides secure API key management, unified access to multiple LLM providers (OpenAI and Gemini), structured logging, and monitoring capabilities. This architecture pattern is essential for enterprise environments and microservices architectures where multiple services need to consume LLM capabilities without managing API keys directly.
 
-## 解決したい課題
-LLMを組み込んだシステムが大規模化・複雑化するにつれて、各サービスが個別最適でAPIを利用することに起因する問題が顕在化します。特に、マイクロサービスアーキテクチャを採用したプロダクトや、複数の部門でLLM活用を進める企業では、ガバナンスの欠如が深刻な課題となり得ます。APIキーの管理、エラーハンドリング、利用状況の監視といった共通の関心事が各所に分散し、結果として開発効率の低下やセキュリティリスクの増大を招きます。
+The implementation showcases how to build a production-ready API gateway that acts as a single point of entry for all LLM interactions, providing benefits such as:
+- Centralized API key management and security
+- Unified interface across multiple LLM providers
+- Request/response logging and monitoring
+- Simplified client applications
 
-具体的な事例として、あるECサイトの開発チームを考えてみましょう。このサイトでは「商品推薦サービス」と「顧客対応チャットボット」という2つのマイクロサービスが、それぞれ異なるチームによって開発され、両方でLLM APIを利用しています。当初、各チームは迅速な開発を優先し、APIキーをそれぞれのサービスの設定ファイルに直接記述していました。しかし、事業が成長しAPIキーのローテーション（定期的な変更）が必要になった際、どのサービスでどのキーが使われているかの管理が煩雑になり、更新作業に多大な時間と手間を要する事態となりました。
+## Features
 
-さらに、APIプロバイダで一時的な障害が発生した際の問題も挙げられます。チャットボットのチームは指数バックオフを含む堅牢なリトライ処理を実装していましたが、推薦サービスのチームは単純なリトライしか実装していませんでした。その結果、障害発生時に推薦サービスのAPI呼び出しだけが頻繁に失敗し、ユーザー体験を損なう原因となりました。このように、共通処理の実装が各サービスに委ねられると、品質にばらつきが生まれ、システム全体としての安定性を確保することが困難になります。
+- **Centralized API Gateway**: Single entry point for all LLM API requests
+- **Multi-Provider Support**: Seamless integration with OpenAI and Gemini APIs
+- **Secure API Key Management**: API keys stored and managed only in the gateway
+- **Structured Logging**: Comprehensive request/response logging for monitoring
+- **Dynamic Schema Conversion**: Automatic conversion of JSON schemas to Pydantic models
+- **Health Monitoring**: Built-in health check endpoints
+- **Docker Containerization**: Production-ready Docker setup with separate gateway and backend services
+- **Gateway Client Library**: Easy-to-use client for consuming the gateway API
+- **Error Handling**: Robust error handling and monitoring
+- **Type Safety**: Full type safety using Pydantic models throughout
 
-## 解決策の提案
-前述した課題を解決するため、筆者はLLM APIゲートウェイの導入を提案します。これは、全てのLLM API呼び出しを単一のゲートウェイサービス経由で行うようにシステムのアーキテクチャを変更するアプローチです。このゲートウェイは、LLMを利用する上で必要となる共通機能を一手に引き受け、各アプリケーションの責務を軽減します。
+## Project Structure
 
-ゲートウェイはまず、APIキーを一元的に管理し、各サービスから完全に隠蔽します。各サービスは、APIキーの代わりにゲートウェイが発行したトークンや内部的な認証情報を用いてリクエストを行います。これにより、APIキーが各サービスのコードや設定ファイルに分散することがなくなり、セキュリティが大幅に向上します。キーのローテーションもゲートウェイの設定を1箇所変更するだけで完了し、運用負荷を大きく削減できます。
+### Directory Structure
 
-また、エラーハンドリングやリトライ処理といった共通機能をゲートウェイに集約します。ECサイトの事例で言えば、APIの一時的な障害に対する指数バックオフを用いたリトライ処理をゲートウェイに実装します。これにより、「商品推薦サービス」も「顧客対応チャットボット」も、自前でリトライ処理を実装することなく、一貫性のある高品質なエラーハンドリングの恩恵を受けられます。さらに、全てのAPIリクエスト・レスポンスをゲートウェイで構造化ログとして記録することで、利用状況の監視やコスト管理も容易になります。
+```
+chapter_3/section_4/
+├── src/
+│   ├── __init__.py
+│   ├── config.py                     # Configuration management
+│   ├── logger.py                     # Logging setup
+│   │
+│   ├── api_gateway/                  # API Gateway Service
+│   │   ├── __init__.py
+│   │   ├── gateway_server.py         # FastAPI gateway server
+│   │   ├── gateway_service.py        # Core gateway logic
+│   │   ├── models.py                 # Gateway request/response models
+│   │   ├── api_key_manager.py        # Centralized API key management
+│   │   ├── monitoring.py             # Logging and monitoring
+│   │   └── example_client.py         # Example usage of gateway
+│   │
+│   ├── client/                       # Client Library
+│   │   ├── __init__.py
+│   │   ├── llm_client.py             # Direct LLM client (legacy)
+│   │   └── gateway_client.py         # Gateway client library
+│   │
+│   ├── api/                          # Backend API Service
+│   │   ├── __init__.py
+│   │   └── llm_server.py             # Backend server using gateway
+│   │
+│   ├── service/                      # Business Logic
+│   │   ├── __init__.py
+│   │   └── request_llm.py            # LLM request service
+│   │
+│   ├── model/                        # Data Models
+│   │   ├── __init__.py
+│   │   └── model.py                  # Pydantic models
+│   │
+│   └── prompt/                       # Prompt Management
+│       ├── __init__.py
+│       └── prompt.py                 # Prompt generation
+│
+├── docker-compose.yml                # Docker Compose configuration
+├── Dockerfile.backend                # Backend service Dockerfile
+├── Dockerfile.gateway                # Gateway service Dockerfile
+├── Makefile                          # Build and run commands
+├── pyproject.toml                    # Project dependencies
+├── .envrc.example                    # Environment variables template
+├── README.md                         # Project documentation
+└── CLAUDE.md                         # This file
+```
 
-## 適応するユースケース
-LLM APIゲートウェイは、特に複数のコンポーネントやチームが関わるLLM活用において有効です。セキュリティ、ガバナンス、開発効率の向上が求められる様々な場面でその真価を発揮します。
+### Architecture
 
-一つの典型的なユースケースは、マイクロサービスアーキテクチャで構築されたシステムです。各サービスが独立して開発・デプロイされる環境では、LLMの利用方法に一貫性を持たせることが難しくなりがちです。ゲートウェイを導入することで、認証、ロギング、キャッシュといった横断的な関心事を分離し、各サービスは本来のビジネスロジックに集中できます。これにより、開発のスピードを維持しつつ、システム全体の統制を保つことが可能になります。
+The project implements a microservices architecture with clear separation between the API Gateway and backend services:
 
-もう一つのユースケースとして、フロントエンドアプリケーションから直接LLM APIを利用したい場合が挙げられます。例えば、ブラウザ上で動作するSPA（Single Page Application）にリアルタイムの対話機能を組み込む場合、APIキーをクライアントサイドのコードに含めることはセキュリティ上絶対に避けなければなりません。このような状況で、バックエンドにLLM APIゲートウェイを設置します。フロントエンドは自社の認証基盤を通じてゲートウェイと通信し、ゲートウェイがAPIキーを付与してLLM APIへのリクエストを中継します。これにより、ユーザーのブラウザに機密情報を渡すことなく、安全にLLMの機能を活用できます。
+```
++-----------------------------------------------------------+
+|                    Client Applications                    |
+|           (Frontend, Microservices, etc.)                 |
++---------------------------+-------------------------------+
+                            |
+                            | HTTP Requests (No API Keys)
+                            v
++-----------------------------------------------------------+
+|              LLM API Gateway (Port 8080)                  |
+|                                                           |
+|  +-----------------------------------------------------+  |
+|  |       Gateway Server (gateway_server.py)            |  |
+|  |  - Request routing                                  |  |
+|  |  - Schema conversion                                |  |
+|  |  - Error handling                                   |  |
+|  +---------------------------+-------------------------+  |
+|                              |                            |
+|  +---------------------------v-------------------------+  |
+|  |      Gateway Service (gateway_service.py)           |  |
+|  |  - Provider routing                                 |  |
+|  |  - API client management                            |  |
+|  +---------------------------+-------------------------+  |
+|                              |                            |
+|  +---------------------------v-------------------------+  |
+|  |      API Key Manager (api_key_manager.py)           |  |
+|  |  - Secure key storage                               |  |
+|  |  - Provider validation                              |  |
+|  +-----------------------------------------------------+  |
+|                                                           |
+|  +-----------------------------------------------------+  |
+|  |          Monitoring (monitoring.py)                 |  |
+|  |  - Request/response logging                         |  |
+|  |  - Performance metrics                              |  |
+|  +-----------------------------------------------------+  |
++---------------------------+-------------------------------+
+                            |
+                            | API Calls with Keys
+                            |
+              +-------------+-------------+
+              |                           |
+              v                           v
+      +---------------+           +---------------+
+      |  OpenAI API   |           |  Gemini API   |
+      +---------------+           +---------------+
 
-## 導入のポイント
-LLM APIゲートウェイを効果的に導入するためには、計画的かつ段階的なアプローチが重要です。初期段階から全ての機能を盛り込もうとすると、ゲートウェイ自体の開発が複雑になり、導入のハードルが上がってしまいます。まずは、最も重要な機能から実装し、徐々に拡張していくことをお勧めします。
 
-導入の初期フェーズでは、APIキーの一元管理とアクセス認証、そして基本的なログ記録機能に絞って実装します。これだけでも、セキュリティリスクを大幅に低減し、利用状況の可視化という大きなメリットが得られます。この段階で、各サービスからの移行パスを確立し、安全な基盤を構築することが目標です。
++-----------------------------------------------------------+
+|             Backend Service (Port 8000)                   |
+|                                                           |
+|  +-----------------------------------------------------+  |
+|  |        Backend Server (llm_server.py)               |  |
+|  |  - Business endpoints                               |  |
+|  |  - Uses Gateway Client                              |  |
+|  +---------------------------+-------------------------+  |
+|                              |                            |
+|  +---------------------------v-------------------------+  |
+|  |      Gateway Client (gateway_client.py)             |  |
+|  |  - HTTP client for gateway                          |  |
+|  |  - Request/response handling                        |  |
+|  +-----------------------------------------------------+  |
++---------------------------+-------------------------------+
+                            |
+                            | Internal HTTP
+                            v
+                   (Back to Gateway)
+```
 
-続く中期フェーズでは、エラーハンドリング、リトライ、タイムアウト制御といった耐障害性を高めるための共通処理を追加します。これにより、個々のサービスの開発者は、ネットワークの不安定さといったインフラ層の問題を意識する必要が減り、開発効率が向上します。
+### Implementation Details
 
-そして後期フェーズでは、キャッシュによるパフォーマンス最適化や、特定のサービスからの利用量を制限するレートリミット、コスト管理のための利用ポリシー適用といった高度な機能を導入してシステム全体の最適化を図ります。また、AWS API Gateway、Azure API Management、Kongといった既存のAPIゲートウェイ製品を活用することも有効な選択肢です。これらのマネージドサービスを利用することで、自前で機能を実装・運用するコストを大幅に削減できます。
+#### 1. API Gateway Server (`src/api_gateway/gateway_server.py`)
 
-## 注意点とトレードオフ
-LLM APIゲートウェイは多くのメリットを提供する一方で、導入にあたってはいくつかの注意点とトレードオフを理解しておく必要があります。その最も大きなものが、ゲートウェイが単一障害点（Single Point of Failure）になるリスクです。全てのLLM API呼び出しがこのゲートウェイを経由するため、ゲートウェイがダウンすると、それに依存する全ての機能が停止してしまいます。例えば、ある企業で社内向けに構築したゲートウェイが障害を起こし、人事評価の文章作成支援ツールから営業のメール自動生成ツールまで、全社で利用しているLLM関連機能が一斉に利用できなくなるインシデントが発生しました。このリスクを軽減するためには、ゲートウェイを複数のサーバーやリージョンに分散させる冗長構成が不可欠です。
+The gateway server is a FastAPI application that exposes REST endpoints for LLM operations:
 
-次に、レイテンシの増加も考慮すべき点です。リクエストはアプリケーションからゲートウェイを経由し、そこからLLM APIへと転送されるため、直接呼び出す場合に比べて応答時間がわずかに長くなります。ほとんどのユースケースではこのオーバーヘッドは問題になりませんが、リアルタイム処理といった、ミリ秒単位の応答速度が求められるシステムでは、このわずかな遅延が許容できない可能性があります。
+```python
+@app.post("/v1/generate", response_model=GatewayResponse, tags=["Gateway"])
+async def generate(request: GatewayRequest):
+    """Generate content using LLM through the gateway."""
+    # Convert JSON schema to Pydantic model
+    response_format_model = json_schema_to_pydantic(request.response_format)
 
-最後に、ゲートウェイ自体の開発・運用コストが発生することも忘れてはなりません。ゲートウェイはシステムの重要なコンポーネントとなるため、そのモニタリング、スケーリング、セキュリティパッチの適用といった継続的な運用が求められます。特に、不適切なキャッシュ設定は、ユーザーごとにパーソナライズされるべき応答が別のユーザーに返されるといった深刻なバグを引き起こす可能性があるため、慎重な設計とテストが必要です。これらのコストと得られるメリットを比較検討し、導入を判断することが重要です。
+    # Process through gateway service
+    content, processing_time_ms = await gateway_service.process_request(
+        request_id=request_id,
+        provider=request.provider,
+        model=request.model,
+        prompt=request.prompt,
+        response_format=response_format_model,
+        client_id=request.client_id,
+    )
 
-## まとめ
-LLM APIゲートウェイは、LLMを活用したシステムのセキュリティ、運用性、拡張性を向上させるための強力な設計プラクティスです。共通処理や管理機能をゲートウェイに集約することで、開発の効率化とシステム全体の安定運用を実現できます。ただし、単一障害点のリスクやレイテンシの増加といったトレードオフも存在するため、導入にあたっては冗長化やパフォーマンスを考慮した慎重な設計が求められます。
+    return GatewayResponse(...)
+```
+
+**Key Features**:
+- Dynamic Pydantic model creation from JSON schemas
+- Comprehensive error handling with typed error responses
+- Health check endpoint for monitoring
+- Global exception handler for unhandled errors
+
+**Schema Conversion**:
+The gateway receives JSON schemas from clients and converts them to Pydantic models dynamically:
+```python
+def json_schema_to_pydantic(json_schema: dict[str, Any]) -> type[BaseModel]:
+    """Convert a JSON schema to a Pydantic model."""
+    # Handles nested models, arrays, enums, and references
+    # Recreates the original Pydantic model structure
+```
+
+#### 2. Gateway Service (`src/api_gateway/gateway_service.py`)
+
+Core service that routes requests to appropriate LLM providers:
+
+```python
+class GatewayService:
+    async def process_request(
+        self,
+        request_id: str,
+        provider: str,
+        model: str,
+        prompt: list[dict],
+        response_format: BaseModel,
+        client_id: Optional[str] = None,
+    ) -> tuple[Any, float]:
+        """Process an LLM request through the gateway."""
+        # Validate provider
+        if not api_key_manager.is_provider_supported(provider):
+            raise ValueError(f"Unsupported provider: {provider}")
+
+        # Route to appropriate provider
+        if provider.lower() == "openai":
+            content = await self._call_openai(...)
+        elif provider.lower() == "gemini":
+            content = await self._call_gemini(...)
+```
+
+**Provider Implementations**:
+
+OpenAI:
+```python
+async def _call_openai(self, model, prompt, response_format):
+    client = self._get_openai_client()
+    result = await client.beta.chat.completions.parse(
+        model=model,
+        messages=prompt,
+        response_format=response_format,
+    )
+    return result.choices[0].message.parsed
+```
+
+Gemini:
+```python
+async def _call_gemini(self, model, prompt, response_format):
+    client = self._get_gemini_client()
+    result = await client.aio.models.generate_content(
+        model=model,
+        contents=user_content,
+        config=GenerateContentConfig(
+            system_instruction=system_instruction,
+            response_mime_type="application/json",
+            response_schema=response_format,
+        ),
+    )
+    return result.parsed
+```
+
+#### 3. API Key Manager (`src/api_gateway/api_key_manager.py`)
+
+Centralized management of API keys for different providers:
+
+```python
+class APIKeyManager:
+    """Manages API keys for different LLM providers."""
+
+    def __init__(self):
+        self._provider_keys: Dict[str, Secret[str]] = {
+            "openai": config.openai_api_key,
+            "gemini": config.gemini_api_key,
+        }
+
+    def get_api_key(self, provider: str) -> str:
+        """Get the API key for a specific provider."""
+        if provider_lower not in self._provider_keys:
+            raise ValueError(f"Unsupported LLM provider: {provider}")
+        return self._provider_keys[provider_lower]
+```
+
+**Benefits**:
+- Single source of truth for API keys
+- Easy key rotation (update in one place)
+- Provider validation
+- Keys never exposed to client applications
+
+#### 4. Monitoring (`src/api_gateway/monitoring.py`)
+
+Structured logging for all gateway operations:
+
+```python
+class GatewayMonitor:
+    def log_request(self, request_id, provider, model, client_id):
+        """Log an incoming gateway request."""
+        logger.info(
+            f"[REQUEST] id={request_id} | provider={provider} | "
+            f"model={model} | client={client_id}"
+        )
+
+    def log_response(self, request_id, provider, model,
+                     processing_time_ms, success, error=None):
+        """Log a gateway response."""
+        status = "SUCCESS" if success else "FAILURE"
+        log_msg = (
+            f"[RESPONSE] id={request_id} | status={status} | "
+            f"provider={provider} | model={model} | "
+            f"time={processing_time_ms:.2f}ms"
+        )
+```
+
+**Monitoring Features**:
+- Unique request ID generation (UUID)
+- Request tracking across the system
+- Performance metrics (processing time)
+- Error logging and categorization
+
+#### 5. Gateway Client (`src/client/gateway_client.py`)
+
+Client library for applications to consume the gateway:
+
+```python
+class GatewayClient:
+    async def generate(
+        self,
+        provider: str,
+        model: str,
+        prompt: list[dict],
+        temperature: float = 1.0,
+        response_format: Optional[dict] = None,
+        client_id: Optional[str] = None,
+    ) -> tuple[Any, float, str]:
+        """Generate content via the gateway."""
+        response = await self.client.post(
+            f"{self.gateway_url}/v1/generate",
+            json={
+                "provider": provider,
+                "model": model,
+                "prompt": prompt,
+                "temperature": temperature,
+                "response_format": response_format,
+                "client_id": client_id,
+            },
+        )
+        result = response.json()
+        return (
+            result["content"],
+            result["processing_time_ms"],
+            result["request_id"],
+        )
+```
+
+#### 6. Data Models (`src/api_gateway/models.py`)
+
+Type-safe request and response models:
+
+```python
+class GatewayRequest(BaseModel):
+    provider: str
+    model: str
+    prompt: list[dict[str, str]]
+    response_format: dict[str, Any]
+    client_id: Optional[str] = None
+
+class GatewayResponse(BaseModel):
+    content: Any
+    provider: str
+    model: str
+    processing_time_ms: float
+    request_id: str
+
+class GatewayHealthResponse(BaseModel):
+    status: Literal["healthy"] = "healthy"
+    timestamp: float
+    providers_available: dict[str, bool]
+```
+
+## Usage
+
+### Environment Setup
+
+**Requirements**:
+- Python 3.13.2 or higher
+- Docker and Docker Compose (for containerized deployment)
+- OpenAI API key
+- Google Gemini API key
+
+**Dependencies**:
+- fastapi>=0.115.12
+- uvicorn>=0.34.0
+- httpx>=0.28.5
+- openai>=2.4.0
+- google-genai>=1.45.0
+- pydantic>=2.12.2
+- python-dotenv>=1.1.1
+
+### Setup
+
+1. **Create environment file**:
+
+```bash
+# Copy the example file
+cp .envrc.example .envrc
+
+# Edit .envrc with your API keys
+# .envrc
+OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
+GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+GATEWAY_URL=http://localhost:8080
+BACKEND_URL=http://localhost:8000
+GATEWAY_TIMEOUT=30.0
+```
+
+2. **Install dependencies**:
+
+```bash
+# Using uv (recommended)
+uv sync
+
+# Using pip
+pip install -e .
+```
+
+### Running the Services
+
+#### Option 1: Docker Compose (Recommended)
+
+```bash
+# Build Docker images
+make docker-build
+
+# Start all services
+make docker-up
+
+# View logs
+make docker-logs
+
+# Stop all services
+make docker-down
+```
+
+This starts:
+- Gateway service on http://localhost:8080
+- Backend service on http://localhost:8000
+
+#### Option 2: Local Development
+
+**Terminal 1 - Start Gateway**:
+```bash
+make run-api-gateway
+# Or directly:
+uv run uvicorn src.api_gateway.gateway_server:app --host 0.0.0.0 --port 8080 --reload
+```
+
+**Terminal 2 - Start Backend**:
+```bash
+make run-llm-server
+# Or directly:
+uv run uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### Using the Gateway
+
+#### 1. Health Check
+
+```bash
+curl http://localhost:8080/health
+```
+
+**Response**:
+```json
+{
+  "status": "healthy",
+  "timestamp": 1729234567.123,
+  "providers_available": {
+    "openai": true,
+    "gemini": true
+  }
+}
+```
+
+#### 2. Generate Content via Gateway
+
+```bash
+curl -X POST http://localhost:8080/v1/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "prompt": [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant."
+      },
+      {
+        "role": "user",
+        "content": "Say hello!"
+      }
+    ],
+    "response_format": {
+      "type": "object",
+      "properties": {
+        "message": {"type": "string"}
+      },
+      "required": ["message"]
+    },
+    "client_id": "test-client"
+  }'
+```
+
+#### 3. Using the Gateway Client Library
+
+```python
+from src.client.gateway_client import GatewayClient
+from src.model.model import CharacterResponse
+
+async def example():
+    client = GatewayClient()
+
+    # Prepare request
+    prompt = [
+        {"role": "system", "content": "Generate a character"},
+        {"role": "user", "content": "Create a fictional character"}
+    ]
+
+    # Get schema from Pydantic model
+    schema = CharacterResponse.model_json_schema()
+
+    # Call gateway
+    content, processing_time, request_id = await client.generate(
+        provider="openai",
+        model="gpt-4o-mini",
+        prompt=prompt,
+        response_format=schema,
+        client_id="my-service"
+    )
+
+    print(f"Request ID: {request_id}")
+    print(f"Processing time: {processing_time:.2f}ms")
+    print(f"Content: {content}")
+```
+
+#### 4. Run Example Client
+
+```bash
+make run-gateway-client
+# Or directly:
+uv run python -m src.api_gateway.example_client
+```
+
+### Output Examples
+
+**Gateway Logs**:
+```
+[2025-10-26 10:30:45] [INFO] [Gateway Monitor initialized]
+[2025-10-26 10:30:45] [INFO] [API Key Manager initialized with 2 providers]
+[2025-10-26 10:30:47] [INFO] [REQUEST] id=a1b2c3d4-e5f6-7890-abcd-ef1234567890 | provider=openai | model=gpt-4o-mini | client=test-client
+[2025-10-26 10:30:49] [INFO] [RESPONSE] id=a1b2c3d4-e5f6-7890-abcd-ef1234567890 | status=SUCCESS | provider=openai | model=gpt-4o-mini | time=1234.56ms
+```
+
+**API Response**:
+```json
+{
+  "content": {
+    "first_name": "Aoi",
+    "last_name": "Amemiya",
+    "gender": "male",
+    "age": 28,
+    "personalities": [
+      {
+        "short_personality": "Introverted Thinker",
+        "description": "Always thinks deeply and prefers quiet places."
+      }
+    ]
+  },
+  "provider": "openai",
+  "model": "gpt-4o-mini",
+  "processing_time_ms": 1234.56,
+  "request_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+}
+```
+
+### API Documentation
+
+Once the gateway is running, interactive API documentation is available at:
+- Swagger UI: http://localhost:8080/docs
+- ReDoc: http://localhost:8080/redoc
+
+## Testing
+
+### Manual Testing
+
+1. **Test Gateway Health**:
+```bash
+curl http://localhost:8080/health
+```
+
+2. **Test OpenAI Provider**:
+```bash
+curl -X POST http://localhost:8080/v1/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "prompt": [{"role": "user", "content": "Hello"}],
+    "response_format": {"type": "object", "properties": {"msg": {"type": "string"}}, "required": ["msg"]}
+  }'
+```
+
+3. **Test Gemini Provider**:
+```bash
+curl -X POST http://localhost:8080/v1/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "gemini",
+    "model": "gemini-2.0-flash-exp",
+    "prompt": [{"role": "user", "content": "Hello"}],
+    "response_format": {"type": "object", "properties": {"msg": {"type": "string"}}, "required": ["msg"]}
+  }'
+```
+
+4. **Test Error Handling**:
+```bash
+# Invalid provider
+curl -X POST http://localhost:8080/v1/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "invalid",
+    "model": "test",
+    "prompt": [{"role": "user", "content": "test"}],
+    "response_format": {"type": "object", "properties": {}}
+  }'
+```
+
+### Verifying Logs
+
+Check Docker logs to verify monitoring is working:
+```bash
+# Gateway logs
+docker logs llm-gateway
+
+# Backend logs
+docker logs llm-backend
+
+# Or use make command
+make docker-logs
+```
+
+## Key Benefits
+
+### 1. Security
+- API keys are never exposed to client applications
+- Centralized key management enables easy rotation
+- All requests go through a single, auditable entry point
+
+### 2. Consistency
+- Unified interface across multiple LLM providers
+- Standardized error handling and logging
+- Consistent request/response format
+
+### 3. Observability
+- All LLM API calls are logged with request IDs
+- Performance metrics tracked centrally
+- Easy to identify usage patterns and optimize costs
+
+### 4. Maintainability
+- Changes to API keys require updating only the gateway
+- Adding new LLM providers is centralized
+- Client applications are decoupled from LLM API details
+
+### 5. Scalability
+- Gateway can be scaled independently
+- Load balancing and rate limiting can be added at gateway level
+- Cache layer can be introduced without client changes
+
+## Trade-offs and Considerations
+
+### Advantages
+- **Centralized Management**: API keys, logging, and monitoring in one place
+- **Security**: API keys never leave the gateway
+- **Flexibility**: Easy to switch providers or add new ones
+- **Observability**: Complete visibility into LLM usage
+
+### Disadvantages
+- **Single Point of Failure**: Gateway downtime affects all dependent services
+  - Mitigation: Deploy multiple gateway instances with load balancing
+- **Additional Latency**: Extra network hop adds ~10-50ms overhead
+  - Impact: Negligible for most use cases (LLM calls typically take seconds)
+- **Operational Complexity**: Another service to deploy and monitor
+  - Mitigation: Use managed services or container orchestration (Kubernetes)
+
+### When to Use
+- Multiple services consuming LLM APIs
+- Need for centralized API key management
+- Requirement for comprehensive logging and monitoring
+- Frontend applications need to call LLM APIs
+- Planning to switch between LLM providers
+
+### When Not to Use
+- Single application with simple LLM usage
+- Extremely latency-sensitive applications (< 100ms requirements)
+- Prototype/PoC stage where simplicity is paramount
+
+## Development Workflow
+
+### Code Formatting and Linting
+
+```bash
+# Format code
+make fmt
+
+# Run linter
+make lint
+
+# Fix all issues
+make fix
+
+# Type checking
+make mypy
+```
+
+### Docker Workflow
+
+```bash
+# Build images
+make docker-build
+
+# Build only gateway
+make docker-build-gateway
+
+# Build only backend
+make docker-build-backend
+
+# Restart services
+make docker-restart
+```
+
+## Summary
+
+This LLM API Gateway implementation demonstrates a production-ready architecture for managing LLM API access in enterprise environments. By centralizing API key management, providing unified access to multiple providers, and implementing comprehensive monitoring, the gateway significantly improves security, observability, and maintainability of LLM-powered systems.
+
+The gateway pattern is especially valuable in microservices architectures where multiple services need LLM capabilities, or when frontend applications need to safely consume LLM APIs without exposing API keys. While it introduces a small amount of latency and operational complexity, the benefits in terms of security, consistency, and governance typically far outweigh these costs in production environments.

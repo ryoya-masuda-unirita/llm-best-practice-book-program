@@ -51,7 +51,7 @@ class APIKeyManager:
             raise ValueError(f"Unsupported LLM provider: {provider}")
 
         logger.debug(f"Retrieved API key for provider: {provider}")
-        return self._provider_keys[provider_lower].get_secret_value()
+        return self._provider_keys[provider_lower]
 
     def is_provider_supported(self, provider: str) -> bool:
         """Check if a provider is supported.
