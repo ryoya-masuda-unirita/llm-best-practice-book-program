@@ -18,11 +18,12 @@ import click
 
 from src.client.llm_client import LLMProvider
 from src.logger import make_logger
-from src.model.parallel_world_model import CompletedArticle, ParallelSession, ParallelWorldState
-from src.service.parallel_world_service import (
+from src.model.parallel_world_model import ArticleReview, CompletedArticle, ParallelSession, ParallelWorldState
+from src.service.generation_service import (
     generate_first_half_node,
     generate_multiple_outlines_node,
     generate_multiple_second_halves_node,
+    regenerate_second_halves_after_rejection_node,
     review_all_articles_node,
 )
 
@@ -39,19 +40,15 @@ def print_separator():
     click.echo("\n" + "=" * 80 + "\n")
 
 
-def print_article_preview(article_content: str, max_lines: int = 10):
+def print_article_preview(article_content: str):
     """
     Print a preview of article content.
 
     Args:
         article_content: Full article text
-        max_lines: Maximum number of lines to display
     """
     lines = article_content.split("\n")
-    preview_lines = lines[:max_lines]
-    click.echo("\n".join(preview_lines))
-    if len(lines) > max_lines:
-        click.echo(f"\n... ({len(lines) - max_lines} more lines)")
+    click.echo("\n".join(lines))
 
 
 def display_outlines(outline_sessions: list[ParallelSession]):
@@ -83,7 +80,7 @@ def display_reviews(reviewed_sessions: list[ParallelSession]):
     for i, session in enumerate(reviewed_sessions, 1):
         review = session.review
         if review:
-            click.echo(f"\n[Article Variant {i}] - Grade: {review.grade}/5")
+            click.echo(f"\n[Article Variant {i}] - Grade: {review.grade}/{ArticleReview.best_grade()}")
             click.echo(f"Reasoning: {review.reasoning}")
             click.echo("Strengths:")
             for strength in review.strengths:
@@ -96,7 +93,7 @@ def display_reviews(reviewed_sessions: list[ParallelSession]):
             # Show preview of second half
             if session.second_half:
                 click.echo("\nSecond Half Preview:")
-                print_article_preview(session.second_half, max_lines=5)
+                print_article_preview(session.second_half)
 
 
 # =============================================================================
@@ -122,10 +119,7 @@ def get_outline_selection(outline_sessions: list[ParallelSession], auto_select: 
 
     while True:
         try:
-            choice = click.prompt(
-                f"\nSelect an outline (1-{len(outline_sessions)})",
-                type=int,
-            )
+            choice = click.prompt(f"\nSelect an outline (1-{len(outline_sessions)})", type=int)
             if 1 <= choice <= len(outline_sessions):
                 return choice - 1
             else:
@@ -156,16 +150,55 @@ def get_final_article_selection(reviewed_sessions: list[ParallelSession], auto_s
 
     while True:
         try:
-            choice = click.prompt(
-                f"\nSelect final article (1-{len(reviewed_sessions)})",
-                type=int,
-            )
+            choice = click.prompt(f"\nSelect final article (1-{len(reviewed_sessions)})", type=int)
             if 1 <= choice <= len(reviewed_sessions):
                 return choice - 1
             else:
                 click.echo(f"Please enter a number between 1 and {len(reviewed_sessions)}")
         except (ValueError, click.Abort):
             click.echo("Invalid input. Please enter a number.")
+
+
+def get_human_approval(completed_article: CompletedArticle, auto_select: bool) -> bool:
+    """
+    Get user's approval (yes/no) for the selected article.
+
+    Args:
+        completed_article: The selected complete article
+        auto_select: Whether to automatically approve without user interaction
+
+    Returns:
+        True if approved, False if rejected (needs revision)
+    """
+    if auto_select:
+        # Auto-approve if grade is 4 or higher
+        if completed_article.review and completed_article.review.grade >= 4:
+            click.echo("\n🤖 Auto-approved: Article grade is 4 or higher")
+            return True
+        else:
+            click.echo("\n🤖 Auto-rejected: Article grade is below 4")
+            return False
+
+    # Show article preview
+    click.echo("\n📝 Selected Article Preview:")
+    click.echo(f"Title: {completed_article.outline.title}")
+    if completed_article.review:
+        click.echo(f"Grade: {completed_article.review.grade}/{ArticleReview.best_grade()}")
+        click.echo(f"Review: {completed_article.review.reasoning}")
+
+    while True:
+        try:
+            response = click.prompt("\n✅ Do you approve this article? (yes/no)", type=str).lower().strip()
+
+            if response in ["yes", "y"]:
+                return True
+            elif response in ["no", "n"]:
+                return False
+            else:
+                click.echo("Please enter 'yes' or 'no'")
+        except click.Abort:
+            click.echo("\nOperation cancelled. Treating as rejection.")
+            return False
 
 
 # =============================================================================
@@ -233,18 +266,20 @@ async def run_parallel_world_article_generation(
     auto_select: bool,
 ) -> CompletedArticle | None:
     """
-    Run the complete parallel world article generation workflow with human-in-the-loop.
+    Run the complete parallel world article generation workflow with human-in-the-loop and review loop.
 
     This orchestrates the entire pipeline with user interactions at decision points.
 
     Workflow:
     1. Generate multiple outlines in parallel (AI Agent)
-    2. User selects preferred outline (Human-in-the-Loop)
+    2. User selects preferred outline (Human-in-the-Loop #1)
     3. Generate first half based on selection (AI Agent)
     4. Generate multiple second half variants in parallel (AI Agent)
     5. Review all complete articles with LLM-as-a-Judge (AI Agent)
-    6. User selects final article (Human-in-the-Loop)
-    7. Save selected article and all variants
+    6. User selects final article (Human-in-the-Loop #2)
+    7. User approves or rejects article (Human-in-the-Loop #3)
+    8. If rejected: Regenerate second halves with feedback, go back to step 5
+       If approved: Save selected article and all variants
 
     Args:
         theme: Article theme/topic
@@ -270,6 +305,9 @@ async def run_parallel_world_article_generation(
         "second_half_sessions": [],
         "reviewed_sessions": [],
         "final_selected_session_id": None,
+        "human_approved": None,
+        "rejected_session_ids": [],
+        "review_loop_iteration": 0,
         "llm_provider": llm_provider.value,
         "model": model,
         "error": None,
@@ -361,34 +399,98 @@ async def run_parallel_world_article_generation(
     click.echo(f"✅ Reviewed {len(reviewed_sessions)} complete articles")
 
     # =========================================================================
-    # Phase 6: Human Selects Final Article (Human-in-the-Loop #2)
+    # Phase 6-8: Review Loop (select article, get approval, regenerate if rejected)
     # =========================================================================
 
-    print_separator()
-    click.echo("👤 PHASE 6: Human-in-the-Loop - Select Your Preferred Article")
+    max_iterations = 5  # Prevent infinite loops
+    iteration = 0
+    human_approved = False
+    final_completed_article = None
 
-    display_reviews(reviewed_sessions)
-    best_idx = get_final_article_selection(reviewed_sessions, auto_select)
+    while not human_approved and iteration < max_iterations:
+        iteration += 1
 
-    final_session = reviewed_sessions[best_idx]
-    state["final_selected_session_id"] = final_session.session_id
+        # Phase 6: Human Selects Final Article (Human-in-the-Loop #2)
+        print_separator()
+        click.echo(f"👤 PHASE 6: Human-in-the-Loop - Select Your Preferred Article (Iteration {iteration})")
+
+        display_reviews(reviewed_sessions)
+        best_idx = get_final_article_selection(reviewed_sessions, auto_select)
+
+        final_session = reviewed_sessions[best_idx]
+        state["final_selected_session_id"] = final_session.session_id
+
+        # Create completed article for approval
+        completed_article = final_session.to_completed_article(language)
+
+        if not completed_article:
+            click.echo("❌ Failed to create completed article", err=True)
+            return None
+
+        # Phase 7: Human Approval (Human-in-the-Loop #3)
+        print_separator()
+        click.echo("✅ PHASE 7: Human-in-the-Loop - Approve or Reject Article")
+
+        human_approved = get_human_approval(completed_article, auto_select)
+        state["human_approved"] = human_approved
+
+        if human_approved:
+            click.echo("\n✅ Article approved! Proceeding to save...")
+            final_completed_article = completed_article
+            break
+        else:
+            click.echo("\n❌ Article rejected. Regenerating second half with feedback...")
+
+            # Track rejected session
+            if "rejected_session_ids" not in state:
+                state["rejected_session_ids"] = []
+            state["rejected_session_ids"].append(final_session.session_id)
+            state["review_loop_iteration"] = iteration
+
+            # Phase 8: Regenerate second halves with feedback
+            print_separator()
+            click.echo(f"🔄 PHASE 8: Regenerating Second Half Variants (Iteration {iteration})")
+            click.echo(f"Using feedback from {len(state['rejected_session_ids'])} rejected attempt(s)...")
+
+            # Regenerate second halves
+            state = await regenerate_second_halves_after_rejection_node(state)
+
+            if state.get("error"):
+                click.echo(f"❌ Error during regeneration: {state['error']}", err=True)
+                return None
+
+            second_half_sessions = state["second_half_sessions"]
+            click.echo(f"✅ Regenerated {len(second_half_sessions)} second half variants")
+
+            # Review regenerated articles
+            print_separator()
+            click.echo("⚖️  Re-reviewing Articles with LLM-as-a-Judge")
+
+            state = await review_all_articles_node(state)
+
+            if state.get("error"):
+                click.echo(f"❌ Error during review: {state['error']}", err=True)
+                return None
+
+            reviewed_sessions = state["reviewed_sessions"]
+            click.echo(f"✅ Re-reviewed {len(reviewed_sessions)} article variants")
+
+    if not human_approved:
+        click.echo(f"\n⚠️  Maximum iterations ({max_iterations}) reached without approval")
+        click.echo("Saving the last selected article...")
+        if not final_completed_article:
+            final_completed_article = completed_article
 
     # =========================================================================
-    # Phase 7: Save Final Article and All Variants
+    # Phase 9: Save Final Article and All Variants
     # =========================================================================
 
     print_separator()
     click.echo("💾 Saving Final Article")
 
-    completed_article = final_session.to_completed_article(language)
-
-    if not completed_article:
-        click.echo("❌ Failed to create completed article", err=True)
-        return None
-
     # Save files
     json_path, md_path, variants_dir = save_article_files(
-        completed_article,
+        final_completed_article,
         reviewed_sessions,
         language,
         output_directory,
@@ -400,17 +502,18 @@ async def run_parallel_world_article_generation(
 ✅ Article Generation Complete!
 
 Selected Article Details:
-  Title: {completed_article.outline.title}
-  Grade: {completed_article.review.grade}/5
-  Total Length: {len(completed_article.get_full_content())} characters
+  Title: {final_completed_article.outline.title}
+  Grade: {final_completed_article.review.grade if final_completed_article.review else "N/A"}/5
+  Total Length: {len(final_completed_article.get_full_content())} characters
+  Review Loop Iterations: {iteration}
 
 Files saved:
   📄 JSON: {json_path}
   📝 Markdown: {md_path}
 
 Session Metadata:
-  Session ID: {completed_article.session_id}
-  Created: {completed_article.created_at}
+  Session ID: {final_completed_article.session_id}
+  Created: {final_completed_article.created_at}
   Outline variants generated: {len(outline_sessions)}
   Second half variants generated: {len(second_half_sessions)}
 """
@@ -421,4 +524,4 @@ Session Metadata:
     print_separator()
     click.echo("🎉 Parallel World Article Generation Complete!")
 
-    return completed_article
+    return final_completed_article

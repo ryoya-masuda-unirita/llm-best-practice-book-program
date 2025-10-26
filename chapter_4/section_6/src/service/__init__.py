@@ -10,6 +10,7 @@ from src.service.parallel_world_service import (
     generate_first_half_node,
     generate_multiple_outlines_node,
     generate_multiple_second_halves_node,
+    regenerate_second_halves_after_rejection_node,
     review_all_articles_node,
 )
 from src.service.runner_service import run_parallel_world_article_generation
@@ -23,4 +24,5 @@ __all__ = [
     "generate_first_half_node",
     "generate_multiple_second_halves_node",
     "review_all_articles_node",
+    "regenerate_second_halves_after_rejection_node",
 ]

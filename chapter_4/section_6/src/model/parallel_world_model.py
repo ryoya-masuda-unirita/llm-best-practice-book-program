@@ -55,6 +55,20 @@ class ArticleHalf(BaseModel):
     content: str = Field(..., description="Article content in markdown format")
 
 
+class BestArticleSelection(BaseModel):
+    """Selection of the best article among multiple variants."""
+
+    model_config = ConfigDict(
+        validate_assignment=True,
+        frozen=True,
+        extra="ignore",
+        arbitrary_types_allowed=True,
+    )
+
+    reason: str = Field(..., description="Reason for selecting this article (2-3 sentences)")
+    selected_id: str = Field(..., description="ID of the selected best article")
+
+
 class ArticleReview(BaseModel):
     """Review of an article using LLM-as-a-Judge."""
 
@@ -83,6 +97,14 @@ class ArticleReview(BaseModel):
         default_factory=list,
         description="Specific weaknesses of the article (2-4 items if any)",
     )
+
+    @staticmethod
+    def worst_grade() -> int:
+        return 1
+
+    @staticmethod
+    def best_grade() -> int:
+        return 5
 
     def is_acceptable(self) -> bool:
         """Check if the article quality is acceptable (grade >= 4)."""
@@ -122,7 +144,7 @@ class CompletedArticle(BaseModel):
     second_half: str = Field(..., description="Second half of the article")
     review: ArticleReview | None = Field(None, description="Article review (optional)")
     language: Literal["en", "ja"] = Field(..., description="Article language")
-    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(), description="Creation timestamp")
+    created_at: str = Field(default_factory=lambda: datetime.now().isoformat(), description="Creation timestamp")
 
     def get_full_content(self) -> str:
         """Get the complete article content."""
@@ -179,7 +201,7 @@ class ParallelSession(BaseModel):
     second_half: str | None = Field(None, description="Second half of the article")
     review: ArticleReview | None = Field(None, description="Article review")
     metadata: dict = Field(default_factory=dict, description="Additional metadata")
-    created_at: str = Field(default_factory=lambda: datetime.utcnow().isoformat(), description="Creation timestamp")
+    created_at: str = Field(default_factory=lambda: datetime.now().isoformat(), description="Creation timestamp")
 
     def is_completed(self) -> bool:
         """Check if this session has all parts completed."""
@@ -221,8 +243,12 @@ class ParallelWorldState(TypedDict):
     second_half_sessions: list[ParallelSession]
     # Phase 5: Reviews generated for each complete article
     reviewed_sessions: list[ParallelSession]
-    # Final: User selection
+    # Phase 6: User selects best article
     final_selected_session_id: str | None
+    # Phase 7: Human review (yes/no) and feedback loop
+    human_approved: bool | None  # True if approved, False if needs revision
+    rejected_session_ids: list[str]  # Track rejected sessions to avoid re-showing
+    review_loop_iteration: int  # Track how many times we've looped
     # Pipeline metadata
     llm_provider: str
     model: str
