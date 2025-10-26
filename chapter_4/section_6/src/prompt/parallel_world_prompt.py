@@ -3,7 +3,12 @@
 import json
 from typing import Literal
 
-from src.model.parallel_world_model import ArticleHalf, ArticleOutline, ArticleReview, BestArticleSelection
+from src.model.parallel_world_model import (
+    ArticleHalf,
+    ArticleOutline,
+    ArticleReview,
+    BestArticleSelection,
+)
 
 
 def make_outline_generation_system_instruction(theme: str, language: Literal["en", "ja"]) -> tuple[str, str]:

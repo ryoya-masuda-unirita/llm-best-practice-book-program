@@ -13,9 +13,9 @@ from src.service.runner_service import run_parallel_world_article_generation
 logger = make_logger(__name__)
 
 
-def async_cmd(func):
+def async_cmd(func):  # type: ignore
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args, **kwargs):  # type: ignore
         return asyncio.run(func(*args, **kwargs))
 
     return wrapper
@@ -89,7 +89,7 @@ async def main(
     num_outline_variants: int = 3,
     num_second_half_variants: int = 3,
     auto_select: bool = False,
-):
+) -> None:
     """
     Generate an article using parallel world pattern with human-in-the-loop.
 

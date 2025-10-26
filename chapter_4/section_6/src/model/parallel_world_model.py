@@ -144,7 +144,10 @@ class CompletedArticle(BaseModel):
     second_half: str = Field(..., description="Second half of the article")
     review: ArticleReview | None = Field(None, description="Article review (optional)")
     language: Literal["en", "ja"] = Field(..., description="Article language")
-    created_at: str = Field(default_factory=lambda: datetime.now().isoformat(), description="Creation timestamp")
+    created_at: str = Field(
+        default_factory=lambda: datetime.now().isoformat(),
+        description="Creation timestamp",
+    )
 
     def get_full_content(self) -> str:
         """Get the complete article content."""
@@ -201,7 +204,10 @@ class ParallelSession(BaseModel):
     second_half: str | None = Field(None, description="Second half of the article")
     review: ArticleReview | None = Field(None, description="Article review")
     metadata: dict = Field(default_factory=dict, description="Additional metadata")
-    created_at: str = Field(default_factory=lambda: datetime.now().isoformat(), description="Creation timestamp")
+    created_at: str = Field(
+        default_factory=lambda: datetime.now().isoformat(),
+        description="Creation timestamp",
+    )
 
     def is_completed(self) -> bool:
         """Check if this session has all parts completed."""

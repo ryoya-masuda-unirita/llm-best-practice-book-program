@@ -116,7 +116,7 @@ async def choose_best_first_half(
     language: Literal["en", "ja"],
     model: str,
     provider: LLMProvider,
-) -> ArticleHalf:
+) -> ArticleHalf | None:
     """Choose the best first half from candidates using specified LLM provider."""
     first_halves = {uuid4().hex: candidate for candidate in first_half_candidates}
     system_instruction, user_content = make_choose_best_first_half_system_instruction(outline, first_halves, language)
@@ -236,7 +236,9 @@ def return_error_state(state: ParallelWorldState, error_msg: str) -> ParallelWor
     return {**state, "error": error_msg}
 
 
-async def generate_multiple_outlines_node(state: ParallelWorldState) -> ParallelWorldState:
+async def generate_multiple_outlines_node(
+    state: ParallelWorldState,
+) -> ParallelWorldState:
     """
     Generate multiple article outlines in parallel.
 
@@ -246,7 +248,12 @@ async def generate_multiple_outlines_node(state: ParallelWorldState) -> Parallel
 
     # Generate multiple outlines in parallel
     tasks = [
-        generate_outline(state["theme"], state["language"], state["model"], LLMProvider(state["llm_provider"]))
+        generate_outline(
+            state["theme"],
+            state["language"],
+            state["model"],
+            LLMProvider(state["llm_provider"]),
+        )
         for _ in range(state["num_outline_variants"])
     ]
     outlines = await asyncio.gather(*tasks)
@@ -295,11 +302,14 @@ async def generate_first_half_node(state: ParallelWorldState) -> ParallelWorldSt
     # Generate first half
     tasks = [
         generate_first_half(
-            selected_session.outline, state["language"], state["model"], LLMProvider(state["llm_provider"])
+            selected_session.outline,
+            state["language"],
+            state["model"],
+            LLMProvider(state["llm_provider"]),
         )
         for _ in range(state["num_outline_variants"])
     ]
-    first_half_contents: list[ArticleHalf] = await asyncio.gather(*tasks)
+    first_half_contents: list[ArticleHalf] = await asyncio.gather(*tasks)  # type: ignore
 
     if not first_half_contents:
         return return_error_state(state, "Failed to generate first half candidates")
@@ -332,7 +342,9 @@ async def generate_first_half_node(state: ParallelWorldState) -> ParallelWorldSt
     }
 
 
-async def generate_multiple_second_halves_node(state: ParallelWorldState) -> ParallelWorldState:
+async def generate_multiple_second_halves_node(
+    state: ParallelWorldState,
+) -> ParallelWorldState:
     """
     Generate multiple second half variants in parallel.
 
@@ -401,7 +413,11 @@ async def review_all_articles_node(state: ParallelWorldState) -> ParallelWorldSt
         if session.outline and session.first_half and session.second_half:
             full_article = f"{session.first_half}\n\n{session.second_half}"
             task = review_article(
-                state["theme"], session.outline, full_article, state["model"], LLMProvider(state["llm_provider"])
+                state["theme"],
+                session.outline,
+                full_article,
+                state["model"],
+                LLMProvider(state["llm_provider"]),
             )
             tasks.append(task)
             sessions_to_review.append(session)
@@ -439,7 +455,9 @@ async def review_all_articles_node(state: ParallelWorldState) -> ParallelWorldSt
     }
 
 
-async def regenerate_second_halves_after_rejection_node(state: ParallelWorldState) -> ParallelWorldState:
+async def regenerate_second_halves_after_rejection_node(
+    state: ParallelWorldState,
+) -> ParallelWorldState:
     """
     Regenerate multiple second half variants after human rejection.
 
