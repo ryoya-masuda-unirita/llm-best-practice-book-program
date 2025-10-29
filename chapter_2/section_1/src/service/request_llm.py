@@ -10,13 +10,12 @@ logger = make_logger(__name__)
 
 async def request_openai(model: OpenAIModel) -> CharacterResponse:
     prompt = make_prompt()
-    result = await openai_client.beta.chat.completions.parse(
+    result = await openai_client.responses.parse(
         model=model,
-        messages=prompt,
-        response_format=CharacterResponse,
-        temperature=1.0,
+        input=prompt,
+        text_format=CharacterResponse,
     )
-    return result.choices[0].message.parsed
+    return result.output_parsed
 
 
 async def request_gemini(model: GeminiModel) -> CharacterResponse:
@@ -28,7 +27,6 @@ async def request_gemini(model: GeminiModel) -> CharacterResponse:
             system_instruction=prompt[0]["content"],
             response_mime_type="application/json",
             response_schema=CharacterResponse,
-            temperature=2.0,
         ),
     )
     logger.info(result)
