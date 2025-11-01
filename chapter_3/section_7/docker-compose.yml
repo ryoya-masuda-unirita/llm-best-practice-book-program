@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  # Redis Cache Server
+  redis:
+    container_name: llm-redis-cache
+    image: redis:8-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - llm-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  # LLM API Server (Backend)
+  llm-server:
+    container_name: llm-api-server
+    image: shibui/llm-best-practice:chapter3_section7_web
+    platform: linux/amd64
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    env_file:
+      - .envrc
+    command:
+      - uvicorn
+      - src.api.llm_server:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - llm-network
+
+  # Background Worker for Processing Queued Tasks
+  llm-worker:
+    container_name: llm-worker
+    image: shibui/llm-best-practice:chapter3_section7_web
+    platform: linux/amd64
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    env_file:
+      - .envrc
+    command:
+      - python
+      - -m
+      - src.service.worker
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - llm-network
+
+volumes:
+  redis-data:
+    driver: local
+
+networks:
+  llm-network:
+    driver: bridge
