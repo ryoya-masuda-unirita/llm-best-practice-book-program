@@ -34,51 +34,51 @@ The system implements a **Producer-Consumer pattern** with priority queuing:
 - Redis-based queue implementation using Sorted Sets for FIFO ordering within each priority
 - Task metadata storage with comprehensive state tracking
 
- **Weighted Scheduling**
+**Weighted Scheduling**
 - Configurable processing ratios (default: 70% HIGH, 20% MEDIUM, 10% LOW)
 - Weighted random selection algorithm prevents starvation
 - Dynamic adjustment through environment variables
 
- **REST API Endpoints**
+**REST API Endpoints**
 - `POST /generate/queue`: Async task submission with priority assignment
 - `GET /task/{task_id}`: Real-time task status and result retrieval
 - `GET /queue/stats`: Queue statistics and monitoring
 - `POST /generate`: Synchronous processing (bypass queue)
 - `GET /health`: Health check endpoint
 
- **Task State Management**
-- Comprehensive state transitions: PENDING � PROCESSING � COMPLETED/FAILED/TIMEOUT
+**Task State Management**
+- Comprehensive state transitions: PENDING -> PROCESSING -> COMPLETED/FAILED/TIMEOUT
 - Timestamp tracking for created_at, started_at, completed_at
 - Queue position calculation for estimated wait times
 
- **Fault Tolerance**
+**Fault Tolerance**
 - Retry mechanism with configurable max attempts (default: 3)
 - Error message capture and logging
 - Processing set tracking for crash recovery
 
- **Multi-Provider Support**
+**Multi-Provider Support**
 - OpenAI GPT-4o-mini integration with structured outputs
 - Google Gemini 2.5 Flash integration with JSON schema validation
 - Provider-specific model validation
 
- **Docker Deployment**
+**Docker Deployment**
 - Multi-container setup: redis + llm-server + llm-worker
 - Health checks and automatic restart policies
 - Volume persistence for Redis data
 
 ### Current Limitations
 
-� **Monitoring & Observability**
+- **Monitoring & Observability**
 - Basic statistics endpoint exists but lacks Prometheus/Grafana integration
 - No distributed tracing (e.g., OpenTelemetry)
 - Limited metrics on processing time percentiles
 
-� **Scalability Considerations**
+- **Scalability Considerations**
 - Worker crash recovery not fully implemented (processing set cleanup on startup)
 - No automatic queue draining on low-priority queues exceeding thresholds
 - Task TTL cleanup exists but requires manual trigger
 
-� **Advanced Features Not Implemented**
+- **Advanced Features Not Implemented**
 - No rate limiting per user (e.g., 100 requests/hour for FREE tier)
 - No burst allowance for premium users
 - No adaptive priority adjustment based on queue length
@@ -273,28 +273,28 @@ def _get_next_priority(self) -> Priority:
 ```
 
 **Mathematical Properties**:
-- Expected value: E[priority] = �(priority � weight)
+- Expected value: E[priority] = sum(priority * weight)
 - Law of large numbers: long-term ratio approaches configured weights
-- Variance: ò decreases with more samples (more processing cycles)
+- Variance: decreases with more samples (more processing cycles)
 
 **Alternative Algorithms Considered**:
 
 1. **Strict Priority**: Always process HIGH until empty
    - L Causes starvation of LOW priority
-   -  Minimal latency for HIGH priority
+   - Minimal latency for HIGH priority
 
 2. **Round Robin**: Cycle through priorities equally
    - L Doesn't respect business importance
-   -  Perfectly fair
+   - Perfectly fair
 
 3. **Dynamic Priority Adjustment**: Increase priority of waiting tasks over time
    - L Complex implementation
-   -  Bounded wait times
+   - Bounded wait times
 
 4. **Weighted Random (Chosen)**:
-   -  Balances fairness and priority
-   -  Simple implementation
-   -  Configurable trade-offs
+   - Balances fairness and priority
+   - Simple implementation
+   - Configurable trade-offs
 
 #### Task Processing Loop
 
@@ -359,9 +359,9 @@ async def _process_task(self, task: QueuedTask) -> None:
     - After max retries, task marked as FAILED
 
     State Transitions:
-    PENDING � PROCESSING � COMPLETED (success)
-                        � FAILED (max retries exceeded)
-                        � PENDING (retry, re-enqueued)
+    PENDING -> PROCESSING -> COMPLETED (success)
+                        -> FAILED (max retries exceeded)
+                        -> PENDING (retry, re-enqueued)
     """
     try:
         task.status = TaskStatus.PROCESSING
@@ -429,7 +429,7 @@ async def queue_generate_character(request: LLMRequest):
     Response includes:
     - task_id: Unique identifier for status checks
     - priority: Assigned priority level
-    - estimated_wait_time_seconds: Queue position � avg_processing_time
+    - estimated_wait_time_seconds: Queue position * avg_processing_time
     - message: Human-readable status message
     """
     # Validate model for provider
@@ -659,7 +659,7 @@ docker-compose up -d --scale llm-worker=3
 **How it works**:
 - Each worker independently polls Redis queues
 - Redis atomic operations prevent duplicate processing
-- Linear scaling: 3 workers H 3� throughput
+- Linear scaling: 3 workers ~ 3x throughput
 - No coordination required between workers
 
 **Bottlenecks**:
@@ -696,21 +696,21 @@ llm-worker:
 - **Theoretical max**: ~20 tasks/minute/worker
 
 **Measured Performance** (actual testing required):
-- HIGH priority: ~14 tasks/minute (70% � 20)
-- MEDIUM priority: ~4 tasks/minute (20% � 20)
-- LOW priority: ~2 tasks/minute (10% � 20)
+- HIGH priority: ~14 tasks/minute (70% * 20)
+- MEDIUM priority: ~4 tasks/minute (20% * 20)
+- LOW priority: ~2 tasks/minute (10% * 20)
 
 ### Latency Characteristics
 
 **Queue Wait Time**:
 - HIGH priority with empty queue: ~0 seconds
-- HIGH priority with 10 HIGH tasks: ~30 seconds (10 � 3s)
+- HIGH priority with 10 HIGH tasks: ~30 seconds (10 * 3s)
 - LOW priority with 100 mixed tasks: ~15 minutes (stochastic)
 
 **End-to-End Latency**:
 ```
 Total Time = Queue Wait + Processing Time + Overhead
-           = (position � avg_processing_time / priority_ratio) + 3000ms + 50ms
+           = (position * avg_processing_time / priority_ratio) + 3000ms + 50ms
 ```
 
 **SLA Recommendations**:
