@@ -315,11 +315,11 @@ The `detailed_model()` method creates a JSON schema for LLM prompts:
 
 ```python
 {
-    "location": "string; 4@n���L�K���	",
-    "weather_summary": "string; ��n)n��",
+    "location": "string; e.g., \"Kansas City, USA\"",
+    "weather_summary": "string; brief overview of current conditions",
     "current_weather": {...},
     "outfit_recommendations": [{...}, {...}, {...}],
-    "additional_advice": "string; ]n�n��Ф�"
+    "additional_advice": "string; any extra notes for the user"
 }
 ```
 
@@ -506,13 +506,13 @@ class LLMProvider(StrEnum):
 **Per-Request Costs** (approximate):
 
 **OpenAI (GPT-4o-mini)**:
-- Input: ~500 tokens (weather data + system prompt) � $0.15/1M = $0.000075
-- Output: ~300 tokens (outfit recommendations) � $0.60/1M = $0.00018
+- Input: ~500 tokens (weather data + system prompt) × $0.15/1M = $0.000075
+- Output: ~300 tokens (outfit recommendations) × $0.60/1M = $0.00018
 - **Total**: ~$0.000255 per request
 
 **Gemini (2.5 Flash)**:
-- Input: ~500 tokens � $0.075/1M = $0.0000375
-- Output: ~300 tokens � $0.30/1M = $0.00009
+- Input: ~500 tokens × $0.075/1M = $0.0000375
+- Output: ~300 tokens × $0.30/1M = $0.00009
 - **Total**: ~$0.0001275 per request
 
 **NWS API**: Free (public service)
@@ -578,8 +578,8 @@ def test_outfit_response_validation():
 
 # test_prompt.py
 def test_prompt_includes_weather_data():
-    prompt = make_outfit_prompt("Temperature: 50�F")
-    assert "50�F" in str(prompt)
+    prompt = make_outfit_prompt("Temperature: 50°F")
+    assert "50°F" in str(prompt)
     assert "system" in prompt[0]["role"]
 ```
 
@@ -632,7 +632,7 @@ async def test_tool_call_returns_forecast():
 @pytest.mark.asyncio
 async def test_request_openai_with_mocked_weather(mocker):
     # Mock MCP weather tool
-    mock_weather = "Temperature: 50�F, Wind: 10mph"
+    mock_weather = "Temperature: 50°F, Wind: 10mph"
     mocker.patch("src.service.request_llm.session.call_tool",
                  return_value=Mock(content=[Mock(text=mock_weather)]))
 
@@ -649,7 +649,7 @@ async def test_request_openai_with_mocked_weather(mocker):
 ```python
 # test_error_handling.py
 async def test_network_timeout_handled():
-    with pytest.raises(ValueError, match=")�1���n֗k1W"):
+    with pytest.raises(ValueError, match=r"(US[- ]only|US territory|coordinates.*US)"): 
         # Use coordinates that will timeout or fail
         await request_openai_outfit("gpt-4o-mini", 0.0, 0.0)
 
@@ -658,7 +658,7 @@ async def test_json_parse_error_handled(mocker):
     mocker.patch("...generate_content",
                  return_value=Mock(text="This is not JSON"))
 
-    with pytest.raises(ValueError, match="JSON�k1W"):
+    with pytest.raises(ValueError, match="JSON parse error"):
         await request_gemini_outfit("gemini-2.5-flash", 39.7456, -97.0892)
 ```
 
@@ -776,10 +776,10 @@ docker run -e OPENAI_API_KEY=$OPENAI_API_KEY \
 
 **Good**:
 ```
-)�1���n֗k1WW~W_
-Sn���os���a@(NWS)nAPI�(WfD�_�s��n�n��WfD~Y
-�U�_�: �=35.6762, L�=139.6503
-s��n��(WfO`UD�: Kansas, USA - lat=39.7456, lon=-97.0892	
+米国内の座標のみ対応しています。対象外の地域が指定されました。
+このシステムは米国の国立気象局（NWS）APIを利用しているため、米国領内の座標のみ対応しています。
+提供された座標: lat=35.6762, lon=139.6503（日本・東京）
+例として、米国内の利用可能な座標: Kansas, USA - lat=39.7456, lon=-97.0892
 ```
 
 **Principles**:
@@ -791,13 +791,13 @@ s��n��(WfO`UD�: Kansas, USA - lat=39.7456, lon=-97.0892
 ### 4. Provider Differences Matter
 
 **OpenAI**:
-- No native MCP support � manual orchestration
+- No native MCP support — manual orchestration
 - Excellent structured output support
 - Clear token usage reporting
 - Predictable pricing
 
 **Gemini**:
-- Native MCP support � cleaner code
+- Native MCP support — cleaner code
 - Tool use incompatible with structured output
 - Requires JSON extraction from text
 - More aggressive pricing
@@ -831,7 +831,7 @@ s��n��(WfO`UD�: Kansas, USA - lat=39.7456, lon=-97.0892
 - API integrations
 - IoT sensor data
 
-**Pattern**: LLM interprets user intent � Fetch fresh data � LLM synthesizes response
+**Pattern**: LLM interprets user intent → Fetch fresh data → LLM synthesizes response
 
 ## Future Improvements
 
