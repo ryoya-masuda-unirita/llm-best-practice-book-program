@@ -2,7 +2,7 @@
 
 ## 概要
 
-このプロジェクトは、**LLM自身に出力スキーマを動的に生成させる**先進的なアプローチを示すサンプルコードです。従来、開発者が事前に固定的な出力スキーマを定義する必要がありましたが、本プロジェクトではLLMに対して「どのような情報を抽出すべきか」を問いかけ、最適な出力構造（JSON SchemaやPydanticモデル）を自動生成させます。
+このプロジェクトは、**LLM自身に出力スキーマを動的に生成させる**先進的なアプローチを示すサンプルコードです。従来、開発者が事前に固定的な出力スキーマを定義する必要がありましたが、本プロジェクトではLLMに対して「どのような情報を抽出すべきか」を問いかけ、最適な出力構造(JSON SchemaやPydanticモデル)を自動生成させます。
 
 この2段階アプローチにより、多様なドメインや要件の変化に対して、システムが動的に適応可能な出力構造を自ら生成できるようになります。OpenAI GPT-4oおよびGemini 2.5シリーズの両方に対応し、基本的な使用例から高度な推論を必要とする複雑なユースケースまで、17の実践的なサンプルを提供します。
 
@@ -30,6 +30,7 @@ chapter_3/section_14/
 │   ├── __init__.py
 │   ├── main.py                          # メインエントリーポイント
 │   ├── logger.py                        # ロギング設定
+│   ├── config.py                        # 設定管理
 │   ├── auto_structured_output/          # 自動構造化出力コアモジュール
 │   │   ├── __init__.py
 │   │   ├── extractor.py                 # 構造抽出メインクラス
@@ -44,10 +45,10 @@ chapter_3/section_14/
 │   └── examples/                        # 実践的な使用例
 │       ├── __init__.py
 │       ├── runner.py                    # 標準実行ロジック
-│       ├── basic_usage.py               # 基本例（5例）
-│       ├── advanced_examples.py         # 応用例（6例）
-│       └── high_reasoning_examples.py   # 高推論例（6例）
-├── outputs/                              # 生成結果の保存先（自動作成）
+│       ├── basic_usage.py               # 基本例(5例)
+│       ├── advanced_examples.py         # 応用例(6例)
+│       └── high_reasoning_examples.py   # 高推論例(6例)
+├── outputs/                              # 生成結果の保存先(自動作成)
 ├── .envrc.example                        # 環境変数設定のサンプル
 ├── Makefile                              # 開発用タスク定義
 ├── pyproject.toml                        # プロジェクト依存関係
@@ -62,7 +63,7 @@ chapter_3/section_14/
 ```
 ┌─────────────────────────────────────────────────────────┐
 │              CLI Layer (main.py)                        │
-│  - コマンドライン引数解析（Click）                        │
+│  - コマンドライン引数解析(Click)                          │
 │  - 例題選択とプロバイダー指定                             │
 │  - 出力ディレクトリ管理                                   │
 └──────────────────────┬──────────────────────────────────┘
@@ -172,7 +173,7 @@ class StructureExtractor:
 ```
 
 **ポイント**:
-- OpenAI専用の実装（Geminiサポートは例題レイヤーのみ）
+- OpenAI専用の実装(Geminiサポートは例題レイヤーのみ)
 - 3段階の明確な処理分離
 - エラーハンドリングと例外の型付け
 
@@ -189,7 +190,7 @@ class SchemaGenerator:
         model: str,
         use_high_reasoning: bool = False,
     ) -> dict[str, Any]:
-        """プロンプトからスキーマを抽出（リトライ機能付き）"""
+        """プロンプトからスキーマを抽出(リトライ機能付き)"""
         messages = get_schema_extraction_messages(prompts, use_high_reasoning)
 
         for attempt in range(self.max_retries):
@@ -246,7 +247,7 @@ class ModelBuilder:
 **ポイント**:
 - `create_model()`で実行時にクラスを生成
 - ネストされたオブジェクトや配列にも対応
-- anyOf（Union型）のサポート
+- anyOf(Union型)のサポート
 
 #### 3. 実践例 (`src/examples/`)
 
@@ -260,20 +261,20 @@ class ModelBuilder:
 - `example_5_datetime_fields`: 日時フィールドを含むイベントモデル
 
 **応用例 (`advanced_examples.py`)** - 6例
-- `example_1_nested_objects`: ネストされたオブジェクト（ユーザープロフィール）
-- `example_2_complex_article`: 複雑な記事構造（著者とコメント）
-- `example_3_array_of_objects`: オブジェクト配列（注文システム）
-- `example_4_deep_nesting`: 深いネスト構造（組織階層）
-- `example_5_anyof_union_types`: Union型（支払い方法）
-- `example_6_validation_constraints`: バリデーション制約（商品仕様）
+- `example_1_nested_objects`: ネストされたオブジェクト(ユーザープロフィール)
+- `example_2_complex_article`: 複雑な記事構造(著者とコメント)
+- `example_3_array_of_objects`: オブジェクト配列(注文システム)
+- `example_4_deep_nesting`: 深いネスト構造(組織階層)
+- `example_5_anyof_union_types`: Union型(支払い方法)
+- `example_6_validation_constraints`: バリデーション制約(商品仕様)
 
 **高推論例 (`high_reasoning_examples.py`)** - 6例
 - `example_1_customer_feedback_analysis`: 顧客フィードバック分析
 - `example_2_meeting_summary`: 会議議事録の構造化
 - `example_3_research_paper_metadata`: 学術論文メタデータ抽出
-- `example_4_job_application_evaluation`: 求人応募評価（マルチプロンプト）
-- `example_5_financial_transaction_analysis`: 金融取引分析（マルチプロンプト）
-- `example_6_high_reasoning`: 商品レビュー分析（マルチプロンプト）
+- `example_4_job_application_evaluation`: 求人応募評価(マルチプロンプト)
+- `example_5_financial_transaction_analysis`: 金融取引分析(マルチプロンプト)
+- `example_6_high_reasoning`: 商品レビュー分析(マルチプロンプト)
 
 #### 4. 高推論モードとマルチプロンプト対応
 
@@ -314,11 +315,11 @@ T_Model = extractor.extract_structure(prompts, use_high_reasoning=True)
 
 ```python
 def run(llm_client: Any, model: OpenAIModel | GeminiModel, prompt: str, file_name: Optional[str] = None):
-    # Step 1: スキーマ生成（OpenAI専用）
+    # Step 1: スキーマ生成(OpenAI専用)
     extractor = StructureExtractor(llm_client=llm_client, model=model)
     T_Model = extractor.extract_structure([prompt])
 
-    # Step 2: データ抽出（プロバイダー自動判定）
+    # Step 2: データ抽出(プロバイダー自動判定)
     if isinstance(llm_client, genai.Client):
         # Gemini用のスキーマ変換と実行
         gemini_schema = _convert_to_gemini_schema(T_Model)
@@ -373,7 +374,7 @@ export GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
 2. **依存関係のインストール**
 
 ```bash
-# uvを使用する場合（推奨）
+# uvを使用する場合(推奨)
 uv sync
 
 # pipを使用する場合
@@ -391,7 +392,7 @@ python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -e example_1_simple_user_model
 # OpenAIを使用して基本例を実行
 python -m src.main -lp OPENAI -m GPT_4O -e example_1_simple_user_model
 
-# 高推論例を実行（GPT-4o推奨）
+# 高推論例を実行(GPT-4o推奨)
 python -m src.main -lp OPENAI -m GPT_4O -e example_1_customer_feedback_analysis
 ```
 
@@ -422,7 +423,7 @@ Options:
 python -m src.main -lp OPENAI -m GPT_4O -e example_1_nested_objects -od ./my_outputs
 ```
 
-#### Makefileを使った実行（開発用）
+#### Makefileを使った実行(開発用)
 
 ```bash
 # 基本例の実行
@@ -570,12 +571,12 @@ python -m src.main -lp OPENAI -m GPT_4O -e example_1_customer_feedback_analysis
 python -m src.main -lp OPENAI -m GPT_4O -e example_4_job_application_evaluation
 ```
 
-この例では、3つの異なるプロンプト（ジュニア、シニア、専門エンジニア）から、すべてのレベルに対応できる統合スキーマを生成します。
+この例では、3つの異なるプロンプト(ジュニア、シニア、専門エンジニア)から、すべてのレベルに対応できる統合スキーマを生成します。
 
 **生成されたスキーマの特徴**:
-- ジュニア特有のフィールド（`internships`, `bootcamp_experience`）
-- シニア特有のフィールド（`technical_leadership`, `system_scaling_experience`）
-- 専門特有のフィールド（`certifications`, `publications`, `patents`）
+- ジュニア特有のフィールド(`internships`, `bootcamp_experience`)
+- シニア特有のフィールド(`technical_leadership`, `system_scaling_experience`)
+- 専門特有のフィールド(`certifications`, `publications`, `patents`)
 - すべてのフィールドが適切にオプショナル化され、柔軟に対応可能
 
 ### テスト方法
