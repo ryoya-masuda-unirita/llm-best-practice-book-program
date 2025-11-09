@@ -2,19 +2,11 @@
 
 from src.workflow.builder import WorkflowBuilder
 from src.workflow.engine import WorkflowEngine
-from src.workflow.factory import NodeFactory, WorkflowFactory
-from src.workflow.nodes import (
-    EndNode,
-    IfElseNode,
-    LoopNode,
-    PromptNode,
-    PythonScriptNode,
-    StartNode,
-)
+from src.workflow.nodes import EndNode, IfElseNode, LoopNode, PromptNode, PythonScriptNode, StartNode
 from src.workflow.state import ExecutionState, WorkflowState
 from src.workflow.workflow import Workflow
 
-# Optional: LLM executor helpers (requires service module)
+# Optional: LLM executor helpers
 try:
     from src.workflow import llm_executors
 except ImportError:
@@ -23,8 +15,6 @@ except ImportError:
 __all__ = [
     "WorkflowBuilder",
     "WorkflowEngine",
-    "NodeFactory",
-    "WorkflowFactory",
     "StartNode",
     "EndNode",
     "PromptNode",

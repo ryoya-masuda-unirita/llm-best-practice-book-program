@@ -30,71 +30,26 @@ class Workflow:
         self.end_node_ids: list[str] = []
 
     def add_node(self, node: Node) -> None:
-        """
-        Add a node to the workflow.
-
-        Args:
-            node: Node to add
-        """
         self.nodes[node.node_id] = node
-        logger.debug(f"Added node {node.node_id} to workflow {self.workflow_id}")
 
     def add_edge(self, edge: Edge) -> None:
-        """
-        Add an edge to the workflow.
-
-        Args:
-            edge: Edge to add
-        """
-        # Validate nodes exist
-        if edge.from_node_id not in self.nodes:
-            raise ValueError(f"Source node {edge.from_node_id} not found in workflow")
-        if edge.to_node_id not in self.nodes:
-            raise ValueError(f"Target node {edge.to_node_id} not found in workflow")
-
+        if edge.from_node_id not in self.nodes or edge.to_node_id not in self.nodes:
+            raise ValueError(f"Edge nodes not found: {edge.from_node_id} -> {edge.to_node_id}")
         self.edges.append(edge)
-
-        # Update node next_nodes
-        from_node = self.nodes[edge.from_node_id]
-        from_node.add_next_node(edge.to_node_id)
-
-        logger.debug(f"Added edge {edge.from_node_id} -> {edge.to_node_id}")
+        self.nodes[edge.from_node_id].add_next_node(edge.to_node_id)
 
     def set_start_node(self, node_id: str) -> None:
-        """
-        Set the start node for the workflow.
-
-        Args:
-            node_id: ID of the start node
-        """
         if node_id not in self.nodes:
-            raise ValueError(f"Start node {node_id} not found in workflow")
+            raise ValueError(f"Start node {node_id} not found")
         self.start_node_id = node_id
-        logger.debug(f"Set start node to {node_id}")
 
     def add_end_node(self, node_id: str) -> None:
-        """
-        Add an end node to the workflow.
-
-        Args:
-            node_id: ID of the end node
-        """
         if node_id not in self.nodes:
-            raise ValueError(f"End node {node_id} not found in workflow")
+            raise ValueError(f"End node {node_id} not found")
         if node_id not in self.end_node_ids:
             self.end_node_ids.append(node_id)
-        logger.debug(f"Added end node {node_id}")
 
     def get_node(self, node_id: str) -> Node | None:
-        """
-        Get a node by ID.
-
-        Args:
-            node_id: Node ID
-
-        Returns:
-            Node or None if not found
-        """
         return self.nodes.get(node_id)
 
     def get_next_nodes(self, node_id: str, context: ExecutionContext) -> list[str]:

@@ -38,62 +38,28 @@ class ExecutionContext(BaseModel):
         return self.node_outputs.get(node_id, default)
 
 
-class NodeExecutionStrategy(ABC):
-    """Strategy Pattern: Defines the interface for node execution strategies."""
+class Node(ABC):
+    """Base class for all workflow nodes."""
+
+    def __init__(self, node_id: str, name: str | None = None):
+        self.node_id = node_id
+        self.name = name or node_id
+        self.next_nodes: list[str] = []
 
     @abstractmethod
     async def execute(self, context: ExecutionContext) -> Any:
         """Execute the node logic."""
         pass
 
-
-class Node(ABC):
-    """
-    Composite Pattern: Base class for all workflow nodes.
-    Provides a unified interface for treating individual nodes and workflows hierarchically.
-    """
-
-    def __init__(self, node_id: str, name: str | None = None):
-        """
-        Initialize a node.
-
-        Args:
-            node_id: Unique identifier for the node
-            name: Optional human-readable name for the node
-        """
-        self.node_id = node_id
-        self.name = name or node_id
-        self.next_nodes: list[str] = []  # IDs of next nodes
-        self.execution_strategy: NodeExecutionStrategy | None = None
-
-    @abstractmethod
-    async def execute(self, context: ExecutionContext) -> Any:
-        """
-        Execute the node logic.
-
-        Args:
-            context: Execution context containing workflow state
-
-        Returns:
-            Node execution result
-        """
-        pass
-
     def add_next_node(self, node_id: str) -> None:
-        """Add a next node ID."""
         if node_id not in self.next_nodes:
             self.next_nodes.append(node_id)
 
     def get_next_nodes(self) -> list[str]:
-        """Get list of next node IDs."""
         return self.next_nodes.copy()
 
-    def set_execution_strategy(self, strategy: NodeExecutionStrategy) -> None:
-        """Strategy Pattern: Set the execution strategy for this node."""
-        self.execution_strategy = strategy
-
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(node_id={self.node_id}, name={self.name})"
+        return f"{self.__class__.__name__}({self.node_id})"
 
 
 class Edge(BaseModel):

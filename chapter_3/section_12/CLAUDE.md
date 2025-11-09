@@ -34,7 +34,7 @@ Workflows are defined as **Directed Acyclic Graphs (DAGs)** where:
 The engine supports multiple node types for different purposes:
 
 - **StartNode**: Entry point, initializes workflow variables
-- **EndNode**: Terminal node, collects final outputs
+- **EndNode**: Terminal node, returns simplified status (avoids circular references in checkpoints)
 - **PromptNode**: Executes LLM API calls with customizable executors
 - **IfElseNode**: Conditional branching based on runtime conditions
 - **LoopNode**: Iterates over collections or repeats until conditions are met
@@ -75,6 +75,8 @@ The Memento pattern enables automatic checkpointing:
 - State persisted to JSON files in `checkpoints/` directory
 - Workflows can resume from any checkpoint after failures
 - Supports both automatic and manual checkpointing
+- Circular reference prevention: EndNode stores simplified output to enable JSON serialization
+- Robust checkpoint listing: automatically skips invalid or empty checkpoint files
 
 ### 3. Automatic Retry with Exponential Backoff
 
@@ -579,6 +581,103 @@ Potential improvements for production use:
 7. **Workflow Versioning**: Track and manage workflow definition versions
 8. **Circuit Breaker**: Automatic failure detection and workflow suspension
 
+## Technical Issues and Resolutions
+
+### Circular Reference in Checkpoint Serialization
+
+**Issue**: During checkpoint serialization, a `ValueError: Circular reference detected` error occurred when saving workflow state to JSON files.
+
+**Root Cause**:
+The `EndNode` implementation was creating a circular reference in the execution context:
+
+1. `EndNode.execute()` collected all workflow outputs: `result["outputs"] = context.node_outputs`
+2. This result was then stored back into the context: `context.set_node_output("end", result)`
+3. This created a circular reference: `context.node_outputs["end"]["outputs"]` contained `context.node_outputs`
+4. JSON serialization detected the cycle and raised an error
+
+**Problem Code**:
+```python
+# Before fix (in EndNode.execute)
+result = {
+    "status": "completed",
+    "workflow_id": context.workflow_id,
+    "outputs": context.node_outputs,  # ← Circular reference source
+    "variables": context.variables
+}
+context.set_node_output(self.node_id, result)  # ← Creates cycle
+return result
+```
+
+**Solution**:
+Modified `EndNode` to return only essential status information, avoiding duplication of outputs:
+
+```python
+# After fix (in EndNode.execute)
+async def execute(self, context: ExecutionContext) -> dict[str, Any]:
+    """
+    Execute the end node.
+
+    Returns:
+        Final workflow results (simplified to avoid circular references in checkpoints)
+    """
+    logger.info(f"Ending workflow: {context.workflow_id}")
+
+    # Return simplified result without full node_outputs
+    result = {
+        "status": "completed",
+        "workflow_id": context.workflow_id,
+    }
+
+    # Note: We don't include outputs/variables here to avoid circular reference
+    # The engine already has access to all outputs via context.node_outputs
+    # and variables via context.variables
+    return result
+```
+
+**Additional Improvements**:
+Enhanced `CheckpointManager.list_checkpoints()` to handle corrupted checkpoint files:
+
+```python
+def list_checkpoints(self, workflow_id: str) -> list[dict[str, Any]]:
+    """List all checkpoints for a workflow."""
+    checkpoints = []
+    for cp_file in sorted(...):
+        # Skip empty or invalid checkpoint files
+        if cp_file.stat().st_size == 0:
+            logger.warning(f"Skipping empty checkpoint file: {cp_file}")
+            continue
+
+        try:
+            with open(cp_file, encoding="utf-8") as f:
+                content = f.read()
+                if not content.strip():
+                    logger.warning(f"Skipping empty checkpoint file: {cp_file}")
+                    continue
+                data = json.loads(content)
+                checkpoints.append({"checkpoint_id": data["checkpoint_id"],
+                                   "timestamp": data["timestamp"]})
+        except json.JSONDecodeError as e:
+            logger.warning(f"Skipping invalid checkpoint file {cp_file}: {e}")
+            continue
+    return checkpoints
+```
+
+**Impact**:
+- ✅ All workflows now complete successfully
+- ✅ Checkpoints serialize correctly to JSON
+- ✅ Invalid checkpoint files don't break workflow execution
+- ✅ Full workflow outputs still accessible via `WorkflowEngine.execute()` return value
+
+**Verification**:
+```bash
+# Run checkpoint recovery workflow
+python -m src.main -w example_checkpoint_recovery
+
+# Verify checkpoint structure
+cat checkpoints/checkpoint_workflow_*.json | jq '.execution_context.node_outputs.end'
+# Output: {"status": "completed", "workflow_id": "checkpoint_workflow"}
+```
+
 ## Conclusion
 
 This workflow orchestration engine demonstrates how to build robust, maintainable LLM applications using established design patterns. By declaratively defining workflows as DAGs and leveraging patterns like Memento for checkpointing and Strategy for flexible LLM provider selection, we achieve a system that is both powerful and extensible.
@@ -588,5 +687,11 @@ The implementation prioritizes:
 - **Observability** through comprehensive state tracking and logging
 - **Maintainability** through clean separation of concerns and declarative definitions
 - **Flexibility** through pluggable components and multi-provider support
+
+Key technical considerations:
+- **Circular Reference Prevention**: EndNode returns simplified outputs to enable JSON serialization
+- **Error Resilience**: Checkpoint manager gracefully handles corrupted files
+- **Stateless Design**: All state stored in ExecutionContext for proper checkpoint/resume
+- **Idempotent Nodes**: Nodes designed for safe re-execution after failures
 
 While the initial learning curve and overhead may not suit simple use cases, for medium to large-scale LLM applications with complex processing requirements, the benefits far outweigh the costs. The patterns and architecture presented here provide a solid foundation for building production-grade LLM workflow systems.

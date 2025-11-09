@@ -33,63 +33,18 @@ class WorkflowMemento(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
 
     def to_json(self) -> str:
-        """
-        Serialize memento to JSON.
-
-        Returns:
-            JSON string
-        """
-
-        def json_serializer(obj):
-            """Handle datetime and other non-serializable objects."""
-            if isinstance(obj, datetime):
-                return obj.isoformat()
-            return str(obj)
-
-        def remove_circular_refs(obj, seen=None, depth=0, max_depth=10):
-            """Recursively remove circular references from nested data structures."""
-            if seen is None:
-                seen = set()
-
-            # Limit recursion depth
-            if depth > max_depth:
-                return "<max depth exceeded>"
-
-            # Handle different types
-            if isinstance(obj, (str, int, float, bool, type(None))):
-                return obj
-            elif isinstance(obj, datetime):
-                return obj.isoformat()
-            elif isinstance(obj, dict):
-                obj_id = id(obj)
-                if obj_id in seen:
-                    return "<circular reference>"
-
-                seen.add(obj_id)
-                result = {}
-                for key, value in obj.items():
-                    # Special handling for outputs/variables to prevent deep nesting
-                    if key in ("outputs", "variables") and depth > 3:
-                        result[key] = f"<truncated at depth {depth}>"
-                    else:
-                        result[key] = remove_circular_refs(value, seen.copy(), depth + 1, max_depth)
-                return result
-            elif isinstance(obj, (list, tuple)):
-                return [remove_circular_refs(item, seen.copy(), depth + 1, max_depth) for item in obj]
-            else:
-                return str(obj)
-
-        # Clean the data
+        """Serialize memento to JSON."""
         data = {
             "workflow_id": self.workflow_id,
             "checkpoint_id": self.checkpoint_id,
             "timestamp": self.timestamp.isoformat(),
-            "workflow_state": remove_circular_refs(self.workflow_state),
-            "execution_context": remove_circular_refs(self.execution_context),
+            "workflow_state": self.workflow_state,
+            "execution_context": self.execution_context,
             "metadata": self.metadata,
         }
-
-        return json.dumps(data, indent=2, default=json_serializer)
+        return json.dumps(
+            data, indent=2, default=lambda obj: obj.isoformat() if isinstance(obj, datetime) else str(obj)
+        )
 
     @classmethod
     def from_json(cls, json_str: str) -> "WorkflowMemento":
@@ -230,53 +185,28 @@ class CheckpointManager:
         return memento
 
     def list_checkpoints(self, workflow_id: str) -> list[dict[str, Any]]:
-        """
-        List all checkpoints for a workflow.
-
-        Args:
-            workflow_id: Workflow ID
-
-        Returns:
-            List of checkpoint metadata
-        """
-        checkpoint_files = sorted(
-            self.checkpoint_dir.glob(f"{workflow_id}_*.json"), key=lambda p: p.stat().st_mtime, reverse=True
-        )
-
+        """List all checkpoints for a workflow."""
         checkpoints = []
-        for checkpoint_file in checkpoint_files:
-            with open(checkpoint_file, encoding="utf-8") as f:
-                data = json.loads(f.read())
-                checkpoints.append(
-                    {
-                        "checkpoint_id": data["checkpoint_id"],
-                        "timestamp": data["timestamp"],
-                        "file_path": str(checkpoint_file),
-                    }
-                )
+        for cp_file in sorted(
+            self.checkpoint_dir.glob(f"{workflow_id}_*.json"), key=lambda p: p.stat().st_mtime, reverse=True
+        ):
+            # Skip empty or invalid checkpoint files
+            if cp_file.stat().st_size == 0:
+                logger.warning(f"Skipping empty checkpoint file: {cp_file}")
+                continue
 
+            try:
+                with open(cp_file, encoding="utf-8") as f:
+                    content = f.read()
+                    if not content.strip():
+                        logger.warning(f"Skipping empty checkpoint file: {cp_file}")
+                        continue
+                    data = json.loads(content)
+                    checkpoints.append({"checkpoint_id": data["checkpoint_id"], "timestamp": data["timestamp"]})
+            except json.JSONDecodeError as e:
+                logger.warning(f"Skipping invalid checkpoint file {cp_file}: {e}")
+                continue
         return checkpoints
-
-    def delete_checkpoint(self, workflow_id: str, checkpoint_id: str) -> bool:
-        """
-        Delete a checkpoint.
-
-        Args:
-            workflow_id: Workflow ID
-            checkpoint_id: Checkpoint ID
-
-        Returns:
-            True if deleted, False if not found
-        """
-        checkpoint_file = self.checkpoint_dir / f"{workflow_id}_{checkpoint_id}.json"
-
-        if checkpoint_file.exists():
-            checkpoint_file.unlink()
-            logger.info(f"Deleted checkpoint {checkpoint_id} for workflow {workflow_id}")
-            return True
-
-        logger.warning(f"Checkpoint {checkpoint_id} not found for workflow {workflow_id}")
-        return False
 
     def restore_from_checkpoint(self, memento: WorkflowMemento) -> tuple[WorkflowState, ExecutionContext]:
         """

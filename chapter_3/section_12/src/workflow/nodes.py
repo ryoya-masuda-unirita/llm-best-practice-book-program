@@ -68,20 +68,21 @@ class EndNode(Node):
             context: Execution context
 
         Returns:
-            Final workflow results
+            Final workflow results (simplified to avoid circular references in checkpoints)
         """
         logger.info(f"Ending workflow: {context.workflow_id}")
 
+        # Return a simplified result that doesn't include the full node_outputs
+        # to avoid circular references when this gets stored back to context.node_outputs
+        # The engine will provide access to all outputs via context.node_outputs anyway
         result = {
             "status": "completed",
             "workflow_id": context.workflow_id,
         }
 
-        if self.collect_outputs:
-            result["outputs"] = context.node_outputs
-            result["variables"] = context.variables
-
-        context.set_node_output(self.node_id, result)
+        # Note: We intentionally don't include outputs/variables here to avoid circular reference
+        # The engine already has access to all outputs via context.node_outputs
+        # and variables via context.variables
         return result
 
 

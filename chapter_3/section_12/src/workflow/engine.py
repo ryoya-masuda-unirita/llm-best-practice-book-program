@@ -5,7 +5,6 @@ from typing import Any
 
 from src.logger import make_logger
 from src.workflow.base import ExecutionContext
-from src.workflow.chain import ProcessingPipeline
 from src.workflow.mediator import NodeMediator
 from src.workflow.memento import CheckpointManager
 from src.workflow.state import WorkflowState
@@ -43,7 +42,6 @@ class WorkflowEngine:
         # Initialize components
         self.checkpoint_manager = CheckpointManager(checkpoint_dir) if enable_checkpointing else None
         self.mediator = NodeMediator()
-        self.processing_pipeline: ProcessingPipeline | None = None
 
         logger.info(f"Workflow engine initialized (checkpointing: {enable_checkpointing})")
 

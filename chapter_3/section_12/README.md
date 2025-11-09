@@ -208,12 +208,23 @@ class LoopNode(Node):
         for i, item in enumerate(collection[:self.max_iterations]):
             # ループ内処理...
         return {"iterations": i + 1}
+
+class EndNode(Node):
+    """終了ノード"""
+    async def execute(self, context: ExecutionContext) -> dict:
+        # 簡潔な結果のみを返す（循環参照を回避）
+        return {
+            "status": "completed",
+            "workflow_id": context.workflow_id,
+        }
+        # 注: 全体の出力はエンジンが context.node_outputs 経由で返す
 ```
 
 **ポイント**:
 - 各ノードは特定の責務を持つ単一目的の実行単位
 - async/awaitによる非同期実行対応
 - ノード固有のロジックをカプセル化
+- EndNodeは循環参照を避けるため簡潔な出力のみを返す
 
 #### 4. ワークフローエンジン (`src/workflow/engine.py`)
 
@@ -318,6 +329,8 @@ class CheckpointManager:
 - ワークフロー実行中の任意の時点の状態を保存
 - 障害発生時に最後のチェックポイントから再開可能
 - JSONファイルとして永続化（`checkpoints/`ディレクトリ）
+- 循環参照の回避: EndNodeは簡潔な出力のみを保存し、全体の出力は`context.node_outputs`経由でアクセス
+- 無効なチェックポイントファイルの自動スキップ機能
 
 #### 6. Mediatorパターン (ノード間調停) (`src/workflow/mediator.py`)
 

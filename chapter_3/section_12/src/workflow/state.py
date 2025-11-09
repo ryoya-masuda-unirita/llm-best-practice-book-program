@@ -128,34 +128,8 @@ class WorkflowState(BaseModel):
         return 0
 
     def get_node_state(self, node_id: str) -> ExecutionState | None:
-        """
-        Get the execution state of a node.
-
-        Args:
-            node_id: Node ID
-
-        Returns:
-            Node execution state or None
-        """
-        if node_id in self.node_records:
-            return self.node_records[node_id].state
-        return None
-
-    def is_node_completed(self, node_id: str) -> bool:
-        """Check if a node has completed successfully."""
-        return self.get_node_state(node_id) == ExecutionState.COMPLETED
-
-    def is_node_failed(self, node_id: str) -> bool:
-        """Check if a node has failed."""
-        return self.get_node_state(node_id) == ExecutionState.FAILED
-
-    def get_completed_nodes(self) -> list[str]:
-        """Get list of completed node IDs."""
-        return [node_id for node_id, record in self.node_records.items() if record.state == ExecutionState.COMPLETED]
-
-    def get_failed_nodes(self) -> list[str]:
-        """Get list of failed node IDs."""
-        return [node_id for node_id, record in self.node_records.items() if record.state == ExecutionState.FAILED]
+        """Get the execution state of a node."""
+        return self.node_records[node_id].state if node_id in self.node_records else None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert state to dictionary."""
