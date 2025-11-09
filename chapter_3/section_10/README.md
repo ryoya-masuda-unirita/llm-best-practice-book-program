@@ -364,7 +364,7 @@ pip install -e .
 uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.7456 -lon -97.0892
 
 # OpenAI APIを使用
-uv run python -m src.main -lp OPENAI -m gpt-4o-mini -lat 39.7456 -lon -97.0892
+uv run python -m src.main -lp OPENAI -m GPT_5_MINI -lat 39.7456 -lon -97.0892
 
 # 異なる座標で実行（例: カンザス州）
 uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.0119 -lon -95.6788
@@ -395,23 +395,20 @@ uv run python -m src.main -lp OPENAI -m gpt-4o-mini -lat 39.7456 -lon -97.0892 -
 #### ヘルプの表示
 
 ```bash
-uv run python -m src.main --help
-```
-
-**出力例**:
-```
+$ python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
   天気予報に基づいて服装を提案します
 
-  Example:
-      python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.7456 -lon -97.0892
+  Example:     python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.7456
+  -lon -97.0892
 
 Options:
   -lp, --llm-provider [OPENAI|GEMINI]
                                   The LLM provider to use.  [required]
-  -m, --model [gpt-5|gpt-5-mini|gpt-4o|gpt-4o-mini|gemini-2.5-pro|gemini-2.5-flash|gemini-2.5-flash-lite]
-                                  The model to use for the request.  [required]
+  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
+                                  The model to use for the request.
+                                  [required]
   -lat, --latitude FLOAT          緯度 (例: 39.7456 for Kansas, USA)  [required]
   -lon, --longitude FLOAT         経度 (例: -97.0892 for Kansas, USA)  [required]
   -od, --output-directory PATH    The directory to save output files.
@@ -428,7 +425,7 @@ uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 40.7128 -lon -74.0
 uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 34.0522 -lon -118.2437
 
 # シカゴ
-uv run python -m src.main -lp OPENAI -m gpt-4o-mini -lat 41.8781 -lon -87.6298
+uv run python -m src.main -lp OPENAI -m GPT_5_MINI -lat 41.8781 -lon -87.6298
 
 # シアトル
 uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 47.6062 -lon -122.3321
@@ -606,10 +603,10 @@ uv run python -m src.main -lp GEMINI -m gemini-2.5-flash -lat 35.6762 -lon 139.6
 
 ```bash
 # 各モデルで実行
-uv run python -m src.main -lp OPENAI -m gpt-4o-mini -lat 39.7456 -lon -97.0892 -od comparison
-uv run python -m src.main -lp OPENAI -m gpt-4o -lat 39.7456 -lon -97.0892 -od comparison
-uv run python -m src.main -lp GEMINI -m gemini-2.5-flash -lat 39.7456 -lon -97.0892 -od comparison
-uv run python -m src.main -lp GEMINI -m gemini-2.5-pro -lat 39.7456 -lon -97.0892 -od comparison
+uv run python -m src.main -lp OPENAI -m GPT_5_MINI -lat 39.7456 -lon -97.0892 -od comparison
+uv run python -m src.main -lp OPENAI -m GPT_5 -lat 39.7456 -lon -97.0892 -od comparison
+uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.7456 -lon -97.0892 -od comparison
+uv run python -m src.main -lp GEMINI -m GEMINI_2_5_PRO -lat 39.7456 -lon -97.0892 -od comparison
 
 # 結果を比較
 ls -lh comparison/

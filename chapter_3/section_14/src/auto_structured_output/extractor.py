@@ -1,0 +1,221 @@
+"""Main module for extracting structure from natural language prompts"""
+
+import json
+from pathlib import Path
+from typing import Any
+
+from pydantic import BaseModel
+from src.auto_structured_output.model_builder import ModelBuilder
+from src.auto_structured_output.schema_generator import SchemaGenerator
+
+
+class ExtractionError(Exception):
+    """Error during structure extraction"""
+
+    pass
+
+
+class SchemaValidationError(ExtractionError):
+    """Schema validation error"""
+
+    pass
+
+
+class ModelBuildError(ExtractionError):
+    """Model building error"""
+
+    pass
+
+
+class StructureExtractor:
+    """Main class for extracting structure from natural language prompts"""
+
+    def __init__(self, llm_client: Any, model: str, max_retries: int = 3):
+        """Initialize
+
+        Args:
+            llm_client: OpenAI API client
+            model: Model name to use
+            max_retries: Maximum number of retry attempts for schema generation (default: 3)
+        """
+        self.client = llm_client
+        self.model = model
+        self.schema_generator = SchemaGenerator(max_retries=max_retries)
+        self.model_builder = ModelBuilder()
+
+    def extract_structure(
+        self,
+        prompts: list[str],
+        use_high_reasoning: bool = False,
+    ) -> type[BaseModel]:
+        """Extract structure from prompt(s) and return Pydantic model
+
+        Args:
+            prompts: List of natural language prompts describing the output format(s).
+                    Single prompt should be wrapped in a list: ["your prompt"].
+                    Multiple prompts will generate a unified schema that accommodates all prompts.
+            use_high_reasoning: If True, use gpt-5 with enhanced reasoning to infer
+                              optimal structure from unclear prompts. If False (default),
+                              use gpt-4o for prompts with clearly defined structure.
+
+        Returns:
+            Class inheriting from pydantic.BaseModel that covers all provided prompts
+
+        Raises:
+            ExtractionError: If structure extraction fails
+            SchemaValidationError: If schema validation fails
+            ModelBuildError: If model building fails
+
+        Examples:
+            >>> # Single prompt - standard mode
+            >>> UserModel = extractor.extract_structure([
+            ...     "Extract user with name (string), age (integer), email (email format)"
+            ... ])
+
+            >>> # Multiple prompts - unified schema
+            >>> ProfileModel = extractor.extract_structure([
+            ...     "Extract user profile with name and email",
+            ...     "Extract admin profile with name, email, and role"
+            ... ])
+            >>> # Returns schema with name, email, and optional role field
+
+            >>> # High reasoning mode - infer structure from context
+            >>> AnalysisModel = extractor.extract_structure(
+            ...     ["Analyze this customer feedback and extract key insights"],
+            ...     use_high_reasoning=True
+            ... )
+        """
+        try:
+            # 1. Extract structure using OpenAI
+            schema_json = self._extract_schema_from_prompt(prompts, use_high_reasoning)
+
+            # 2. Validate JSON schema
+            validated_schema = self._validate_schema(schema_json)
+
+            # 3. Convert to Pydantic model
+            model_class = self._build_model(validated_schema)
+
+            return model_class
+
+        except SchemaValidationError:
+            raise
+        except ModelBuildError:
+            raise
+        except Exception as e:
+            raise ExtractionError(f"Error occurred during structure extraction: {e}") from e
+
+    @staticmethod
+    def save_extracted_json(model: type[BaseModel], file_path: str | Path) -> None:
+        """Save a Pydantic model's JSON schema to a file
+
+        Args:
+            model: Pydantic BaseModel class to save
+            file_path: Path to save the JSON schema file
+
+        Raises:
+            IOError: If file cannot be written
+        """
+        path = Path(file_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Get the JSON schema from the Pydantic model
+        schema = model.model_json_schema()
+
+        with path.open("w", encoding="utf-8") as f:
+            json.dump(schema, f, indent=2, ensure_ascii=False)
+
+    @staticmethod
+    def load_from_json(file_path: str | Path) -> type[BaseModel]:
+        """Load a schema from a JSON file and build a Pydantic model
+
+        Args:
+            file_path: Path to the JSON schema file
+
+        Returns:
+            Class inheriting from pydantic.BaseModel
+
+        Raises:
+            FileNotFoundError: If file doesn't exist
+            ValueError: If JSON is invalid or schema is malformed
+            SchemaValidationError: If schema validation fails
+            ModelBuildError: If model building fails
+        """
+        path = Path(file_path)
+
+        if not path.exists():
+            raise FileNotFoundError(f"Schema file not found: {file_path}")
+
+        with path.open("r", encoding="utf-8") as f:
+            schema = json.load(f)
+
+        # Validate and build the model using static instances
+        schema_generator = SchemaGenerator()
+        model_builder = ModelBuilder()
+
+        try:
+            validated_schema = schema_generator.validate_schema(schema)
+        except ValueError as e:
+            raise SchemaValidationError(f"Failed to validate schema: {e}") from e
+
+        try:
+            return model_builder.build_model(validated_schema)
+        except Exception as e:
+            raise ModelBuildError(f"Failed to build model: {e}") from e
+
+    def _extract_schema_from_prompt(self, prompts: list[str], use_high_reasoning: bool = False) -> dict[str, Any]:
+        """Extract JSON schema from prompt (internal method)
+
+        Args:
+            prompts: Natural language prompt
+            use_high_reasoning: Whether to use high reasoning mode
+
+        Returns:
+            Extracted JSON Schema
+
+        Raises:
+            SchemaValidationError: If schema validation fails after all retries
+            ExtractionError: If schema extraction fails
+        """
+        try:
+            return self.schema_generator.extract_from_prompt(prompts, self.client, self.model, use_high_reasoning)
+        except ValueError as e:
+            # If it's a validation error that persisted after retries, wrap it as SchemaValidationError
+            if "Failed to generate valid schema" in str(e):
+                raise SchemaValidationError(f"Schema validation failed after retries: {e}") from e
+            raise ExtractionError(f"Failed to extract schema: {e}") from e
+        except Exception as e:
+            raise ExtractionError(f"Failed to extract schema: {e}") from e
+
+    def _validate_schema(self, schema: dict[str, Any]) -> dict[str, Any]:
+        """Validate schema (internal method)
+
+        Args:
+            schema: JSON Schema to validate
+
+        Returns:
+            Validated JSON Schema
+
+        Raises:
+            SchemaValidationError: If schema validation fails
+        """
+        try:
+            return self.schema_generator.validate_schema(schema)
+        except ValueError as e:
+            raise SchemaValidationError(f"Failed to validate schema: {e}") from e
+
+    def _build_model(self, schema: dict[str, Any]) -> type[BaseModel]:
+        """Build Pydantic model from schema (internal method)
+
+        Args:
+            schema: JSON Schema
+
+        Returns:
+            BaseModel class
+
+        Raises:
+            ModelBuildError: If model building fails
+        """
+        try:
+            return self.model_builder.build_model(schema)
+        except Exception as e:
+            raise ModelBuildError(f"Failed to build model: {e}") from e

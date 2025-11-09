@@ -1,0 +1,35 @@
+{
+    "location": "緯度39.7456、経度-97.0892の地点",
+    "weather_summary": "午後はにわか雨が予想され、一部晴れ間もあります。最高気温は55°F（約13°C）で、北西の風が強く吹くでしょう。",
+    "current_weather": {
+        "period_name": "This Afternoon",
+        "temperature": 55,
+        "temperature_unit": "F",
+        "wind_speed": "15 mph",
+        "wind_direction": "NW",
+        "forecast_summary": "Scattered rain showers. Partly sunny, with a high near 55. Northwest wind around 15 mph, with gusts as high as 20 mph."
+    },
+    "outfit_recommendations": [
+        {
+            "clothing_type": "アウター",
+            "item_suggestion": "防水性のある薄手のジャケットまたはウィンドブレーカー",
+            "reason": "気温は13°C前後ですが、にわか雨があり、風が強い予報のため、防水性と防風性のあるアウターが適しています。"
+        },
+        {
+            "clothing_type": "トップス",
+            "item_suggestion": "長袖シャツや薄手のセーター",
+            "reason": "肌寒い気温（約13°C）に対応するため、長袖のトップスや薄手のセーターで体温調節をしましょう。"
+        },
+        {
+            "clothing_type": "ボトムス",
+            "item_suggestion": "ジーンズやチノパンなどの長ズボン",
+            "reason": "風が強く体感温度が下がる可能性があるため、足元も冷えにくい長ズボンをおすすめします。"
+        },
+        {
+            "clothing_type": "小物",
+            "item_suggestion": "折りたたみ傘",
+            "reason": "にわか雨が予想されるため、急な雨に備えて持ち歩くと安心です。"
+        }
+    ],
+    "additional_advice": "風が強く体感温度が下がる可能性がありますので、重ね着で調整できるように準備し、風邪をひかないようご注意ください。"
+}
