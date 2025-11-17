@@ -37,6 +37,7 @@ async def request_gemini(model: GeminiModel) -> CharacterResponse:
         ),
     )
     logger.info(result)
+    await google_genai_client.aio.aclose()
     return result.parsed
 
 

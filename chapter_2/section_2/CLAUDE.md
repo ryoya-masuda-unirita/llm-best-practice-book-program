@@ -459,6 +459,7 @@ def llmops_logger(mock_logger, temp_storage_dir):
 # LLM Provider API Keys
 OPENAI_API_KEY=sk-...
 GEMINI_API_KEY=...
+ANTHROPIC_API_KEY=sk-ant-...
 
 # Optional: Custom storage location
 PROMPT_STORAGE_DIR=./prompt_storage
@@ -480,6 +481,7 @@ dependencies = [
     "python-dotenv>=1.0.0",  # Environment variable management
     "openai>=1.0.0",         # OpenAI API client
     "google-genai>=1.0.0",   # Google Gemini API client
+    "anthropic>=0.40.0",     # Anthropic Claude API client
     "click>=8.0.0",          # CLI interface
 ]
 
@@ -515,16 +517,19 @@ uv sync
 uv run python -m src.main --llm-provider openai --model gpt-4o-mini --user-id user123
 
 # Run with Gemini (model required)
-uv run python -m src.main --llm-provider gemini --model gemini-2.0-flash-exp --user-id user456
+uv run python -m src.main --llm-provider gemini --model gemini-2.5-flash --user-id user456
+
+# Run with Anthropic (model required)
+uv run python -m src.main --llm-provider anthropic --model claude-sonnet-4-5 --user-id user789
 
 # Specify output directory
-uv run python -m src.main --llm-provider gemini --model gemini-2.0-flash-exp --output-directory ./results
+uv run python -m src.main --llm-provider gemini --model gemini-2.5-flash --output-directory ./results
 
 # Specify storage type
 uv run python -m src.main --llm-provider openai --model gpt-4o-mini --storage-type local
 
 # Short form options
-uv run python -m src.main -lp gemini -m gemini-2.0-flash-exp -u user123 -od ./outputs
+uv run python -m src.main -lp anthropic -m claude-sonnet-4-5 -u user123 -od ./outputs
 ```
 
 ### Log Output Examples
@@ -827,7 +832,7 @@ section_2/
 │   ├── logger.py                # Basic logger setup
 │   ├── client/
 │   │   ├── __init__.py
-│   │   └── llm_client.py        # LLM provider abstraction (OpenAI, Gemini)
+│   │   └── llm_client.py        # LLM provider abstraction (OpenAI, Gemini, Anthropic)
 │   ├── model/
 │   │   ├── __init__.py
 │   │   ├── model.py             # CharacterResponse data model
@@ -922,6 +927,36 @@ async def request_gemini(
         )
         tracking["response"] = result.parsed.model_dump() if result.parsed else None
         return result.parsed
+```
+
+**Anthropic Integration**:
+```python
+async def request_anthropic(
+    model: AnthropicModel,
+    llmops_logger: LLMOpsLogger,
+    user_id: str = "default_user"
+) -> CharacterResponse:
+    """Request character generation from Anthropic with structured logging."""
+    prompt = make_prompt()
+    temperature = 1.0
+
+    async with llmops_logger.track_llm_request(
+        model=model,
+        temperature=temperature,
+        prompt_content=prompt,
+        user_id=user_id,
+        metadata={"provider": "anthropic", "model": model, "response_format": "CharacterResponse"},
+    ) as tracking:
+        result = await anthropic_client.beta.messages.create(
+            model=model,
+            max_tokens=4096,
+            system=prompt[0]["content"],
+            messages=[{"role": "user", "content": prompt[1]["content"]}],
+            temperature=temperature,
+            response_model=CharacterResponse,
+        )
+        tracking["response"] = result.model_dump() if result else None
+        return result
 ```
 
 These functions demonstrate the recommended pattern for integrating LLMOps logging with actual LLM API calls.
@@ -1064,7 +1099,8 @@ The system is designed for extension through:
   - StorageType and LogLevel enums
   - Automatic latency tracking
   - PII masking (regex-based)
-  - Request functions for OpenAI and Gemini (src/service/request_llm.py)
+  - Request functions for OpenAI, Gemini, and Anthropic (src/service/request_llm.py)
+  - Multi-provider support: OpenAI (GPT-4o-mini), Gemini (2.5 Flash), Anthropic (Claude Sonnet 4.5)
   - CLI interface with multiple options (--llm-provider, --model, --storage-type, etc.)
   - Comprehensive test suite (111 tests total)
   - Makefile for build and test automation

@@ -1,9 +1,16 @@
 from google.genai.types import GenerateContentConfig
 
-from src.client.llm_client import GeminiModel, OpenAIModel, google_genai_client, openai_client
+from src.client.llm_client import (
+    AnthropicModel,
+    GeminiModel,
+    OpenAIModel,
+    anthropic_client,
+    google_genai_client,
+    openai_client,
+)
 from src.logger import make_logger
 from src.model.model import CharacterResponse
-from src.prompt.prompt import make_prompt
+from src.prompt.prompt import make_anthropic_prompt, make_gemini_prompt, make_openai_prompt
 from src.service.llmops_logger import LLMOpsLogger
 
 logger = make_logger(__name__)
@@ -14,52 +21,69 @@ async def request_openai(
     llmops_logger: LLMOpsLogger,
     user_id: str = "default_user",
 ) -> CharacterResponse:
-    """Request character generation from OpenAI with structured logging."""
-    prompt = make_prompt()
-    temperature = 1.0
+    prompt = make_openai_prompt()
 
     async with llmops_logger.track_llm_request(
         model=model,
-        temperature=temperature,
         prompt_content=prompt,
         user_id=user_id,
         metadata={"provider": "openai", "model": model, "response_format": "CharacterResponse"},
     ) as tracking:
-        result = await openai_client.beta.chat.completions.parse(
+        result = await openai_client.responses.parse(
             model=model,
             messages=prompt,
             response_format=CharacterResponse,
-            temperature=temperature,
         )
-        parsed_response = result.choices[0].message.parsed
-        tracking["response"] = parsed_response.model_dump() if parsed_response else None
-        return parsed_response
+        tracking["response"] = result.parsed.model_dump() if result.parsed else None
+        return result.parsed
 
 
 async def request_gemini(
-    model: GeminiModel, llmops_logger: LLMOpsLogger, user_id: str = "default_user"
+    model: GeminiModel,
+    llmops_logger: LLMOpsLogger,
+    user_id: str = "default_user",
 ) -> CharacterResponse:
-    """Request character generation from Gemini with structured logging."""
-    prompt = make_prompt()
-    temperature = 2.0
+    system_prompt, user_prompt = make_gemini_prompt()
 
     async with llmops_logger.track_llm_request(
         model=model,
-        temperature=temperature,
-        prompt_content=prompt,
+        prompt_content=[system_prompt, user_prompt],
         user_id=user_id,
         metadata={"provider": "gemini", "model": model, "response_format": "CharacterResponse"},
     ) as tracking:
         result = await google_genai_client.aio.models.generate_content(
             model=model,
-            contents=prompt[-1]["content"],
+            contents=user_prompt,
             config=GenerateContentConfig(
-                system_instruction=prompt[0]["content"],
+                system_instruction=system_prompt,
                 response_mime_type="application/json",
                 response_schema=CharacterResponse,
-                temperature=temperature,
             ),
         )
-        logger.info(result)
         tracking["response"] = result.parsed.model_dump() if result.parsed else None
+        await google_genai_client.aio.aclose()
         return result.parsed
+
+
+async def request_anthropic(
+    model: AnthropicModel,
+    llmops_logger: LLMOpsLogger,
+    user_id: str = "default_user",
+) -> CharacterResponse:
+    prompt = make_anthropic_prompt()
+
+    async with llmops_logger.track_llm_request(
+        model=model,
+        prompt_content=prompt,
+        user_id=user_id,
+        metadata={"provider": "gemini", "model": model, "response_format": "CharacterResponse"},
+    ) as tracking:
+        result = await anthropic_client.beta.messages.parse(
+            model=model,
+            max_tokens=1024,
+            betas=["structured-outputs-2025-11-13"],
+            messages=prompt,
+            output_format=CharacterResponse,
+        )
+        tracking["response"] = result.parsed_output.model_dump() if result.parsed_output else None
+        return result.parsed_output

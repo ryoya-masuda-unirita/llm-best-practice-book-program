@@ -33,7 +33,7 @@
 
 ### LLM統合機能
 
-- **マルチプロバイダー対応**: OpenAI GPT-4o-miniとGoogle Gemini 2.5 Flashをサポート
+- **マルチプロバイダー対応**: OpenAI GPT-4o-mini、Google Gemini 2.5 Flash、Anthropic Claude Sonnet 4.5をサポート
 - **構造化出力**: Pydanticモデルによる型安全なLLM応答
 - **非同期処理**: async/awaitによる効率的なAPI呼び出し
 - **CLIインターフェース**: Clickライブラリによる使いやすいコマンドラインツール
@@ -256,55 +256,81 @@ async with llmops_logger.track_llm_request(
 
 **OpenAI実装**:
 ```python
-async def request_openai(user_id: str = "default_user") -> CharacterResponse:
-    prompt = make_prompt()
-    model = "gpt-4o-mini"
-    temperature = 1.0
+async def request_openai(
+    model: OpenAIModel,
+    llmops_logger: LLMOpsLogger,
+    user_id: str = "default_user",
+) -> CharacterResponse:
+    prompt = make_openai_prompt()
 
     async with llmops_logger.track_llm_request(
         model=model,
-        temperature=temperature,
         prompt_content=prompt,
         user_id=user_id,
-        metadata={"provider": "openai", "response_format": "CharacterResponse"},
+        metadata={"provider": "openai", "model": model, "response_format": "CharacterResponse"},
     ) as tracking:
-        result = await openai_client.beta.chat.completions.parse(
+        result = await openai_client.responses.parse(
             model=model,
             messages=prompt,
             response_format=CharacterResponse,
-            temperature=temperature,
         )
-        parsed_response = result.choices[0].message.parsed
-        tracking["response"] = parsed_response.model_dump() if parsed_response else None
-        return parsed_response
+        tracking["response"] = result.parsed.model_dump() if result.parsed else None
+        return result.parsed
 ```
 
 **Gemini実装**:
 ```python
-async def request_gemini(user_id: str = "default_user") -> CharacterResponse:
-    prompt = make_prompt()
-    model = "gemini-2.5-flash"
-    temperature = 2.0
+async def request_gemini(
+    model: GeminiModel,
+    llmops_logger: LLMOpsLogger,
+    user_id: str = "default_user",
+) -> CharacterResponse:
+    system_prompt, user_prompt = make_gemini_prompt()
 
     async with llmops_logger.track_llm_request(
         model=model,
-        temperature=temperature,
-        prompt_content=prompt,
+        prompt_content=[system_prompt, user_prompt],
         user_id=user_id,
-        metadata={"provider": "gemini", "response_format": "CharacterResponse"},
+        metadata={"provider": "gemini", "model": model, "response_format": "CharacterResponse"},
     ) as tracking:
         result = await google_genai_client.aio.models.generate_content(
             model=model,
-            contents=prompt[-1]["content"],
+            contents=user_prompt,
             config=GenerateContentConfig(
-                system_instruction=prompt[0]["content"],
+                system_instruction=system_prompt,
                 response_mime_type="application/json",
                 response_schema=CharacterResponse,
-                temperature=temperature,
             ),
         )
         tracking["response"] = result.parsed.model_dump() if result.parsed else None
+        await google_genai_client.aio.aclose()
         return result.parsed
+```
+
+**Anthropic実装**:
+```python
+async def request_anthropic(
+    model: AnthropicModel,
+    llmops_logger: LLMOpsLogger,
+    user_id: str = "default_user",
+) -> CharacterResponse:
+    prompt = make_anthropic_prompt()
+
+    async with llmops_logger.track_llm_request(
+        model=model,
+        prompt_content=prompt,
+        user_id=user_id,
+        metadata={"provider": "gemini", "model": model, "response_format": "CharacterResponse"},
+    ) as tracking:
+        result = await anthropic_client.beta.messages.parse(
+            model=model,
+            max_tokens=1024,
+            betas=["structured-outputs-2025-11-13"],
+            messages=prompt,
+            output_format=CharacterResponse,
+        )
+        tracking["response"] = result.parsed_output.model_dump() if result.parsed_output else None
+        return result.parsed_output
 ```
 
 ## 使い方
@@ -317,6 +343,7 @@ async def request_gemini(user_id: str = "default_user") -> CharacterResponse:
   - python-dotenv>=1.0.0（環境変数管理）
   - openai>=1.0.0（OpenAI APIクライアント）
   - google-genai>=1.0.0（Google Gemini APIクライアント）
+  - anthropic>=0.40.0（Anthropic Claude APIクライアント）
   - click>=8.0.0（CLIインターフェース）
 
 **開発用依存関係**:
@@ -336,6 +363,7 @@ cp .envrc.example .envrc
 # .envrc
 export OPENAI_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxx"
 export GEMINI_API_KEY="AIzaSyXXXXXXXXXXXXXXXXXXXX"
+export ANTHROPIC_API_KEY="sk-ant-xxxxxxxxxxxxxxxxxxxxx"
 ```
 
 2. **依存関係のインストール**
@@ -343,9 +371,6 @@ export GEMINI_API_KEY="AIzaSyXXXXXXXXXXXXXXXXXXXX"
 ```bash
 # uvを使用する場合（推奨）
 uv sync
-
-# pipを使用する場合
-pip install -e .
 
 # 開発用依存関係も含める場合
 uv sync --group dev
@@ -356,50 +381,26 @@ uv sync --group dev
 #### 基本的な使い方
 
 ```bash
-# Gemini APIを使用（デフォルト）
-uv run python -m src.main
-
 # OpenAI APIを使用
-uv run python -m src.main --llm-provider openai
+uv run python -m src.main --llm-provider OPENAI --model GPT_5_MINI --user-id user123 --output-directory ./custom_output
 
-# 短縮オプション
-uv run python -m src.main -lp openai
+# Gemini APIを使用 
+uv run python -m src.main --llm-provider GEMINI --model GEMINI_2_5_FLASH --user-id user123 --output-directory ./custom_output
 
-# ユーザーIDを指定
-uv run python -m src.main --user-id user123
-uv run python -m src.main -u user123
-```
-
-#### 出力先の指定
-
-```bash
-# カスタム出力ディレクトリを指定
-uv run python -m src.main --output-directory ./custom_output
-
-# 短縮オプション
-uv run python -m src.main -od ./my_characters
-```
-
-#### すべてのオプションを組み合わせる
-
-```bash
-uv run python -m src.main -lp gemini -od ./outputs -u alice
+# Anthropic APIを使用
+uv run python -m src.main --llm-provider ANTHROPIC --model CLAUDE_SONNET_4_5 --user-id user123 --output-directory ./custom_output
 ```
 
 #### ヘルプの表示
 
 ```bash
-uv run python -m src.main --help
-```
-
-**出力例**:
-```
+$ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
 Options:
-  -lp, --llm-provider [OPENAI|GEMINI]
+  -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use.  [required]
-  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
+  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_SONNET_4_5|CLAUDE_OPUS_4_1]
                                   The model to use for the request.
                                   [required]
   -od, --output-directory PATH    The directory to save output files.
@@ -414,26 +415,26 @@ Options:
 
 実行すると、以下のような構造化されたJSONファイルが生成されます：
 
-**ファイル名**: `outputs/gemini_a1b2c3d4e5f6.json`
+**ファイル名**: `outputs/anthropic_a1b2c3d4e5f6.json` または `outputs/openai_a1b2c3d4e5f6.json` または `outputs/gemini_a1b2c3d4e5f6.json`
 
 ```json
 {
-    "first_name": "蒼",
-    "last_name": "雨宮",
-    "gender": "male",
-    "age": 28,
+    "first_name": "Cassandra",
+    "last_name": "Thornfield",
+    "gender": "female",
+    "age": 34,
     "personalities": [
         {
-            "short_personality": "内向的な思索家",
-            "description": "常に深く物事を考え、静かな場所を好む。表面的な会話よりも、哲学的な議論に心を開く。"
+            "short_personality": "Analytical perfectionist",
+            "description": "Cassandra possesses an incredibly sharp mind and approaches every problem with methodical precision. She cannot tolerate incomplete data or sloppy work, often spending hours refining details that others might overlook. This trait makes her exceptional at her work as a forensic archaeologist, but it also causes friction in personal relationships where emotional nuance matters more than factual accuracy."
         },
         {
-            "short_personality": "完璧主義者",
-            "description": "すべてのタスクに最高の基準を求め、細部にこだわる。しばしば自分自身に対して厳しすぎることがある。"
+            "short_personality": "Guarded optimist",
+            "description": "Despite experiencing betrayal early in her career that nearly destroyed her reputation, Cassandra maintains a cautious hope about human nature. She believes in the potential for good in people but keeps emotional walls firmly in place, revealing her warmer side only to those who earn her trust through consistent actions over time. This duality makes her seem cold at first but deeply loyal once bonds are formed."
         },
         {
-            "short_personality": "忠実な友人",
-            "description": "一度信頼関係を築くと、どんな困難な状況でも友人を支える。約束を何よりも大切にする。"
+            "short_personality": "Compulsively curious",
+            "description": "Cassandra is driven by an insatiable need to understand the 'why' behind everything she encounters. Whether it's an ancient artifact or a colleague's unusual behavior, she cannot rest until she has uncovered the underlying truth. This curiosity has led to groundbreaking discoveries in her field but has also gotten her into dangerous situations when her questions threaten powerful interests."
         }
     ]
 }
@@ -444,21 +445,7 @@ Options:
 LLM操作のメタデータがJSON形式でstdoutに出力されます：
 
 ```json
-{
-  "timestamp": "2025-10-17T10:30:45.123456+00:00",
-  "request_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "prompt_id": "p1q2r3s4-t5u6-v7w8-xyz9-ab1234567890",
-  "user_id": "user123",
-  "model": "gpt-4o-mini",
-  "temperature": 1.0,
-  "latency_ms": 1234.56,
-  "status_code": 200,
-  "level": "INFO",
-  "metadata": {
-    "provider": "openai",
-    "response_format": "CharacterResponse"
-  }
-}
+{"timestamp": "2025-11-17T05:48:24.147777+00:00", "request_id": "6081711d-b000-45cf-91cc-6bd3dd6853f1", "prompt_id": "0c18299b-06bc-4f56-b7f1-1981b2024675", "user_id": "user_0", "model": "claude-sonnet-4-5", "latency_ms": 9511.006116867065, "status_code": 200, "level": "INFO", "metadata": {"provider": "anthropic", "model": "claude-sonnet-4-5", "response_format": "CharacterResponse"}}
 ```
 
 **フィールドの説明**:
@@ -481,27 +468,43 @@ LLM操作のメタデータがJSON形式でstdoutに出力されます：
 
 ```json
 {
-  "prompt_id": "p1q2r3s4-t5u6-v7w8-xyz9-ab1234567890",
+  "prompt_id": "0c18299b-06bc-4f56-b7f1-1981b2024675",
   "prompt_content": [
     {
       "role": "system",
-      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n..."
+      "content": "あなたは創造的なキャラクタージェネレーターです。"
     },
     {
       "role": "user",
-      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。"
+      "content": "あなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は「female」または「male」のいずれかであること\n4. 年齢は0から100の間であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n\nユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n"
     }
   ],
   "response_content": {
-    "first_name": "蒼",
-    "last_name": "雨宮",
-    "gender": "male",
-    "age": 28,
-    "personalities": [...]
+    "first_name": "Cassandra",
+    "last_name": "Thornfield",
+    "gender": "female",
+    "age": 34,
+    "personalities": [
+      {
+        "short_personality": "Analytical perfectionist",
+        "description": "Cassandra possesses an incredibly sharp mind and approaches every problem with methodical precision. She cannot tolerate incomplete data or sloppy work, often spending hours refining details that others might overlook. This trait makes her exceptional at her work as a forensic archaeologist, but it also causes friction in personal relationships where emotional nuance matters more than factual accuracy."
+      },
+      {
+        "short_personality": "Guarded optimist",
+        "description": "Despite experiencing betrayal early in her career that nearly destroyed her reputation, Cassandra maintains a cautious hope about human nature. She believes in the potential for good in people but keeps emotional walls firmly in place, revealing her warmer side only to those who earn her trust through consistent actions over time. This duality makes her seem cold at first but deeply loyal once bonds are formed."
+      },
+      {
+        "short_personality": "Compulsively curious",
+        "description": "Cassandra is driven by an insatiable need to understand the 'why' behind everything she encounters. Whether it's an ancient artifact or a colleague's unusual behavior, she cannot rest until she has uncovered the underlying truth. This curiosity has led to groundbreaking discoveries in her field but has also gotten her into dangerous situations when her questions threaten powerful interests."
+      }
+    ]
   },
-  "created_at": "2025-10-17T10:30:45.123456",
+  "created_at": "2025-11-17T05:48:24.147808",
   "metadata": {
-    "request_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+    "request_id": "6081711d-b000-45cf-91cc-6bd3dd6853f1",
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-5",
+    "response_format": "CharacterResponse"
   }
 }
 ```
@@ -511,175 +514,13 @@ LLM操作のメタデータがJSON形式でstdoutに出力されます：
 コンソールには以下のようなログが出力されます：
 
 ```
-[2025-10-17 10:30:45] [INFO] [__main__] [main.py:107] [main] LLM provider: gemini
+$ python -m src.main -lp ANTHROPIC -m CLAUDE_SONNET_4_5 -od outputs -u user_0 -st LOCAL
+[2025-11-17 14:48:14,636] [INFO] [__main__] [main.py:71] [main] LLM provider: anthropic
+Model: claude-sonnet-4-5
 Output directory: outputs
-User ID: user123
-[2025-10-17 10:30:47] [INFO] [llmops] {"timestamp":"2025-10-17T10:30:47.789012+00:00","request_id":"a1b2c3d4-...","prompt_id":"p1q2r3s4-...","user_id":"user123","model":"gemini-2.5-flash","temperature":2.0,"latency_ms":1234.56,"status_code":200,"level":"INFO","metadata":{"provider":"gemini","response_format":"CharacterResponse"}}
-[2025-10-17 10:30:47] [INFO] [__main__] [main.py:123] [main] File saved to outputs/gemini_a1b2c3d4e5f6.json
-```
-
-### テスト方法
-
-#### ユニットテストの実行
-
-```bash
-# すべてのテストを実行
-uv run pytest
-
-# 詳細な出力で実行
-uv run pytest -v
-
-# 特定のテストファイルのみ実行
-uv run pytest tests/test_llmops_logger.py
-
-# 特定のテスト関数のみ実行
-uv run pytest tests/test_llmops_log.py::test_llmops_log_entry_creation -v
-
-# カバレッジレポート付きで実行（pytest-covが必要）
-uv run pytest --cov=src --cov-report=html
-
-# 静かなモード（簡潔な出力）
-uv run pytest -q
-```
-
-**テスト実行後の確認**:
-```bash
-# 作業ディレクトリがクリーンであることを確認
-ls -la | grep -E "prompt_storage|test_"
-# 期待される結果: テスト関連のディレクトリが存在しない（.pytest_cacheのみ）
-
-# テストを複数回実行してもディレクトリが作成されないことを確認
-uv run pytest -q && uv run pytest -q && ls -la
-```
-
-#### テストの構成
-
-**全テスト共通の設計原則**:
-- すべてのテストは`tempfile.mkdtemp()`を使用して一時ディレクトリを作成
-- 作業ディレクトリを汚染せず、テスト後は自動的にクリーンアップ
-- 111個のテストがすべて独立して実行可能
-- 並列実行にも対応した安全な設計
-
-**1. ログエントリのテスト** (`tests/test_llmops_log.py`) - 37テスト
-- モデルのバリデーション（temperature範囲、必須フィールド）
-- JSONシリアライゼーション
-- タイムスタンプ生成
-- フィールド除外（exclude_none）
-- 日本語などの特殊文字対応
-
-**2. プロンプトストレージのテスト** (`tests/test_prompt_storage.py`) - 39テスト
-- 日付パーティショニングロジック
-- 機密データのマスキング（SSN、メール、クレジットカード）
-- 再帰的マスキング（ネスト構造）
-- ファイルI/O操作（すべて一時ディレクトリ内）
-- 非同期保存/取得操作
-- ストレージファクトリーパターン
-
-**3. LLMOpsLoggerのテスト** (`tests/test_llmops_logger.py`) - 35テスト
-- コンテキストマネージャーのタイミング精度
-- エラーハンドリングとステータスコード
-- request_id/prompt_idの自動生成
-- 非同期ストレージタスクの作成
-- ログレベルルーティング（INFO、DEBUG、ERROR、WARNING）
-- エンドツーエンド統合テスト
-- 並行実行テスト
-
-**テストインフラストラクチャの特徴**:
-
-すべてのテストは`tempfile.mkdtemp()`を使用してOS管理の一時ディレクトリを作成します。これにより：
-
-✅ **安全性**: 作業ディレクトリやユーザーデータを誤って削除するリスクがゼロ
-✅ **隔離性**: 各テストが独自の一時ディレクトリを使用し、相互干渉なし
-✅ **クリーンアップ**: テスト終了時に`try/finally`パターンで確実に一時ディレクトリを削除
-✅ **再現性**: 複数回実行しても作業ディレクトリが汚染されない
-✅ **CI/CD対応**: 並列実行でも安全に動作
-
-**実装例**:
-```python
-def test_example(self):
-    """テスト用の一時ディレクトリを使用する例"""
-    temp_dir = tempfile.mkdtemp(prefix="test_specific_name_")
-    try:
-        # テストコード: temp_dirを使用
-        storage = LocalFilePromptStorage(base_dir=temp_dir)
-        # ... テストロジック ...
-    finally:
-        # クリーンアップ: 一時ディレクトリを削除
-        if Path(temp_dir).exists():
-            shutil.rmtree(temp_dir, ignore_errors=True)
-```
-
-#### 手動テスト
-
-##### 1. OpenAI APIのテスト
-
-```bash
-uv run python -m src.main -lp openai -od test_outputs -u test_user
-```
-
-期待される動作：
-- `test_outputs`ディレクトリが作成される
-- `openai_XXXXXXXX.json`形式のファイルが生成される
-- 構造化ログがJSON形式でコンソールに出力される
-- `prompt_storage/YYYY/MM/DD/`にプロンプトファイルが保存される
-
-##### 2. Gemini APIのテスト
-
-```bash
-uv run python -m src.main -lp gemini -od test_outputs -u test_user
-```
-
-期待される動作：
-- `test_outputs`ディレクトリが作成される
-- `gemini_XXXXXXXX.json`形式のファイルが生成される
-- 構造化ログがJSON形式でコンソールに出力される
-- `prompt_storage/YYYY/MM/DD/`にプロンプトファイルが保存される
-
-##### 3. ログ出力の確認
-
-生成された構造化ログを確認：
-
-```bash
-# jqを使用してJSONを整形表示
-uv run python -m src.main | grep -o '{.*}' | jq .
-
-# 特定のフィールドを抽出
-uv run python -m src.main | grep -o '{.*}' | jq '.latency_ms'
-```
-
-##### 4. プロンプトストレージの確認
-
-保存されたプロンプトファイルを確認：
-
-```bash
-# 最新のプロンプトファイルを表示
-find prompt_storage -name "*.json" -type f -exec ls -t {} + | head -1 | xargs cat | jq .
-
-# 特定の日付のプロンプト数を確認
-ls -la prompt_storage/2025/10/17/
-
-# プロンプト内容の検証
-cat prompt_storage/2025/10/17/[prompt_id].json | jq .
-```
-
-##### 5. PIIマスキングの検証
-
-機密情報がマスキングされているか確認：
-
-```python
-# テスト用のPythonスクリプト
-from src.model.prompt_data import PromptData
-
-# テストデータ
-test_prompt = {
-    "prompt_id": "test",
-    "prompt_content": "Contact me at john@example.com or 123-45-6789 or 4111-1111-1111-1111",
-    "response_content": None
-}
-
-prompt_data = PromptData(**test_prompt)
-prompt_data.mask_sensitive_data()
-
-print(prompt_data.prompt_content)
-# 期待される出力: "Contact me at ***@***.*** or ***-**-**** or ****-****-****-****"
+User ID: user_0
+Storage type: local
+Prompt stored successfully at: prompt_storage/2025/11/17/0c18299b-06bc-4f56-b7f1-1981b2024675.json
+{"timestamp": "2025-11-17T05:48:24.147777+00:00", "request_id": "6081711d-b000-45cf-91cc-6bd3dd6853f1", "prompt_id": "0c18299b-06bc-4f56-b7f1-1981b2024675", "user_id": "user_0", "model": "claude-sonnet-4-5", "latency_ms": 9511.006116867065, "status_code": 200, "level": "INFO", "metadata": {"provider": "gemini", "model": "claude-sonnet-4-5", "response_format": "CharacterResponse"}}
+[2025-11-17 14:48:24,148] [INFO] [__main__] [main.py:99] [main] File saved to outputs/anthropic_282cd205f6f74a3abc9c97c7944f4aba.json
 ```
