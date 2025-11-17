@@ -313,7 +313,7 @@ pip install -e .[dev]
 # Gemini APIを使用してバッチ処理（並行5リクエスト）
 python -m src.main \
   --request-file character_requests.yaml \
-  --model gemini-2.5-flash \
+  --model GEMINI_2_5_FLASH \
   --parallelism 5
 ```
 
@@ -323,7 +323,7 @@ python -m src.main \
 # 短縮オプションを使用
 python -m src.main \
   -rf character_requests.yaml \
-  -m gemini-2.5-flash \
+  -m GEMINI_2_5_FLASH \
   -p 5 \
   -od outputs
 ```
@@ -332,13 +332,13 @@ python -m src.main \
 
 ```bash
 # 低速・安全（並行2リクエスト）
-python -m src.main -rf character_requests.yaml -m gemini-2.5-flash -p 2
+python -m src.main -rf character_requests.yaml -m GEMINI_2_5_FLASH -p 2
 
 # 標準（並行5リクエスト）
-python -m src.main -rf character_requests.yaml -m gemini-2.5-flash -p 5
+python -m src.main -rf character_requests.yaml -m GEMINI_2_5_FLASH -p 5
 
 # 高速（並行10リクエスト）※レート制限に注意
-python -m src.main -rf character_requests.yaml -m gemini-2.5-flash -p 10
+python -m src.main -rf character_requests.yaml -m GEMINI_2_5_FLASH -p 10
 ```
 
 #### ヘルプの表示
