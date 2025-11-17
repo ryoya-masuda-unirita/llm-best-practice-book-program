@@ -5,12 +5,12 @@ from uuid import uuid4
 
 import click
 
-from src.client.llm_client import GeminiModel, LLMProvider, OpenAIModel
+from src.client.llm_client import GeminiModel, google_genai_client
 from src.logger import make_logger
 from src.model.llmops_log import StorageType
 from src.model.model import CharacterRequests
 from src.service.llmops_logger import create_llmops_logger
-from src.service.request_llm import batch_request_gemini, batch_request_openai
+from src.service.request_llm import batch_request_gemini
 
 logger = make_logger(__name__)
 
@@ -32,19 +32,11 @@ def async_cmd(func):
     help="Path to the YAML file containing character generation requests.",
 )
 @click.option(
-    "--llm-provider",
-    "-lp",
-    type=click.Choice(LLMProvider),
-    default=LLMProvider.GEMINI,
-    required=True,
-    help="The LLM provider to use.",
-)
-@click.option(
     "--model",
     "-m",
-    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str()),
+    type=click.Choice(GeminiModel.list_str()),
     required=True,
-    help="The model to use for the request.",
+    help="The Gemini model to use for the request.",
 )
 @click.option(
     "--output-directory",
@@ -78,7 +70,6 @@ def async_cmd(func):
 @async_cmd
 async def main(
     request_file: str,
-    llm_provider: LLMProvider,
     model: str,
     output_directory: str = "outputs",
     parallelism: int = 5,
@@ -86,17 +77,14 @@ async def main(
     storage_type: StorageType = StorageType.LOCAL,
 ):
     logger.info(f"""Request file: {request_file}
-LLM provider: {llm_provider.value}
 Model: {model}
 Output directory: {output_directory}
 Parallelism: {parallelism}
 User ID: {user_id}
 Storage type: {storage_type.value}""")
 
-    if llm_provider == LLMProvider.OPENAI and model not in OpenAIModel.list_str():
-        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
-    if llm_provider == LLMProvider.GEMINI and model not in GeminiModel.list_str():
-        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
+    if model not in GeminiModel.list_str():
+        raise ValueError(f"Invalid Gemini model '{model}'.")
 
     # Load character requests from YAML file
     logger.info(f"Loading character requests from {request_file}")
@@ -106,36 +94,26 @@ Storage type: {storage_type.value}""")
 
     os.makedirs(output_directory, exist_ok=True)
 
-    # Process requests in batch
+    # Process requests in batch using Gemini
     llmops_logger = create_llmops_logger(logger_name="llmops", storage_type=storage_type)
-    if llm_provider == LLMProvider.OPENAI:
-        results = await batch_request_openai(
-            character_requests=character_requests,
-            model=model,
-            llmops_logger=llmops_logger,
-            user_id=user_id,
-            parallelism=parallelism,
-        )
-    elif llm_provider == LLMProvider.GEMINI:
-        results = await batch_request_gemini(
-            character_requests=character_requests,
-            model=model,
-            llmops_logger=llmops_logger,
-            user_id=user_id,
-            parallelism=parallelism,
-        )
-    else:
-        raise ValueError(f"Unsupported LLM provider: {llm_provider.value}")
+    results = await batch_request_gemini(
+        character_requests=character_requests,
+        model=model,
+        llmops_logger=llmops_logger,
+        user_id=user_id,
+        parallelism=parallelism,
+    )
 
     # Save results to individual JSON files
     logger.info(f"Saving {len(results)} character responses to {output_directory}")
     for i, result in enumerate(results):
-        file_name = f"{llm_provider.value}_{i + 1:03d}_{uuid4().hex[:8]}.json"
+        file_name = f"gemini_{i + 1:03d}_{uuid4().hex[:8]}.json"
         file_path = os.path.join(output_directory, file_name)
         result.save_as_json(file_path)
         logger.info(f"Saved character {i + 1} to {file_path}")
 
     logger.info(f"Batch processing complete. Generated {len(results)} characters.")
+    await google_genai_client.aio.aclose()
 
 
 if __name__ == "__main__":

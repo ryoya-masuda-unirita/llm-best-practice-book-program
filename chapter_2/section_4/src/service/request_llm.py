@@ -5,9 +5,8 @@ from typing import Any, Callable
 
 from google.api_core import exceptions as google_exceptions
 from google.genai.types import GenerateContentConfig
-from openai import APIConnectionError, APIError, APITimeoutError, RateLimitError
 
-from src.client.llm_client import GeminiModel, OpenAIModel, google_genai_client, openai_client
+from src.client.llm_client import GeminiModel, google_genai_client
 from src.logger import make_logger
 from src.model.model import CharacterRequest, CharacterResponse
 from src.prompt.prompt import make_prompt
@@ -46,27 +45,6 @@ def should_retry_error(error: Exception) -> tuple[bool, int | None]:
     Returns:
         tuple: (should_retry: bool, retry_after_seconds: int | None)
     """
-    # OpenAI errors
-    if isinstance(error, RateLimitError):
-        # Check for Retry-After header in rate limit errors
-        retry_after = None
-        if hasattr(error, "response") and error.response is not None:
-            retry_after_header = error.response.headers.get("Retry-After")
-            if retry_after_header:
-                try:
-                    retry_after = int(retry_after_header)
-                except ValueError:
-                    pass
-        return True, retry_after
-
-    if isinstance(error, (APITimeoutError, APIConnectionError)):
-        return True, None
-
-    if isinstance(error, APIError):
-        if hasattr(error, "status_code") and error.status_code in RETRYABLE_STATUS_CODES:
-            return True, None
-        return False, None
-
     # Google Gemini errors
     if isinstance(error, google_exceptions.ResourceExhausted):
         return True, None
@@ -138,40 +116,6 @@ def retry_with_exponential_backoff(max_retries: int = MAX_RETRIES):
 
 
 @retry_with_exponential_backoff()
-async def request_openai(
-    character_request: CharacterRequest,
-    model: OpenAIModel,
-    llmops_logger: LLMOpsLogger,
-    user_id: str = "default_user",
-) -> CharacterResponse:
-    """Request character generation from OpenAI with structured logging and retry logic."""
-    prompt = make_prompt(character_request)
-    temperature = 1.0
-
-    async with llmops_logger.track_llm_request(
-        model=model,
-        temperature=temperature,
-        prompt_content=prompt,
-        user_id=user_id,
-        metadata={
-            "provider": "openai",
-            "model": model,
-            "response_format": "CharacterResponse",
-            "character_request": character_request.model_dump(),
-        },
-    ) as tracking:
-        result = await openai_client.beta.chat.completions.parse(
-            model=model,
-            messages=prompt,
-            response_format=CharacterResponse,
-            temperature=temperature,
-        )
-        parsed_response = result.choices[0].message.parsed
-        tracking["response"] = parsed_response.model_dump() if parsed_response else None
-        return parsed_response
-
-
-@retry_with_exponential_backoff()
 async def request_gemini(
     character_request: CharacterRequest,
     model: GeminiModel,
@@ -207,67 +151,6 @@ async def request_gemini(
         logger.info(result)
         tracking["response"] = result.parsed.model_dump() if result.parsed else None
         return result.parsed
-
-
-async def batch_request_openai(
-    character_requests: list[CharacterRequest],
-    model: OpenAIModel,
-    llmops_logger: LLMOpsLogger,
-    user_id: str = "default_user",
-    parallelism: int = 5,
-) -> list[CharacterResponse]:
-    """
-    Process multiple character generation requests in batch using OpenAI.
-
-    Args:
-        character_requests: List of character generation requests
-        model: OpenAI model to use
-        llmops_logger: Logger for LLM operations
-        user_id: User ID for logging
-        parallelism: Maximum number of concurrent requests (default: 5)
-
-    Returns:
-        List of generated character responses
-    """
-    logger.info(
-        f"Starting batch processing of {len(character_requests)} requests using OpenAI {model} "
-        f"(parallelism: {parallelism})"
-    )
-
-    # Create semaphore to limit concurrent requests
-    semaphore = asyncio.Semaphore(parallelism)
-
-    async def request_with_semaphore(req: CharacterRequest) -> CharacterResponse:
-        """Wrapper to execute request with semaphore."""
-        async with semaphore:
-            return await request_openai(
-                character_request=req,
-                model=model,
-                llmops_logger=llmops_logger,
-                user_id=user_id,
-            )
-
-    # Process all requests with controlled concurrency
-    tasks = [request_with_semaphore(req) for req in character_requests]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-
-    # Separate successful results from errors
-    successful_results = []
-    failed_requests = []
-
-    for i, result in enumerate(results):
-        if isinstance(result, Exception):
-            logger.error(f"Request {i + 1} failed: {type(result).__name__}: {str(result)}")
-            failed_requests.append(i)
-        else:
-            successful_results.append(result)
-
-    logger.info(f"Batch processing completed. Successful: {len(successful_results)}, Failed: {len(failed_requests)}")
-
-    if failed_requests:
-        logger.warning(f"Failed request indices: {failed_requests}")
-
-    return successful_results
 
 
 async def batch_request_gemini(

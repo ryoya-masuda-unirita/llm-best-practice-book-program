@@ -1,39 +1,25 @@
 """Prompt data model for LLMOps."""
 
 import re
-from datetime import datetime
-from typing import Any, Optional
+from datetime import datetime, timezone
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 
 class PromptData(BaseModel):
     """Model for prompt data to be stored."""
 
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=False,
-        extra="ignore",
-        arbitrary_types_allowed=True,
-    )
-
-    prompt_id: str = Field(..., description="Unique identifier for the prompt")
-    prompt_content: Any = Field(..., description="The actual prompt content (can be string or list of messages)")
-    response_content: Optional[Any] = Field(None, description="The LLM response content")
-    created_at: str = Field(
-        default_factory=lambda: datetime.utcnow().isoformat(),
-        description="Timestamp when prompt was created",
-    )
-    metadata: Optional[dict[str, Any]] = Field(default_factory=dict, description="Additional metadata")
+    prompt_id: str
+    prompt_content: Any
+    response_content: Any = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
     def mask_sensitive_data(self) -> None:
-        """Mask potentially sensitive information in prompt and response content.
-
-        This method uses regex patterns to mask common sensitive data types.
-        For production use, consider using NER models or more sophisticated masking.
-        """
+        """Mask potentially sensitive information in prompt and response content."""
         patterns = [
-            (r"\b\d{3}-\d{2}-\d{4}\b", "***-**-****"),  # SSN pattern
+            (r"\b\d{3}-\d{2}-\d{4}\b", "***-**-****"),  # SSN
             (r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "***@***.***"),  # Email
             (r"\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b", "****-****-****-****"),  # Credit card
         ]

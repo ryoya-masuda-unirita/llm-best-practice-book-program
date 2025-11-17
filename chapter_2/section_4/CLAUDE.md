@@ -17,8 +17,7 @@
 1. **コア機能**
    - [x] エクスポネンシャルバックオフ計算ロジック
    - [x] ランダムジッター追加機能
-   - [x] リトライ可否の判定ロジック(OpenAI/Gemini両対応)
-   - [x] Retry-Afterヘッダーのサポート
+   - [x] リトライ可否の判定ロジック(Gemini専用)
    - [x] リトライデコレータの実装
    - [x] 非同期バッチ処理機能
    - [x] セマフォによる並行数制御
@@ -34,7 +33,7 @@
    - [x] 年齢16-78歳、性別バランス、多様な職業設定
 
 4. **テストスイート**
-   - [x] 29個の包括的なテストケース
+   - [x] 13個の包括的なテストケース(Gemini専用)
    - [x] リトライロジックのユニットテスト
    - [x] バッチ処理のテスト
    - [x] セマフォ制御の検証
@@ -100,25 +99,21 @@ def should_retry_error(error: Exception) -> tuple[bool, int | None]:
 
 | エラー種別 | リトライ | 理由 |
 |-----------|---------|------|
-| `RateLimitError` (429) | ✅ Yes | 一時的なレート制限、Retry-After優先 |
-| `APITimeoutError` | ✅ Yes | ネットワーク遅延の可能性 |
-| `APIConnectionError` | ✅ Yes | 一時的な接続問題 |
-| `APIError` (500, 502, 503, 504) | ✅ Yes | サーバー側の一時的障害 |
-| `APIError` (400, 401) | ❌ No | リクエスト自体の問題 |
 | `google_exceptions.ResourceExhausted` | ✅ Yes | Geminiのクォータ超過 |
 | `google_exceptions.ServiceUnavailable` | ✅ Yes | Geminiサービス一時停止 |
+| `google_exceptions.InternalServerError` | ✅ Yes | Geminiサーバー内部エラー |
+| `google_exceptions.DeadlineExceeded` | ✅ Yes | Geminiタイムアウト |
 | その他 | ❌ No | 未知のエラーは安全側に倒す |
 
 **重要な実装詳細**:
-- Retry-Afterヘッダーが存在する場合、それを優先使用
-- エラーの`status_code`属性で詳細な判定
 - 型チェック(`isinstance`)でエラー種別を厳密に確認
+- Gemini APIの一時的障害のみリトライ対象
 
 #### 3. リトライデコレータ(88-130行目)
 
 ```python
 @retry_with_exponential_backoff(max_retries=5)
-async def request_openai(...):
+async def request_gemini(...):
     # リトライロジックが自動適用される
 ```
 
@@ -132,13 +127,12 @@ async def request_openai(...):
 
 **ログ出力**:
 - リトライ時: `[WARNING] Request failed (attempt X/Y). Error: ... Retrying in Z.XXs...`
-- Retry-After時: `[WARNING] Rate limit hit (attempt X/Y). Retry-After: Zs. Waiting...`
 - 最終失敗: `[ERROR] Request failed after X attempts. Error: ...`
 
-#### 4. バッチ処理(204-265, 268-329行目)
+#### 4. バッチ処理
 
 ```python
-async def batch_request_openai(
+async def batch_request_gemini(
     character_requests: list[CharacterRequest],
     parallelism: int = 5,
 ):
@@ -146,7 +140,7 @@ async def batch_request_openai(
 
     async def request_with_semaphore(req):
         async with semaphore:
-            return await request_openai(...)
+            return await request_gemini(...)
 
     tasks = [request_with_semaphore(req) for req in character_requests]
     results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -165,28 +159,27 @@ async def batch_request_openai(
 
 ### メインエントリーポイント: `src/main.py`
 
-#### CLIインターフェース(26-77行目)
+#### CLIインターフェース
 
 ```python
 @click.command()
 @click.option("--request-file", "-rf", required=True)
-@click.option("--llm-provider", "-lp", type=click.Choice(LLMProvider), required=True)
-@click.option("--model", "-m", required=True)
+@click.option("--model", "-m", type=click.Choice(GeminiModel.list_str()), required=True)
 @click.option("--parallelism", "-p", type=int, default=5)
 ```
 
 **パラメータ設計**:
-- 必須パラメータ: `request-file`, `llm-provider`, `model`
+- 必須パラメータ: `request-file`, `model`(Geminiモデルのみ)
 - オプション: `parallelism`(デフォルト5), `output-directory`, `user-id`, `storage-type`
 - 短縮形を提供してコマンド入力を簡素化
 
-#### バッチ処理オーケストレーション(92-136行目)
+#### バッチ処理オーケストレーション
 
 **実行フロー**:
 1. YAMLファイルからリクエストを読み込み(`CharacterRequests.load_from_yaml()`)
 2. LLMOpsロガーを初期化
-3. プロバイダーに応じてバッチ処理関数を呼び出し
-4. 結果を個別のJSONファイルに保存(`{provider}_{index:03d}_{uuid}.json`)
+3. Gemini APIを使用してバッチ処理関数を呼び出し
+4. 結果を個別のJSONファイルに保存(`gemini_{index:03d}_{uuid}.json`)
 5. 統計情報をログ出力
 
 ### データモデル: `src/model/model.py`
@@ -232,7 +225,7 @@ requests:
 
 ### テストファイル: `tests/test_request_llm.py`
 
-29個のテストケースを7つのクラスに分類:
+13個のテストケースを4つのクラスに分類:
 
 #### 1. TestCalculateBackoffWithJitter(4テスト)
 
@@ -252,19 +245,15 @@ def test_exponential_growth(self):
 - ジッターのランダム性
 - カスタムベース時間
 
-#### 2. TestShouldRetryError(10テスト)
+#### 2. TestShouldRetryError(3テスト)
 
 **目的**: エラー判定ロジックの検証
 
 **カバー範囲**:
-- ✅ `RateLimitError`(Retry-Afterあり/なし)
-- ✅ `APITimeoutError`
-- ✅ `APIConnectionError`
-- ✅ `APIError`(500, 400, 401等)
 - ✅ Google Geminiエラー(`ResourceExhausted`, `ServiceUnavailable`)
 - ✅ 未知のエラー
 
-#### 3. TestRetryWithExponentialBackoff(5テスト)
+#### 3. TestRetryWithExponentialBackoff(4テスト)
 
 **目的**: デコレータの動作検証
 
@@ -279,7 +268,7 @@ async def test_success_after_retries(self):
         nonlocal call_count
         call_count += 1
         if call_count < 3:
-            raise APITimeoutError("Timeout")
+            raise google_exceptions.ServiceUnavailable("Service unavailable")
         return "success"
 ```
 
@@ -288,18 +277,16 @@ async def test_success_after_retries(self):
 - リトライ後の成功
 - 最大リトライ回数超過
 - リトライ不可エラーの即時失敗
-- Retry-Afterヘッダーの尊重
 
-#### 4-5. TestRequestOpenAI/TestRequestGemini(各2テスト)
+#### 4. TestRequestGemini(2テスト)
 
 **目的**: 個別リクエスト関数の検証
 
 **モッキング戦略**:
-- `openai_client.beta.chat.completions.parse`をAsyncMockで置換
 - `google_genai_client.aio.models.generate_content`をAsyncMockで置換
 - レスポンスオブジェクトを手動構築
 
-#### 6-7. TestBatchRequestOpenAI/TestBatchRequestGemini(各3テスト)
+#### 5. TestBatchRequestGemini(3テスト)
 
 **目的**: バッチ処理とセマフォの検証
 
@@ -338,7 +325,7 @@ pytest tests/test_request_llm.py::TestRetryWithExponentialBackoff -v
 pytest tests/test_request_llm.py --cov=src/service/request_llm --cov-report=html
 ```
 
-**期待される結果**: 全29テストがパス(✅)
+**期待される結果**: 全13テストがパス(✅)
 
 ## 使用パターン
 
@@ -347,7 +334,6 @@ pytest tests/test_request_llm.py --cov=src/service/request_llm --cov-report=html
 ```bash
 python -m src.main \
   -rf character_requests.yaml \
-  -lp gemini \
   -m gemini-2.5-flash \
   -p 5 \
   -od outputs
@@ -363,14 +349,13 @@ python -m src.main \
 ```bash
 python -m src.main \
   -rf character_requests.yaml \
-  -lp openai \
-  -m gpt-4o-mini \
+  -m gemini-2.5-flash \
   -p 2 \
   -od outputs
 ```
 
 **適用ケース**:
-- レート制限が厳しいAPI
+- レート制限が厳しい環境
 - 初回テスト実行
 - 課金コスト削減優先
 
@@ -379,7 +364,6 @@ python -m src.main \
 ```bash
 python -m src.main \
   -rf character_requests.yaml \
-  -lp gemini \
   -m gemini-2.5-flash \
   -p 15 \
   -od outputs
@@ -461,14 +445,13 @@ async def request_new_provider(
 
 ```python
 async def batch_request_new_provider(...):
-    # batch_request_openai()をテンプレートに実装
+    # batch_request_gemini()をテンプレートに実装
 ```
 
 4. **main.pyに統合**:
 
 ```python
-elif llm_provider == LLMProvider.NEW_PROVIDER:
-    results = await batch_request_new_provider(...)
+results = await batch_request_new_provider(...)
 ```
 
 5. **テストの追加** (`tests/test_request_llm.py`):
@@ -660,8 +643,8 @@ MAX_BACKOFF_SECONDS = 60-120
 
 ## まとめ
 
-このプロジェクトは、本番環境で求められる堅牢なLLM APIリクエストシステムの実装例です。エクスポネンシャルバックオフ、ランダムジッター、インテリジェントなエラー判定、セマフォによる並行制御を組み合わせることで、一時的な障害に対する自動復旧とシステム全体の安定性を実現しています。
+このプロジェクトは、**Gemini API専用**の本番環境で求められる堅牢なLLM APIリクエストシステムの実装例です。エクスポネンシャルバックオフ、ランダムジッター、インテリジェントなエラー判定、セマフォによる並行制御を組み合わせることで、一時的な障害に対する自動復旧とシステム全体の安定性を実現しています。
 
-29個の包括的なテストケースにより、リトライロジックの正しさが保証されており、実際のプロダクション環境での使用にも耐えうる品質となっています。
+13個の包括的なテストケースにより、リトライロジックの正しさが保証されており、実際のプロダクション環境での使用にも耐えうる品質となっています。
 
-このコードベースは、LLM APIを使用する他のプロジェクトのリファレンス実装として活用できます。
+このコードベースは、Gemini APIを使用する他のプロジェクトのリファレンス実装として活用できます。
