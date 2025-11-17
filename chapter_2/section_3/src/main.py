@@ -6,8 +6,15 @@ from uuid import uuid4
 
 import click
 
-from src.client import GeminiModel, LLMProvider, LLMRequestWrapper, OpenAIModel
-from src.client.llm_client import get_gemini_embedding, get_openai_embedding
+from src.client.llm_client import (
+    GeminiModel,
+    LLMProvider,
+    OpenAIModel,
+    get_gemini_embedding,
+    get_openai_embedding,
+    google_genai_client,
+)
+from src.client.llm_request_wrapper import LLMRequestWrapper
 from src.config import config
 from src.logger import make_logger
 from src.model.model import Gender
@@ -215,6 +222,8 @@ Fallback enabled: {not disable_fallback}""")
 
     # Log statistics
     fallback_coordinator.log_stats()
+
+    await google_genai_client.aio.aclose()
 
 
 if __name__ == "__main__":

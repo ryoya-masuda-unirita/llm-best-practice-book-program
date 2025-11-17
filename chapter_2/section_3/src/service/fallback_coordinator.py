@@ -1,6 +1,7 @@
 """Fallback coordinator for managing LLM request fallback strategies."""
 
 import asyncio
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import Callable, Optional
 
@@ -20,6 +21,23 @@ class FallbackStrategy(StrEnum):
     PARAMETER_CACHE = "parameter_cache"
     SEMANTIC_CACHE = "semantic_cache"
     ALTERNATIVE_PROVIDER = "alternative_provider"
+
+
+@dataclass
+class RequestContext:
+    """Context for LLM request execution."""
+
+    prompt: Optional[list]
+    model: Optional[str]
+
+
+@dataclass
+class FallbackResult:
+    """Result of a fallback request."""
+
+    response: CharacterResponse
+    strategy: FallbackStrategy
+    error_reason: Optional[str]
 
 
 class FallbackCoordinator:
@@ -49,12 +67,14 @@ class FallbackCoordinator:
             timeout: Request timeout in seconds (uses config default if None)
         """
         self.fallback_strategy = fallback_strategy
-        self.cache_manager = cache_manager if cache_manager is not None else CacheManager()
+        self.cache_manager = cache_manager or CacheManager()
         self.semantic_cache_manager = semantic_cache_manager
-        self.timeout = timeout if timeout is not None else config.llm_request_timeout
+        self.timeout = timeout or config.llm_request_timeout
+        self.stats = self._init_stats()
 
-        # Statistics for monitoring
-        self.stats = {
+    def _init_stats(self) -> dict:
+        """Initialize statistics dictionary."""
+        return {
             "total_requests": 0,
             "primary_success": 0,
             "parameter_cache_hits": 0,
@@ -72,7 +92,6 @@ class FallbackCoordinator:
         alternative_request_func: Optional[Callable] = None,
         prompt: Optional[list] = None,
         model: Optional[str] = None,
-        temperature: Optional[float] = None,
     ) -> tuple[CharacterResponse, FallbackStrategy, Optional[str]]:
         """
         Execute LLM request with comprehensive fallback handling.
@@ -83,111 +102,155 @@ class FallbackCoordinator:
             alternative_request_func: Optional async function for alternative provider
             prompt: The prompt (for cache lookup)
             model: Model name (for cache lookup)
-            temperature: Temperature parameter (for cache lookup)
 
         Returns:
             Tuple of (response, strategy_used, error_reason)
-            - response: CharacterResponse object
-            - strategy_used: Which fallback strategy was used
-            - error_reason: Optional error reason if fallback was triggered
         """
         self.stats["total_requests"] += 1
-        error_reason = None
+        context = RequestContext(prompt=prompt, model=model)
 
-        # Step 1: Try primary provider with timeout
+        # Try primary request
+        result = await self._try_primary_request(primary_provider, primary_request_func, context)
+        if result:
+            return result.response, result.strategy, result.error_reason
+
+        # Primary failed - try fallback strategy
+        error_reason = "timeout" if self.stats["timeout_count"] > 0 else "error"
+        result = await self._execute_fallback_strategy(alternative_request_func, context, error_reason)
+        if result:
+            return result.response, result.strategy, result.error_reason
+
+        # All strategies failed
+        self._handle_fallback_failure(error_reason)
+
+    async def _try_primary_request(
+        self, provider: LLMProvider, request_func: Callable, context: RequestContext
+    ) -> Optional[FallbackResult]:
+        """Try primary request with timeout."""
         try:
-            logger.info(f"Attempting primary request with {primary_provider} (timeout: {self.timeout}s)")
-            response = await asyncio.wait_for(primary_request_func(), timeout=self.timeout)
+            logger.info(f"Attempting primary request with {provider} (timeout: {self.timeout}s)")
+            response = await asyncio.wait_for(request_func(), timeout=self.timeout)
             self.stats["primary_success"] += 1
-            logger.info(f"Primary request succeeded with {primary_provider}")
+            logger.info(f"Primary request succeeded with {provider}")
 
-            # Cache the successful response in both caches
-            if prompt and model and temperature:
-                try:
-                    if self.cache_manager:
-                        self.cache_manager.set(prompt, model, temperature, response)
-                    if self.semantic_cache_manager:
-                        await self.semantic_cache_manager.set(prompt, model, temperature, response)
-                except Exception as e:
-                    logger.warning(f"Failed to cache response: {e}")
-
-            return response, FallbackStrategy.PRIMARY, None
+            await self._cache_response(response, context)
+            return FallbackResult(response=response, strategy=FallbackStrategy.PRIMARY, error_reason=None)
 
         except asyncio.TimeoutError:
             self.stats["timeout_count"] += 1
-            error_reason = "timeout"
             logger.warning(
                 f"Primary request timed out after {self.timeout}s. Initiating fallback strategy: {self.fallback_strategy}"
             )
+            return None
 
         except Exception as e:
             self.stats["error_count"] += 1
-            error_reason = "error"
             logger.error(
                 f"Primary request failed with error: {e}. Initiating fallback strategy: {self.fallback_strategy}"
             )
+            return None
 
-        # Step 2: Execute configured fallback strategy
-        if self.fallback_strategy == FallbackStrategy.PARAMETER_CACHE:
-            # Try parameter-based cache
-            if prompt and model and temperature:
-                try:
-                    cached_response = self.cache_manager.get(prompt, model, temperature)
-                    if cached_response:
-                        self.stats["parameter_cache_hits"] += 1
-                        logger.info("Fallback: Using parameter cache response (exact match)")
-                        return cached_response, FallbackStrategy.PARAMETER_CACHE, error_reason
-                    else:
-                        logger.info("Fallback: No exact parameter match in cache")
-                except Exception as e:
-                    logger.warning(f"Parameter cache lookup failed: {e}")
+    async def _execute_fallback_strategy(
+        self, alternative_func: Optional[Callable], context: RequestContext, error_reason: str
+    ) -> Optional[FallbackResult]:
+        """Execute the configured fallback strategy."""
+        strategy_handlers = {
+            FallbackStrategy.PARAMETER_CACHE: self._try_parameter_cache,
+            FallbackStrategy.SEMANTIC_CACHE: self._try_semantic_cache,
+            FallbackStrategy.ALTERNATIVE_PROVIDER: lambda ctx, err: self._try_alternative_provider(
+                alternative_func, ctx, err
+            ),
+        }
 
-        elif self.fallback_strategy == FallbackStrategy.SEMANTIC_CACHE:
-            # Try semantic cache with embeddings
-            if self.semantic_cache_manager and prompt and model and temperature:
-                try:
-                    cached_response = await self.semantic_cache_manager.get(prompt, model, temperature)
-                    if cached_response:
-                        self.stats["semantic_cache_hits"] += 1
-                        logger.info("Fallback: Using semantic cache response (similar prompt)")
-                        return cached_response, FallbackStrategy.SEMANTIC_CACHE, error_reason
-                    else:
-                        logger.info("Fallback: No similar prompt found in semantic cache")
-                except Exception as e:
-                    logger.warning(f"Semantic cache lookup failed: {e}")
-            else:
-                logger.warning("Semantic cache not configured")
+        handler = strategy_handlers.get(self.fallback_strategy)
+        if handler:
+            return await handler(context, error_reason)
+        return None
 
-        elif self.fallback_strategy == FallbackStrategy.ALTERNATIVE_PROVIDER:
-            # Try alternative provider
-            if alternative_request_func:
-                try:
-                    logger.info(f"Fallback: Attempting alternative provider (timeout: {self.timeout}s)")
-                    response = await asyncio.wait_for(alternative_request_func(), timeout=self.timeout)
-                    self.stats["alternative_provider_success"] += 1
-                    logger.info("Fallback: Alternative provider succeeded")
+    async def _try_parameter_cache(self, context: RequestContext, error_reason: str) -> Optional[FallbackResult]:
+        """Try parameter-based cache lookup."""
+        if not (context.prompt and context.model):
+            return None
 
-                    # Cache the successful response from alternative provider
-                    if prompt and model and temperature:
-                        try:
-                            self.cache_manager.set(prompt, model, temperature, response)
-                            if self.semantic_cache_manager:
-                                await self.semantic_cache_manager.set(prompt, model, temperature, response)
-                        except Exception as e:
-                            logger.warning(f"Failed to cache alternative response: {e}")
+        try:
+            cached_response = self.cache_manager.get(context.prompt, context.model)
+            if cached_response:
+                self.stats["parameter_cache_hits"] += 1
+                logger.info("Fallback: Using parameter cache response (exact match)")
+                return FallbackResult(
+                    response=cached_response, strategy=FallbackStrategy.PARAMETER_CACHE, error_reason=error_reason
+                )
+            logger.info("Fallback: No exact parameter match in cache")
+        except Exception as e:
+            logger.warning(f"Parameter cache lookup failed: {e}")
 
-                    return response, FallbackStrategy.ALTERNATIVE_PROVIDER, error_reason
+        return None
 
-                except asyncio.TimeoutError:
-                    self.stats["timeout_count"] += 1
-                    logger.warning(f"Alternative provider timed out after {self.timeout}s")
-                except Exception as e:
-                    self.stats["error_count"] += 1
-                    logger.error(f"Alternative provider failed with error: {e}")
-            else:
-                logger.warning("No alternative provider configured")
+    async def _try_semantic_cache(self, context: RequestContext, error_reason: str) -> Optional[FallbackResult]:
+        """Try semantic cache lookup."""
+        if not self.semantic_cache_manager:
+            logger.warning("Semantic cache not configured")
+            return None
 
-        # Step 3: All strategies failed - raise exception
+        if not (context.prompt and context.model):
+            return None
+
+        try:
+            cached_response = await self.semantic_cache_manager.get(context.prompt, context.model)
+            if cached_response:
+                self.stats["semantic_cache_hits"] += 1
+                logger.info("Fallback: Using semantic cache response (similar prompt)")
+                return FallbackResult(
+                    response=cached_response, strategy=FallbackStrategy.SEMANTIC_CACHE, error_reason=error_reason
+                )
+            logger.info("Fallback: No similar prompt found in semantic cache")
+        except Exception as e:
+            logger.warning(f"Semantic cache lookup failed: {e}")
+
+        return None
+
+    async def _try_alternative_provider(
+        self, alternative_func: Optional[Callable], context: RequestContext, error_reason: str
+    ) -> Optional[FallbackResult]:
+        """Try alternative LLM provider."""
+        if not alternative_func:
+            logger.warning("No alternative provider configured")
+            return None
+
+        try:
+            logger.info(f"Fallback: Attempting alternative provider (timeout: {self.timeout}s)")
+            response = await asyncio.wait_for(alternative_func(), timeout=self.timeout)
+            self.stats["alternative_provider_success"] += 1
+            logger.info("Fallback: Alternative provider succeeded")
+
+            await self._cache_response(response, context)
+            return FallbackResult(
+                response=response, strategy=FallbackStrategy.ALTERNATIVE_PROVIDER, error_reason=error_reason
+            )
+
+        except asyncio.TimeoutError:
+            self.stats["timeout_count"] += 1
+            logger.warning(f"Alternative provider timed out after {self.timeout}s")
+        except Exception as e:
+            self.stats["error_count"] += 1
+            logger.error(f"Alternative provider failed with error: {e}")
+
+        return None
+
+    async def _cache_response(self, response: CharacterResponse, context: RequestContext) -> None:
+        """Cache a successful response."""
+        if not (context.prompt and context.model):
+            return
+
+        try:
+            self.cache_manager.set(context.prompt, context.model, response)
+            if self.semantic_cache_manager:
+                await self.semantic_cache_manager.set(context.prompt, context.model, response)
+        except Exception as e:
+            logger.warning(f"Failed to cache response: {e}")
+
+    def _handle_fallback_failure(self, error_reason: str) -> None:
+        """Handle complete fallback failure."""
         self.stats["fallback_failures"] += 1
         logger.error("Fallback: All strategies exhausted. Request failed.")
         raise RuntimeError(
@@ -196,37 +259,41 @@ class FallbackCoordinator:
         )
 
     def get_stats(self) -> dict:
-        """
-        Get statistics about fallback usage.
-
-        Returns:
-            Dictionary with fallback statistics
-        """
+        """Get statistics about fallback usage with calculated rates."""
         stats = self.stats.copy()
+        total = stats["total_requests"]
 
-        # Calculate success rates
-        if stats["total_requests"] > 0:
-            stats["primary_success_rate"] = stats["primary_success"] / stats["total_requests"] * 100
-            stats["parameter_cache_hit_rate"] = stats["parameter_cache_hits"] / stats["total_requests"] * 100
-            stats["semantic_cache_hit_rate"] = stats["semantic_cache_hits"] / stats["total_requests"] * 100
-            stats["total_cache_hit_rate"] = (
-                (stats["parameter_cache_hits"] + stats["semantic_cache_hits"]) / stats["total_requests"] * 100
-            )
-            stats["fallback_rate"] = (
-                (stats["parameter_cache_hits"] + stats["semantic_cache_hits"] + stats["alternative_provider_success"])
-                / stats["total_requests"]
-                * 100
-            )
-            stats["failure_rate"] = stats["fallback_failures"] / stats["total_requests"] * 100
+        if total > 0:
+            stats.update(self._calculate_rates(stats, total))
         else:
-            stats["primary_success_rate"] = 0.0
-            stats["parameter_cache_hit_rate"] = 0.0
-            stats["semantic_cache_hit_rate"] = 0.0
-            stats["total_cache_hit_rate"] = 0.0
-            stats["fallback_rate"] = 0.0
-            stats["failure_rate"] = 0.0
+            stats.update(self._zero_rates())
 
         return stats
+
+    def _calculate_rates(self, stats: dict, total: int) -> dict:
+        """Calculate success rates from raw statistics."""
+        cache_hits = stats["parameter_cache_hits"] + stats["semantic_cache_hits"]
+        fallback_successes = cache_hits + stats["alternative_provider_success"]
+
+        return {
+            "primary_success_rate": stats["primary_success"] / total * 100,
+            "parameter_cache_hit_rate": stats["parameter_cache_hits"] / total * 100,
+            "semantic_cache_hit_rate": stats["semantic_cache_hits"] / total * 100,
+            "total_cache_hit_rate": cache_hits / total * 100,
+            "fallback_rate": fallback_successes / total * 100,
+            "failure_rate": stats["fallback_failures"] / total * 100,
+        }
+
+    def _zero_rates(self) -> dict:
+        """Return zero values for all rate statistics."""
+        return {
+            "primary_success_rate": 0.0,
+            "parameter_cache_hit_rate": 0.0,
+            "semantic_cache_hit_rate": 0.0,
+            "total_cache_hit_rate": 0.0,
+            "fallback_rate": 0.0,
+            "failure_rate": 0.0,
+        }
 
     def log_stats(self):
         """Log current fallback statistics."""
@@ -246,6 +313,5 @@ class FallbackCoordinator:
 
     def reset_stats(self):
         """Reset statistics counters."""
-        for key in self.stats:
-            self.stats[key] = 0
+        self.stats = self._init_stats()
         logger.info("Fallback statistics reset")

@@ -31,11 +31,11 @@ async def request_openai(
     ) as tracking:
         result = await openai_client.responses.parse(
             model=model,
-            messages=prompt,
-            response_format=CharacterResponse,
+            input=prompt,
+            text_format=CharacterResponse,
         )
         tracking["response"] = result.parsed.model_dump() if result.parsed else None
-        return result.parsed
+        return result.output_parsed
 
 
 async def request_gemini(

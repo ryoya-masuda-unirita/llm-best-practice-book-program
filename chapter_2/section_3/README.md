@@ -1,30 +1,39 @@
-# Chapter 2 Section 3: LLMリクエストのリジリエンスとフォールバック戦略
+# Chapter 2 Section 3: LLMリクエストのタイムアウトとフォールバック
 
 ## 概要
 
 このプロジェクトは、**本番環境で求められるLLM APIリクエストの復元力（レジリエンス）とフォールバック戦略**を実装したサンプルコードです。プライマリLLMプロバイダーの障害やタイムアウトが発生した場合でも、サービスを継続的に提供するための多段階フォールバックシステムを実現します。
 
-Section 1とSection 2で学んだ基本的なLLM実装をベースに、**プロダクションレディなエラーハンドリング、キャッシング、代替プロバイダー切り替え、テンプレート応答**などの実用的なパターンを追加しています。
+Section 1とSection 2で学んだ基本的なLLM実装をベースに、**プロダクションレディなエラーハンドリング、キャッシング、代替プロバイダー切り替え**などの実用的なパターンを追加しています。
 
 フィクションのキャラクター情報生成を通じて、API障害時でも安定したサービス提供を実現する方法を学ぶことができます。
 
 ## 機能
 
-### 1. 4段階フォールバックシステム
+### 1. 3段階フォールバックシステム
 
 プライマリプロバイダーの障害時に自動的に代替手段へ切り替える多段階システム：
 
 1. **プライマリプロバイダーリクエスト** - 設定されたタイムアウト内でリクエストを試行
-2. **キャッシュルックアップ** - 過去の類似リクエストのキャッシュを検索
+2. **パラメーターキャッシュ/セマンティックキャッシュ** - 過去のリクエストのキャッシュを検索
 3. **代替プロバイダー** - 別のLLMプロバイダー（OpenAI ⇄ Gemini）に自動切り替え
-4. **テンプレート応答** - 最終手段として事前定義されたキャラクターデータを返却
 
-### 2. レスポンスキャッシング
+### 2. 2種類のレスポンスキャッシング
 
-- **SHA256ベースのキャッシュキー生成** - プロンプト、モデル、temperatureを元にハッシュ化
+**パラメーターキャッシュ（CacheManager）:**
+- **SHA256ベースのキャッシュキー生成** - プロンプト、モデルを元にハッシュ化
+- **完全一致検索** - 同じプロンプトとモデルの組み合わせで高速ヒット
 - **TTL（Time-To-Live）サポート** - キャッシュの有効期限管理（デフォルト: 1時間）
 - **JSONファイルベースストレージ** - `.cache/` ディレクトリに保存
+
+**セマンティックキャッシュ（SemanticCacheManager）:**
+- **埋め込みベースの類似検索** - プロンプトの意味的な類似性でキャッシュヒット
+- **コサイン類似度** - 設定可能な類似度閾値（デフォルト: 0.95）
+- **類似プロンプトの再利用** - 完全一致でなくても類似したリクエストでキャッシュを活用
+
+**共通機能:**
 - **期限切れエントリの自動クリーンアップ** - 無効なキャッシュの自動削除
+- **ベースクラスによる共通機能** - BaseCacheManagerで重複コードを削減
 
 ### 3. 設定可能なタイムアウト管理
 
@@ -37,10 +46,11 @@ Section 1とSection 2で学んだ基本的なLLM実装をベースに、**プロ
 包括的なメトリクスの追跡：
 - 総リクエスト数
 - プライマリプロバイダー成功率
-- キャッシュヒット率
+- パラメーターキャッシュヒット率
+- セマンティックキャッシュヒット率
 - 代替プロバイダー使用率
-- テンプレートフォールバック回数
 - タイムアウトおよびエラーカウント
+- フォールバック率と失敗率
 
 ### 5. デュアルLLMプロバイダーサポート
 
@@ -56,6 +66,7 @@ Section 1とSection 2で学んだ基本的なLLM実装をベースに、**プロ
 - **環境変数管理**: python-dotenvによる安全なAPIキー管理
 - **詳細なログ出力**: 実行状況とフォールバック戦略の可視化
 - **JSON出力**: 生成結果をJSON形式でファイルに保存
+- **データクラスによる型安全性**: RequestContextとFallbackResultで明確なデータ構造
 
 ## プロジェクト構成
 
@@ -79,16 +90,16 @@ chapter_2/section_3/
 │   │   └── prompt.py            # プロンプト生成ロジック
 │   └── service/
 │       ├── __init__.py
-│       ├── cache_manager.py     # TTL付きレスポンスキャッシング
+│       ├── cache_manager.py     # TTL付きレスポンスキャッシング（パラメーター/セマンティック）
 │       ├── fallback_coordinator.py  # フォールバック戦略の統括
 │       └── template_response.py # テンプレート応答生成
 ├── tests/
 │   ├── __init__.py
 │   ├── conftest.py              # pytestフィクスチャ
 │   ├── test_cache_manager.py    # キャッシュマネージャーのテスト
-│   ├── test_fallback_coordinator.py # フォールバックコーディネーターのテスト
-│   └── test_template_response.py    # テンプレート応答のテスト
-├── .cache/                      # キャッシュストレージ（.gitignore）
+│   └── test_fallback_coordinator.py # フォールバックコーディネーターのテスト
+├── .cache/                      # パラメーターキャッシュストレージ（.gitignore）
+├── .semantic_cache/             # セマンティックキャッシュストレージ（.gitignore）
 ├── outputs/                     # 生成結果の保存先（自動作成）
 ├── .envrc.example               # 環境変数設定のサンプル
 ├── pyproject.toml               # プロジェクト依存関係
@@ -112,21 +123,25 @@ chapter_2/section_3/
 │      Request Wrapper Layer                  │
 │  - リクエストラッパー (llm_request_wrapper)  │
 │  - OpenAI/Geminiリクエストの統一I/F         │
-│  - 統計情報の管理                            │
+│  - リクエストロジックの共通化                │
+│  - プロバイダー間の切り替え                  │
 └─────────────────┬───────────────────────────┘
                   │
 ┌─────────────────▼───────────────────────────┐
 │      Fallback Coordination Layer            │
 │  - フォールバック統括 (fallback_coordinator)│
 │  - タイムアウト管理                          │
-│  - 4段階フォールバック戦略実行               │
+│  - 3段階フォールバック戦略実行               │
 │  - 統計情報の追跡                            │
+│  - 戦略パターンによるディスパッチ            │
 └─────────────────┬───────────────────────────┘
                   │
 ┌─────────────────▼───────────────────────────┐
 │      Service Layer                          │
 │  - キャッシュマネージャー (cache_manager)   │
-│  - テンプレート生成 (template_response)     │
+│    • BaseCacheManager (基底クラス)         │
+│    • CacheManager (パラメーターキャッシュ)  │
+│    • SemanticCacheManager (セマンティック)  │
 │  - プロンプト生成 (prompt.py)               │
 │  - データモデル (model.py)                  │
 └─────────────────┬───────────────────────────┘
@@ -144,164 +159,204 @@ chapter_2/section_3/
 
 #### 1. キャッシュマネージャー (`src/service/cache_manager.py`)
 
-TTLサポートを備えたLLM応答のキャッシング機能を提供します。
+リファクタリングにより、3つのクラスで構成される階層構造になりました：
 
-**キャッシュキー生成**:
+**BaseCacheManager（基底クラス）:**
+共通機能を提供：
 ```python
-def _generate_cache_key(self, prompt: list, model: str, temperature: float) -> str:
-    cache_data = {
-        "prompt": prompt,
-        "model": model,
-        "temperature": temperature,
-    }
-    cache_str = json.dumps(cache_data, sort_keys=True, ensure_ascii=False)
-    return hashlib.sha256(cache_str.encode()).hexdigest()
+class BaseCacheManager(ABC):
+    def __init__(self, cache_dir: str, ttl: Optional[int] = None)
+    def _get_cache_path(self, cache_key: str) -> Path
+    def _is_expired(self, cached_time: float) -> bool
+    def _load_cache_file(self, cache_path: Path) -> Optional[dict]
+    def _save_cache_file(self, cache_path: Path, data: dict) -> None
+    def clear_expired(self) -> int
+    def clear_all(self) -> int
 ```
 
-**主要メソッド**:
-- `get(prompt, model, temperature)` - キャッシュ済み応答を取得（TTLを考慮）
-- `set(prompt, model, temperature, response)` - 応答をキャッシュに保存
-- `clear_expired()` - 期限切れキャッシュエントリを削除
-- `clear_all()` - すべてのキャッシュエントリを削除
+**CacheManager（パラメーターキャッシュ）:**
+完全一致キャッシュ：
+```python
+def _generate_cache_key(self, prompt: list, model: str) -> str:
+    cache_data = {"prompt": prompt, "model": model}
+    cache_str = json.dumps(cache_data, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(cache_str.encode()).hexdigest()
 
-**ポイント**:
-- プロンプト、モデル、temperatureの組み合わせでユニークなキーを生成
-- キャッシュファイルにタイムスタンプを保存し、TTL経過後は自動的に無効化
-- 破損したキャッシュファイルは自動削除
+def get(self, prompt: list, model: str) -> Optional[CharacterResponse]
+def set(self, prompt: list, model: str, response: CharacterResponse) -> None
+```
+
+**SemanticCacheManager（セマンティックキャッシュ）:**
+類似度ベースのキャッシュ：
+```python
+def _find_similar_cache(self, query_embedding: list[float], model: str) -> tuple[Optional[str], float]:
+    # コサイン類似度で最も類似したキャッシュを検索
+    ...
+
+async def get(self, prompt: list, model: str) -> Optional[CharacterResponse]
+async def set(self, prompt: list, model: str, response: CharacterResponse) -> None
+```
+
+**主要な改善点**:
+- **コードの重複削除**: ~150行のコード重複を削減
+- **単一責任の原則**: 各クラスが明確な責任を持つ
+- **保守性の向上**: 共通機能の修正が一箇所で済む
+- **拡張性**: 新しいキャッシュタイプの追加が容易
 
 #### 2. フォールバックコーディネーター (`src/service/fallback_coordinator.py`)
 
-多段階フォールバック戦略を統括します。
+リファクタリングにより、小さな責務を持つメソッドに分割されました：
+
+**データクラス**:
+```python
+@dataclass
+class RequestContext:
+    """リクエストコンテキストをカプセル化"""
+    prompt: Optional[list]
+    model: Optional[str]
+
+@dataclass
+class FallbackResult:
+    """フォールバック結果をカプセル化"""
+    response: CharacterResponse
+    strategy: FallbackStrategy
+    error_reason: Optional[str]
+```
 
 **フォールバック戦略の列挙型**:
 ```python
 class FallbackStrategy(StrEnum):
-    CACHE = "cache"
+    PRIMARY = "primary"
+    PARAMETER_CACHE = "parameter_cache"
+    SEMANTIC_CACHE = "semantic_cache"
     ALTERNATIVE_PROVIDER = "alternative_provider"
-    TEMPLATE = "template"
 ```
 
-**フォールバックフロー** (`request_with_fallback` メソッド):
+**主要メソッド（リファクタリング後）**:
 ```python
-# 1. プライマリプロバイダーでリクエスト試行
-try:
-    response = await asyncio.wait_for(primary_request_func(), timeout=self.timeout)
-    # 成功したらキャッシュに保存
-    self.cache_manager.set(prompt, model, temperature, response)
-    return response, None, None
-except (asyncio.TimeoutError, Exception):
-    # 失敗したらフォールバック開始
-    pass
+# メインエントリーポイント（簡潔に）
+async def request_with_fallback(...) -> tuple[CharacterResponse, FallbackStrategy, Optional[str]]:
+    context = RequestContext(prompt=prompt, model=model)
+    result = await self._try_primary_request(primary_provider, primary_request_func, context)
+    if result:
+        return result.response, result.strategy, result.error_reason
 
-# 2. キャッシュをチェック
-cached_response = self.cache_manager.get(prompt, model, temperature)
-if cached_response:
-    return cached_response, FallbackStrategy.CACHE, error_reason
+    error_reason = "timeout" if self.stats["timeout_count"] > 0 else "error"
+    result = await self._execute_fallback_strategy(alternative_func, context, error_reason)
+    if result:
+        return result.response, result.strategy, result.error_reason
 
-# 3. 代替プロバイダーを試行
-response = await asyncio.wait_for(alternative_request_func(), timeout=self.timeout)
-return response, FallbackStrategy.ALTERNATIVE_PROVIDER, error_reason
+    self._handle_fallback_failure(error_reason)
 
-# 4. テンプレート応答を返却（最終手段）
-template_response = self.template_generator.generate(reason=error_reason)
-return template_response, FallbackStrategy.TEMPLATE, error_reason
+# 各フォールバック戦略が独立したメソッドに
+async def _try_primary_request(...) -> Optional[FallbackResult]
+async def _execute_fallback_strategy(...) -> Optional[FallbackResult]
+async def _try_parameter_cache(...) -> Optional[FallbackResult]
+async def _try_semantic_cache(...) -> Optional[FallbackResult]
+async def _try_alternative_provider(...) -> Optional[FallbackResult]
+async def _cache_response(...) -> None
 ```
 
-**統計情報の追跡**:
-- 総リクエスト数、プライマリ成功数、キャッシュヒット数などを記録
-- `get_stats()` で成功率やフォールバック率を計算
-- `log_stats()` でフォーマット済み統計をログ出力
-
-#### 3. テンプレート応答ジェネレーター (`src/service/template_response.py`)
-
-すべてのフォールバック戦略が失敗した場合の最終手段として、事前定義されたキャラクターデータを提供します。
-
-**事前定義テンプレート**:
+**戦略パターンの実装**:
 ```python
-TEMPLATE_CHARACTERS = [
-    {
-        "first_name": "太郎",
-        "last_name": "山田",
-        "gender": Gender.MALE,
-        "age": 30,
-        "personalities": [
-            CharacterPersonality(
-                short_personality="誠実",
-                description="常に正直で、約束を守る信頼できる人物。困っている人を見過ごせない性格。"
-            ),
-            # ... 他の性格特性
-        ],
-    },
-    # ... 他のテンプレートキャラクター（計4種類）
-]
-```
-
-**特徴**:
-- 4種類の多様なキャラクタープロファイルを用意
-- ランダム選択またはラウンドロビン選択をサポート
-- エラー理由に応じたユーザーフレンドリーなメッセージを生成
-- サービスが完全に停止することを防ぐ安全網の役割
-
-**フォールバックメッセージ**:
-```python
-def get_fallback_message(self, reason: str) -> str:
-    messages = {
-        "timeout": "現在、AIによる応答が遅延しています。代替のキャラクターデータを提供いたします。",
-        "error": "AIサービスでエラーが発生しました。代替のキャラクターデータを提供いたします。",
-        "api_unavailable": "AIサービスが一時的に利用できません。代替のキャラクターデータを提供いたします。",
-        "rate_limit": "リクエスト制限に達しました。代替のキャラクターデータを提供いたします。",
+async def _execute_fallback_strategy(...):
+    strategy_handlers = {
+        FallbackStrategy.PARAMETER_CACHE: self._try_parameter_cache,
+        FallbackStrategy.SEMANTIC_CACHE: self._try_semantic_cache,
+        FallbackStrategy.ALTERNATIVE_PROVIDER: lambda ctx, err: self._try_alternative_provider(
+            alternative_func, ctx, err
+        ),
     }
-    return messages.get(reason, "現在、標準のAI応答が利用できません。代替のキャラクターデータを提供いたします。")
+    handler = strategy_handlers.get(self.fallback_strategy)
+    if handler:
+        return await handler(context, error_reason)
 ```
 
-#### 4. LLMリクエストラッパー (`src/client/llm_request_wrapper.py`)
-
-フォールバック機能を統合した高レベルなLLMリクエストインターフェースを提供します。
-
-**OpenAIリクエスト（Geminiフォールバック付き）**:
+**統計情報の追跡（リファクタリング後）**:
 ```python
-async def request_openai(self, with_fallback: bool = True) -> tuple[CharacterResponse, Optional[FallbackStrategy], Optional[str]]:
-    prompt = make_prompt()
-    model = "gpt-4o-mini"
-    temperature = 1.0
-
-    async def primary_request():
-        result = await openai_client.beta.chat.completions.parse(
-            model=model,
-            messages=prompt,
-            response_format=CharacterResponse,
-            temperature=temperature,
-        )
-        return result.choices[0].message.parsed
-
-    if with_fallback:
-        # Geminiを代替プロバイダーとして使用
-        async def alternative_request():
-            return await self._request_gemini_internal()
-
-        return await self.coordinator.request_with_fallback(
-            primary_provider=LLMProvider.OPENAI,
-            primary_request_func=primary_request,
-            alternative_request_func=alternative_request,
-            prompt=prompt,
-            model=model,
-            temperature=temperature,
-        )
+def get_stats(self) -> dict:
+    stats = self.stats.copy()
+    if stats["total_requests"] > 0:
+        stats.update(self._calculate_rates(stats, stats["total_requests"]))
     else:
-        # フォールバックなしの直接リクエスト
-        response = await primary_request()
-        return response, None, None
+        stats.update(self._zero_rates())
+    return stats
+
+def _calculate_rates(self, stats: dict, total: int) -> dict:
+    """成功率を計算"""
+    cache_hits = stats["parameter_cache_hits"] + stats["semantic_cache_hits"]
+    return {
+        "primary_success_rate": stats["primary_success"] / total * 100,
+        "parameter_cache_hit_rate": stats["parameter_cache_hits"] / total * 100,
+        # ...
+    }
 ```
 
-**Geminiリクエスト（OpenAIフォールバック付き）**:
-同様の構造で、プライマリとしてGeminiを使用し、代替としてOpenAIを使用します。
+**主要な改善点**:
+- **複雑度の削減**: 127行のメソッドを複数の小さなメソッド（最大35行）に分割
+- **テスタビリティ**: 各戦略を個別にテスト可能
+- **可読性**: 各メソッドが単一の責務を持つ
+- **保守性**: 新しい戦略の追加が容易
 
-**ポイント**:
-- `with_fallback=False` でフォールバック機能を無効化可能（デバッグ用）
-- クロスプロバイダーフォールバックにより高可用性を実現
-- 統一されたインターフェースで複雑さを隠蔽
+#### 3. LLMリクエストラッパー (`src/client/llm_request_wrapper.py`)
 
-#### 5. 設定管理 (`src/config.py`)
+リファクタリングにより、重複コードを削減：
+
+**リファクタリング前**:
+- `request_openai`と`request_gemini`で重複したロジック
+- 誤ったdocstring
+
+**リファクタリング後**:
+```python
+class LLMRequestWrapper:
+    def __init__(self, fallback_coordinator: FallbackCoordinator):
+        self.fallback_coordinator = fallback_coordinator
+
+    async def request_openai(
+        self, prompt, model=OpenAIModel.GPT_4O_MINI,
+        alternative_model=GeminiModel.GEMINI_2_5_FLASH, with_fallback=True
+    ):
+        """OpenAIリクエスト（Geminiフォールバック付き）"""
+        return await self._make_request(
+            primary_provider=LLMProvider.OPENAI,
+            primary_func=lambda: self._request_openai_internal(prompt, model),
+            alternative_func=lambda: self._request_gemini_internal(prompt, alternative_model),
+            prompt=prompt, model=model, with_fallback=with_fallback
+        )
+
+    async def request_gemini(
+        self, prompt, model=GeminiModel.GEMINI_2_5_FLASH,
+        alternative_model=OpenAIModel.GPT_4O_MINI, with_fallback=True
+    ):
+        """Geminiリクエスト（OpenAIフォールバック付き）"""
+        return await self._make_request(
+            primary_provider=LLMProvider.GEMINI,
+            primary_func=lambda: self._request_gemini_internal(prompt, model),
+            alternative_func=lambda: self._request_openai_internal(prompt, alternative_model),
+            prompt=prompt, model=model, with_fallback=with_fallback
+        )
+
+    async def _make_request(self, primary_provider, primary_func, alternative_func,
+                           prompt, model, with_fallback):
+        """共通のリクエストロジック"""
+        if with_fallback:
+            return await self.fallback_coordinator.request_with_fallback(
+                primary_provider=primary_provider,
+                primary_request_func=primary_func,
+                alternative_request_func=alternative_func,
+                prompt=prompt, model=model
+            )
+        else:
+            response = await primary_func()
+            return response, None, None
+```
+
+**主要な改善点**:
+- **DRY原則**: ~30行の重複コード削減
+- **正確なdocstring**: すべてのメソッドに正しい説明
+- **拡張性**: 新しいプロバイダーの追加が容易
+
+#### 4. 設定管理 (`src/config.py`)
 
 環境変数から設定を読み込み、タイムアウトとキャッシュTTLを管理します。
 
@@ -337,7 +392,7 @@ class Config(BaseModel):
 - 環境変数が未設定の場合は適切なデフォルト値を使用
 - Pydanticの検証機能で環境変数の存在をチェック
 
-#### 6. メインエントリーポイント (`src/main.py`)
+#### 5. メインエントリーポイント (`src/main.py`)
 
 CLIインターフェースを提供し、フォールバック戦略を実行します。
 
@@ -349,8 +404,9 @@ CLIインターフェースを提供し、フォールバック戦略を実行�
 @click.option("--disable-fallback", "-df", is_flag=True, default=False)
 @async_cmd
 async def main(llm_provider, output_directory, timeout, disable_fallback):
-    # リクエストラッパーを初期化
-    wrapper = LLMRequestWrapper(timeout=timeout)
+    # フォールバックコーディネーターを初期化
+    coordinator = FallbackCoordinator(timeout=timeout)
+    wrapper = LLMRequestWrapper(fallback_coordinator=coordinator)
 
     # フォールバックの有無でリクエスト実行
     result, strategy, error_reason = await wrapper.request_openai(
@@ -361,8 +417,28 @@ async def main(llm_provider, output_directory, timeout, disable_fallback):
     result.save_as_json(file_path)
 
     # 統計情報をログ出力
-    wrapper.log_stats()
+    coordinator.log_stats()
 ```
+
+## リファクタリングによる改善
+
+### コード品質の向上
+
+**複雑度の削減**:
+- `fallback_coordinator.py`: 最大メソッド長を127行から35行に短縮（73%削減）
+- `cache_manager.py`: 440行から335行に削減（24%削減）、重複コード~150行削除
+- `llm_request_wrapper.py`: 重複コード~30行削除
+
+**保守性の向上**:
+- 小さく、焦点を絞ったメソッド
+- 単一責任の原則の適用
+- データクラスによる型安全性
+- 戦略パターンによる拡張性
+
+**テスタビリティ**:
+- 各フォールバック戦略を個別にテスト可能
+- モックの作成が容易
+- 依存関係の注入
 
 ## 使い方
 
@@ -405,9 +481,6 @@ CACHE_TTL=3600              # キャッシュTTL（秒、デフォルト: 1時�
 # uvを使用する場合（推奨）
 uv sync
 
-# pipを使用する場合
-pip install -e .
-
 # 開発依存関係も含める場合
 uv sync --all-extras
 ```
@@ -421,10 +494,10 @@ uv sync --all-extras
 uv run python -m src.main
 
 # OpenAI APIを使用（フォールバック有効）
-uv run python -m src.main --llm-provider openai
+uv run python -m src.main --llm-provider OPENAI
 
 # 短縮オプション
-uv run python -m src.main -lp openai
+uv run python -m src.main -lp OPENAI
 ```
 
 #### タイムアウトの設定
@@ -450,7 +523,7 @@ uv run python -m src.main --disable-fallback
 uv run python -m src.main -df
 
 # デバッグ用: OpenAIのみ、フォールバックなし、短いタイムアウト
-uv run python -m src.main -lp openai -df -t 5
+uv run python -m src.main -lp OPENAI -df -t 5
 ```
 
 #### 出力先の指定
@@ -467,34 +540,13 @@ uv run python -m src.main -od ./my_characters
 
 ```bash
 # すべてのオプションを組み合わせ
-uv run python -m src.main -lp openai -od ./outputs -t 15 -df
+uv run python -m src.main -lp OPENAI -od ./outputs -t 15 -df
 
 # 本番環境向け設定例（長めのタイムアウト）
-uv run python -m src.main -lp gemini -t 30
+uv run python -m src.main -lp GEMINI -t 30
 
 # 開発/テスト環境向け設定例（短いタイムアウトでフォールバックをテスト）
-uv run python -m src.main -lp gemini -t 2
-```
-
-#### ヘルプの表示
-
-```bash
-uv run python -m src.main --help
-```
-
-**ヘルプ出力例**:
-```
-Usage: python -m src.main [OPTIONS]
-
-Options:
-  -lp, --llm-provider [openai|gemini]
-                                  The LLM provider to use.
-  -od, --output-directory PATH    The directory to save output files.
-  -t, --timeout FLOAT             Request timeout in seconds (default:
-                                  10.0s from config)
-  -df, --disable-fallback         Disable fallback mechanisms (use only
-                                  primary provider)
-  --help                          Show this message and exit.
+uv run python -m src.main -lp GEMINI -t 2
 ```
 
 ### 出力例
@@ -528,219 +580,53 @@ Options:
 
 **実行ログ例**:
 ```
-[2025-10-17 10:30:45] [INFO] [__main__] [main.py:59] [main] LLM provider: gemini
-Output directory: outputs
-Timeout: 10.0s
-Fallback enabled: True
-[2025-10-17 10:30:45] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:96] [request_with_fallback] Attempting primary request with gemini (timeout: 10.0s)
-[2025-10-17 10:30:47] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:103] [request_with_fallback] Primary request succeeded with gemini
-[2025-10-17 10:30:47] [INFO] [__main__] [main.py:91] [main] File saved to outputs/gemini_a1b2c3d4e5f6.json
-[2025-10-17 10:30:47] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:220] [log_stats] === Fallback Statistics ===
-[2025-10-17 10:30:47] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:221] [log_stats] Total Requests: 1
-[2025-10-17 10:30:47] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:222] [log_stats] Primary Success: 1 (100.0%)
-[2025-10-17 10:30:47] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:226] [log_stats] Cache Hits: 0 (0.0%)
-[2025-10-17 10:30:47] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:230] [log_stats] Alternative Provider: 0
-[2025-10-17 10:30:47] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:233] [log_stats] Template Fallback: 0
-[2025-10-17 10:30:47] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:234] [log_stats] Timeouts: 0
-[2025-10-17 10:30:47] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:235] [log_stats] Errors: 0
-[2025-10-17 10:30:47] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:236] [log_stats] Fallback Rate: 0.0%
-[2025-10-17 10:30:47] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:237] [log_stats] ===========================
+[2025-11-17 10:30:45] [INFO] Attempting primary request with gemini (timeout: 10.0s)
+[2025-11-17 10:30:47] [INFO] Primary request succeeded with gemini
+[2025-11-17 10:30:47] [INFO] Cached response: f0f84bef45c8...
+[2025-11-17 10:30:47] [INFO] File saved to outputs/gemini_a1b2c3d4e5f6.json
+[2025-11-17 10:30:47] [INFO] === Fallback Statistics ===
+[2025-11-17 10:30:47] [INFO] Total Requests: 1
+[2025-11-17 10:30:47] [INFO] Primary Success: 1 (100.0%)
+[2025-11-17 10:30:47] [INFO] Parameter Cache Hits: 0 (0.0%)
+[2025-11-17 10:30:47] [INFO] Semantic Cache Hits: 0 (0.0%)
+[2025-11-17 10:30:47] [INFO] Total Cache Hit Rate: 0.0%
+[2025-11-17 10:30:47] [INFO] Alternative Provider: 0
+[2025-11-17 10:30:47] [INFO] Fallback Failures: 0 (0.0%)
+[2025-11-17 10:30:47] [INFO] Timeouts: 0
+[2025-11-17 10:30:47] [INFO] Errors: 0
+[2025-11-17 10:30:47] [INFO] Fallback Rate: 0.0%
+[2025-11-17 10:30:47] [INFO] ===========================
 ```
 
-#### フォールバック実行時（キャッシュヒット）
+#### フォールバック実行時（パラメーターキャッシュヒット）
 
 **実行ログ例**:
 ```
-[2025-10-17 10:32:10] [WARNING] [src.service.fallback_coordinator] [fallback_coordinator.py:118] [request_with_fallback] Primary request timed out after 3.0s. Initiating fallback strategies...
-[2025-10-17 10:32:10] [INFO] [src.service.cache_manager] [cache_manager.py:95] [get] Cache hit: 7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d (age: 120.5s)
-[2025-10-17 10:32:10] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:133] [request_with_fallback] Fallback: Using cached response
-[2025-10-17 10:32:10] [INFO] [__main__] [main.py:83] [main] Response obtained via fallback strategy: cache
-[2025-10-17 10:32:10] [WARNING] [__main__] [main.py:85] [main] Primary provider failed due to: timeout
+[2025-11-17 10:32:10] [WARNING] Primary request timed out after 3.0s. Initiating fallback strategy: parameter_cache
+[2025-11-17 10:32:10] [INFO] Cache hit: 7a8b9c0d1e2f... (age: 120.5s)
+[2025-11-17 10:32:10] [INFO] Fallback: Using parameter cache response (exact match)
+[2025-11-17 10:32:10] [INFO] Response obtained via fallback strategy: parameter_cache
+[2025-11-17 10:32:10] [WARNING] Primary provider failed due to: timeout
+```
+
+#### セマンティックキャッシュヒット時
+
+**実行ログ例**:
+```
+[2025-11-17 10:33:15] [WARNING] Primary request timed out after 3.0s. Initiating fallback strategy: semantic_cache
+[2025-11-17 10:33:15] [INFO] Semantic cache hit: 8b9c0d1e2f3a... (similarity: 0.967, threshold: 0.950)
+[2025-11-17 10:33:15] [INFO] Fallback: Using semantic cache response (similar prompt)
+[2025-11-17 10:33:15] [INFO] Response obtained via fallback strategy: semantic_cache
 ```
 
 #### 代替プロバイダー使用時
 
 **実行ログ例**:
 ```
-[2025-10-17 10:35:22] [WARNING] [src.service.fallback_coordinator] [fallback_coordinator.py:125] [request_with_fallback] Primary request failed with error: Connection error
-[2025-10-17 10:35:22] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:142] [request_with_fallback] Fallback: Attempting alternative provider (timeout: 10.0s)
-[2025-10-17 10:35:24] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:149] [request_with_fallback] Fallback: Alternative provider succeeded
-[2025-10-17 10:35:24] [INFO] [__main__] [main.py:83] [main] Response obtained via fallback strategy: alternative_provider
-[2025-10-17 10:35:24] [WARNING] [__main__] [main.py:85] [main] Primary provider failed due to: error
+[2025-11-17 10:35:22] [WARNING] Primary request failed with error: Connection error. Initiating fallback strategy: alternative_provider
+[2025-11-17 10:35:22] [INFO] Fallback: Attempting alternative provider (timeout: 10.0s)
+[2025-11-17 10:35:24] [INFO] Fallback: Alternative provider succeeded
+[2025-11-17 10:35:24] [INFO] Cached response: e7f8g9h0i1j2...
+[2025-11-17 10:35:24] [INFO] Response obtained via fallback strategy: alternative_provider
+[2025-11-17 10:35:24] [WARNING] Primary provider failed due to: error
 ```
-
-#### テンプレート応答使用時（最終フォールバック）
-
-**ファイル名**: `outputs/gemini_e7f8g9h0i1j2.json`
-
-```json
-{
-    "first_name": "太郎",
-    "last_name": "山田",
-    "gender": "male",
-    "age": 30,
-    "personalities": [
-        {
-            "short_personality": "誠実",
-            "description": "常に正直で、約束を守る信頼できる人物。困っている人を見過ごせない性格。"
-        },
-        {
-            "short_personality": "勤勉",
-            "description": "目標に向かって努力を惜しまず、計画的に物事を進めることができる。"
-        },
-        {
-            "short_personality": "思慮深い",
-            "description": "行動する前に慎重に考え、状況を分析してから判断を下す。"
-        }
-    ]
-}
-```
-
-**実行ログ例**:
-```
-[2025-10-17 10:40:15] [WARNING] [src.service.fallback_coordinator] [fallback_coordinator.py:118] [request_with_fallback] Primary request timed out after 3.0s. Initiating fallback strategies...
-[2025-10-17 10:40:15] [DEBUG] [src.service.cache_manager] [cache_manager.py:73] [get] Cache miss: 5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u
-[2025-10-17 10:40:15] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:142] [request_with_fallback] Fallback: Attempting alternative provider (timeout: 3.0s)
-[2025-10-17 10:40:18] [WARNING] [src.service.fallback_coordinator] [fallback_coordinator.py:166] [request_with_fallback] Alternative provider timed out after 3.0s
-[2025-10-17 10:40:18] [WARNING] [src.service.fallback_coordinator] [fallback_coordinator.py:176] [request_with_fallback] Fallback: All strategies exhausted. Using template response.
-[2025-10-17 10:40:18] [INFO] [src.service.template_response] [template_response.py:122] [generate] Generated random template response due to: timeout
-[2025-10-17 10:40:18] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:180] [request_with_fallback] Fallback message: 現在、AIによる応答が遅延しています。代替のキャラクターデータを提供いたします。
-[2025-10-17 10:40:18] [INFO] [__main__] [main.py:83] [main] Response obtained via fallback strategy: template
-```
-
-### テスト方法
-
-#### 単体テストの実行
-
-```bash
-# すべてのテストを実行
-uv run pytest
-
-# 詳細な出力で実行
-uv run pytest -v
-
-# 特定のテストファイルのみ実行
-uv run pytest tests/test_cache_manager.py
-uv run pytest tests/test_fallback_coordinator.py
-uv run pytest tests/test_template_response.py
-
-# 特定のテストケースのみ実行
-uv run pytest tests/test_cache_manager.py::test_cache_ttl -v
-uv run pytest tests/test_fallback_coordinator.py::test_timeout_fallback -v
-
-# カバレッジレポート付きで実行
-uv run pytest --cov=src --cov-report=html
-# カバレッジレポートは htmlcov/index.html で確認可能
-```
-
-#### 手動テスト
-
-##### 1. 基本動作のテスト
-
-```bash
-# OpenAI APIのテスト（フォールバック有効）
-uv run python -m src.main -lp openai -od test_outputs
-
-# Gemini APIのテスト（フォールバック有効）
-uv run python -m src.main -lp gemini -od test_outputs
-```
-
-**期待される動作**:
-- `test_outputs`ディレクトリが作成される
-- `{provider}_{uuid}.json`形式のファイルが生成される
-- JSONファイルが`CharacterResponse`スキーマに準拠している
-- 統計情報が表示され、`Primary Success: 1 (100.0%)`となる
-
-##### 2. タイムアウトとフォールバックのテスト
-
-```bash
-# 非常に短いタイムアウトでタイムアウト動作を確認
-uv run python -m src.main -t 0.1 -od test_outputs
-
-# 同じ設定で2回実行し、キャッシュヒットを確認
-uv run python -m src.main -t 0.1 -od test_outputs
-uv run python -m src.main -t 0.1 -od test_outputs  # 2回目はキャッシュヒットのはず
-```
-
-**期待される動作**:
-- 1回目: タイムアウトが発生し、キャッシュミス後に代替プロバイダーまたはテンプレート応答を使用
-- 2回目: タイムアウト後にキャッシュヒットし、`Cache Hits: 1`と表示される
-
-##### 3. フォールバック無効化のテスト
-
-```bash
-# フォールバックなしで実行（エラーの場合は即座に失敗）
-uv run python -m src.main -df -od test_outputs
-```
-
-**期待される動作**:
-- フォールバック戦略が使用されない
-- プライマリプロバイダーが失敗した場合、例外が発生してプログラムが終了
-
-##### 4. キャッシュの検証
-
-```bash
-# キャッシュディレクトリの確認
-ls -la .cache/
-
-# キャッシュファイルの内容を確認（jqを使用）
-cat .cache/*.json | jq .
-
-# Pythonでキャッシュデータを読み込みテスト
-python -c "
-from src.service.cache_manager import CacheManager
-import json
-
-cache = CacheManager()
-cache_files = list(cache.cache_dir.glob('*.json'))
-print(f'Found {len(cache_files)} cache files')
-
-for cache_file in cache_files[:3]:  # 最初の3件を表示
-    with open(cache_file) as f:
-        data = json.load(f)
-        print(f'Model: {data[\"model\"]}, Age: {data[\"timestamp\"]}')
-"
-```
-
-##### 5. 生成結果の検証
-
-```bash
-# jqを使用してJSONの構造を検証
-cat test_outputs/*.json | jq .
-
-# 必須フィールドが存在するか確認
-cat test_outputs/*.json | jq 'has("first_name", "last_name", "gender", "age", "personalities")'
-
-# 性格特性が正確に3つあるか確認
-cat test_outputs/*.json | jq '.personalities | length'
-
-# Pythonで読み込みテスト
-python -c "
-from src.model.model import CharacterResponse
-import json
-import glob
-
-for file in glob.glob('test_outputs/*.json'):
-    with open(file) as f:
-        data = json.load(f)
-        character = CharacterResponse(**data)
-        print(f'Valid! {character.first_name} {character.last_name} ({character.age}歳)')
-"
-```
-
-##### 6. 統計情報のテスト
-
-複数回実行して統計情報を確認：
-
-```bash
-# 5回実行してさまざまな統計を蓄積
-for i in {1..5}; do
-    echo "=== Run $i ==="
-    uv run python -m src.main -od test_outputs
-    sleep 2
-done
-```
-
-**期待される動作**:
-- 各実行後に統計情報が表示される
-- キャッシュヒット率が徐々に上昇する可能性がある

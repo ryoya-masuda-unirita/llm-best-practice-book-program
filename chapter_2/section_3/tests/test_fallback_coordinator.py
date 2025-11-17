@@ -56,7 +56,6 @@ class TestFallbackCoordinator:
             primary_request_func=mock_primary_request,
             prompt=sample_prompt,
             model="gpt-4",
-            temperature=1.0,
         )
 
         assert response == sample_character_response
@@ -75,12 +74,10 @@ class TestFallbackCoordinator:
 
         cache_manager = CacheManager(cache_dir=temp_cache_dir)
         # Pre-populate cache
-        cache_manager.set(sample_prompt, "gpt-4", 1.0, sample_character_response)
+        cache_manager.set(sample_prompt, "gpt-4", sample_character_response)
 
         coordinator = FallbackCoordinator(
-            fallback_strategy=FallbackStrategy.PARAMETER_CACHE,
-            cache_manager=cache_manager,
-            timeout=0.1,
+            fallback_strategy=FallbackStrategy.PARAMETER_CACHE, cache_manager=cache_manager, timeout=0.1
         )
 
         async def slow_primary_request():
@@ -92,7 +89,6 @@ class TestFallbackCoordinator:
             primary_request_func=slow_primary_request,
             prompt=sample_prompt,
             model="gpt-4",
-            temperature=1.0,
         )
 
         assert response.first_name == sample_character_response.first_name
@@ -110,9 +106,7 @@ class TestFallbackCoordinator:
         # Use isolated cache to avoid cache hits from other tests
         cache_manager = CacheManager(cache_dir=temp_cache_dir)
         coordinator = FallbackCoordinator(
-            fallback_strategy=FallbackStrategy.ALTERNATIVE_PROVIDER,
-            cache_manager=cache_manager,
-            timeout=0.1,
+            fallback_strategy=FallbackStrategy.ALTERNATIVE_PROVIDER, cache_manager=cache_manager, timeout=0.1
         )
 
         async def slow_primary_request():
@@ -128,7 +122,6 @@ class TestFallbackCoordinator:
             alternative_request_func=fast_alternative_request,
             prompt=sample_prompt,
             model="gpt-4-unique",  # Use unique model name to avoid cache
-            temperature=0.99,  # Unique temperature
         )
 
         assert response == sample_character_response
@@ -143,9 +136,7 @@ class TestFallbackCoordinator:
 
         cache_manager = CacheManager(cache_dir=temp_cache_dir)
         coordinator = FallbackCoordinator(
-            fallback_strategy=FallbackStrategy.ALTERNATIVE_PROVIDER,
-            cache_manager=cache_manager,
-            timeout=0.1,
+            fallback_strategy=FallbackStrategy.ALTERNATIVE_PROVIDER, cache_manager=cache_manager, timeout=0.1
         )
 
         async def failing_request():
@@ -159,7 +150,6 @@ class TestFallbackCoordinator:
                 alternative_request_func=failing_request,
                 prompt=sample_prompt,
                 model="unique-model-template",  # Unique model to avoid cache
-                temperature=0.123,  # Unique temperature
             )
 
         assert coordinator.stats["fallback_failures"] == 1
@@ -173,8 +163,7 @@ class TestFallbackCoordinator:
 
         cache_manager = CacheManager(cache_dir=temp_cache_dir)
         coordinator = FallbackCoordinator(
-            fallback_strategy=FallbackStrategy.ALTERNATIVE_PROVIDER,
-            cache_manager=cache_manager,
+            fallback_strategy=FallbackStrategy.ALTERNATIVE_PROVIDER, cache_manager=cache_manager
         )
 
         async def failing_primary_request():
@@ -189,7 +178,6 @@ class TestFallbackCoordinator:
             alternative_request_func=successful_alternative_request,
             prompt=sample_prompt,
             model="error-test-model",  # Unique model to avoid cache
-            temperature=0.456,  # Unique temperature
         )
 
         assert response == sample_character_response
@@ -224,7 +212,6 @@ class TestFallbackCoordinator:
             primary_request_func=timed_request,
             prompt=sample_prompt,
             model=f"test-model-{timeout}-{request_duration}",
-            temperature=timeout + request_duration,  # Unique combo
         )
 
         assert coordinator.stats["primary_success"] == 1
@@ -252,7 +239,6 @@ class TestFallbackCoordinator:
                 primary_request_func=slow_request,
                 prompt=sample_prompt,
                 model="timeout-test-unique",
-                temperature=0.999,
             )
 
         assert coordinator.stats["timeout_count"] == 1
@@ -273,11 +259,10 @@ class TestFallbackCoordinator:
             primary_request_func=successful_request,
             prompt=sample_prompt,
             model="gpt-4",
-            temperature=1.0,
         )
 
         # Verify cache was populated
-        cached = cache_manager.get(sample_prompt, "gpt-4", 1.0)
+        cached = cache_manager.get(sample_prompt, "gpt-4")
         assert cached is not None
         assert cached.first_name == sample_character_response.first_name
 
@@ -300,11 +285,10 @@ class TestFallbackCoordinator:
             alternative_request_func=successful_alternative,
             prompt=sample_prompt,
             model="alt-cache-test",
-            temperature=0.789,
         )
 
         # Verify cache was populated
-        cached = cache_manager.get(sample_prompt, "alt-cache-test", 0.789)
+        cached = cache_manager.get(sample_prompt, "alt-cache-test")
         assert cached is not None
 
     async def test_get_stats(self, temp_cache_dir, sample_character_response, sample_prompt):
@@ -319,9 +303,7 @@ class TestFallbackCoordinator:
             return sample_character_response
 
         # Successful request
-        await coordinator.request_with_fallback(
-            LLMProvider.OPENAI, success, prompt=sample_prompt, model="stats-test-1", temperature=0.11
-        )
+        await coordinator.request_with_fallback(LLMProvider.OPENAI, success, prompt=sample_prompt, model="stats-test-1")
 
         stats = coordinator.get_stats()
 
@@ -356,9 +338,7 @@ class TestFallbackCoordinator:
             return sample_character_response
 
         # Make a request
-        await coordinator.request_with_fallback(
-            LLMProvider.OPENAI, success, prompt=sample_prompt, model="reset-test", temperature=0.33
-        )
+        await coordinator.request_with_fallback(LLMProvider.OPENAI, success, prompt=sample_prompt, model="reset-test")
 
         assert coordinator.stats["total_requests"] == 1
 
@@ -379,9 +359,7 @@ class TestFallbackCoordinator:
         async def success():
             return sample_character_response
 
-        await coordinator.request_with_fallback(
-            LLMProvider.OPENAI, success, prompt=sample_prompt, model="log-test", temperature=0.44
-        )
+        await coordinator.request_with_fallback(LLMProvider.OPENAI, success, prompt=sample_prompt, model="log-test")
 
         coordinator.log_stats()
 
@@ -399,8 +377,7 @@ class TestFallbackCoordinator:
             return sample_character_response
 
         response, strategy, error_reason = await coordinator.request_with_fallback(
-            primary_provider=LLMProvider.OPENAI,
-            primary_request_func=success,
+            primary_provider=LLMProvider.OPENAI, primary_request_func=success
         )
 
         assert response == sample_character_response
@@ -415,9 +392,7 @@ class TestFallbackCoordinator:
 
         cache_manager = CacheManager(cache_dir=temp_cache_dir)
         coordinator = FallbackCoordinator(
-            fallback_strategy=FallbackStrategy.PARAMETER_CACHE,
-            cache_manager=cache_manager,
-            timeout=0.1,
+            fallback_strategy=FallbackStrategy.PARAMETER_CACHE, cache_manager=cache_manager, timeout=0.1
         )
 
         # Mock cache.get to raise an exception
@@ -433,7 +408,6 @@ class TestFallbackCoordinator:
                 primary_request_func=failing_primary,
                 prompt=sample_prompt,
                 model="cache-error-test",
-                temperature=0.55,
             )
 
         assert coordinator.stats["fallback_failures"] == 1
@@ -445,13 +419,11 @@ class TestFallbackCoordinator:
 
         cache_manager = CacheManager(cache_dir=temp_cache_dir)
         semantic_cache_manager = SemanticCacheManager(
-            cache_dir=f"{temp_cache_dir}_semantic",
-            similarity_threshold=0.9,
-            embedding_func=get_openai_embedding,
+            cache_dir=f"{temp_cache_dir}_semantic", similarity_threshold=0.9, embedding_func=get_openai_embedding
         )
 
         # Pre-populate semantic cache
-        await semantic_cache_manager.set(sample_prompt, "gpt-4", 1.0, sample_character_response)
+        await semantic_cache_manager.set(sample_prompt, "gpt-4", sample_character_response)
 
         coordinator = FallbackCoordinator(
             fallback_strategy=FallbackStrategy.SEMANTIC_CACHE,
@@ -469,7 +441,6 @@ class TestFallbackCoordinator:
             primary_request_func=slow_primary_request,
             prompt=sample_prompt,
             model="gpt-4",
-            temperature=1.0,
         )
 
         assert response.first_name == sample_character_response.first_name
@@ -490,11 +461,7 @@ class TestFallbackCoordinator:
             return sample_character_response
 
         response, strategy, error_reason = await coordinator.request_with_fallback(
-            primary_provider=provider,
-            primary_request_func=success,
-            prompt=sample_prompt,
-            model=f"{provider}-test",
-            temperature=0.66,
+            primary_provider=provider, primary_request_func=success, prompt=sample_prompt, model=f"{provider}-test"
         )
 
         assert response == sample_character_response
