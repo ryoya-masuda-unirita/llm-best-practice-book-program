@@ -1,0 +1,45 @@
+{
+  "prompt_id": "de7c7e18-b844-4a1e-819e-0105cc04d8a3",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「24」歳です。\n革命的な芸術を追求する才能ある画家のキャラクターを作成してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "レオ",
+    "last_name": "アキラ",
+    "gender": "male",
+    "age": 24,
+    "personalities": [
+      {
+        "short_personality": "情熱的な探求者",
+        "description": "レオは芸術に対して計り知れない情熱を抱いており、常に新しい表現方法や未知の美しさを探求しています。彼の作品はしばしば感情的で、内面の奥深さを反映しています。"
+      },
+      {
+        "short_personality": "反骨精神のある革新者",
+        "description": "彼は伝統や既成概念に囚われることを嫌い、自らの信念に基づいて既存の芸術規範を打ち破ろうとします。彼の作品は挑発的でありながらも、見る者に新たな視点を提供します。"
+      },
+      {
+        "short_personality": "孤高の哲学者",
+        "description": "レオは自分の内面に深く没頭し、芸術や人生の目的について熟考する時間を大切にします。社交的である一方で、彼の魂の奥底には孤独を愛する哲学者の側面が隠されています。"
+      }
+    ]
+  },
+  "created_at": "2025-11-17T09:54:38.998233+00:00",
+  "metadata": {
+    "request_id": "8febbddd-2c75-45d8-b5ae-90334c0ffb33",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 24,
+      "additional_instructions": "革命的な芸術を追求する才能ある画家のキャラクターを作成してください。"
+    }
+  }
+}

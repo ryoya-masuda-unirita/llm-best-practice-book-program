@@ -1,0 +1,45 @@
+{
+  "prompt_id": "fdaf9723-62ad-4b07-b885-d735f33fa8f6",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「52」歳です。\n戦時下の狡猾な戦略家のキャラクターを開発してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Kael",
+    "last_name": "Vance",
+    "gender": "male",
+    "age": 52,
+    "personalities": [
+      {
+        "short_personality": "狡猾な戦略家",
+        "description": "Kaelは、敵の弱点を徹底的に分析し、予期せぬ戦術を用いて混乱と分裂を生み出す、生まれながらの戦略家です。彼の計画は常に複数層にわたり、予備案も多数用意されており、戦場の不測の事態にも柔軟に対応します。敵の心理を深く理解し、それを利用することに長けています。"
+      },
+      {
+        "short_personality": "冷静沈着",
+        "description": "どんなに厳しい状況や危機的瞬間にあっても、Kaelは感情を表に出さず、常に冷静で論理的な思考を保ちます。この揺るぎない落ち着きは、部下たちに安心感を与え、困難な命令を伝える際にも彼の信頼性を高めます。プレッシャーの中でも明晰な判断を下す能力は彼の最大の武器です。"
+      },
+      {
+        "short_personality": "鋭い観察力",
+        "description": "Kaelは周囲の環境や人物のわずかな変化も見逃さない、並外れた観察力を持っています。非言語的な合図、部隊の配置のわずかな偏り、あるいは敵司令官の話し方のトーンなど、細部にまで注意を払い、そこから貴重な情報を読み解き、自身の戦略に織り交ぜます。これにより、彼は常に一歩先を行くことができます。"
+      }
+    ]
+  },
+  "created_at": "2025-11-17T09:54:33.537700+00:00",
+  "metadata": {
+    "request_id": "9a7d2cf5-130b-4a89-a042-eb6564136c56",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 52,
+      "additional_instructions": "戦時下の狡猾な戦略家のキャラクターを開発してください。"
+    }
+  }
+}

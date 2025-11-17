@@ -1,0 +1,45 @@
+{
+  "prompt_id": "248e0142-5705-479c-ad42-f216b6bf792c",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「27」歳です。\n秘密の正体を持つ才能ある音楽家のキャラクターを作成してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Emi",
+    "last_name": "Tanaka",
+    "gender": "female",
+    "age": 27,
+    "personalities": [
+      {
+        "short_personality": "魅惑的でミステリアス (Captivating & Mysterious)",
+        "description": "ステージ上では人々を魅了する表現力豊かな音楽家ですが、その素顔はヴェールに包まれています。私生活や本心を明かすことは滅多になく、謎めいたオーラを常に纏っています。"
+      },
+      {
+        "short_personality": "情熱的で理想主義 (Passionate & Idealistic)",
+        "description": "音楽に対する深い情熱と、より良い世界を求める強い理想を持っています。彼女の作曲と演奏は、聴く者に希望を与え、心の奥底に眠る感情を呼び覚ます力があります。"
+      },
+      {
+        "short_personality": "洞察力に富んだ戦略家 (Perceptive & Strategic)",
+        "description": "芸術家としての側面とは裏腹に、鋭い洞察力と綿密な計画性を持ち合わせています。秘密の正体を隠しつつ、その才能を最大限に活かすために、常に周到な戦略を練っています。"
+      }
+    ]
+  },
+  "created_at": "2025-11-17T09:54:35.028749+00:00",
+  "metadata": {
+    "request_id": "4ea0b7a1-fbb0-4111-9a4b-dbd64d89d704",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 27,
+      "additional_instructions": "秘密の正体を持つ才能ある音楽家のキャラクターを作成してください。"
+    }
+  }
+}

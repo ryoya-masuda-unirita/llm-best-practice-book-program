@@ -1,0 +1,45 @@
+{
+  "prompt_id": "e59ac789-6e91-474f-85cd-55149038a763",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「22」歳です。\n黄金の心を持つ狡猾な盗賊のキャラクターを作成してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "レナ",
+    "last_name": "シャドウウッド",
+    "gender": "female",
+    "age": 22,
+    "personalities": [
+      {
+        "short_personality": "狡猾",
+        "description": "彼女は優れた計画性と迅速な状況判断能力を持つ。罠を回避し、警備を欺くことに長け、言葉巧みに情報を引き出す術も知っている。困難な状況でも常に抜け道を考え、機転を利かせて危険を回避する。"
+      },
+      {
+        "short_personality": "思いやりがあり利他的",
+        "description": "厳しい盗賊の世界に身を置きながらも、レナは強い正義感と共感能力を秘めている。盗んだ金品を私腹を肥やすためだけでなく、不当に苦しむ人々や弱者を密かに助けるために使うことが多い。不必要な暴力を嫌い、奪うことを避けられない状況でも相手への配慮を忘れない。"
+      },
+      {
+        "short_personality": "独立心が強く自由奔放",
+        "description": "彼女は何よりも自由を愛し、いかなる束縛も嫌う。一人で行動することを好み、自分のルールに従って生きる。そのため、他人の指示には簡単には従わず、自分の信念に基づいて行動するが、一度信頼した仲間に対しては強い忠誠心を示す。"
+      }
+    ]
+  },
+  "created_at": "2025-11-17T09:54:34.481737+00:00",
+  "metadata": {
+    "request_id": "72212210-dda9-4709-8b19-91f4eb418023",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 22,
+      "additional_instructions": "黄金の心を持つ狡猾な盗賊のキャラクターを作成してください。"
+    }
+  }
+}

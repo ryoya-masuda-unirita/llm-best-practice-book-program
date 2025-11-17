@@ -1,0 +1,45 @@
+{
+  "prompt_id": "38f959ec-22ee-40c4-a176-b392eebbac3c",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「44」歳です。\n伝説の武器を鍛える頑固な鍛冶職人のキャラクターを開発してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Ronan",
+    "last_name": "Stonehand",
+    "gender": "male",
+    "age": 44,
+    "personalities": [
+      {
+        "short_personality": "頑固で融通が利かない",
+        "description": "ロナンの頑固さは、特に彼の鍛冶仕事においては不動のものである。彼は品質や自身の厳格な基準に関して妥協せず、そのため作業を急がせたり、彼のやり方を指図しようとする者とはしばしば衝突する。一度、ある仕事や技術について心を決めると、彼を揺るがすのは極めて困難である。"
+      },
+      {
+        "short_personality": "献身的な匠の技師",
+        "description": "彼の人生は完全に鍛冶の芸術に捧げられている。ロナンは自身の技術を完璧にすることに強迫観念を抱いており、鍛冶場で何時間も費やし、素材を丹念に選び、あらゆる技術を painstakingly 磨き上げる。彼は自分の仕事に大きな誇りを持っており、各武器を彼自身の魂のユニークな延長線と見なし、偉大さのために運命づけられていると考えている。"
+      },
+      {
+        "short_personality": "無愛想だが密かに保護的",
+        "description": "外見は無愛想で威圧的であり、他人を蔑むように見えても、ロナンは隠された保護欲を秘めている。特に、彼の作品の完全性、そして時折、彼が価値があると認める者や、自分の道に真摯に情熱を傾ける者に対してそうである。彼は愛情を公然と示すことは稀で、例外的に精巧な道具を提供したり、貴重な助言を与えるといった行動を通じて気遣いを表現することを好む。"
+      }
+    ]
+  },
+  "created_at": "2025-11-17T09:54:43.277459+00:00",
+  "metadata": {
+    "request_id": "bc3adb30-fcf5-4a1b-a6e8-b5d4540f0214",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 44,
+      "additional_instructions": "伝説の武器を鍛える頑固な鍛冶職人のキャラクターを開発してください。"
+    }
+  }
+}

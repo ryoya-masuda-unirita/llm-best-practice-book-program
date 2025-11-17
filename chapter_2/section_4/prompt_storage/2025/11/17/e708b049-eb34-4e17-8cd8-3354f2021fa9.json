@@ -1,0 +1,45 @@
+{
+  "prompt_id": "e708b049-eb34-4e17-8cd8-3354f2021fa9",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「19」歳です。\n失われた財宝を探し求める冒険好きな探検家のキャラクターを設計してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "アメリア",
+    "last_name": "ハント",
+    "gender": "female",
+    "age": 19,
+    "personalities": [
+      {
+        "short_personality": "冒険心旺盛",
+        "description": "未知の場所への探求心が強く、危険や困難を恐れずに新しい経験や発見を追求する。常に次の冒険を心待ちにしており、退屈を嫌う性質を持つ。"
+      },
+      {
+        "short_personality": "機知に富む",
+        "description": "予期せぬ事態や複雑な謎に直面した際にも、その場にあるものや限られた情報から最適な解決策を見つけ出す能力に長けている。臨機応変に対応し、どんな状況でも生き抜く賢さがある。"
+      },
+      {
+        "short_personality": "揺るぎない決意",
+        "description": "一度目標を定めたら、どんな障害があろうとも決して諦めず、粘り強くその達成を目指す強い意志を持っている。特に失われた財宝の探求に関しては、その情熱は揺るがない。"
+      }
+    ]
+  },
+  "created_at": "2025-11-17T09:54:34.847113+00:00",
+  "metadata": {
+    "request_id": "ce08ae29-9f23-42ee-9e11-fd180f285f62",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 19,
+      "additional_instructions": "失われた財宝を探し求める冒険好きな探検家のキャラクターを設計してください。"
+    }
+  }
+}

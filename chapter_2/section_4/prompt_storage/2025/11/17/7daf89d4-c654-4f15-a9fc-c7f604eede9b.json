@@ -1,0 +1,45 @@
+{
+  "prompt_id": "7daf89d4-c654-4f15-a9fc-c7f604eede9b",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「35」歳です。\n不正を暴く情熱的なジャーナリストのキャラクターを作成してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "海斗",
+    "last_name": "石垣",
+    "gender": "male",
+    "age": 35,
+    "personalities": [
+      {
+        "short_personality": "不屈の正義感",
+        "description": "石垣海斗は、不正や権力の乱用に対して極めて強い嫌悪感を抱いている。真実を暴き、弱き者の声を代弁することを使命とし、いかなる圧力にも屈することなく正義を追求する。彼の情熱はしばしば彼を危険な状況へと駆り立てるが、その信念が揺らぐことはない。"
+      },
+      {
+        "short_personality": "鋭い洞察力と分析力",
+        "description": "膨大な情報の中からわずかな矛盾や手がかりを見つけ出すことに長けている。鋭い観察眼と論理的な思考で、隠蔽された真実の全体像を再構築する。彼のアプローチは、表面的な事象にとどまらず、その根源にある問題点を深く掘り下げる。"
+      },
+      {
+        "short_personality": "執拗な探求心",
+        "description": "一度関心を持ったテーマや疑問に対しては、納得のいくまで徹底的に調べ尽くす。時間を惜しまず、夜通しの調査や遠隔地への取材も厭わない。彼の執拗さは、誰もが見落とすような些細な手がかりから決定的な証拠を引き出すことを可能にする。"
+      }
+    ]
+  },
+  "created_at": "2025-11-17T09:54:47.277962+00:00",
+  "metadata": {
+    "request_id": "1278258b-aa79-49b4-990e-f350bda3b795",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 35,
+      "additional_instructions": "不正を暴く情熱的なジャーナリストのキャラクターを作成してください。"
+    }
+  }
+}

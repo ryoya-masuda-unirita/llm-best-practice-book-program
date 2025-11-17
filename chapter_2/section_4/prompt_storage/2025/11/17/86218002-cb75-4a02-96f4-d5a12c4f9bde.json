@@ -1,0 +1,45 @@
+{
+  "prompt_id": "86218002-cb75-4a02-96f4-d5a12c4f9bde",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「29」歳です。\n禁断の知識を追求する野心的な錬金術師のキャラクターを作成してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Elara",
+    "last_name": "Vancroft",
+    "gender": "female",
+    "age": 29,
+    "personalities": [
+      {
+        "short_personality": "飽くなき探究心",
+        "description": "Elaraは真理を深く探求することを至上とする。錬金術の表面的な理解に満足せず、隠された法則や失われた秘術に強く惹かれる。知への渇望は彼女をしばしば倫理の境界線へと誘う。"
+      },
+      {
+        "short_personality": "冷徹な野心家",
+        "description": "彼女の行動は常に目的達成に焦点が当てられている。偉大な発見や強力な秘術を我が物とするためなら、どんな障害も排除し、周囲の感情や常識を顧みない冷徹さを持つ。自身の目標のためには、どんな代償も支払う覚悟がある。"
+      },
+      {
+        "short_personality": "秘密主義",
+        "description": "彼女が追求する知識が禁断の領域に属するため、その研究内容や成果は決して他者に明かさない。信頼できる人間であっても、自身の奥底にある探求心や危険な実験については隠し通し、謎めいた雰囲気を纏っている。"
+      }
+    ]
+  },
+  "created_at": "2025-11-17T09:54:43.888498+00:00",
+  "metadata": {
+    "request_id": "49998235-7f64-4b94-b4b8-27d46e9007ae",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 29,
+      "additional_instructions": "禁断の知識を追求する野心的な錬金術師のキャラクターを作成してください。"
+    }
+  }
+}

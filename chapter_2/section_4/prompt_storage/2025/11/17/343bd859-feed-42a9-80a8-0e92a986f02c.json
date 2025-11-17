@@ -1,0 +1,45 @@
+{
+  "prompt_id": "343bd859-feed-42a9-80a8-0e92a986f02c",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「42」歳です。\n都市を影から守る謎めいた義賊のキャラクターを考案してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Kuroko",
+    "last_name": "Saito",
+    "gender": "female",
+    "age": 42,
+    "personalities": [
+      {
+        "short_personality": "Elusive & Enigmatic",
+        "description": "彼女は自身の真の身元や動機を決して明かさず、常に影の中に隠れているため、都市の誰もが彼女の実像を知らない。その存在は伝説であり、誰もその行動を予測することはできない。"
+      },
+      {
+        "short_personality": "Principled & Resolute",
+        "description": "都市の腐敗と不正に対する揺るぎない正義感を抱いており、どんな危険に直面しても自分の信念を曲げない。その行動は、困っている人々を守るという彼女自身の厳格な倫理規定に基づいている。"
+      },
+      {
+        "short_personality": "Astute & Strategic",
+        "description": "鋭い観察力と高度な分析能力を持ち、どんな状況でも脅威を即座に特定し、次の動きを正確に予測する。常に先を読み、緻密な計画を立ててから行動することで、彼女の任務はほとんど失敗することがない。"
+      }
+    ]
+  },
+  "created_at": "2025-11-17T09:54:46.090084+00:00",
+  "metadata": {
+    "request_id": "93c85fa2-2a3c-42cf-94fd-11cdd9b25982",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 42,
+      "additional_instructions": "都市を影から守る謎めいた義賊のキャラクターを考案してください。"
+    }
+  }
+}

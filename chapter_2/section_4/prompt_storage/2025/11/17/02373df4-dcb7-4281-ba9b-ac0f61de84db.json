@@ -1,0 +1,45 @@
+{
+  "prompt_id": "02373df4-dcb7-4281-ba9b-ac0f61de84db",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「45」歳です。\n悲劇的な歴史を持つ強力な魔術師のキャラクターを構築してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "エララ",
+    "last_name": "ヴァンス",
+    "gender": "female",
+    "age": 45,
+    "personalities": [
+      {
+        "short_personality": "Resilient",
+        "description": "数多の苦難を経験してきたが、その度に彼女はさらに強く立ち上がり、運命に抗う鉄の意志を持っている。特に個人的な悲劇を乗り越える中で、どんな困難にも屈しない精神を培った。"
+      },
+      {
+        "short_personality": "Guarded",
+        "description": "過去の裏切りや喪失の経験から、心を閉ざし、他者との間に深い壁を築いている。自身の感情や真意を表に出すことはほとんどなく、常に冷静で、秘密主義的な一面を持つ。"
+      },
+      {
+        "short_personality": "Mystical",
+        "description": "古代の呪文や忘れ去られた知識に精通しており、その魔術の力は計り知れない。神秘的な雰囲気を纏い、現実世界よりも魔法の世界との繋がりを深く感じているかのように見える。彼女の瞳はしばしば遠く、人知を超えた何かを見据えているようだ。"
+      }
+    ]
+  },
+  "created_at": "2025-11-17T09:54:38.106242+00:00",
+  "metadata": {
+    "request_id": "c394d461-ca97-4a23-9e84-1c6afd3a82e1",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 45,
+      "additional_instructions": "悲劇的な歴史を持つ強力な魔術師のキャラクターを構築してください。"
+    }
+  }
+}

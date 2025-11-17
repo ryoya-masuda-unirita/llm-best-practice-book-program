@@ -1,0 +1,45 @@
+{
+  "prompt_id": "ce0c2ef1-3193-469b-904d-59ae513beecb",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「26」歳です。\n宮廷で陰謀に巻き込まれる華麗な舞踏家のキャラクターを作成してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "エララ",
+    "last_name": "ヴァロワ",
+    "gender": "female",
+    "age": 26,
+    "personalities": [
+      {
+        "short_personality": "優雅で計算高い",
+        "description": "宮廷の誰もが認める華麗な舞踏家であり、彼女の全ての動きには比類ない優雅さが宿っています。しかし、その背後には常に冷徹な計算があり、いかなる状況でも冷静さを失わず、自身の魅力を利用して人々の心を掌握します。"
+      },
+      {
+        "short_personality": "鋭い洞察力",
+        "description": "表面上の社交的な振る舞いの裏で、エララは常に周囲の人間関係、権力の流れ、そして隠された意図を注意深く観察しています。些細な視線や言葉のニュアンスから、宮廷の深部に渦巻く陰謀の糸をたぐり寄せる並外れた能力を持っています。"
+      },
+      {
+        "short_personality": "秘密主義で不屈の精神",
+        "description": "自身の本当の感情や目的を他人に悟らせることは決してありません。困難な状況に陥っても、その優美な外見とは裏腹に、決して諦めない不屈の精神と強い意志を持って立ち向かいます。目標達成のためには手段を選ばない一面も持ち合わせています。"
+      }
+    ]
+  },
+  "created_at": "2025-11-17T09:54:43.714434+00:00",
+  "metadata": {
+    "request_id": "6ea53f19-f888-4697-ad8e-f688beb08248",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 26,
+      "additional_instructions": "宮廷で陰謀に巻き込まれる華麗な舞踏家のキャラクターを作成してください。"
+    }
+  }
+}
