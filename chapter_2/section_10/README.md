@@ -1,306 +1,311 @@
-# Chapter 2 Section 10: LLM APIのためのアダプターとファクトリーパターン
+# Chapter 2 Section 9: LLMを安定して使うために自由度を下げる
 
 ## 概要
 
-このプロジェクトは、**AdapterパターンとFactoryパターン**を用いた複数LLMプロバイダの統一的な管理手法を示すサンプルコードです。OpenAIとGoogle Geminiの両方に対応し、各プロバイダのAPI仕様の違いを吸収しながら、共通のインターフェースを通じて柔軟にLLMを切り替えられる設計を実現しています。
+このプロジェクトは、**ユーザー入力の自由度を制限することでLLMアプリケーションの安定性を向上させる**という重要な設計原則を実践的に学ぶためのサンプルコードです。**Streamlit**を使用したインタラクティブなWebアプリケーションを通じて、自由形式の入力と構造化されたフォーム入力を比較し、それぞれのトレードオフを体験できます。
 
-フィクションのキャラクター情報（名前、性別、年齢、性格特性）を生成するユースケースを通じて、ベンダーロックインを回避し、保守性と拡張性を両立させるプラクティスを学ぶことができます。
+LLMは柔軟性が高い一方で、その柔軟性がアプリケーションの予測不可能性やエラーの原因となることがあります。本セクションでは、**CharacterRequest**モデルを導入してユーザー入力を構造化し、内部的なプロンプト生成の柔軟性を維持しながら、外部からの入力を適切に制約する方法を示します。
+
+OpenAI GPT-5/4.1/4oシリーズとGoogle Gemini 2.5シリーズの両方に対応し、複数のモデルを選択できるようになっています。
 
 ## 機能
 
-- **Adapterパターン**: 各LLMプロバイダの差異を吸収する統一インターフェース
-- **Factoryパターン**: プロバイダとモデルに基づいたクライアント生成の一元管理
-- **マルチプロバイダー対応**: OpenAIとGoogle Gemini APIの両方をサポート
-- **型安全性**: Pydanticによる厳密な型検証とバリデーション
-- **プロバイダー切り替え**: コマンドライン引数で簡単にプロバイダー/モデルを変更可能
-- **構造化出力**: Pydanticモデルを活用した型安全なLLM応答
-- **包括的なテスト**: 43個のユニットテストによる品質保証
+### 主要機能
+
+- **2つのインターフェース比較**:
+  - **自由形式タブ**: ユーザーが任意のテキストを入力（柔軟性高・安定性低）
+  - **構造化フォームタブ**: 制約されたフィールドで入力（柔軟性低・安定性高）
+- **モデル選択サイドバー**: OpenAI/Geminiの複数モデルから選択可能
+- **リアルタイム生成**: 入力後すぐにキャラクター情報を生成
+- **2つの出力形式**:
+  - JSON形式（技術者向け）
+  - フォーマット済みプロフィール（一般ユーザー向け）
+- **内部プロンプト表示**: システムが実際に送信したプロンプトを確認可能
+- **教育的メッセージング**: 各インターフェースのトレードオフを説明
+
+### 技術的機能
+
+- **リクエスト/レスポンスパターン**: 入力（CharacterRequest）と出力（CharacterResponse）を明確に分離
+- **構造化プロンプト生成**: ユーザー入力をバリデーション済みの構造化データからプロンプトに変換
+- **型安全性**: Pydanticによる厳密な型検証
 - **非同期処理**: async/awaitパターンによる効率的なAPI呼び出し
-- **CLIインターフェース**: Clickライブラリを使用した使いやすいコマンドラインツール
-- **環境変数管理**: python-dotenvによる安全なAPIキー管理
-- **ログ出力**: 詳細なログ機能による実行状況の可視化
+- **環境変数管理**: 安全なAPIキー管理
+- **詳細なログ出力**: 実行状況の可視化
 
 ## プロジェクト構成
 
 ### ディレクトリ構成
 
 ```
-chapter_2/section_10/
+chapter_2/section_9/
+├── app.py                       # Streamlitアプリケーション（本セクション独自）
 ├── src/
 │   ├── __init__.py              # パッケージ初期化
 │   ├── config.py                # 設定管理（API キー読み込み）
 │   ├── logger.py                # ロギング設定
-│   ├── main.py                  # メインエントリーポイント
-│   ├── client/                  # LLMクライアント関連
+│   ├── client/
 │   │   ├── __init__.py
-│   │   ├── base.py              # 抽象基底クラス（LLMClient）
-│   │   ├── adapters.py          # 具体的なAdapter実装
-│   │   ├── factory.py           # Factoryパターン実装
-│   │   └── model.py             # プロバイダー・モデル定義
-│   ├── model/                   # データモデル
+│   │   └── llm_client.py        # LLMクライアント初期化
+│   ├── model/
 │   │   ├── __init__.py
-│   │   └── model.py             # Pydanticデータモデル定義
-│   ├── prompt/                  # プロンプト管理
+│   │   └── model.py             # Pydanticモデル（CharacterRequest追加）
+│   ├── prompt/
 │   │   ├── __init__.py
-│   │   └── prompt.py            # プロンプト生成ロジック
-│   └── service/                 # サービス層
+│   │   └── prompt.py            # プロンプト生成（リクエストベース）
+│   └── service/
 │       ├── __init__.py
-│       └── request_llm.py       # 統一されたLLMリクエスト処理
-├── tests/                       # テストコード
-│   ├── __init__.py
-│   ├── test_adapters.py         # Adapterのテスト（17テスト）
-│   └── test_factory.py          # Factoryのテスト（26テスト）
+│       └── request_llm.py       # LLM呼び出しサービス
 ├── outputs/                     # 生成結果の保存先（自動作成）
 ├── .envrc.example               # 環境変数設定のサンプル
-├── Makefile                     # 開発用タスク定義
-├── pyproject.toml               # プロジェクト依存関係
+├── pyproject.toml               # プロジェクト依存関係（streamlit含む）
+├── Makefile                     # ビルド・lint コマンド
 ├── README.md                    # このファイル
-└── CLAUDE.md                    # 設計ドキュメント
+└── CLAUDE.md                    # プロジェクト状態レポート
 ```
 
 ### アーキテクチャ
 
-このプロジェクトは、以下の4層アーキテクチャで構成されています：
+このプロジェクトは、Section 1の基本アーキテクチャを拡張し、**リクエスト層**を追加した4層構造になっています：
 
 ```
-┌─────────────────────────────────────────────┐
-│         CLI Layer (main.py)                 │
-│     - コマンドライン引数解析                │
-│     - 出力ディレクトリ管理                  │
-│     - プロバイダー/モデル検証               │
-└─────────────────┬───────────────────────────┘
+┌─────────────────────────────────────────┐
+│      Presentation Layer                 │
+│  - Streamlit Web UI (app.py)            │  ← 新規追加
+│  - ユーザー入力の収集と表示             │
+│  - インタラクティブな比較デモ           │
+└─────────────────┬───────────────────────┘
                   │
-┌─────────────────▼───────────────────────────┐
-│      Service Layer (service/)               │
-│  - 統一されたLLMリクエスト処理              │
-│  - プロンプト生成とレスポンス処理           │
-└─────────────────┬───────────────────────────┘
+┌─────────────────▼───────────────────────┐
+│      Request Layer                      │  ← 新規追加
+│  - CharacterRequest (model.py)          │
+│  - 入力バリデーションと構造化           │
+│  - ドメインモデルへの変換               │
+└─────────────────┬───────────────────────┘
                   │
-┌─────────────────▼───────────────────────────┐
-│      Adapter/Factory Layer (client/)        │
-│  - LLMClient抽象インターフェース (base.py)  │
-│  - プロバイダー別Adapter (adapters.py)      │
-│  - クライアント生成Factory (factory.py)    │
-└─────────────────┬───────────────────────────┘
+┌─────────────────▼───────────────────────┐
+│      Business Logic Layer               │
+│  - プロンプト生成 (prompt.py)           │
+│  - LLM呼び出し (request_llm.py)         │
+│  - CharacterResponse (model.py)         │
+└─────────────────┬───────────────────────┘
                   │
-┌─────────────────▼───────────────────────────┐
-│      Infrastructure Layer                   │
-│  - 設定管理 (config.py)                     │
-│  - ログ管理 (logger.py)                     │
-│  - データモデル (model/)                    │
-│  - 外部API (OpenAI, Gemini)                 │
-└─────────────────────────────────────────────┘
+┌─────────────────▼───────────────────────┐
+│      Infrastructure Layer               │
+│  - 設定管理 (config.py)                 │
+│  - ログ管理 (logger.py)                 │
+│  - LLMクライアント (llm_client.py)      │
+│  - 外部API (OpenAI, Gemini)             │
+└─────────────────────────────────────────┘
 ```
+
+**Section 1との主な違い**:
+- **Presentation Layer**: Streamlit Web UIを追加し、2つのインターフェース（自由形式 vs 構造化）を比較
+- **Request Layer**: CharacterRequestモデルで入力を構造化・バリデーション
+- **Interactive Demo**: ユーザーが実際に体験しながら設計原則を学べる教育的インターフェース
 
 ### 実装の詳細
 
-#### 1. 抽象基底クラス (`src/client/base.py`)
+#### 1. リクエストモデル (`src/model/model.py`)
 
-すべてのLLMプロバイダが実装すべき共通インターフェースを定義します：
-
-```python
-class LLMClient(ABC):
-    """LLMクライアントの共通インターフェース"""
-
-    @abstractmethod
-    async def chat(
-        self,
-        messages: list[dict[str, str]],
-        response_format: type,
-        **kwargs: Any,
-    ) -> BaseModel:
-        """チャット完了を生成"""
-        pass
-
-    @abstractmethod
-    def get_provider_name(self) -> str:
-        """プロバイダー名を取得"""
-        pass
-
-    @abstractmethod
-    def get_model_name(self) -> str:
-        """モデル名を取得"""
-        pass
-```
-
-**ポイント**:
-- すべてのプロバイダーで統一されたメソッドシグネチャ
-- Pydantic BaseModelによる型安全な戻り値
-- 非同期処理（async/await）をサポート
-
-#### 2. Adapter実装 (`src/client/adapters.py`)
-
-各プロバイダー固有のAPIを共通インターフェースに変換します：
-
-##### OpenAIAdapter
+**新規追加**: ユーザー入力を構造化するためのモデル
 
 ```python
-class OpenAIAdapter(LLMClient):
-    """OpenAI API用のAdapter"""
+class CharacterRequest(BaseModel):
+    """キャラクター生成リクエストを表すモデル（ユーザー入力の構造化）"""
 
-    def __init__(self, model: str):
-        self._client = AsyncOpenAI(api_key=config.openai_api_key)
-        self._model = model
-
-    async def chat(
-        self,
-        messages: list[dict[str, str]],
-        response_format: type,
-        **kwargs: Any,
-    ) -> BaseModel:
-        result = await self._client.beta.chat.completions.parse(
-            model=self._model,
-            messages=messages,
-            response_format=response_format,
-            **kwargs,
-        )
-        return result.choices[0].message.parsed
-```
-
-##### GeminiAdapter
-
-```python
-class GeminiAdapter(LLMClient):
-    """Google Gemini API用のAdapter"""
-
-    def __init__(self, model: str):
-        self._client = genai.Client(api_key=config.gemini_api_key)
-        self._model = model
-
-    async def chat(
-        self,
-        messages: list[dict[str, str]],
-        response_format: type,
-        **kwargs: Any,
-    ) -> BaseModel:
-        # システムメッセージとユーザーメッセージを分離
-        system_instruction = None
-        user_content = None
-
-        for msg in messages:
-            if msg["role"] == "system":
-                system_instruction = msg["content"]
-            elif msg["role"] == "user":
-                user_content = msg["content"]
-
-        # Gemini固有の設定
-        config = GenerateContentConfig(
-            response_mime_type="application/json",
-            system_instruction=system_instruction,
-            response_schema=response_format,
-        )
-
-        result = await self._client.aio.models.generate_content(
-            model=self._model,
-            contents=user_content,
-            config=config,
-        )
-        return result.parsed
-```
-
-**ポイント**:
-- 各プロバイダーのAPI仕様の違いをAdapter内で吸収
-- 共通インターフェースを通じて同じ方法で呼び出し可能
-- プロバイダー固有の設定は各Adapter内で処理
-
-#### 3. Factory実装 (`src/client/factory.py`)
-
-プロバイダーとモデルに基づいて適切なAdapterインスタンスを生成します：
-
-```python
-class LLMClientFactory:
-    """LLMクライアントを生成するFactory"""
-
-    # プロバイダーとサポートモデルのマッピング
-    PROVIDER_MODELS = {
-        LLMProvider.OPENAI: OpenAIModel.list_str(),
-        LLMProvider.GEMINI: GeminiModel.list_str(),
-    }
-
-    @staticmethod
-    def create_client(
-        provider: LLMProvider,
-        model: OpenAIModel | GeminiModel,
-    ) -> LLMClient:
-        """プロバイダーとモデルに基づいてクライアントを生成"""
-        provider_lower = provider.lower()
-
-        # プロバイダーとモデルの組み合わせを検証
-        if not LLMClientFactory.is_valid_combination(provider_lower, model):
-            raise ValueError(f"Invalid combination: {provider} and {model}")
-
-        # 適切なAdapterを生成
-        if provider_lower == LLMProvider.OPENAI:
-            return OpenAIAdapter(model=model)
-        elif provider_lower == LLMProvider.GEMINI:
-            return GeminiAdapter(model=model)
-        else:
-            raise ValueError(f"Unknown provider: {provider}")
-
-    @staticmethod
-    def is_valid_combination(provider: str, model: str) -> bool:
-        """プロバイダーとモデルの組み合わせが有効かチェック"""
-        provider_lower = provider.lower()
-        if provider_lower not in LLMClientFactory.PROVIDER_MODELS:
-            return False
-        return model in LLMClientFactory.PROVIDER_MODELS[provider_lower]
-```
-
-**ポイント**:
-- プロバイダーとモデルの組み合わせを事前検証
-- クライアント生成ロジックを一元管理
-- ビジネスロジックから具体的なAdapter実装を隠蔽
-
-#### 4. サービス層 (`src/service/request_llm.py`)
-
-Factoryを使用して統一されたLLMリクエスト処理を提供します：
-
-```python
-async def request_llm(
-    provider: LLMProvider,
-    model: OpenAIModel | GeminiModel,
-) -> CharacterResponse:
-    """FactoryパターンでLLMリクエストを実行"""
-
-    # Factoryを使用してクライアントを生成
-    client: LLMClient = LLMClientFactory.create_client(
-        provider=provider,
-        model=model
+    model_config = ConfigDict(
+        validate_assignment=True,
+        frozen=True,
+        extra="forbid",
     )
 
-    # 共通インターフェースを通じてリクエスト
-    result = await client.chat(
-        messages=make_prompt(),
-        response_format=CharacterResponse,
+    gender: Gender = Field(..., description="The gender of the character.")
+    age: int = Field(..., description="The age of the character.", ge=0, le=100)
+    additional_instructions: str | None = Field(
+        default=None,
+        description="Additional instructions for character generation.",
     )
-
-    return result
 ```
 
 **ポイント**:
-- プロバイダーに依存しない統一されたインターフェース
-- どのプロバイダーでも同じコードで処理可能
-- 新しいプロバイダーの追加が容易
+- `gender`: 列挙型で選択肢を制限（FEMALE/MALE のみ）
+- `age`: 0-100の範囲に制約（`ge=0, le=100`）
+- `additional_instructions`: オプションで追加の自由記述を許可
+- `frozen=True`により不変オブジェクトを保証
+- `extra="forbid"`で予期しないフィールドを拒否
 
-#### 5. データモデル (`src/model/model.py`)
+#### 2. レスポンスモデル (`src/model/model.py`)
 
-Pydanticを使用して厳密に型付けされたデータモデルを定義します：
+Section 1から継承したCharacterResponseモデル（変更なし）：
 
 ```python
-class Gender(StrEnum):
-    FEMALE = "female"
-    MALE = "male"
-
-class CharacterPersonality(BaseModel):
-    short_personality: str
-    description: str
-
 class CharacterResponse(BaseModel):
+    """LLMからのレスポンスを表すモデル（構造化出力）"""
+
     first_name: str
     last_name: str
     gender: Gender
     age: int  # 0-100
-    personalities: list[CharacterPersonality]  # 3つの性格特性
+    personalities: list[CharacterPersonality]  # 正確に3つの性格特性
+```
+
+#### 3. 構造化プロンプト生成 (`src/prompt/prompt.py`)
+
+CharacterRequestから動的にプロンプトを生成：
+
+```python
+def make_prompt(character_request: CharacterRequest) -> list:
+    """CharacterRequestからプロンプトを生成"""
+    params = CharacterResponse.detailed_model()
+    param_dump = json.dumps(params, indent=2, ensure_ascii=False)
+
+    return [
+        {
+            "role": "system",
+            "content": f"""あなたは創造的なキャラクタージェネレーターです。
+以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：
+
+{param_dump}
+
+【重要な制約】
+- personalitiesは正確に3つの要素を含む配列である必要があります
+- short_personalityは5文字以下の簡潔な表現にしてください
+- descriptionは詳細な説明文にしてください""",
+        },
+        {
+            "role": "user",
+            "content": f"""フィクションの架空の人物のキャラクター情報を生成してください。
+
+性別は「{character_request.gender.value}」、年齢は「{character_request.age}」歳です。
+{character_request.additional_instructions or ""}""",
+        },
+    ]
+```
+
+**ポイント**:
+- リクエストの構造化データ（性別・年齢）をプロンプトに埋め込み
+- 追加指示は任意で含める
+- システムプロンプトでレスポンススキーマを明示
+- ユーザープロンプトで具体的な要求を伝達
+
+#### 4. Streamlitアプリケーション (`app.py`)
+
+**タブ1: 自由形式インターフェース**
+
+```python
+with tab1:
+    st.header("🎲 自由形式プロンプト入力")
+    st.info("""
+    このインターフェースでは、任意のテキストプロンプトを入力できます。
+    柔軟性は高いですが、予期しない結果や不安定な動作のリスクがあります。
+    """)
+
+    free_text = st.text_area(
+        "プロンプトを自由に入力してください",
+        placeholder="例: 30歳の女性キャラクターを作成してください",
+        height=150,
+    )
+
+    if st.button("生成", key="free_form_button"):
+        # 自由形式の入力を処理
+        # エラーハンドリングの難しさを示す
+```
+
+**タブ2: 構造化フォームインターフェース**
+
+```python
+with tab2:
+    st.header("📋 構造化フォーム入力")
+    st.success("""
+    このインターフェースでは、明確に定義されたフィールドに入力します。
+    予測可能で安定した結果が得られ、エラーハンドリングも容易です。
+    """)
+
+    # 構造化された入力フィールド
+    col1, col2 = st.columns(2)
+    with col1:
+        gender = st.selectbox(
+            "性別",
+            options=[Gender.FEMALE, Gender.MALE],
+            format_func=lambda x: {"female": "女性", "male": "男性"}[x.value],
+        )
+
+    with col2:
+        age = st.number_input(
+            "年齢",
+            min_value=0,
+            max_value=100,
+            value=25,
+            step=1,
+        )
+
+    additional_instructions = st.text_area(
+        "追加の指示（任意）",
+        placeholder="例: ファンタジー世界の魔法使いにしてください",
+        height=100,
+    )
+
+    if st.button("生成", key="structured_button"):
+        # CharacterRequestを作成してバリデーション
+        character_request = CharacterRequest(
+            gender=gender,
+            age=age,
+            additional_instructions=additional_instructions or None,
+        )
+        # 構造化されたデータから安全にプロンプトを生成
+```
+
+**モデル選択サイドバー**:
+
+```python
+with st.sidebar:
+    st.header("⚙️ モデル設定")
+
+    llm_provider = st.selectbox(
+        "LLMプロバイダー",
+        options=[LLMProvider.OPENAI, LLMProvider.GEMINI],
+    )
+
+    # プロバイダーに応じたモデル選択
+    if llm_provider == LLMProvider.OPENAI:
+        model = st.selectbox("モデル", options=list(OpenAIModel))
+    else:
+        model = st.selectbox("モデル", options=list(GeminiModel))
+```
+
+#### 5. サービス層 (`src/service/request_llm.py`)
+
+プロンプトとモデルを受け取り、LLMを呼び出す：
+
+```python
+async def request_openai(
+    prompt: list, model: OpenAIModel
+) -> CharacterResponse:
+    """OpenAI APIでキャラクター生成"""
+    result = await openai_client.beta.chat.completions.parse(
+        model=model.value,
+        messages=prompt,
+        response_format=CharacterResponse,
+        temperature=1.0,
+    )
+    return result.choices[0].message.parsed
+
+
+async def request_gemini(
+    prompt: list, model: GeminiModel
+) -> CharacterResponse:
+    """Gemini APIでキャラクター生成"""
+    result = await google_genai_client.aio.models.generate_content(
+        model=model.value,
+        contents=prompt[-1]["content"],
+        config=GenerateContentConfig(
+            system_instruction=prompt[0]["content"],
+            response_mime_type="application/json",
+            response_schema=CharacterResponse,
+            temperature=2.0,
+        ),
+    )
+    return result.parsed
 ```
 
 ## 使い方
@@ -309,15 +314,12 @@ class CharacterResponse(BaseModel):
 
 - **Python**: 3.13.2以上
 - **依存ライブラリ**:
+  - **streamlit>=1.50.0** ← Section 9独自の追加
   - click>=8.3.0
   - google-genai>=1.45.0
   - openai>=2.4.0
   - pydantic>=2.12.2
   - python-dotenv>=1.1.1
-- **開発依存関係**:
-  - pytest>=8.4.2
-  - pytest-asyncio>=1.2.0
-  - pytest-mock>=3.15.1
 
 ### セットアップ
 
@@ -331,7 +333,6 @@ cp .envrc.example .envrc
 # .envrc
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
 GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
-ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
 ```
 
 2. **依存関係のインストール**
@@ -346,202 +347,156 @@ pip install -e .
 
 ### 使用方法、実行方法
 
-#### 基本的な使い方
+#### Streamlit Webアプリケーション
 
 ```bash
-# OpenAI GPT-4oを使用
-uv run python -m src.main --llm-provider openai --model gpt-4o
-
-# 短縮オプション
-uv run python -m src.main -lp openai -m gpt-4o
-
-# Gemini 2.5 Proを使用
-uv run python -m src.main -lp gemini -m gemini-2.5-pro
-
-# Gemini 2.5 Flash（デフォルト）
-uv run python -m src.main -lp gemini -m gemini-2.5-flash
+# Webアプリケーションを起動
+streamlit run app.py
 ```
 
-#### 出力先の指定
+ブラウザが自動的に開き（通常は `http://localhost:8501`）、以下の操作が可能になります：
 
-```bash
-# カスタム出力ディレクトリを指定
-uv run python -m src.main -lp openai -m gpt-4o --output-directory ./custom_output
+1. **サイドバーでモデルを選択**
+   - LLMプロバイダー（OpenAI/Gemini）を選択
+   - 使用するモデルを選択
 
-# 短縮オプション
-uv run python -m src.main -lp gemini -m gemini-2.5-pro -od ./my_characters
-```
+2. **タブ1（自由形式）で試す**
+   - テキストエリアに任意のプロンプトを入力
+   - 「生成」ボタンをクリック
+   - 結果とプロンプトを確認
 
-#### プロバイダーとモデルの組み合わせ例
+3. **タブ2（構造化フォーム）で試す**
+   - 性別をドロップダウンから選択
+   - 年齢を数値入力（0-100）
+   - 必要に応じて追加指示を入力
+   - 「生成」ボタンをクリック
+   - 結果とプロンプトを確認
 
-```bash
-# OpenAI の各モデル
-uv run python -m src.main -lp openai -m gpt-4o
-uv run python -m src.main -lp openai -m gpt-4o-mini
+4. **2つのアプローチを比較**
+   - 使いやすさ
+   - 結果の安定性
+   - エラーハンドリングの容易さ
 
-# Gemini の各モデル
-uv run python -m src.main -lp gemini -m gemini-2.5-pro
-uv run python -m src.main -lp gemini -m gemini-2.5-flash
-uv run python -m src.main -lp gemini -m gemini-2.5-flash-lite
-```
+#### 利用可能なモデル
 
-#### ヘルプの表示
+**OpenAI**:
+- `gpt-5`
+- `gpt-5-mini`
+- `gpt-4.1`
+- `gpt-4.1-mini`
+- `gpt-4o`
+- `gpt-4o-mini`
+- `gpt-4o-2024-11-20`
+- `gpt-4o-2024-08-06`
 
-```bash
-uv run python -m src.main --help
-```
-
-**出力例**:
-```
-Usage: python -m src.main [OPTIONS]
-
-Options:
-  -lp, --llm-provider [openai|gemini]
-                                  The LLM provider to use (openai or gemini).
-  -m, --model [gpt-4o|gpt-4o-mini|gemini-2.5-pro|gemini-2.5-flash|...]
-                                  The model to use for the request.
-  -od, --output-directory PATH    The directory to save output files.
-  --help                          Show this message and exit.
-```
+**Gemini**:
+- `gemini-2.5-pro`
+- `gemini-2.5-flash`
+- `gemini-2.5-flash-lite`
 
 ### 出力例
 
-実行すると、以下のような構造化されたJSONファイルが生成されます：
+**構造化フォームでの入力**:
+- 性別: 男性
+- 年齢: 28
+- 追加指示: "サイバーパンク世界のハッカーにしてください"
 
-**ファイル名**: `outputs/openai_gpt-4o_a1b2c3d4.json`
+**生成結果（フォーマット済み）**:
+```
+📋 キャラクタープロフィール
 
+👤 基本情報
+名前: 蒼 雨宮
+性別: male
+年齢: 28歳
+
+🎭 性格特性
+
+1. 孤独な天才
+   常に一人で作業することを好み、複雑なシステムを解読する能力に長けている。
+   社会的なスキルは低いが、デジタル世界では無敵の存在。
+
+2. 反骨精神
+   権威や大企業に対して強い不信感を持ち、情報の自由を信じている。
+   正義感が強く、弱者を守るために自らのスキルを使う。
+
+3. 完璧主義
+   すべてのコードに最高の基準を求め、セキュリティホールを決して許さない。
+   細部へのこだわりが時に強迫観念となることもある。
+```
+
+**内部プロンプト（展開可能セクション）**:
 ```json
-{
-    "first_name": "蒼",
-    "last_name": "雨宮",
-    "gender": "male",
-    "age": 28,
-    "personalities": [
-        {
-            "short_personality": "内向的な思索家",
-            "description": "常に深く物事を考え、静かな場所を好む。表面的な会話よりも、哲学的な議論に心を開く。"
-        },
-        {
-            "short_personality": "完璧主義者",
-            "description": "すべてのタスクに最高の基準を求め、細部にこだわる。しばしば自分自身に対して厳しすぎることがある。"
-        },
-        {
-            "short_personality": "忠実な友人",
-            "description": "一度信頼関係を築くと、どんな困難な状況でも友人を支える。約束を何よりも大切にする。"
-        }
-    ]
-}
-```
-
-**実行ログ例**:
-```
-[2025-10-19 10:30:45] [INFO] [__main__] [main.py:76] [main] LLM provider: openai
-Model: gpt-4o
-Output directory: outputs
-[2025-10-19 10:30:46] [INFO] [src.service.request_llm] [request_llm.py:41] [request_llm] Making LLM request: provider=openai, model=gpt-4o
-[2025-10-19 10:30:48] [INFO] [src.service.request_llm] [request_llm.py:52] [request_llm] Successfully received response from openai
-[2025-10-19 10:30:48] [INFO] [__main__] [main.py:102] [main] Character generated successfully!
-[2025-10-19 10:30:48] [INFO] [__main__] [main.py:103] [main] File saved to: outputs/openai_gpt-4o_a1b2c3d4.json
-[2025-10-19 10:30:48] [INFO] [__main__] [main.py:104] [main] Character: 蒼 雨宮, 28 years old
+[
+  {
+    "role": "system",
+    "content": "あなたは創造的なキャラクタージェネレーターです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n..."
+  },
+  {
+    "role": "user",
+    "content": "フィクションの架空の人物のキャラクター情報を生成してください。\n\n性別は「male」、年齢は「28」歳です。\nサイバーパンク世界のハッカーにしてください"
+  }
+]
 ```
 
 ### テスト方法
 
-このプロジェクトには、AdapterとFactoryパターンの実装を検証する包括的なテストスイートが含まれています。
-
-#### テストの実行
-
 ```bash
-# すべてのテストを実行
-uv run python -m pytest tests/ -v
-
-# 特定のテストファイルを実行
-uv run python -m pytest tests/test_adapters.py -v
-uv run python -m pytest tests/test_factory.py -v
-
-# カバレッジレポート付きで実行
-uv run python -m pytest tests/ -v --cov=src --cov-report=term-missing
+# アプリケーションを起動
+streamlit run app.py
 ```
 
-#### テストの構成
+**テストシナリオ**:
 
-**1. Adapterテスト (`tests/test_adapters.py`) - 17テスト**
+**シナリオ1: 自由形式タブのテスト**
+1. タブ1「自由形式プロンプト入力」を開く
+2. テキストエリアに以下を入力: "20歳の男性キャラクターを作成してください"
+3. 「生成」ボタンをクリック
+4. 期待される動作:
+   - JSON出力とフォーマット済みプロフィールが表示される
+   - 「送信されたプロンプトを表示」セクションでプロンプトが確認できる
+   - 性別がmale、年齢が20に近い値になる
 
-- OpenAIAdapterのテスト
-  - インターフェース実装の検証
-  - 初期化とモデル設定
-  - チャット完了の成功ケース
-  - 追加パラメータの処理
-  - APIエラーハンドリング
+**シナリオ2: 構造化フォームタブのテスト**
+1. タブ2「構造化フォーム入力」を開く
+2. 性別: 女性を選択
+3. 年齢: 45を入力
+4. 追加の指示: "歴史小説の主人公にしてください"を入力
+5. 「生成」ボタンをクリック
+6. 期待される動作:
+   - JSON出力で`"gender": "female"`、`"age": 45`が確認できる
+   - personalitiesが正確に3つ含まれる
+   - 歴史的な要素を含むキャラクターが生成される
 
-- GeminiAdapterのテスト
-  - インターフェース実装の検証
-  - 初期化とモデル設定
-  - システムメッセージ処理
-  - マルチメッセージ処理
-  - APIエラーハンドリング
+**シナリオ3: モデル切り替えテスト**
+1. サイドバーでLLMプロバイダーを「gemini」に変更
+2. モデルを「gemini-2.5-flash」に選択
+3. 構造化フォームで任意の値を入力して生成
+4. サイドバーでLLMプロバイダーを「openai」に変更
+5. モデルを「gpt-4o-mini」に選択
+6. 同じ値で再度生成
+7. 期待される動作:
+   - どちらのモデルでも正しくCharacterResponseスキーマに準拠したJSONが生成される
 
-- Adapter比較テスト
-  - 両Adapterの一貫性検証
-  - 共通インターフェース確認
+**シナリオ4: バリデーションテスト**
+1. 構造化フォームタブで年齢に101を入力しようとする
+2. 期待される動作:
+   - 数値入力フィールドが最大値100を超えないように制限される
 
-**2. Factoryテスト (`tests/test_factory.py`) - 26テスト**
+**シナリオ5: インターフェース比較テスト**
 
-- サポートプロバイダー/モデルの取得
-- プロバイダー・モデル組み合わせの検証
-- クライアント生成の正常系
-- エラーハンドリング（不正なプロバイダー、モデル）
-- 大文字小文字の区別なし検証
-- 統合テスト（実際のAdapter生成）
-- PROVIDER_MODELSマッピングの検証
+同じ要求を自由形式と構造化フォームで試して比較：
 
-#### テスト実行例
+1. **自由形式タブで入力**:
+   - 「25歳の女性で、明るくて社交的な性格のキャラクターを作ってください」
 
-```bash
-$ uv run python -m pytest tests/ -v
+2. **構造化フォームタブで入力**:
+   - 性別: 女性
+   - 年齢: 25
+   - 追加指示: "明るくて社交的な性格にしてください"
 
-============================= test session starts ==============================
-platform darwin -- Python 3.13.2, pytest-8.4.2, pluggy-1.6.0
-collected 43 items
-
-tests/test_adapters.py::TestOpenAIAdapter::test_implements_llm_client_interface PASSED
-tests/test_adapters.py::TestOpenAIAdapter::test_initialization PASSED
-tests/test_adapters.py::TestOpenAIAdapter::test_get_provider_name PASSED
-tests/test_adapters.py::TestOpenAIAdapter::test_get_model_name PASSED
-tests/test_adapters.py::TestOpenAIAdapter::test_chat_success PASSED
-...
-tests/test_factory.py::TestLLMClientFactory::test_get_supported_providers PASSED
-tests/test_factory.py::TestLLMClientFactory::test_create_client_openai PASSED
-...
-
-============================== 43 passed in 4.35s ==============================
-```
-
-#### 手動テスト
-
-実際のAPIを使用した統合テストも可能です：
-
-```bash
-# OpenAI APIのテスト
-uv run python -m src.main -lp openai -m gpt-4o -od test_outputs
-
-# Gemini APIのテスト
-uv run python -m src.main -lp gemini -m gemini-2.5-flash -od test_outputs
-
-# 生成されたJSONの検証
-cat test_outputs/openai_*.json | jq .
-
-# Pythonで読み込みテスト
-python -c "
-from src.model.model import CharacterResponse
-import json
-import glob
-
-files = glob.glob('test_outputs/*.json')
-for file_path in files:
-    with open(file_path) as f:
-        data = json.load(f)
-        character = CharacterResponse(**data)
-        print(f'Valid! {character.first_name} {character.last_name}, {character.age} years old')
-"
-```
+3. **比較観点**:
+   - **入力の容易さ**: フォームの方が選択肢が明確で入力しやすい
+   - **エラーの可能性**: 自由形式では年齢を書き忘れる可能性がある
+   - **結果の一貫性**: フォームの方が指定した年齢・性別が確実に反映される
+   - **プロンプトの品質**: どちらも内部プロンプトを確認して構造を理解できる

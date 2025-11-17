@@ -197,7 +197,7 @@ See `pytest.ini` for pytest configuration including:
 ### Import Errors
 If you get import errors, ensure you're running from the project root:
 ```bash
-cd /path/to/chapter_2/section_11
+cd /path/to/chapter_2/section_12
 python -m pytest tests/
 ```
 

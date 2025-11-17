@@ -1,3 +1,3 @@
-from src.model.model import HealthResponse, StreamRequest
+from src.model.model import CharacterPersonality, CharacterResponse, Gender
 
-__all__ = ["StreamRequest", "HealthResponse"]
+__all__ = ["CharacterPersonality", "CharacterResponse", "Gender"]

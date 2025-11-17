@@ -1,54 +1,32 @@
-"""Service layer for LLM requests using the adapter pattern.
+from google.genai.types import GenerateContentConfig
 
-This module provides a unified interface for making LLM requests,
-abstracting away the differences between various providers.
-"""
-
-from src.client.base import LLMClient
-from src.client.factory import LLMClientFactory
-from src.client.model import GeminiModel, LLMProvider, OpenAIModel
+from src.client.llm_client import GeminiModel, OpenAIModel, google_genai_client, openai_client
 from src.logger import make_logger
 from src.model.model import CharacterResponse
-from src.prompt.prompt import make_prompt
 
 logger = make_logger(__name__)
 
 
-async def request_llm(
-    provider: LLMProvider,
-    model: OpenAIModel | GeminiModel,
-) -> CharacterResponse:
-    """Make an LLM request using the factory pattern.
-
-    Args:
-        provider: Provider name ('openai', 'anthropic', or 'gemini')
-        model: Model identifier
-
-    Returns:
-        CharacterResponse object with generated character data
-
-    Raises:
-        ValueError: If provider/model combination is invalid
-        Exception: Provider-specific API errors
-
-    Example:
-        >>> response = await request_llm('openai', 'gpt-4o')
-        >>> print(response.first_name, response.last_name)
-    """
-    # Create client using factory
-    client: LLMClient = LLMClientFactory.create_client(provider=provider, model=model)
-
-    logger.info(f"Making LLM request: provider={provider}, model={model}")
-
-    # Get prompt
-    prompt = make_prompt()
-
-    # Make request using unified interface
-    result = await client.chat(
+async def request_openai(prompt: list, model: OpenAIModel) -> CharacterResponse:
+    result = await openai_client.beta.chat.completions.parse(
+        model=model,
         messages=prompt,
         response_format=CharacterResponse,
+        temperature=1.0,
     )
+    return result.choices[0].message.parsed
 
-    logger.info(f"Successfully received response from {provider}")
 
-    return result
+async def request_gemini(prompt: list, model: GeminiModel) -> CharacterResponse:
+    result = await google_genai_client.aio.models.generate_content(
+        model=model,
+        contents=prompt[-1]["content"],
+        config=GenerateContentConfig(
+            system_instruction=prompt[0]["content"],
+            response_mime_type="application/json",
+            response_schema=CharacterResponse,
+            temperature=2.0,
+        ),
+    )
+    logger.info(result)
+    return result.parsed

@@ -1,783 +1,524 @@
-# CLAUDE.md - LLM Adapter and Factory Pattern Implementation
+# Section 9 Project Status Report
 
-## Project Overview
+**Project**: Chapter 2 Section 9 - LLMを安定して使うために自由度を下げる
+**Last Updated**: 2025-10-18
+**Status**: Active Development
 
-This project demonstrates **Adapter and Factory design patterns** for managing multiple LLM providers through a unified interface. It showcases best practices for avoiding vendor lock-in while maintaining code maintainability and extensibility.
+---
 
-**Core Objective**: Generate fictional character data (name, gender, age, personality traits) using either OpenAI or Google Gemini APIs through a common interface.
+## Overview
 
-**Key Patterns**:
-- **Adapter Pattern**: Abstracts provider-specific API differences
-- **Factory Pattern**: Centralizes client instantiation logic
-- **Dependency Injection**: Promotes testability and flexibility
+This project demonstrates a fundamental LLM application design principle: **reducing user input flexibility to achieve stability and predictability**. Unlike Section 1 which focuses on structured outputs, Section 9 focuses on **structured inputs** through an interactive Streamlit web application.
 
-## Project Structure
+### Key Differentiator
 
-```
-src/
-├── client/                    # Adapter and Factory implementation
-│   ├── base.py               # Abstract base class (LLMClient)
-│   ├── adapters.py           # Concrete adapters (OpenAI, Gemini)
-│   ├── factory.py            # Factory for creating clients
-│   └── model.py              # Provider/model enums
-├── model/                    # Domain models
-│   └── model.py              # Pydantic data models
-├── prompt/                   # Prompt management
-│   └── prompt.py             # Prompt generation logic
-├── service/                  # Business logic layer
-│   └── request_llm.py        # Unified LLM request handling
-├── config.py                 # Configuration management
-├── logger.py                 # Logging setup
-└── main.py                   # CLI entry point
+Section 9 is **unique in Chapter 2** as it:
+- Provides an **interactive web UI** (the only section with Streamlit)
+- Demonstrates **comparative learning** by showing both good and bad approaches side-by-side
+- Focuses on **input design** rather than output design
+- Serves as an **educational tool** for understanding production LLM application patterns
 
-tests/
-├── test_adapters.py          # Adapter tests (17 tests)
-└── test_factory.py           # Factory tests (26 tests)
-```
+---
 
-## Architecture
+## Current Architecture
 
-### Layer Architecture
+### Application Structure
 
 ```
-+---------------------------------------------+
-|         CLI Layer (main.py)                 |
-|  - Command-line argument parsing            |
-|  - Output directory management              |
-|  - Provider/model validation                |
-+-----------------+---------------------------+
-                  |
-                  v
-+-----------------+---------------------------+
-|      Service Layer (service/)               |
-|  - Unified LLM request processing           |
-|  - Prompt generation and response handling  |
-+-----------------+---------------------------+
-                  |
-                  v
-+-----------------+---------------------------+
-|      Adapter/Factory Layer (client/)        |
-|  - LLMClient abstract interface (base.py)   |
-|  - Provider-specific adapters (adapters.py) |
-|  - Client creation factory (factory.py)     |
-+-----------------+---------------------------+
-                  |
-                  v
-+-----------------+---------------------------+
-|      Infrastructure Layer                   |
-|  - Configuration (config.py)                |
-|  - Logging (logger.py)                      |
-|  - Data models (model/)                     |
-|  - External APIs (OpenAI, Gemini)           |
-+---------------------------------------------+
+Streamlit Web App (app.py)
+    ├── Free-form Interface Tab (demonstrates flexibility, potential instability)
+    ├── Structured Form Interface Tab (demonstrates constraints, stability)
+    └── Model Selection Sidebar (OpenAI/Gemini model switching)
+
+Supporting Infrastructure (src/)
+    ├── client/llm_client.py    - LLM client initialization
+    ├── model/model.py           - CharacterRequest + CharacterResponse
+    ├── prompt/prompt.py         - Dynamic prompt generation from requests
+    ├── service/request_llm.py   - LLM invocation logic
+    ├── config.py                - API key management
+    └── logger.py                - Logging utilities
 ```
 
-### Design Patterns in Detail
+### Design Pattern: Request/Response Separation
 
-#### 1. Adapter Pattern (`client/base.py`, `client/adapters.py`)
+**CharacterRequest** (Input Model):
+- Structures user input before it becomes a prompt
+- Validates: gender (enum), age (0-100), optional additional instructions
+- Enforces constraints at the input layer
 
-**Purpose**: Translate different provider APIs into a common interface.
+**CharacterResponse** (Output Model):
+- Same as Section 1
+- Ensures structured output from LLM
 
-**Abstract Interface** (`base.py:9-54`):
-```python
-class LLMClient(ABC):
-    @abstractmethod
-    async def chat(
-        self,
-        messages: list[dict[str, str]],
-        response_format: type,
-        **kwargs: Any,
-    ) -> BaseModel:
-        """Generate chat completion with structured output."""
-        pass
+This separation is the **core architectural innovation** of Section 9.
 
-    @abstractmethod
-    def get_provider_name(self) -> str:
-        """Return provider name."""
-        pass
+---
 
-    @abstractmethod
-    def get_model_name(self) -> str:
-        """Return model identifier."""
-        pass
-```
+## Recent Changes
 
-**Key Design Decisions**:
-- **Async interface**: All chat methods are async for efficient I/O handling
-- **Pydantic integration**: `response_format` ensures type-safe responses
-- **Flexible kwargs**: Allows provider-specific parameters without breaking the interface
-- **Provider identification**: Methods for runtime introspection
+### Removed: CLI Interface (`src/main.py`)
 
-**OpenAI Adapter** (`adapters.py:23-74`):
-- Uses `AsyncOpenAI` client
-- Leverages `beta.chat.completions.parse()` for structured output
-- Returns `result.choices[0].message.parsed` (Pydantic model)
+**Date**: 2025-10-18
+**Reason**: Streamline to focus on interactive demonstration
 
-**Gemini Adapter** (`adapters.py:77-147`):
-- Uses `genai.Client` with async methods
-- Separates system instructions from user messages (Gemini requirement)
-- Uses `GenerateContentConfig` with `response_schema` for structured output
-- Returns `result.parsed` directly
+The CLI was removed to:
+1. **Simplify the project scope** - Focus exclusively on the web-based comparative demo
+2. **Avoid redundancy** - Section 1 already demonstrates CLI usage
+3. **Emphasize the educational goal** - The Streamlit UI is the primary teaching tool
 
-**Provider Differences Handled**:
-- Message format: OpenAI uses standard chat format; Gemini separates system/user
-- Structured output: OpenAI uses `response_format`; Gemini uses `response_schema`
-- Client initialization: Different SDK patterns
+**Impact**:
+- Project now has a single, clear entry point: `streamlit run app.py`
+- README.md updated to remove all CLI references
+- No impact on core functionality (all LLM logic is in `src/service/`)
 
-#### 2. Factory Pattern (`client/factory.py`)
+---
 
-**Purpose**: Centralize client creation and validation logic.
+## Implementation Details
 
-**Key Features**:
+### 1. Two-Tab Comparison Pattern
 
-1. **Provider-Model Mapping** (`factory.py:24-27`):
-```python
-PROVIDER_MODELS = {
-    LLMProvider.OPENAI: OpenAIModel.list_str(),
-    LLMProvider.GEMINI: GeminiModel.list_str(),
-}
-```
+**Tab 1: Free-form Interface**
+- Purpose: Demonstrate high flexibility, low stability
+- User Input: Single text area for arbitrary prompts
+- Shows: Difficulty in consistent parsing, error handling complexity
+- Educational Value: "This is what NOT to do in production"
 
-2. **Validation Before Creation** (`factory.py:54-64`):
-- Checks if provider exists
-- Verifies model is supported for that provider
-- Raises descriptive `ValueError` with supported options
+**Tab 2: Structured Form Interface**
+- Purpose: Demonstrate controlled flexibility, high stability
+- User Input: Dropdowns, number inputs, optional text area
+- Shows: Predictable results, easy validation, better UX
+- Educational Value: "This is the production-ready pattern"
 
-3. **Client Instantiation** (`factory.py:68-77`):
-- Single source of truth for creating adapters
-- Hides concrete adapter classes from business logic
-- Enables easy addition of new providers
-
-**Benefits**:
-- **Single Responsibility**: One place to manage client creation
-- **Open/Closed Principle**: Add new providers without modifying existing code
-- **Validation**: Catch errors early with clear messages
-- **Testability**: Easy to mock factory in tests
-
-#### 3. Service Layer (`service/request_llm.py`)
-
-**Purpose**: Provide business logic abstraction over adapters.
-
-**Implementation** (`request_llm.py:17-54`):
-```python
-async def request_llm(
-    provider: LLMProvider,
-    model: OpenAIModel | GeminiModel,
-) -> CharacterResponse:
-    # Create client using factory
-    client: LLMClient = LLMClientFactory.create_client(
-        provider=provider, model=model
-    )
-
-    # Get prompt
-    prompt = make_prompt()
-
-    # Make request using unified interface
-    result = await client.chat(
-        messages=prompt,
-        response_format=CharacterResponse,
-    )
-
-    return result
-```
-
-**Key Points**:
-- **Provider-agnostic**: Same code works for any provider
-- **Type safety**: Uses union types for model parameter
-- **Separation of concerns**: Prompt generation separate from API calls
-- **Error handling**: Propagates exceptions with context
-
-## Data Models
-
-### Character Models (`model/model.py`)
-
-**Design Philosophy**: Strict validation, immutability, type safety.
+### 2. Dynamic Prompt Generation
 
 ```python
-class Gender(StrEnum):
-    FEMALE = "female"
-    MALE = "male"
-
-class CharacterPersonality(BaseModel):
-    model_config = ConfigDict(
-        validate_assignment=True,  # Validate on assignment
-        frozen=True,               # Immutable after creation
-        extra="ignore",            # Ignore unknown fields
-    )
-
-    short_personality: str
-    description: str
-
-class CharacterResponse(BaseModel):
-    first_name: str
-    last_name: str
-    gender: Gender
-    age: int = Field(ge=0, le=100)  # Constrained integer
-    personalities: list[CharacterPersonality]
+# prompt.py
+def make_prompt(character_request: CharacterRequest) -> list:
+    # Embeds validated user input into a structured prompt
+    # System prompt defines output schema (CharacterResponse)
+    # User prompt contains the constrained inputs
 ```
 
-**Pydantic Features Used**:
-- **Field constraints**: `ge=0, le=100` ensures valid age range
-- **Frozen models**: Prevents accidental mutations
-- **StrEnum**: Type-safe gender values
-- **Nested models**: Complex structures with validation
-- **Extra ignore**: Robust against API response changes
+**Key Insight**: By accepting a `CharacterRequest` parameter, the prompt function enforces that all inputs are pre-validated before prompt construction.
 
-## Provider and Model Enums (`client/model.py`)
+### 3. Multi-Provider Support
 
-**Purpose**: Type-safe provider and model identifiers.
+**OpenAI Models** (8 options):
+- GPT-5 series: gpt-5, gpt-5-mini
+- GPT-4.1 series: gpt-4.1, gpt-4.1-mini
+- GPT-4o series: gpt-4o, gpt-4o-mini, gpt-4o-2024-11-20, gpt-4o-2024-08-06
+
+**Gemini Models** (3 options):
+- gemini-2.5-pro
+- gemini-2.5-flash
+- gemini-2.5-flash-lite
+
+Both providers use structured output features:
+- OpenAI: `beta.chat.completions.parse()` with `response_format`
+- Gemini: `generate_content()` with `response_schema`
+
+### 4. Streamlit UI Features
+
+**Sidebar**:
+- LLM provider selection (OpenAI/Gemini)
+- Model selection (dynamically updates based on provider)
+
+**Tab Content**:
+- Input fields (different for each tab)
+- "Generate" button
+- JSON output display
+- Formatted profile display
+- Expandable "Internal Prompt" section (shows what was actually sent to LLM)
+
+**Educational Messaging**:
+- `st.info()` for free-form tab (warns about risks)
+- `st.success()` for structured tab (highlights benefits)
+
+---
+
+## Technical Stack
+
+### Dependencies
+
+**Core**:
+- `streamlit>=1.50.0` - Web UI framework (unique to Section 9)
+- `pydantic>=2.12.2` - Data validation and modeling
+- `openai>=2.4.0` - OpenAI API client
+- `google-genai>=1.45.0` - Google Gemini API client
+
+**Supporting**:
+- `python-dotenv>=1.1.1` - Environment variable management
+- `click>=8.3.0` - CLI parsing (used by other sections, minimal use here)
+
+### Python Version
+
+Requires Python 3.13.2+ for:
+- Modern type hints (`str | None` syntax)
+- Enhanced async/await support
+- Pydantic v2 compatibility
+
+---
+
+## File Organization
+
+```
+section_9/
+├── app.py                    # 🎯 Main entry point (Streamlit app)
+├── src/
+│   ├── client/
+│   │   └── llm_client.py     # Initialize OpenAI/Gemini clients
+│   ├── model/
+│   │   └── model.py          # CharacterRequest + CharacterResponse
+│   ├── prompt/
+│   │   └── prompt.py         # make_prompt(character_request)
+│   ├── service/
+│   │   └── request_llm.py    # request_openai(), request_gemini()
+│   ├── config.py             # API key loading with Secret[str]
+│   └── logger.py             # Logging configuration
+├── outputs/                  # Generated JSON files (gitignored)
+├── .envrc.example            # Template for API keys
+├── pyproject.toml            # Project dependencies
+├── Makefile                  # Build/lint commands
+├── README.md                 # User documentation
+└── CLAUDE.md                 # This file
+```
+
+### Key Files
+
+**`app.py`** (Main Application):
+- ~200-300 lines
+- Two tabs with distinct UI patterns
+- Model selection logic
+- LLM invocation with error handling
+- Output formatting (JSON + pretty-printed)
+
+**`src/model/model.py`** (Data Models):
+- `Gender(StrEnum)` - FEMALE/MALE
+- `CharacterPersonality(BaseModel)` - short_personality, description
+- `CharacterRequest(BaseModel)` - **NEW**: gender, age, additional_instructions
+- `CharacterResponse(BaseModel)` - Same as Section 1
+
+**`src/prompt/prompt.py`** (Prompt Generation):
+- `make_prompt(character_request: CharacterRequest) -> list`
+- Generates system + user messages
+- Embeds CharacterResponse schema in system prompt
+- Embeds user inputs in user prompt
+
+**`src/service/request_llm.py`** (LLM Service):
+- `request_openai(prompt, model)` - Async OpenAI call
+- `request_gemini(prompt, model)` - Async Gemini call
+- Both return `CharacterResponse` (parsed)
+
+---
+
+## Configuration
+
+### Environment Variables
+
+Required in `.envrc`:
+```bash
+OPENAI_API_KEY=sk-...
+GEMINI_API_KEY=AIzaSy...
+```
+
+Managed by:
+- `python-dotenv` - Loads from `.envrc`
+- `pydantic.Secret[str]` - Masks in logs
+- `src/config.py` - Validates presence
+
+### Security Notes
+
+- API keys are **never logged** (Secret[str] automatic masking)
+- `.envrc` is **gitignored**
+- `.envrc.example` provides template without secrets
+
+---
+
+## Usage Patterns
+
+### For End Users
+
+```bash
+# Start the web app
+streamlit run app.py
+
+# Access at http://localhost:8501
+# Try both tabs to compare interfaces
+```
+
+### For Developers
 
 ```python
-class LLMProvider(StrEnum):
-    OPENAI = "openai"
-    GEMINI = "gemini"
+# Import the request model
+from src.model.model import CharacterRequest, Gender
 
-class OpenAIModel(StrEnum):
-    GPT_5 = "gpt-5"
-    GPT_5_MINI = "gpt-5-mini"
-    GPT_4O = "gpt-4o"
-    # ... more models
+# Create a structured request
+request = CharacterRequest(
+    gender=Gender.MALE,
+    age=25,
+    additional_instructions="Make them a sci-fi character"
+)
 
-    @staticmethod
-    def list_str() -> list[str]:
-        return [model for model in OpenAIModel]
+# Generate prompt
+from src.prompt.prompt import make_prompt
+prompt = make_prompt(request)
+
+# Call LLM
+from src.service.request_llm import request_openai
+from src.model.model import OpenAIModel
+result = await request_openai(prompt, OpenAIModel.GPT_4O_MINI)
 ```
 
-**Benefits**:
-- **Autocomplete**: IDE suggestions for valid values
-- **Type checking**: Catch typos at development time
-- **String compatibility**: `StrEnum` works with string comparisons
-- **Enumeration**: `list_str()` provides all valid values
-
-## Configuration Management (`config.py`)
-
-Expected structure:
-```python
-from pydantic_settings import BaseSettings
-
-class Config(BaseSettings):
-    openai_api_key: str
-    gemini_api_key: str
-
-    class Config:
-        env_file = ".env"
-
-config = Config()
-```
-
-**Best Practices**:
-- Use `pydantic-settings` for type-safe environment variables
-- Never commit `.env` files
-- Provide `.envrc.example` as template
-- Validate required keys at startup
+---
 
 ## Testing Strategy
 
-### Test Coverage (43 total tests)
+### Manual Testing Scenarios
 
-#### Adapter Tests (`tests/test_adapters.py` - 17 tests)
+**Scenario 1: Free-form Tab**
+1. Enter: "Create a 30-year-old female character"
+2. Observe: LLM attempts to parse intent from free text
+3. Risk: Might misinterpret age, gender, or other details
 
-**What to Test**:
-1. **Interface compliance**: Verify adapters implement `LLMClient`
-2. **Initialization**: Check correct client and model setup
-3. **Chat functionality**: Mock API calls and verify response parsing
-4. **Error handling**: Test API failures, invalid responses
-5. **Provider/model metadata**: Verify `get_provider_name()`, `get_model_name()`
+**Scenario 2: Structured Form Tab**
+1. Select: Female, Age: 30
+2. Observe: Inputs are guaranteed to be valid
+3. Benefit: No parsing ambiguity, validated before LLM call
 
-**Example Test Pattern**:
-```python
-@pytest.mark.asyncio
-async def test_chat_success(self, mocker):
-    # Mock the API client
-    mock_client = mocker.patch('openai.AsyncOpenAI')
-    mock_response = mocker.Mock()
-    mock_response.choices[0].message.parsed = CharacterResponse(...)
+**Scenario 3: Model Switching**
+1. Change provider from OpenAI to Gemini
+2. Observe: Model dropdown updates automatically
+3. Generate with both providers
+4. Compare: Both produce valid CharacterResponse JSON
 
-    # Test the adapter
-    adapter = OpenAIAdapter(model="gpt-4o")
-    result = await adapter.chat(messages, CharacterResponse)
+**Scenario 4: Validation**
+1. Try to enter age > 100 in structured form
+2. Observe: Number input prevents invalid values
+3. Benefit: Client-side validation before API call
 
-    # Verify
-    assert isinstance(result, CharacterResponse)
-    mock_client.beta.chat.completions.parse.assert_called_once()
+### Expected Behavior
+
+✅ **Structured form should always produce**:
+- Valid JSON matching CharacterResponse schema
+- Correct gender (exactly as selected)
+- Correct age (exactly as entered)
+- Consistent 3 personalities
+
+⚠️ **Free-form might produce**:
+- Varied interpretations of the request
+- Occasional parsing errors
+- Inconsistent results across runs
+
+---
+
+## Design Decisions
+
+### Why Streamlit?
+
+1. **Rapid prototyping** - Built web UI in <100 lines
+2. **Interactive demos** - Perfect for educational content
+3. **No frontend complexity** - Pure Python, no HTML/CSS/JS
+4. **State management** - Session state for model persistence
+
+### Why Remove CLI?
+
+1. **Focus** - Section 1 already demonstrates CLI patterns
+2. **Clarity** - One entry point reduces confusion
+3. **Purpose** - This section is about **comparison**, which requires UI
+
+### Why Two Tabs?
+
+1. **Comparison** - Side-by-side demonstration is more effective
+2. **Education** - Users experience both approaches directly
+3. **Contrast** - Highlights trade-offs visually
+
+### Why CharacterRequest Model?
+
+1. **Type safety** - Pydantic validates at Python level
+2. **Documentation** - Model serves as API contract
+3. **Reusability** - Could be used by REST API, GraphQL, etc.
+4. **Separation** - Input validation separate from LLM logic
+
+---
+
+## Known Limitations
+
+### Current Constraints
+
+1. **No persistent storage** - Generated characters are not saved to database
+2. **No batch generation** - One character at a time
+3. **No export options** - Can't download results (only copy JSON)
+4. **Limited customization** - Only gender, age, additional_instructions
+
+### Future Enhancements (Not Planned)
+
+These are **intentionally omitted** to keep the example focused:
+
+- ❌ User authentication
+- ❌ Character history/favorites
+- ❌ Multiple character generation
+- ❌ Advanced prompt templates
+- ❌ Custom output formats (PDF, DOCX)
+- ❌ API endpoint exposure
+
+**Rationale**: Section 9 is a **pedagogical example**, not a production application.
+
+---
+
+## Relationship to Other Sections
+
+### Section 1 (Basic Structured Output)
+
+**Section 1** teaches:
+- How to get structured outputs from LLMs
+- Pydantic model integration with OpenAI/Gemini
+- Basic CLI application structure
+
+**Section 9** builds on this by adding:
+- Structured **inputs** (not just outputs)
+- Interactive UI for comparison
+- Request/Response pattern
+
+**Code Reuse**:
+- CharacterResponse model is identical
+- LLM client setup is similar
+- Config/logger are conceptually the same
+
+### Other Sections
+
+Section 9 is **self-contained** but demonstrates patterns used in:
+- **Section 2**: Logging/observability (though simplified here)
+- **Section 3**: Error handling and resilience
+- **Section 4**: Structured data flow
+- **Section 5**: API design patterns (request/response)
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**Issue**: "Module not found: streamlit"
+- **Cause**: Dependencies not installed
+- **Fix**: Run `uv sync` or `pip install -e .`
+
+**Issue**: "API key not found"
+- **Cause**: `.envrc` not created or not loaded
+- **Fix**: Copy `.envrc.example` to `.envrc` and add keys
+
+**Issue**: Streamlit won't start
+- **Cause**: Port 8501 already in use
+- **Fix**: `streamlit run app.py --server.port 8502`
+
+**Issue**: JSON parsing errors in free-form tab
+- **Cause**: This is **expected behavior** demonstrating the problem
+- **Solution**: Switch to structured form tab
+
+**Issue**: Different results each time
+- **Cause**: High temperature settings (1.0 for OpenAI, 2.0 for Gemini)
+- **Expected**: Variability is intentional for creative generation
+
+---
+
+## Performance Characteristics
+
+### Response Times
+
+**Typical latency** (depends on model and network):
+- OpenAI GPT-4o-mini: 2-4 seconds
+- OpenAI GPT-5: 4-8 seconds
+- Gemini 2.5 Flash: 2-5 seconds
+- Gemini 2.5 Pro: 5-10 seconds
+
+### Cost Considerations
+
+**Approximate costs per character generation**:
+- GPT-4o-mini: $0.001-0.003
+- GPT-4o: $0.01-0.02
+- Gemini 2.5 Flash: $0.0001-0.0005
+- Gemini 2.5 Pro: $0.002-0.005
+
+*Note: These are estimates and vary based on prompt length and output.*
+
+---
+
+## Educational Value
+
+### Learning Objectives
+
+After using this section, developers should understand:
+
+1. ✅ **Input Constraint Principle**: Reducing user freedom improves reliability
+2. ✅ **Request/Response Pattern**: Separate input models from output models
+3. ✅ **Validation Layers**: Validate early (UI) and often (Pydantic)
+4. ✅ **Trade-off Analysis**: Flexibility vs. Stability spectrum
+5. ✅ **Production Patterns**: How to design user-facing LLM apps
+
+### Key Takeaways
+
+**For Product Designers**:
+- Users don't need full prompt engineering control
+- Structured forms provide better UX than text areas
+- Constraints enable better error messages
+
+**For Engineers**:
+- Pydantic models enforce contracts at boundaries
+- Type-safe inputs prevent entire classes of bugs
+- Separation of concerns improves maintainability
+
+**For Architects**:
+- Input validation is as important as output validation
+- Request models document API contracts
+- Interactive demos are powerful teaching tools
+
+---
+
+## Maintenance Notes
+
+### Code Health
+
+**Linting**: Uses Ruff via Makefile
+```bash
+make lint    # Run linter
+make format  # Auto-format code
 ```
 
-#### Factory Tests (`tests/test_factory.py` - 26 tests)
+**Type Checking**: Pydantic provides runtime validation (static type checking not configured)
 
-**What to Test**:
-1. **Provider enumeration**: `get_supported_providers()`
-2. **Model enumeration**: `get_supported_models(provider)`
-3. **Validation**: `is_valid_combination(provider, model)`
-4. **Client creation**: Correct adapter type returned
-5. **Error cases**: Invalid provider, invalid model, wrong combination
-6. **Case insensitivity**: Provider names should work regardless of case
+**Dependencies**: Keep updated (especially openai and google-genai for new features)
 
-**Example Test Pattern**:
-```python
-def test_create_client_openai(self):
-    client = LLMClientFactory.create_client(
-        provider=LLMProvider.OPENAI,
-        model=OpenAIModel.GPT_4O
-    )
-    assert isinstance(client, OpenAIAdapter)
-    assert client.get_provider_name() == LLMProvider.OPENAI
+### Future-Proofing
 
-def test_invalid_combination(self):
-    with pytest.raises(ValueError):
-        LLMClientFactory.create_client(
-            provider=LLMProvider.OPENAI,
-            model=GeminiModel.GEMINI_2_5_PRO  # Wrong!
-        )
-```
+**When models change**:
+1. Update `src/model/model.py` enum values
+2. Update README.md model lists
+3. Test with new models
 
-### Testing Best Practices
+**When APIs change**:
+1. Check `src/service/request_llm.py` for compatibility
+2. Update client initialization in `src/client/llm_client.py`
+3. Run manual tests with both providers
 
-1. **Mock external APIs**: Never call real APIs in unit tests
-2. **Test boundaries**: Validate input validation logic
-3. **Test both paths**: Success and failure scenarios
-4. **Async tests**: Use `pytest-asyncio` for async code
-5. **Fixtures**: Share common setup (mock clients, sample data)
+---
 
-## Extending the System
+## Documentation Status
 
-### Adding a New Provider
+- ✅ README.md - Complete, user-focused
+- ✅ CLAUDE.md - This file, technical overview
+- ✅ Code comments - Key functions documented
+- ⚠️ API docs - Not generated (project too small)
+- ⚠️ Tutorial - Embedded in README
 
-**Example: Adding Anthropic Claude**
+---
 
-1. **Define model enum** (`client/model.py`):
-```python
-class AnthropicModel(StrEnum):
-    CLAUDE_SONNET = "claude-sonnet-4-5"
-    CLAUDE_HAIKU = "claude-haiku-4-5"
+## Summary
 
-    @staticmethod
-    def list_str() -> list[str]:
-        return [model for model in AnthropicModel]
-```
+**Section 9** successfully demonstrates a critical LLM application design principle through an interactive, comparative web interface. The removal of the CLI sharpened the focus on the educational goal: showing developers why and how to constrain user inputs for production stability.
 
-2. **Create adapter** (`client/adapters.py`):
-```python
-class AnthropicAdapter(LLMClient):
-    def __init__(self, model: str):
-        self._client = AsyncAnthropic(api_key=config.anthropic_api_key)
-        self._model = model
+**Current Status**: ✅ Feature complete, ready for use
+**Next Steps**: None - project is in stable state for educational purposes
+**Recommended Use**: Run `streamlit run app.py` and explore both tabs to understand the principle
 
-    async def chat(
-        self,
-        messages: list[dict[str, str]],
-        response_format: type,
-        **kwargs: Any,
-    ) -> BaseModel:
-        # Convert Pydantic model to Anthropic schema
-        schema = response_format.model_json_schema()
+---
 
-        result = await self._client.messages.create(
-            model=self._model,
-            messages=messages,
-            tools=[{
-                "name": "structured_output",
-                "input_schema": schema
-            }],
-            **kwargs
-        )
-
-        # Parse and validate response
-        data = result.content[0].input
-        return response_format(**data)
-
-    def get_provider_name(self) -> str:
-        return LLMProvider.ANTHROPIC
-
-    def get_model_name(self) -> str:
-        return self._model
-```
-
-3. **Update factory** (`client/factory.py`):
-```python
-PROVIDER_MODELS = {
-    LLMProvider.OPENAI: OpenAIModel.list_str(),
-    LLMProvider.GEMINI: GeminiModel.list_str(),
-    LLMProvider.ANTHROPIC: AnthropicModel.list_str(),  # Add this
-}
-
-# In create_client method:
-elif provider_lower == LLMProvider.ANTHROPIC:
-    return AnthropicAdapter(model=model)
-```
-
-4. **Write tests** (`tests/test_adapters.py`, `tests/test_factory.py`):
-- Add `TestAnthropicAdapter` class
-- Test all interface methods
-- Add factory tests for Anthropic
-
-**That's it!** No changes needed to:
-- Service layer (`service/request_llm.py`)
-- CLI layer (`main.py`)
-- Data models (`model/model.py`)
-
-### Adding a New Model to Existing Provider
-
-Simply add to the appropriate enum:
-```python
-class OpenAIModel(StrEnum):
-    # Existing models...
-    GPT_6 = "gpt-6"  # New model
-```
-
-The factory's `PROVIDER_MODELS` mapping will automatically include it.
-
-## Common Pitfalls and Solutions
-
-### 1. API Key Management
-
-**Pitfall**: Hardcoding API keys or committing them to git.
-
-**Solution**:
-- Use environment variables
-- Add `.env` to `.gitignore`
-- Provide `.envrc.example` template
-- Use `pydantic-settings` for validation
-
-### 2. Error Handling
-
-**Pitfall**: Generic exception catching loses context.
-
-**Solution**:
-```python
-try:
-    result = await client.chat(messages, response_format)
-except Exception as e:
-    logger.error(f"LLM request failed: {provider}/{model} - {str(e)}")
-    raise
-```
-
-### 3. Async/Await Confusion
-
-**Pitfall**: Forgetting `await` on async methods.
-
-**Solution**:
-- Always mark functions that call async code as `async`
-- Use `await` when calling async methods
-- Use `asyncio.run()` for top-level entry points
-- Type hints help: `async def chat(...) -> BaseModel`
-
-### 4. Type Safety
-
-**Pitfall**: Using strings for providers/models leads to typos.
-
-**Solution**:
-- Use `StrEnum` for all identifiers
-- Leverage type hints: `provider: LLMProvider`
-- Factory validates combinations
-
-### 5. Testing Real APIs
-
-**Pitfall**: Tests calling real APIs are slow and flaky.
-
-**Solution**:
-- Mock all external calls with `pytest-mock`
-- Separate integration tests from unit tests
-- Use fixtures for common mocks
-
-## Best Practices Demonstrated
-
-### 1. SOLID Principles
-
-- **Single Responsibility**: Each class has one job
-  - `LLMClient`: Define interface
-  - `OpenAIAdapter`: Implement OpenAI integration
-  - `LLMClientFactory`: Create clients
-  - `request_llm`: Business logic
-
-- **Open/Closed**: Open for extension, closed for modification
-  - Add new providers without changing existing code
-  - Factory pattern enables this
-
-- **Liskov Substitution**: Any `LLMClient` can replace another
-  - Same interface for all providers
-  - Polymorphism enables provider swapping
-
-- **Interface Segregation**: Minimal interface
-  - Only three methods required
-  - No unnecessary dependencies
-
-- **Dependency Inversion**: Depend on abstractions
-  - Service layer depends on `LLMClient` interface, not concrete adapters
-  - Factory injects appropriate implementation
-
-### 2. Type Safety
-
-- **Pydantic models**: Runtime validation and type checking
-- **StrEnum**: Type-safe identifiers
-- **Type hints**: `-> CharacterResponse`, `list[dict[str, str]]`
-- **Generic types**: `response_format: type`
-
-### 3. Separation of Concerns
-
-- **Layers**: CLI -> Service -> Adapter -> Infrastructure
-- **Prompt management**: Separate module for prompt logic
-- **Configuration**: Centralized in `config.py`
-- **Logging**: Consistent across all modules
-
-### 4. Testability
-
-- **Dependency injection**: Factory provides clients
-- **Async support**: Full async/await for better performance
-- **Mocking**: All external dependencies mockable
-- **Comprehensive tests**: 43 tests covering critical paths
-
-### 5. Documentation
-
-- **Docstrings**: All public methods documented
-- **Type hints**: Self-documenting interfaces
-- **Examples**: README with usage examples
-- **This file**: Architectural documentation
-
-## Performance Considerations
-
-### Async I/O
-
-All LLM calls are async, enabling:
-- Concurrent requests to different providers
-- Efficient I/O handling
-- Better resource utilization
-
-Example concurrent usage:
-```python
-async def compare_providers():
-    openai_task = request_llm(LLMProvider.OPENAI, OpenAIModel.GPT_4O)
-    gemini_task = request_llm(LLMProvider.GEMINI, GeminiModel.GEMINI_2_5_PRO)
-
-    openai_result, gemini_result = await asyncio.gather(
-        openai_task, gemini_task
-    )
-    return openai_result, gemini_result
-```
-
-### Caching Considerations
-
-For production systems, consider:
-- **Client reuse**: Don't recreate clients for each request
-- **Response caching**: Cache identical prompts (with TTL)
-- **Connection pooling**: Reuse HTTP connections
-
-Example client singleton:
-```python
-class LLMClientFactory:
-    _clients: dict[tuple[str, str], LLMClient] = {}
-
-    @classmethod
-    def create_client(cls, provider, model):
-        key = (provider, model)
-        if key not in cls._clients:
-            # Create client as before
-            cls._clients[key] = new_client
-        return cls._clients[key]
-```
-
-## Security Considerations
-
-1. **API Key Protection**:
-   - Never log API keys
-   - Use environment variables
-   - Rotate keys regularly
-
-2. **Input Validation**:
-   - Validate all user inputs (CLI args)
-   - Use Pydantic for automatic validation
-   - Sanitize prompts if user-generated
-
-3. **Output Validation**:
-   - Pydantic models ensure valid responses
-   - Handle parsing errors gracefully
-   - Log validation failures
-
-4. **Rate Limiting**:
-   - Implement retry logic with backoff
-   - Respect provider rate limits
-   - Consider async semaphores for concurrency control
-
-## Monitoring and Observability
-
-### Logging Strategy
-
-Current implementation logs:
-- Adapter initialization (`adapters.py:38, 92`)
-- Request start/completion (`request_llm.py:41, 52`)
-- Factory client creation (`factory.py:66`)
-
-**Recommended additions**:
-- Request latency metrics
-- Error rates by provider
-- Token usage tracking
-- Cost monitoring
-
-### Example Enhanced Logging:
-```python
-import time
-
-async def request_llm(provider, model):
-    start_time = time.time()
-    try:
-        client = LLMClientFactory.create_client(provider, model)
-        result = await client.chat(messages, response_format)
-
-        duration = time.time() - start_time
-        logger.info(
-            f"LLM request completed",
-            extra={
-                "provider": provider,
-                "model": model,
-                "duration_ms": duration * 1000,
-                "status": "success"
-            }
-        )
-        return result
-    except Exception as e:
-        duration = time.time() - start_time
-        logger.error(
-            f"LLM request failed",
-            extra={
-                "provider": provider,
-                "model": model,
-                "duration_ms": duration * 1000,
-                "error": str(e),
-                "status": "error"
-            }
-        )
-        raise
-```
-
-## Deployment Considerations
-
-### Environment-Specific Configuration
-
-Use different configurations for dev/staging/prod:
-```python
-class Config(BaseSettings):
-    env: str = "development"
-    openai_api_key: str
-    gemini_api_key: str
-    log_level: str = "INFO"
-
-    class Config:
-        env_file = f".env.{os.getenv('ENV', 'development')}"
-```
-
-### Docker Deployment
-
-Example `Dockerfile`:
-```dockerfile
-FROM python:3.13-slim
-
-WORKDIR /app
-COPY pyproject.toml .
-RUN pip install -e .
-
-COPY src/ src/
-COPY .env .env
-
-CMD ["python", "-m", "src.main"]
-```
-
-### Health Checks
-
-Add health check endpoint for monitoring:
-```python
-async def health_check() -> dict:
-    """Verify all configured providers are accessible."""
-    results = {}
-    for provider in LLMProvider:
-        try:
-            # Simple test request
-            results[provider] = "healthy"
-        except Exception as e:
-            results[provider] = f"unhealthy: {str(e)}"
-    return results
-```
-
-## Future Enhancements
-
-### 1. Retry Logic with Exponential Backoff
-
-```python
-from tenacity import retry, stop_after_attempt, wait_exponential
-
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=4, max=10)
-)
-async def chat_with_retry(client, messages, response_format):
-    return await client.chat(messages, response_format)
-```
-
-### 2. Response Streaming
-
-Support streaming for real-time responses:
-```python
-class LLMClient(ABC):
-    @abstractmethod
-    async def chat_stream(
-        self,
-        messages: list[dict[str, str]],
-        **kwargs: Any,
-    ) -> AsyncIterator[str]:
-        """Stream chat completion chunks."""
-        pass
-```
-
-### 3. Cost Tracking
-
-Track token usage and costs:
-```python
-class UsageMetrics(BaseModel):
-    prompt_tokens: int
-    completion_tokens: int
-    total_tokens: int
-    estimated_cost: float
-
-class LLMClient(ABC):
-    @abstractmethod
-    async def chat(
-        self, ...
-    ) -> tuple[BaseModel, UsageMetrics]:
-        pass
-```
-
-### 4. Multi-Model Ensemble
-
-Combine responses from multiple providers:
-```python
-async def ensemble_request(prompt, providers):
-    tasks = [
-        request_llm(provider, default_model)
-        for provider in providers
-    ]
-    results = await asyncio.gather(*tasks)
-    return consensus(results)  # Voting or averaging logic
-```
-
-## Conclusion
-
-This implementation demonstrates production-ready practices for LLM integration:
-
-**Key Takeaways**:
-1. **Abstraction**: Hide provider differences behind common interface
-2. **Flexibility**: Easily swap or add providers
-3. **Type Safety**: Leverage Python's type system and Pydantic
-4. **Testability**: Comprehensive test coverage with mocking
-5. **Maintainability**: Clear separation of concerns
-6. **Extensibility**: Open/closed principle enables growth
-
-**When to Use This Pattern**:
-- Multi-provider LLM applications
-- Systems requiring provider flexibility
-- Production applications needing reliability
-- Projects with long-term maintenance needs
-
-**When NOT to Use**:
-- Simple scripts with single provider
-- Prototypes with no production plans
-- Provider-specific feature requirements (may need custom logic)
-
-This architecture balances pragmatism with best practices, providing a solid foundation for production LLM applications.
+*This document reflects the state of the project as of 2025-10-18. It should be updated when significant changes occur.*

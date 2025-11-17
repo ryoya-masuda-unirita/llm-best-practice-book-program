@@ -2,7 +2,6 @@ from enum import StrEnum
 
 from google import genai
 from openai import AsyncOpenAI
-
 from src.config import config
 
 

@@ -1,314 +1,306 @@
-# Chapter 2 Section 11: LLMパイプラインの実装
+# Chapter 2 Section 10: LLM APIのためのアダプターとファクトリーパターン
 
 ## 概要
 
-このプロジェクトは、**LangGraphを活用したLLMパイプライン**の実践的な実装例を示すサンプルコードです。複雑なタスクを複数のステージに分割し、各ステージでLLMの役割を明確に分担することで、高精度な文書分析システムを実現します。
+このプロジェクトは、**AdapterパターンとFactoryパターン**を用いた複数LLMプロバイダの統一的な管理手法を示すサンプルコードです。OpenAIとGoogle Geminiの両方に対応し、各プロバイダのAPI仕様の違いを吸収しながら、共通のインターフェースを通じて柔軟にLLMを切り替えられる設計を実現しています。
 
-LLM-as-a-Judge（LLMを評価者として活用する）パターンを採用し、分析結果の品質を自動評価して、必要に応じて改善フィードバックを与えながら再実行する仕組みを実装しています。OpenAI GPT-4oとGoogle Gemini 2.5の両方に対応し、構造化出力による型安全な実装を実現しています。
+フィクションのキャラクター情報（名前、性別、年齢、性格特性）を生成するユースケースを通じて、ベンダーロックインを回避し、保守性と拡張性を両立させるプラクティスを学ぶことができます。
 
 ## 機能
 
-- **LangGraphパイプライン**: 複数の処理ステップを明確な状態管理のもとで連鎖実行
-- **LLM-as-a-Judge**: 分析結果の品質を別のLLM呼び出しで評価し、客観的な品質保証を実現
-- **自動リトライ機構**: 評価が基準値（grade 4/5）未満の場合、改善フィードバックを与えて自動再実行
+- **Adapterパターン**: 各LLMプロバイダの差異を吸収する統一インターフェース
+- **Factoryパターン**: プロバイダとモデルに基づいたクライアント生成の一元管理
 - **マルチプロバイダー対応**: OpenAIとGoogle Gemini APIの両方をサポート
-- **構造化出力**: Pydanticモデルによる厳密な型検証とバリデーション
+- **型安全性**: Pydanticによる厳密な型検証とバリデーション
+- **プロバイダー切り替え**: コマンドライン引数で簡単にプロバイダー/モデルを変更可能
+- **構造化出力**: Pydanticモデルを活用した型安全なLLM応答
+- **包括的なテスト**: 43個のユニットテストによる品質保証
 - **非同期処理**: async/awaitパターンによる効率的なAPI呼び出し
-- **柔軟な制御フロー**: 条件分岐による動的なパイプライン実行
-- **詳細なログ**: 各ステージの実行状況を可視化し、デバッグを容易に
-- **複数形式での出力**: JSON形式とMarkdown形式の両方で結果を保存
+- **CLIインターフェース**: Clickライブラリを使用した使いやすいコマンドラインツール
+- **環境変数管理**: python-dotenvによる安全なAPIキー管理
+- **ログ出力**: 詳細なログ機能による実行状況の可視化
 
 ## プロジェクト構成
 
 ### ディレクトリ構成
 
 ```
-chapter_2/section_11/
+chapter_2/section_10/
 ├── src/
 │   ├── __init__.py              # パッケージ初期化
 │   ├── config.py                # 設定管理（API キー読み込み）
 │   ├── logger.py                # ロギング設定
 │   ├── main.py                  # メインエントリーポイント
-│   ├── client/
+│   ├── client/                  # LLMクライアント関連
 │   │   ├── __init__.py
-│   │   └── llm_client.py        # LLMクライアント初期化
-│   ├── model/
+│   │   ├── base.py              # 抽象基底クラス（LLMClient）
+│   │   ├── adapters.py          # 具体的なAdapter実装
+│   │   ├── factory.py           # Factoryパターン実装
+│   │   └── model.py             # プロバイダー・モデル定義
+│   ├── model/                   # データモデル
 │   │   ├── __init__.py
-│   │   └── llm_pipeline_model.py    # Pydanticデータモデル定義
-│   ├── prompt/
+│   │   └── model.py             # Pydanticデータモデル定義
+│   ├── prompt/                  # プロンプト管理
 │   │   ├── __init__.py
-│   │   └── llm_pipeline_prompt.py   # プロンプト生成ロジック
-│   └── service/
+│   │   └── prompt.py            # プロンプト生成ロジック
+│   └── service/                 # サービス層
 │       ├── __init__.py
-│       └── llm_pipeline_service.py  # LangGraphパイプライン実装
-├── dataset/                      # サンプル文書データ
-│   ├── document_0.md
-│   ├── document_1.md
-│   └── document_2.md
-├── outputs/                      # 生成結果の保存先（自動作成）
-├── tests/                        # テストファイル
+│       └── request_llm.py       # 統一されたLLMリクエスト処理
+├── tests/                       # テストコード
 │   ├── __init__.py
-│   └── conftest.py
-├── .envrc.example                # 環境変数設定のサンプル
-├── pyproject.toml                # プロジェクト依存関係
-├── Makefile                      # タスク自動化スクリプト
-├── README.md                     # このファイル
-└── CLAUDE.md                     # プロジェクト設計ドキュメント
+│   ├── test_adapters.py         # Adapterのテスト（17テスト）
+│   └── test_factory.py          # Factoryのテスト（26テスト）
+├── outputs/                     # 生成結果の保存先（自動作成）
+├── .envrc.example               # 環境変数設定のサンプル
+├── Makefile                     # 開発用タスク定義
+├── pyproject.toml               # プロジェクト依存関係
+├── README.md                    # このファイル
+└── CLAUDE.md                    # 設計ドキュメント
 ```
 
 ### アーキテクチャ
 
-このプロジェクトは、LangGraphを中心とした多段階パイプラインアーキテクチャで構成されています：
+このプロジェクトは、以下の4層アーキテクチャで構成されています：
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│              CLI Layer (main.py)                            │
-│  - コマンドライン引数解析                                     │
-│  - パイプライン実行の起動                                     │
-│  - 結果の保存（JSON/Markdown）                               │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│      LangGraph Pipeline (llm_pipeline_service.py)          │
-│                                                             │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐ │
-│  │   Read       │───>│   Analyze    │───>│    Judge     │ │
-│  │  Document    │    │   Document   │    │   Analysis   │ │
-│  └──────────────┘    └──────────────┘    └──────┬───────┘ │
-│                              ▲                   │         │
-│                              │                   │         │
-│                              │   Grade < 4 ?     │         │
-│                              └───────────────────┘         │
-│                           (Retry with Feedback)            │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│         Business Logic Layer                                │
-│  - プロンプト生成 (llm_pipeline_prompt.py)                   │
-│  - データモデル (llm_pipeline_model.py)                      │
-│  - LLMクライアント管理 (llm_client.py)                       │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│         Infrastructure Layer                                │
-│  - 設定管理 (config.py)                                      │
-│  - ログ管理 (logger.py)                                      │
-│  - 外部API (OpenAI, Gemini)                                 │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────┐
+│         CLI Layer (main.py)                 │
+│     - コマンドライン引数解析                │
+│     - 出力ディレクトリ管理                  │
+│     - プロバイダー/モデル検証               │
+└─────────────────┬───────────────────────────┘
+                  │
+┌─────────────────▼───────────────────────────┐
+│      Service Layer (service/)               │
+│  - 統一されたLLMリクエスト処理              │
+│  - プロンプト生成とレスポンス処理           │
+└─────────────────┬───────────────────────────┘
+                  │
+┌─────────────────▼───────────────────────────┐
+│      Adapter/Factory Layer (client/)        │
+│  - LLMClient抽象インターフェース (base.py)  │
+│  - プロバイダー別Adapter (adapters.py)      │
+│  - クライアント生成Factory (factory.py)    │
+└─────────────────┬───────────────────────────┘
+                  │
+┌─────────────────▼───────────────────────────┐
+│      Infrastructure Layer                   │
+│  - 設定管理 (config.py)                     │
+│  - ログ管理 (logger.py)                     │
+│  - データモデル (model/)                    │
+│  - 外部API (OpenAI, Gemini)                 │
+└─────────────────────────────────────────────┘
 ```
 
 ### 実装の詳細
 
-#### 1. データモデル (`src/model/llm_pipeline_model.py`)
+#### 1. 抽象基底クラス (`src/client/base.py`)
 
-Pydanticを使用して、3つの主要なデータモデルを定義します：
+すべてのLLMプロバイダが実装すべき共通インターフェースを定義します：
 
 ```python
-class DocumentAnalysis(BaseModel):
-    """文書分析結果モデル"""
-    theme: str  # 文書の主要テーマ（1-2文）
-    value: str  # 文書の価値と重要性（2-3文）
-    improvement_requests: list[str]  # 改善要望リスト（3-5項目）
+class LLMClient(ABC):
+    """LLMクライアントの共通インターフェース"""
 
-class AnalysisEvaluation(BaseModel):
-    """分析結果の評価モデル（LLM-as-a-Judge）"""
-    grade: Literal[1, 2, 3, 4, 5]  # 1（非常に悪い）〜5（非常に良い）
-    reasoning: str  # 評価の詳細な理由（3-5文）
-    specific_improvements: list[str]  # 具体的な改善提案（grade < 4の場合）
+    @abstractmethod
+    async def chat(
+        self,
+        messages: list[dict[str, str]],
+        response_format: type,
+        **kwargs: Any,
+    ) -> BaseModel:
+        """チャット完了を生成"""
+        pass
 
-class PipelineState(TypedDict):
-    """LangGraphパイプラインの状態管理"""
-    document_path: str
-    document_content: str
-    analysis_result: DocumentAnalysis | None
-    evaluation_result: AnalysisEvaluation | None
-    retry_count: int
-    error: str | None
+    @abstractmethod
+    def get_provider_name(self) -> str:
+        """プロバイダー名を取得"""
+        pass
+
+    @abstractmethod
+    def get_model_name(self) -> str:
+        """モデル名を取得"""
+        pass
 ```
 
 **ポイント**:
-- `frozen=True`により不変オブジェクトを保証
-- `validate_assignment=True`で代入時のバリデーションを有効化
-- `TypedDict`でLangGraphの状態を型安全に管理
+- すべてのプロバイダーで統一されたメソッドシグネチャ
+- Pydantic BaseModelによる型安全な戻り値
+- 非同期処理（async/await）をサポート
 
-#### 2. LangGraphパイプライン (`src/service/llm_pipeline_service.py`)
+#### 2. Adapter実装 (`src/client/adapters.py`)
 
-LangGraphを使用して、以下の5つのノードで構成されるパイプラインを実装します：
+各プロバイダー固有のAPIを共通インターフェースに変換します：
 
-**パイプラインフロー**:
-
-1. **read_document_node**: Markdownファイルを読み込み
-2. **analyze_document_[openai|gemini]_node**: 文書を分析してtheme、value、improvement_requestsを抽出
-3. **judge_analysis_[openai|gemini]_node**: 分析結果の品質を評価（LLM-as-a-Judge）
-4. **route_after_judge**: 評価結果に基づいて次のアクションを決定
-   - grade >= 4: パイプライン終了
-   - grade < 4 かつ retry_count < MAX_RETRIES: 改善フィードバック付きで再分析
-   - retry_count >= MAX_RETRIES: パイプライン終了（現在の結果を受け入れ）
+##### OpenAIAdapter
 
 ```python
-def create_document_analysis_graph() -> StateGraph:
-    """LangGraphパイプラインの構築"""
-    graph = StateGraph(PipelineState)
+class OpenAIAdapter(LLMClient):
+    """OpenAI API用のAdapter"""
 
-    # ノードの追加
-    graph.add_node("read_document", read_document_node)
-    graph.add_node("analyze_openai", analyze_document_openai_node)
-    graph.add_node("analyze_gemini", analyze_document_gemini_node)
-    graph.add_node("judge_openai", judge_analysis_openai_node)
-    graph.add_node("judge_gemini", judge_analysis_gemini_node)
+    def __init__(self, model: str):
+        self._client = AsyncOpenAI(api_key=config.openai_api_key)
+        self._model = model
 
-    # エッジと条件分岐の設定
-    graph.add_edge(START, "read_document")
-    graph.add_conditional_edges("read_document", route_to_llm_provider)
-    graph.add_conditional_edges("analyze_openai", route_to_judge)
-    graph.add_conditional_edges("judge_openai", route_after_judge)
-    # ... 以下同様
-
-    return graph.compile()
+    async def chat(
+        self,
+        messages: list[dict[str, str]],
+        response_format: type,
+        **kwargs: Any,
+    ) -> BaseModel:
+        result = await self._client.beta.chat.completions.parse(
+            model=self._model,
+            messages=messages,
+            response_format=response_format,
+            **kwargs,
+        )
+        return result.choices[0].message.parsed
 ```
 
-**特徴**:
-- **条件分岐**: `add_conditional_edges`で動的にルーティング
-- **プロバイダー選択**: OpenAIまたはGeminiを実行時に選択
-- **自動リトライ**: 評価が低い場合、最大2回まで自動再試行
-- **フィードバックループ**: Judge→Analyzerのフィードバックループで品質向上
-
-#### 3. LLM-as-a-Judge実装 (`src/service/llm_pipeline_service.py:177-273`)
-
-分析結果の品質を別のLLM呼び出しで評価する仕組み：
+##### GeminiAdapter
 
 ```python
-async def judge_analysis_openai_node(state: PipelineState) -> PipelineState:
-    """分析結果を評価（OpenAI）"""
-    prompt = make_judge_prompt(state["document_content"], state["analysis_result"])
+class GeminiAdapter(LLMClient):
+    """Google Gemini API用のAdapter"""
 
-    result = await openai_client.beta.chat.completions.parse(
-        model=model,
-        messages=prompt,
-        response_format=AnalysisEvaluation,
-        temperature=0.3,  # 一貫した評価のため低温度設定
-    )
+    def __init__(self, model: str):
+        self._client = genai.Client(api_key=config.gemini_api_key)
+        self._model = model
 
-    evaluation_result = result.choices[0].message.parsed
-    logger.info(f"Evaluation complete: Grade {evaluation_result.grade}/5")
+    async def chat(
+        self,
+        messages: list[dict[str, str]],
+        response_format: type,
+        **kwargs: Any,
+    ) -> BaseModel:
+        # システムメッセージとユーザーメッセージを分離
+        system_instruction = None
+        user_content = None
 
-    return {**state, "evaluation_result": evaluation_result}
-```
+        for msg in messages:
+            if msg["role"] == "system":
+                system_instruction = msg["content"]
+            elif msg["role"] == "user":
+                user_content = msg["content"]
 
-**評価基準**:
-1. **Theme Accuracy (20%)**: テーマが主題を正確に捉えているか
-2. **Value Assessment (30%)**: 価値の説明が明確で説得力があるか
-3. **Improvement Quality (30%)**: 改善提案が具体的で実行可能か
-4. **Completeness (10%)**: 分析が文書の重要な側面をカバーしているか
-5. **Clarity (10%)**: 分析が明確で理解しやすいか
-
-#### 4. プロンプト生成 (`src/prompt/llm_pipeline_prompt.py`)
-
-2種類のプロンプトを動的に生成します：
-
-**分析プロンプト** (make_document_analysis_prompt):
-```python
-def make_document_analysis_prompt(document_content: str) -> list[dict[str, str]]:
-    """文書分析用プロンプト生成"""
-    schema_json = json.dumps(schema_fields, indent=2, ensure_ascii=False)
-
-    system_prompt = f"""You are an excellent document analyst.
-You will analyze technical documents from these perspectives:
-1. Theme (1-2 sentences)
-2. Value (2-3 sentences)
-3. Improvement Requests (3-5 items)
-
-JSON structure:
-{schema_json}
-"""
-
-    return [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": f"Analyze this document:\n\n{document_content}"},
-    ]
-```
-
-**評価プロンプト** (make_judge_prompt):
-```python
-def make_judge_prompt(document_content: str, analysis_result: DocumentAnalysis):
-    """LLM-as-a-Judge用プロンプト生成"""
-    system_prompt = f"""You are an expert evaluator of document analysis quality.
-
-Evaluation Criteria:
-- Theme Accuracy (20%)
-- Value Assessment (30%)
-- Improvement Quality (30%)
-- Completeness (10%)
-- Clarity (10%)
-
-Grading Scale: 1 (Very Poor) to 5 (Excellent)
-"""
-
-    user_prompt = f"""Evaluate this analysis:
-
-**Original Document:**
-{document_content}
-
-**Analysis:**
-{analysis_result.model_dump_json()}
-"""
-
-    return [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt},
-    ]
-```
-
-#### 5. API呼び出しの実装
-
-##### OpenAI実装 (`src/service/llm_pipeline_service.py:55-112`)
-
-```python
-async def analyze_document_openai_node(state: PipelineState) -> PipelineState:
-    prompt = make_document_analysis_prompt(state["document_content"])
-
-    # リトライ時はフィードバックを追加
-    if state.get("evaluation_result") and state.get("retry_count", 0) > 0:
-        feedback_msg = f"""Previous grade: {evaluation_result.grade}/5
-Feedback: {evaluation_result.reasoning}
-Improvements needed: {evaluation_result.specific_improvements}
-"""
-        prompt.append({"role": "user", "content": feedback_msg})
-
-    result = await openai_client.beta.chat.completions.parse(
-        model=model,
-        messages=prompt,
-        response_format=DocumentAnalysis,
-        temperature=0.7,
-    )
-
-    return {**state, "analysis_result": result.choices[0].message.parsed}
-```
-
-##### Gemini実装 (`src/service/llm_pipeline_service.py:114-174`)
-
-```python
-async def analyze_document_gemini_node(state: PipelineState) -> PipelineState:
-    system_instruction, user_content = make_document_analysis_system_instruction(
-        state["document_content"]
-    )
-
-    # リトライ時はフィードバックを追加
-    if state.get("evaluation_result") and state.get("retry_count", 0) > 0:
-        user_content += f"\n\nFeedback: {evaluation_result.reasoning}..."
-
-    result = await google_genai_client.aio.models.generate_content(
-        model=model,
-        contents=user_content,
-        config=GenerateContentConfig(
-            system_instruction=system_instruction,
+        # Gemini固有の設定
+        config = GenerateContentConfig(
             response_mime_type="application/json",
-            response_schema=DocumentAnalysis,
-            temperature=0.7,
-        ),
+            system_instruction=system_instruction,
+            response_schema=response_format,
+        )
+
+        result = await self._client.aio.models.generate_content(
+            model=self._model,
+            contents=user_content,
+            config=config,
+        )
+        return result.parsed
+```
+
+**ポイント**:
+- 各プロバイダーのAPI仕様の違いをAdapter内で吸収
+- 共通インターフェースを通じて同じ方法で呼び出し可能
+- プロバイダー固有の設定は各Adapter内で処理
+
+#### 3. Factory実装 (`src/client/factory.py`)
+
+プロバイダーとモデルに基づいて適切なAdapterインスタンスを生成します：
+
+```python
+class LLMClientFactory:
+    """LLMクライアントを生成するFactory"""
+
+    # プロバイダーとサポートモデルのマッピング
+    PROVIDER_MODELS = {
+        LLMProvider.OPENAI: OpenAIModel.list_str(),
+        LLMProvider.GEMINI: GeminiModel.list_str(),
+    }
+
+    @staticmethod
+    def create_client(
+        provider: LLMProvider,
+        model: OpenAIModel | GeminiModel,
+    ) -> LLMClient:
+        """プロバイダーとモデルに基づいてクライアントを生成"""
+        provider_lower = provider.lower()
+
+        # プロバイダーとモデルの組み合わせを検証
+        if not LLMClientFactory.is_valid_combination(provider_lower, model):
+            raise ValueError(f"Invalid combination: {provider} and {model}")
+
+        # 適切なAdapterを生成
+        if provider_lower == LLMProvider.OPENAI:
+            return OpenAIAdapter(model=model)
+        elif provider_lower == LLMProvider.GEMINI:
+            return GeminiAdapter(model=model)
+        else:
+            raise ValueError(f"Unknown provider: {provider}")
+
+    @staticmethod
+    def is_valid_combination(provider: str, model: str) -> bool:
+        """プロバイダーとモデルの組み合わせが有効かチェック"""
+        provider_lower = provider.lower()
+        if provider_lower not in LLMClientFactory.PROVIDER_MODELS:
+            return False
+        return model in LLMClientFactory.PROVIDER_MODELS[provider_lower]
+```
+
+**ポイント**:
+- プロバイダーとモデルの組み合わせを事前検証
+- クライアント生成ロジックを一元管理
+- ビジネスロジックから具体的なAdapter実装を隠蔽
+
+#### 4. サービス層 (`src/service/request_llm.py`)
+
+Factoryを使用して統一されたLLMリクエスト処理を提供します：
+
+```python
+async def request_llm(
+    provider: LLMProvider,
+    model: OpenAIModel | GeminiModel,
+) -> CharacterResponse:
+    """FactoryパターンでLLMリクエストを実行"""
+
+    # Factoryを使用してクライアントを生成
+    client: LLMClient = LLMClientFactory.create_client(
+        provider=provider,
+        model=model
     )
 
-    return {**state, "analysis_result": result.parsed}
+    # 共通インターフェースを通じてリクエスト
+    result = await client.chat(
+        messages=make_prompt(),
+        response_format=CharacterResponse,
+    )
+
+    return result
+```
+
+**ポイント**:
+- プロバイダーに依存しない統一されたインターフェース
+- どのプロバイダーでも同じコードで処理可能
+- 新しいプロバイダーの追加が容易
+
+#### 5. データモデル (`src/model/model.py`)
+
+Pydanticを使用して厳密に型付けされたデータモデルを定義します：
+
+```python
+class Gender(StrEnum):
+    FEMALE = "female"
+    MALE = "male"
+
+class CharacterPersonality(BaseModel):
+    short_personality: str
+    description: str
+
+class CharacterResponse(BaseModel):
+    first_name: str
+    last_name: str
+    gender: Gender
+    age: int  # 0-100
+    personalities: list[CharacterPersonality]  # 3つの性格特性
 ```
 
 ## 使い方
@@ -319,11 +311,13 @@ async def analyze_document_gemini_node(state: PipelineState) -> PipelineState:
 - **依存ライブラリ**:
   - click>=8.3.0
   - google-genai>=1.45.0
-  - langgraph>=1.0.0
   - openai>=2.4.0
   - pydantic>=2.12.2
   - python-dotenv>=1.1.1
-  - pyyaml>=6.0.3
+- **開発依存関係**:
+  - pytest>=8.4.2
+  - pytest-asyncio>=1.2.0
+  - pytest-mock>=3.15.1
 
 ### セットアップ
 
@@ -337,6 +331,7 @@ cp .envrc.example .envrc
 # .envrc
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
 GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
 ```
 
 2. **依存関係のインストール**
@@ -354,41 +349,40 @@ pip install -e .
 #### 基本的な使い方
 
 ```bash
-# Gemini APIを使用（デフォルト）
-uv run python -m src.main \
-  --llm-provider gemini \
-  --model gemini-2.5-flash \
-  --document-path dataset/document_0.md
-
-# OpenAI APIを使用
-uv run python -m src.main \
-  --llm-provider openai \
-  --model gpt-4o \
-  --document-path dataset/document_1.md
+# OpenAI GPT-4oを使用
+uv run python -m src.main --llm-provider openai --model gpt-4o
 
 # 短縮オプション
-uv run python -m src.main \
-  -lp openai \
-  -m gpt-4o \
-  -dp dataset/document_0.md
+uv run python -m src.main -lp openai -m gpt-4o
+
+# Gemini 2.5 Proを使用
+uv run python -m src.main -lp gemini -m gemini-2.5-pro
+
+# Gemini 2.5 Flash（デフォルト）
+uv run python -m src.main -lp gemini -m gemini-2.5-flash
 ```
 
 #### 出力先の指定
 
 ```bash
 # カスタム出力ディレクトリを指定
-uv run python -m src.main \
-  -lp gemini \
-  -m gemini-2.5-flash \
-  -dp dataset/document_0.md \
-  --output-directory ./custom_output
+uv run python -m src.main -lp openai -m gpt-4o --output-directory ./custom_output
 
 # 短縮オプション
-uv run python -m src.main \
-  -lp gemini \
-  -m gemini-2.5-flash \
-  -dp dataset/document_0.md \
-  -od ./my_analysis
+uv run python -m src.main -lp gemini -m gemini-2.5-pro -od ./my_characters
+```
+
+#### プロバイダーとモデルの組み合わせ例
+
+```bash
+# OpenAI の各モデル
+uv run python -m src.main -lp openai -m gpt-4o
+uv run python -m src.main -lp openai -m gpt-4o-mini
+
+# Gemini の各モデル
+uv run python -m src.main -lp gemini -m gemini-2.5-pro
+uv run python -m src.main -lp gemini -m gemini-2.5-flash
+uv run python -m src.main -lp gemini -m gemini-2.5-flash-lite
 ```
 
 #### ヘルプの表示
@@ -403,214 +397,151 @@ Usage: python -m src.main [OPTIONS]
 
 Options:
   -lp, --llm-provider [openai|gemini]
-                                  The LLM provider to use.
-  -m, --model [gpt-5|gpt-5-mini|gpt-5-nano|gpt-4.1|gpt-4.1-mini|gpt-4.1-nano|gpt-4o|gpt-4o-mini|gemini-2.5-pro|gemini-2.5-flash|gemini-2.5-flash-lite]
+                                  The LLM provider to use (openai or gemini).
+  -m, --model [gpt-4o|gpt-4o-mini|gemini-2.5-pro|gemini-2.5-flash|...]
                                   The model to use for the request.
   -od, --output-directory PATH    The directory to save output files.
-  -dp, --document-path PATH       Path to the markdown document to analyze.
   --help                          Show this message and exit.
-```
-
-#### Makefileを使用した実行
-
-```bash
-# Gemini APIで分析実行
-make run-gemini
-
-# OpenAI APIで分析実行
-make run-openai
-
-# テストの実行
-make test
-
-# コードフォーマット
-make format
 ```
 
 ### 出力例
 
-実行すると、以下の2種類のファイルが生成されます：
+実行すると、以下のような構造化されたJSONファイルが生成されます：
 
-#### 1. JSON出力 (`outputs/gemini_analysis_a1b2c3d4e5f6.json`)
+**ファイル名**: `outputs/openai_gpt-4o_a1b2c3d4.json`
 
 ```json
 {
-    "theme": "このドキュメントは、LLMを活用したシステムにおけるLLMパイプラインパターンについて解説しています。複雑なタスクを段階的に処理することで、単一呼び出しでは実現困難な高精度なシステムを構築する方法を示しています。",
-    "value": "このドキュメントは、LLMアプリケーション開発者にとって非常に価値があります。複雑なタスクを適切に分割し、各ステージで明確な責務を持たせることで、デバッグ性やメンテナンス性を大幅に向上させる実践的な設計パターンを提供します。また、LangChainやLangGraphなどの具体的なフレームワークの活用方法も示されており、即座に実装に移せる知識が得られます。",
-    "improvement_requests": [
-        "具体的なコード例やスニペットを追加して、実装イメージをより明確にする",
-        "パイプラインのパフォーマンス最適化に関する具体的なベストプラクティスを追加する",
-        "エラーハンドリングとリトライ戦略の実装例を詳細に説明する",
-        "小規模プロジェクトから段階的に導入する際の具体的なロードマップを提示する",
-        "コストとレイテンシのトレードオフを定量的に分析した事例を追加する"
+    "first_name": "蒼",
+    "last_name": "雨宮",
+    "gender": "male",
+    "age": 28,
+    "personalities": [
+        {
+            "short_personality": "内向的な思索家",
+            "description": "常に深く物事を考え、静かな場所を好む。表面的な会話よりも、哲学的な議論に心を開く。"
+        },
+        {
+            "short_personality": "完璧主義者",
+            "description": "すべてのタスクに最高の基準を求め、細部にこだわる。しばしば自分自身に対して厳しすぎることがある。"
+        },
+        {
+            "short_personality": "忠実な友人",
+            "description": "一度信頼関係を築くと、どんな困難な状況でも友人を支える。約束を何よりも大切にする。"
+        }
     ]
 }
 ```
 
-#### 2. Markdown出力 (`outputs/gemini_analysis_a1b2c3d4e5f6.md`)
-
-```markdown
-# Document Analysis Result
-
-## Theme
-このドキュメントは、LLMを活用したシステムにおけるLLMパイプラインパターンについて解説しています。複雑なタスクを段階的に処理することで、単一呼び出しでは実現困難な高精度なシステムを構築する方法を示しています。
-
-## Value
-このドキュメントは、LLMアプリケーション開発者にとって非常に価値があります。複雑なタスクを適切に分割し、各ステージで明確な責務を持たせることで、デバッグ性やメンテナンス性を大幅に向上させる実践的な設計パターンを提供します。また、LangChainやLangGraphなどの具体的なフレームワークの活用方法も示されており、即座に実装に移せる知識が得られます。
-
-## Improvement Requests
-1. 具体的なコード例やスニペットを追加して、実装イメージをより明確にする
-2. パイプラインのパフォーマンス最適化に関する具体的なベストプラクティスを追加する
-3. エラーハンドリングとリトライ戦略の実装例を詳細に説明する
-4. 小規模プロジェクトから段階的に導入する際の具体的なロードマップを提示する
-5. コストとレイテンシのトレードオフを定量的に分析した事例を追加する
+**実行ログ例**:
 ```
-
-#### 実行ログ例
-
-```
-[2025-10-19 10:30:45] [INFO] [__main__] [main.py:61] [main] LLM provider: gemini
-Model: gemini-2.5-flash
-Document path: dataset/document_0.md
+[2025-10-19 10:30:45] [INFO] [__main__] [main.py:76] [main] LLM provider: openai
+Model: gpt-4o
 Output directory: outputs
-
-[2025-10-19 10:30:45] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:484] [run_document_analysis_pipeline] Starting document analysis pipeline for: dataset/document_0.md
-[2025-10-19 10:30:45] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:485] [run_document_analysis_pipeline] LLM Provider: LLMProvider.GEMINI, Model: gemini-2.5-flash
-
-[2025-10-19 10:30:45] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:32] [read_document_node] Reading document from: dataset/document_0.md
-[2025-10-19 10:30:45] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:38] [read_document_node] Successfully read document (3245 characters)
-
-[2025-10-19 10:30:45] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:294] [route_to_llm_provider] Routing to Gemini
-
-[2025-10-19 10:30:45] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:125] [analyze_document_gemini_node] Analyzing document with Gemini (attempt 1)
-[2025-10-19 10:30:48] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:160] [analyze_document_gemini_node] Successfully analyzed document with Gemini
-
-[2025-10-19 10:30:48] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:325] [route_to_judge] Routing to Gemini judge
-
-[2025-10-19 10:30:48] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:233] [judge_analysis_gemini_node] Evaluating analysis with Gemini judge
-[2025-10-19 10:30:50] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:257] [judge_analysis_gemini_node] Evaluation complete: Grade 3/5
-[2025-10-19 10:30:50] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:258] [judge_analysis_gemini_node] Reasoning: The analysis captures the main theme and value adequately but lacks depth in some areas. The improvement requests are somewhat generic and could be more specific and actionable.
-
-[2025-10-19 10:30:50] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:367] [route_after_judge] Analysis grade 3/5 is below threshold. Retrying (attempt 2/3)
-
-[2025-10-19 10:30:50] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:125] [analyze_document_gemini_node] Analyzing document with Gemini (attempt 2)
-[2025-10-19 10:30:50] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:146] [analyze_document_gemini_node] Added judge feedback to prompt for retry
-[2025-10-19 10:30:53] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:160] [analyze_document_gemini_node] Successfully analyzed document with Gemini
-
-[2025-10-19 10:30:53] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:233] [judge_analysis_gemini_node] Evaluating analysis with Gemini judge
-[2025-10-19 10:30:55] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:257] [judge_analysis_gemini_node] Evaluation complete: Grade 4/5
-[2025-10-19 10:30:55] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:258] [judge_analysis_gemini_node] Reasoning: The improved analysis provides a more comprehensive understanding of the document's theme and value. The improvement requests are now more specific and actionable, demonstrating good analysis quality.
-
-[2025-10-19 10:30:55] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:356] [route_after_judge] Analysis accepted with grade 4/5
-
-[2025-10-19 10:30:55] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:513] [run_document_analysis_pipeline] Pipeline completed successfully
-[2025-10-19 10:30:55] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:514] [run_document_analysis_pipeline] Total analysis attempts: 2
-[2025-10-19 10:30:55] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:517] [run_document_analysis_pipeline] Final evaluation grade: 4/5
-[2025-10-19 10:30:55] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:518] [run_document_analysis_pipeline] Evaluation reasoning: The improved analysis provides a more comprehensive understanding...
-
-[2025-10-19 10:30:55] [INFO] [__main__] [main.py:95] [main] Analysis results saved:
-JSON: outputs/gemini_analysis_a1b2c3d4e5f6.json
-Markdown: outputs/gemini_analysis_a1b2c3d4e5f6.md
+[2025-10-19 10:30:46] [INFO] [src.service.request_llm] [request_llm.py:41] [request_llm] Making LLM request: provider=openai, model=gpt-4o
+[2025-10-19 10:30:48] [INFO] [src.service.request_llm] [request_llm.py:52] [request_llm] Successfully received response from openai
+[2025-10-19 10:30:48] [INFO] [__main__] [main.py:102] [main] Character generated successfully!
+[2025-10-19 10:30:48] [INFO] [__main__] [main.py:103] [main] File saved to: outputs/openai_gpt-4o_a1b2c3d4.json
+[2025-10-19 10:30:48] [INFO] [__main__] [main.py:104] [main] Character: 蒼 雨宮, 28 years old
 ```
-
-上記のログから、以下のパイプライン実行が確認できます：
-1. 文書読み込み成功（3245文字）
-2. 1回目の分析実行 → 評価grade 3/5（基準未達）
-3. 改善フィードバック付きで2回目の分析実行 → 評価grade 4/5（合格）
-4. パイプライン完了、結果をJSON/Markdown形式で保存
 
 ### テスト方法
 
-#### 1. ユニットテストの実行
+このプロジェクトには、AdapterとFactoryパターンの実装を検証する包括的なテストスイートが含まれています。
+
+#### テストの実行
 
 ```bash
 # すべてのテストを実行
-uv run pytest
+uv run python -m pytest tests/ -v
 
-# 詳細な出力で実行
-uv run pytest -v
+# 特定のテストファイルを実行
+uv run python -m pytest tests/test_adapters.py -v
+uv run python -m pytest tests/test_factory.py -v
 
 # カバレッジレポート付きで実行
-uv run pytest --cov=src --cov-report=html
-
-# または Makefile経由
-make test
+uv run python -m pytest tests/ -v --cov=src --cov-report=term-missing
 ```
 
-#### 2. 手動テスト
+#### テストの構成
 
-##### OpenAI APIのテスト
+**1. Adapterテスト (`tests/test_adapters.py`) - 17テスト**
+
+- OpenAIAdapterのテスト
+  - インターフェース実装の検証
+  - 初期化とモデル設定
+  - チャット完了の成功ケース
+  - 追加パラメータの処理
+  - APIエラーハンドリング
+
+- GeminiAdapterのテスト
+  - インターフェース実装の検証
+  - 初期化とモデル設定
+  - システムメッセージ処理
+  - マルチメッセージ処理
+  - APIエラーハンドリング
+
+- Adapter比較テスト
+  - 両Adapterの一貫性検証
+  - 共通インターフェース確認
+
+**2. Factoryテスト (`tests/test_factory.py`) - 26テスト**
+
+- サポートプロバイダー/モデルの取得
+- プロバイダー・モデル組み合わせの検証
+- クライアント生成の正常系
+- エラーハンドリング（不正なプロバイダー、モデル）
+- 大文字小文字の区別なし検証
+- 統合テスト（実際のAdapter生成）
+- PROVIDER_MODELSマッピングの検証
+
+#### テスト実行例
 
 ```bash
-uv run python -m src.main \
-  -lp openai \
-  -m gpt-4o \
-  -dp dataset/document_0.md \
-  -od test_outputs
+$ uv run python -m pytest tests/ -v
+
+============================= test session starts ==============================
+platform darwin -- Python 3.13.2, pytest-8.4.2, pluggy-1.6.0
+collected 43 items
+
+tests/test_adapters.py::TestOpenAIAdapter::test_implements_llm_client_interface PASSED
+tests/test_adapters.py::TestOpenAIAdapter::test_initialization PASSED
+tests/test_adapters.py::TestOpenAIAdapter::test_get_provider_name PASSED
+tests/test_adapters.py::TestOpenAIAdapter::test_get_model_name PASSED
+tests/test_adapters.py::TestOpenAIAdapter::test_chat_success PASSED
+...
+tests/test_factory.py::TestLLMClientFactory::test_get_supported_providers PASSED
+tests/test_factory.py::TestLLMClientFactory::test_create_client_openai PASSED
+...
+
+============================== 43 passed in 4.35s ==============================
 ```
 
-期待される動作：
-- `test_outputs`ディレクトリが作成される
-- `openai_analysis_XXXXXXXX.json`と`.md`ファイルが生成される
-- JSONファイルが`DocumentAnalysis`スキーマに準拠している
-- ログに分析→評価→（必要に応じて再試行）の流れが記録される
+#### 手動テスト
 
-##### Gemini APIのテスト
+実際のAPIを使用した統合テストも可能です：
 
 ```bash
-uv run python -m src.main \
-  -lp gemini \
-  -m gemini-2.5-flash \
-  -dp dataset/document_1.md \
-  -od test_outputs
-```
+# OpenAI APIのテスト
+uv run python -m src.main -lp openai -m gpt-4o -od test_outputs
 
-期待される動作：
-- `test_outputs`ディレクトリが作成される
-- `gemini_analysis_XXXXXXXX.json`と`.md`ファイルが生成される
-- JSONファイルが`DocumentAnalysis`スキーマに準拠している
-- LLM-as-a-Judgeによる評価が実行される
+# Gemini APIのテスト
+uv run python -m src.main -lp gemini -m gemini-2.5-flash -od test_outputs
 
-#### 3. パイプラインの動作検証
-
-生成されたJSONファイルが正しい構造を持っているか確認：
-
-```bash
-# jqを使用してJSONを検証
-cat test_outputs/gemini_analysis_*.json | jq .
+# 生成されたJSONの検証
+cat test_outputs/openai_*.json | jq .
 
 # Pythonで読み込みテスト
 python -c "
-from src.model.llm_pipeline_model import DocumentAnalysis
+from src.model.model import CharacterResponse
 import json
 import glob
 
-json_files = glob.glob('test_outputs/*_analysis_*.json')
-for file_path in json_files:
+files = glob.glob('test_outputs/*.json')
+for file_path in files:
     with open(file_path) as f:
         data = json.load(f)
-        analysis = DocumentAnalysis(**data)
-        print(f'✓ Valid: {file_path}')
-        print(f'  Theme: {analysis.theme[:50]}...')
-        print(f'  Improvements: {len(analysis.improvement_requests)} items')
+        character = CharacterResponse(**data)
+        print(f'Valid! {character.first_name} {character.last_name}, {character.age} years old')
 "
 ```
-
-#### 4. リトライ機構のテスト
-
-意図的に低品質な分析を生成させてリトライ動作を確認：
-
-```bash
-# ログレベルをINFOにしてリトライの様子を観察
-uv run python -m src.main \
-  -lp gemini \
-  -m gemini-2.5-flash \
-  -dp dataset/document_2.md \
-  -od test_outputs 2>&1 | grep -E "(attempt|Grade|Retrying)"
-```
-
-期待される出力：
-- "Analyzing document with Gemini (attempt 1)"
-- "Evaluation complete: Grade X/5"
-- （grade < 4の場合）"Retrying (attempt 2/3)"
-- 最大3回の試行（初回 + 2回のリトライ）

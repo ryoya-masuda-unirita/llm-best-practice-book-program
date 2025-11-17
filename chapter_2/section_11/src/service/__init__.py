@@ -1,3 +1,5 @@
-from src.service.llm_pipeline_service import run_document_analysis_pipeline
+"""Service layer exports for LLM requests."""
 
-__all__ = ["run_document_analysis_pipeline"]
+from src.service.request_llm import request_llm
+
+__all__ = ["request_llm"]

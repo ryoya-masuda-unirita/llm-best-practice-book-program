@@ -1,414 +1,783 @@
-# LLM Pipeline Implementation with LangGraph
+# CLAUDE.md - LLM Adapter and Factory Pattern Implementation
 
 ## Project Overview
 
-This project demonstrates a **production-ready LLM pipeline** implementation using LangGraph, showcasing best practices for building complex multi-stage LLM applications. It implements a document analysis system that processes Japanese technical documents through multiple stages, evaluates output quality using the LLM-as-a-Judge pattern, and automatically retries with feedback to improve results.
+This project demonstrates **Adapter and Factory design patterns** for managing multiple LLM providers through a unified interface. It showcases best practices for avoiding vendor lock-in while maintaining code maintainability and extensibility.
 
-### Key Concepts Demonstrated
+**Core Objective**: Generate fictional character data (name, gender, age, personality traits) using either OpenAI or Google Gemini APIs through a common interface.
 
-1. **LLM Pipeline Pattern**: Breaking down complex tasks into discrete stages with clear responsibilities
-2. **LLM-as-a-Judge**: Using a separate LLM call to evaluate the quality of generated outputs
-3. **Feedback Loop**: Automatically retrying analysis with constructive feedback when quality is below threshold
-4. **Multi-Provider Support**: Abstraction layer supporting both OpenAI and Google Gemini APIs
-5. **Type-Safe Structured Outputs**: Using Pydantic models for reliable, validated data structures
-6. **State Management**: LangGraph's StateGraph for managing complex pipeline state
+**Key Patterns**:
+- **Adapter Pattern**: Abstracts provider-specific API differences
+- **Factory Pattern**: Centralizes client instantiation logic
+- **Dependency Injection**: Promotes testability and flexibility
+
+## Project Structure
+
+```
+src/
+├── client/                    # Adapter and Factory implementation
+│   ├── base.py               # Abstract base class (LLMClient)
+│   ├── adapters.py           # Concrete adapters (OpenAI, Gemini)
+│   ├── factory.py            # Factory for creating clients
+│   └── model.py              # Provider/model enums
+├── model/                    # Domain models
+│   └── model.py              # Pydantic data models
+├── prompt/                   # Prompt management
+│   └── prompt.py             # Prompt generation logic
+├── service/                  # Business logic layer
+│   └── request_llm.py        # Unified LLM request handling
+├── config.py                 # Configuration management
+├── logger.py                 # Logging setup
+└── main.py                   # CLI entry point
+
+tests/
+├── test_adapters.py          # Adapter tests (17 tests)
+└── test_factory.py           # Factory tests (26 tests)
+```
 
 ## Architecture
 
-### System Components
+### Layer Architecture
 
 ```
-+-------------------------------------------------------------+
-|                    CLI Layer (main.py)                      |
-|  - Argument parsing (Click)                                 |
-|  - Pipeline orchestration                                   |
-|  - Output persistence (JSON/Markdown)                       |
-+------------------------+------------------------------------+
-                         |
-                         v
-+------------------------+------------------------------------+
-|            LangGraph Pipeline Service                       |
-|                                                             |
-|  +--------------+    +--------------+    +--------------+   |
-|  |     Read     |--->|   Analyze    |--->|    Judge     |   |
-|  |   Document   |    |   Document   |    |   Quality    |   |
-|  +--------------+    +--------------+    +------+-------+   |
-|                              ^                  |           |
-|                              |                  |           |
-|                              |   Grade < 4?     |           |
-|                              +------------------+           |
-|                           (Retry with Feedback)             |
-|                                                             |
-|  Maximum 3 attempts (1 initial + 2 retries)                 |
-+-------------------------------------------------------------+
++---------------------------------------------+
+|         CLI Layer (main.py)                 |
+|  - Command-line argument parsing            |
+|  - Output directory management              |
+|  - Provider/model validation                |
++-----------------+---------------------------+
+                  |
+                  v
++-----------------+---------------------------+
+|      Service Layer (service/)               |
+|  - Unified LLM request processing           |
+|  - Prompt generation and response handling  |
++-----------------+---------------------------+
+                  |
+                  v
++-----------------+---------------------------+
+|      Adapter/Factory Layer (client/)        |
+|  - LLMClient abstract interface (base.py)   |
+|  - Provider-specific adapters (adapters.py) |
+|  - Client creation factory (factory.py)     |
++-----------------+---------------------------+
+                  |
+                  v
++-----------------+---------------------------+
+|      Infrastructure Layer                   |
+|  - Configuration (config.py)                |
+|  - Logging (logger.py)                      |
+|  - Data models (model/)                     |
+|  - External APIs (OpenAI, Gemini)           |
++---------------------------------------------+
 ```
 
-### Pipeline Flow
+### Design Patterns in Detail
 
-1. **Document Reading** (`read_document_node`)
-   - Load markdown document from file system
-   - Validate file exists and is readable
-   - Store content in pipeline state
+#### 1. Adapter Pattern (`client/base.py`, `client/adapters.py`)
 
-2. **Document Analysis** (`analyze_document_[openai|gemini]_node`)
-   - Extract theme (1-2 sentences)
-   - Assess value (2-3 sentences)
-   - Generate improvement requests (3-5 items)
-   - On retry: incorporate feedback from judge
+**Purpose**: Translate different provider APIs into a common interface.
 
-3. **Quality Evaluation** (`judge_analysis_[openai|gemini]_node`)
-   - Evaluate analysis against 5 criteria
-   - Assign grade from 1-5
-   - Provide detailed reasoning
-   - Generate specific improvements if grade < 4
-
-4. **Routing Logic** (`route_after_judge`)
-   - Grade >= 4: Accept and end pipeline
-   - Grade < 4 and retries < 2: Retry with feedback
-   - Max retries reached: Accept current result
-
-### Data Models
-
-#### DocumentAnalysis (src/model/llm_pipeline_model.py:35-79)
+**Abstract Interface** (`base.py:9-54`):
 ```python
-class DocumentAnalysis(BaseModel):
-    theme: str  # Main theme (1-2 sentences)
-    value: str  # Document value (2-3 sentences)
-    improvement_requests: list[str]  # 3-5 improvement suggestions
+class LLMClient(ABC):
+    @abstractmethod
+    async def chat(
+        self,
+        messages: list[dict[str, str]],
+        response_format: type,
+        **kwargs: Any,
+    ) -> BaseModel:
+        """Generate chat completion with structured output."""
+        pass
+
+    @abstractmethod
+    def get_provider_name(self) -> str:
+        """Return provider name."""
+        pass
+
+    @abstractmethod
+    def get_model_name(self) -> str:
+        """Return model identifier."""
+        pass
 ```
+
+**Key Design Decisions**:
+- **Async interface**: All chat methods are async for efficient I/O handling
+- **Pydantic integration**: `response_format` ensures type-safe responses
+- **Flexible kwargs**: Allows provider-specific parameters without breaking the interface
+- **Provider identification**: Methods for runtime introspection
+
+**OpenAI Adapter** (`adapters.py:23-74`):
+- Uses `AsyncOpenAI` client
+- Leverages `beta.chat.completions.parse()` for structured output
+- Returns `result.choices[0].message.parsed` (Pydantic model)
+
+**Gemini Adapter** (`adapters.py:77-147`):
+- Uses `genai.Client` with async methods
+- Separates system instructions from user messages (Gemini requirement)
+- Uses `GenerateContentConfig` with `response_schema` for structured output
+- Returns `result.parsed` directly
+
+**Provider Differences Handled**:
+- Message format: OpenAI uses standard chat format; Gemini separates system/user
+- Structured output: OpenAI uses `response_format`; Gemini uses `response_schema`
+- Client initialization: Different SDK patterns
+
+#### 2. Factory Pattern (`client/factory.py`)
+
+**Purpose**: Centralize client creation and validation logic.
 
 **Key Features**:
-- Immutable (`frozen=True`)
-- Assignment validation enabled
-- Built-in JSON and Markdown serialization
-- Min/max constraints on improvement requests
 
-#### AnalysisEvaluation (src/model/llm_pipeline_model.py:7-33)
+1. **Provider-Model Mapping** (`factory.py:24-27`):
 ```python
-class AnalysisEvaluation(BaseModel):
-    grade: Literal[1, 2, 3, 4, 5]  # Quality grade
-    reasoning: str  # 3-5 sentences explaining grade
-    specific_improvements: list[str]  # Concrete suggestions for improvement
+PROVIDER_MODELS = {
+    LLMProvider.OPENAI: OpenAIModel.list_str(),
+    LLMProvider.GEMINI: GeminiModel.list_str(),
+}
 ```
 
-**Key Features**:
-- Literal type for grade ensures valid values
-- `is_acceptable()` helper method (grade >= 4)
-- Structured feedback for retry loop
+2. **Validation Before Creation** (`factory.py:54-64`):
+- Checks if provider exists
+- Verifies model is supported for that provider
+- Raises descriptive `ValueError` with supported options
 
-#### PipelineState (src/model/llm_pipeline_model.py:81-90)
+3. **Client Instantiation** (`factory.py:68-77`):
+- Single source of truth for creating adapters
+- Hides concrete adapter classes from business logic
+- Enables easy addition of new providers
+
+**Benefits**:
+- **Single Responsibility**: One place to manage client creation
+- **Open/Closed Principle**: Add new providers without modifying existing code
+- **Validation**: Catch errors early with clear messages
+- **Testability**: Easy to mock factory in tests
+
+#### 3. Service Layer (`service/request_llm.py`)
+
+**Purpose**: Provide business logic abstraction over adapters.
+
+**Implementation** (`request_llm.py:17-54`):
 ```python
-class PipelineState(TypedDict):
-    document_path: str
-    document_content: str
-    analysis_result: DocumentAnalysis | None
-    evaluation_result: AnalysisEvaluation | None
-    retry_count: int
-    error: str | None
-    llm_provider: LLMProvider  # Added at runtime
-    model: str  # Added at runtime
+async def request_llm(
+    provider: LLMProvider,
+    model: OpenAIModel | GeminiModel,
+) -> CharacterResponse:
+    # Create client using factory
+    client: LLMClient = LLMClientFactory.create_client(
+        provider=provider, model=model
+    )
+
+    # Get prompt
+    prompt = make_prompt()
+
+    # Make request using unified interface
+    result = await client.chat(
+        messages=prompt,
+        response_format=CharacterResponse,
+    )
+
+    return result
 ```
 
-**Purpose**: Type-safe state management for LangGraph
+**Key Points**:
+- **Provider-agnostic**: Same code works for any provider
+- **Type safety**: Uses union types for model parameter
+- **Separation of concerns**: Prompt generation separate from API calls
+- **Error handling**: Propagates exceptions with context
 
-## Implementation Details
+## Data Models
 
-### Prompt Engineering (src/prompt/llm_pipeline_prompt.py)
+### Character Models (`model/model.py`)
 
-#### Analysis Prompt Strategy
-- Clear role definition ("excellent document analyst")
-- Structured output requirements with JSON schema
-- Explicit constraints (sentence counts, item counts)
-- Language specification (Japanese markdown)
-- Objective and constructive tone
+**Design Philosophy**: Strict validation, immutability, type safety.
 
-#### Judge Prompt Strategy
-- Expert evaluator persona
-- 5 weighted evaluation criteria:
-  - Theme Accuracy (20%)
-  - Value Assessment (30%)
-  - Improvement Quality (30%)
-  - Completeness (10%)
-  - Clarity (10%)
-- Clear grading rubric (1-5 scale with descriptions)
-- Requirement to provide actionable feedback
-
-### LLM Provider Abstraction
-
-#### OpenAI Implementation (src/service/llm_pipeline_service.py:55-112, 177-221)
 ```python
-await openai_client.beta.chat.completions.parse(
-    model=model,
-    messages=prompt,
-    response_format=DocumentAnalysis,  # Structured output
-    temperature=0.7,  # Analysis: creative
-)
+class Gender(StrEnum):
+    FEMALE = "female"
+    MALE = "male"
+
+class CharacterPersonality(BaseModel):
+    model_config = ConfigDict(
+        validate_assignment=True,  # Validate on assignment
+        frozen=True,               # Immutable after creation
+        extra="ignore",            # Ignore unknown fields
+    )
+
+    short_personality: str
+    description: str
+
+class CharacterResponse(BaseModel):
+    first_name: str
+    last_name: str
+    gender: Gender
+    age: int = Field(ge=0, le=100)  # Constrained integer
+    personalities: list[CharacterPersonality]
 ```
 
-#### Gemini Implementation (src/service/llm_pipeline_service.py:114-174, 223-273)
+**Pydantic Features Used**:
+- **Field constraints**: `ge=0, le=100` ensures valid age range
+- **Frozen models**: Prevents accidental mutations
+- **StrEnum**: Type-safe gender values
+- **Nested models**: Complex structures with validation
+- **Extra ignore**: Robust against API response changes
+
+## Provider and Model Enums (`client/model.py`)
+
+**Purpose**: Type-safe provider and model identifiers.
+
 ```python
-await google_genai_client.aio.models.generate_content(
-    model=model,
-    contents=user_content,
-    config=GenerateContentConfig(
-        system_instruction=system_instruction,
-        response_mime_type="application/json",
-        response_schema=DocumentAnalysis,
-        temperature=0.7,
-    ),
-)
+class LLMProvider(StrEnum):
+    OPENAI = "openai"
+    GEMINI = "gemini"
+
+class OpenAIModel(StrEnum):
+    GPT_5 = "gpt-5"
+    GPT_5_MINI = "gpt-5-mini"
+    GPT_4O = "gpt-4o"
+    # ... more models
+
+    @staticmethod
+    def list_str() -> list[str]:
+        return [model for model in OpenAIModel]
 ```
 
-**Key Differences**:
-- OpenAI uses messages array; Gemini uses system_instruction + contents
-- Both support structured output with Pydantic models
-- Temperature settings: 0.7 for analysis, 0.3 for judging
+**Benefits**:
+- **Autocomplete**: IDE suggestions for valid values
+- **Type checking**: Catch typos at development time
+- **String compatibility**: `StrEnum` works with string comparisons
+- **Enumeration**: `list_str()` provides all valid values
 
-### Error Handling Strategy
+## Configuration Management (`config.py`)
 
-1. **Node-Level Error Handling**
-   - Each node wraps operations in try/except
-   - Errors stored in state.error
-   - Pipeline can gracefully terminate on errors
+Expected structure:
+```python
+from pydantic_settings import BaseSettings
 
-2. **Routing-Level Error Handling**
-   - Route functions check for errors in state
-   - Automatic routing to END on error conditions
-   - No silent failures
+class Config(BaseSettings):
+    openai_api_key: str
+    gemini_api_key: str
 
-3. **Retry Logic**
-   - Maximum 2 retries (3 total attempts)
-   - Retry only when grade < 4
-   - Each retry includes previous feedback
-   - Graceful acceptance after max retries
+    class Config:
+        env_file = ".env"
 
-## Working with This Codebase
-
-### When Making Changes
-
-1. **Adding New Analysis Fields**
-   - Update `DocumentAnalysis` model in `src/model/llm_pipeline_model.py`
-   - Update prompts in `src/prompt/llm_pipeline_prompt.py`
-   - Update tests to cover new fields
-   - Consider impact on evaluation criteria
-
-2. **Modifying Evaluation Logic**
-   - Update `AnalysisEvaluation` model if changing grade scale
-   - Modify `route_after_judge` if changing acceptance threshold
-   - Update judge prompts to reflect new criteria
-   - Update MAX_RETRIES constant if needed
-
-3. **Adding New LLM Providers**
-   - Add provider to `LLMProvider` enum in `src/client/llm_client.py`
-   - Create model enum (e.g., `ClaudeModel`)
-   - Implement analyze and judge nodes
-   - Update routing functions
-   - Add CLI option validation
-
-4. **Modifying Pipeline Structure**
-   - Edit `create_document_analysis_graph()` in `src/service/llm_pipeline_service.py`
-   - Add new nodes with `graph.add_node()`
-   - Define routing logic with `add_conditional_edges()` or `add_edge()`
-   - Update `PipelineState` TypedDict if adding state fields
-   - Update tests to cover new flow paths
-
-### Testing Strategy
-
-#### Unit Tests (tests/test_models.py)
-- Pydantic model validation
-- Serialization/deserialization
-- Helper method behavior
-
-#### Service Tests (tests/test_llm_pipeline_service.py)
-- Individual node behavior with mocked LLM calls
-- Routing function logic
-- Error handling scenarios
-
-**Running Tests**:
-```bash
-# All tests
-uv run pytest
-
-# With coverage
-uv run pytest --cov=src --cov-report=html
-
-# Verbose output
-uv run pytest -v --tb=short
+config = Config()
 ```
 
-### Configuration
+**Best Practices**:
+- Use `pydantic-settings` for type-safe environment variables
+- Never commit `.env` files
+- Provide `.envrc.example` as template
+- Validate required keys at startup
 
-#### Environment Variables (.envrc)
-```bash
-OPENAI_API_KEY=sk-...
-GEMINI_API_KEY=AIzaSy...
+## Testing Strategy
+
+### Test Coverage (43 total tests)
+
+#### Adapter Tests (`tests/test_adapters.py` - 17 tests)
+
+**What to Test**:
+1. **Interface compliance**: Verify adapters implement `LLMClient`
+2. **Initialization**: Check correct client and model setup
+3. **Chat functionality**: Mock API calls and verify response parsing
+4. **Error handling**: Test API failures, invalid responses
+5. **Provider/model metadata**: Verify `get_provider_name()`, `get_model_name()`
+
+**Example Test Pattern**:
+```python
+@pytest.mark.asyncio
+async def test_chat_success(self, mocker):
+    # Mock the API client
+    mock_client = mocker.patch('openai.AsyncOpenAI')
+    mock_response = mocker.Mock()
+    mock_response.choices[0].message.parsed = CharacterResponse(...)
+
+    # Test the adapter
+    adapter = OpenAIAdapter(model="gpt-4o")
+    result = await adapter.chat(messages, CharacterResponse)
+
+    # Verify
+    assert isinstance(result, CharacterResponse)
+    mock_client.beta.chat.completions.parse.assert_called_once()
 ```
 
-**Note**: The project uses `python-dotenv` for loading environment variables. Create `.envrc` from `.envrc.example`.
+#### Factory Tests (`tests/test_factory.py` - 26 tests)
 
-#### Model Selection
-- OpenAI models: gpt-4o, gpt-4o-mini, gpt-5, etc.
-- Gemini models: gemini-2.5-flash, gemini-2.5-pro, etc.
-- Models are validated against provider in main.py:67-70
+**What to Test**:
+1. **Provider enumeration**: `get_supported_providers()`
+2. **Model enumeration**: `get_supported_models(provider)`
+3. **Validation**: `is_valid_combination(provider, model)`
+4. **Client creation**: Correct adapter type returned
+5. **Error cases**: Invalid provider, invalid model, wrong combination
+6. **Case insensitivity**: Provider names should work regardless of case
 
-### Common Operations
+**Example Test Pattern**:
+```python
+def test_create_client_openai(self):
+    client = LLMClientFactory.create_client(
+        provider=LLMProvider.OPENAI,
+        model=OpenAIModel.GPT_4O
+    )
+    assert isinstance(client, OpenAIAdapter)
+    assert client.get_provider_name() == LLMProvider.OPENAI
 
-#### Running Analysis
-```bash
-# Using Gemini (default)
-uv run python -m src.main \
-  -lp gemini \
-  -m gemini-2.5-flash \
-  -dp dataset/document_0.md
-
-# Using OpenAI
-uv run python -m src.main \
-  -lp openai \
-  -m gpt-4o \
-  -dp dataset/document_1.md
-
-# Custom output directory
-uv run python -m src.main \
-  -lp gemini \
-  -m gemini-2.5-flash \
-  -dp dataset/document_0.md \
-  -od custom_outputs
+def test_invalid_combination(self):
+    with pytest.raises(ValueError):
+        LLMClientFactory.create_client(
+            provider=LLMProvider.OPENAI,
+            model=GeminiModel.GEMINI_2_5_PRO  # Wrong!
+        )
 ```
 
-#### Makefile Shortcuts
-```bash
-make run-gemini    # Run with Gemini
-make run-openai    # Run with OpenAI
-make test          # Run all tests
-make format        # Format code
+### Testing Best Practices
+
+1. **Mock external APIs**: Never call real APIs in unit tests
+2. **Test boundaries**: Validate input validation logic
+3. **Test both paths**: Success and failure scenarios
+4. **Async tests**: Use `pytest-asyncio` for async code
+5. **Fixtures**: Share common setup (mock clients, sample data)
+
+## Extending the System
+
+### Adding a New Provider
+
+**Example: Adding Anthropic Claude**
+
+1. **Define model enum** (`client/model.py`):
+```python
+class AnthropicModel(StrEnum):
+    CLAUDE_SONNET = "claude-sonnet-4-5"
+    CLAUDE_HAIKU = "claude-haiku-4-5"
+
+    @staticmethod
+    def list_str() -> list[str]:
+        return [model for model in AnthropicModel]
 ```
 
-### Expected Behavior
+2. **Create adapter** (`client/adapters.py`):
+```python
+class AnthropicAdapter(LLMClient):
+    def __init__(self, model: str):
+        self._client = AsyncAnthropic(api_key=config.anthropic_api_key)
+        self._model = model
 
-1. **First Analysis Attempt**
-   - Document is analyzed based on prompt
-   - Analysis sent to judge
-   - If grade >= 4: Pipeline ends successfully
-   - If grade < 4: Proceed to retry
+    async def chat(
+        self,
+        messages: list[dict[str, str]],
+        response_format: type,
+        **kwargs: Any,
+    ) -> BaseModel:
+        # Convert Pydantic model to Anthropic schema
+        schema = response_format.model_json_schema()
 
-2. **Retry with Feedback**
-   - Previous evaluation feedback added to prompt
-   - Analysis regenerated with improvements
-   - New analysis sent to judge
-   - Process repeats up to MAX_RETRIES (2)
+        result = await self._client.messages.create(
+            model=self._model,
+            messages=messages,
+            tools=[{
+                "name": "structured_output",
+                "input_schema": schema
+            }],
+            **kwargs
+        )
 
-3. **Output Files**
-   - JSON: `{provider}_analysis_{uuid}.json`
-   - Markdown: `{provider}_analysis_{uuid}.md`
-   - Both contain the same DocumentAnalysis data
+        # Parse and validate response
+        data = result.content[0].input
+        return response_format(**data)
 
-### Debugging Tips
+    def get_provider_name(self) -> str:
+        return LLMProvider.ANTHROPIC
 
-1. **Enable Detailed Logging**
-   - Logs are configured in `src/logger.py`
-   - Default level: INFO
-   - Look for "attempt X" in logs to track retries
+    def get_model_name(self) -> str:
+        return self._model
+```
 
-2. **Check State at Each Node**
-   - Each node logs its actions
-   - Look for "Successfully analyzed" or "Evaluation complete"
-   - Error messages include node name and error details
+3. **Update factory** (`client/factory.py`):
+```python
+PROVIDER_MODELS = {
+    LLMProvider.OPENAI: OpenAIModel.list_str(),
+    LLMProvider.GEMINI: GeminiModel.list_str(),
+    LLMProvider.ANTHROPIC: AnthropicModel.list_str(),  # Add this
+}
 
-3. **Verify Structured Output**
-   - Check JSON files are valid and match schema
-   - Use `jq` to inspect: `cat output.json | jq .`
-   - Validate with model: `DocumentAnalysis(**json.load(f))`
+# In create_client method:
+elif provider_lower == LLMProvider.ANTHROPIC:
+    return AnthropicAdapter(model=model)
+```
 
-4. **Test Retry Mechanism**
-   - Watch logs for "grade X/5 is below threshold"
-   - Confirm feedback is added to retry prompts
-   - Verify max retries are respected
+4. **Write tests** (`tests/test_adapters.py`, `tests/test_factory.py`):
+- Add `TestAnthropicAdapter` class
+- Test all interface methods
+- Add factory tests for Anthropic
 
-## Design Patterns and Best Practices
+**That's it!** No changes needed to:
+- Service layer (`service/request_llm.py`)
+- CLI layer (`main.py`)
+- Data models (`model/model.py`)
 
-### 1. Single Responsibility Principle
-- Each node has one clear purpose
-- Routing logic separated from business logic
-- Prompt generation isolated in dedicated module
+### Adding a New Model to Existing Provider
+
+Simply add to the appropriate enum:
+```python
+class OpenAIModel(StrEnum):
+    # Existing models...
+    GPT_6 = "gpt-6"  # New model
+```
+
+The factory's `PROVIDER_MODELS` mapping will automatically include it.
+
+## Common Pitfalls and Solutions
+
+### 1. API Key Management
+
+**Pitfall**: Hardcoding API keys or committing them to git.
+
+**Solution**:
+- Use environment variables
+- Add `.env` to `.gitignore`
+- Provide `.envrc.example` template
+- Use `pydantic-settings` for validation
+
+### 2. Error Handling
+
+**Pitfall**: Generic exception catching loses context.
+
+**Solution**:
+```python
+try:
+    result = await client.chat(messages, response_format)
+except Exception as e:
+    logger.error(f"LLM request failed: {provider}/{model} - {str(e)}")
+    raise
+```
+
+### 3. Async/Await Confusion
+
+**Pitfall**: Forgetting `await` on async methods.
+
+**Solution**:
+- Always mark functions that call async code as `async`
+- Use `await` when calling async methods
+- Use `asyncio.run()` for top-level entry points
+- Type hints help: `async def chat(...) -> BaseModel`
+
+### 4. Type Safety
+
+**Pitfall**: Using strings for providers/models leads to typos.
+
+**Solution**:
+- Use `StrEnum` for all identifiers
+- Leverage type hints: `provider: LLMProvider`
+- Factory validates combinations
+
+### 5. Testing Real APIs
+
+**Pitfall**: Tests calling real APIs are slow and flaky.
+
+**Solution**:
+- Mock all external calls with `pytest-mock`
+- Separate integration tests from unit tests
+- Use fixtures for common mocks
+
+## Best Practices Demonstrated
+
+### 1. SOLID Principles
+
+- **Single Responsibility**: Each class has one job
+  - `LLMClient`: Define interface
+  - `OpenAIAdapter`: Implement OpenAI integration
+  - `LLMClientFactory`: Create clients
+  - `request_llm`: Business logic
+
+- **Open/Closed**: Open for extension, closed for modification
+  - Add new providers without changing existing code
+  - Factory pattern enables this
+
+- **Liskov Substitution**: Any `LLMClient` can replace another
+  - Same interface for all providers
+  - Polymorphism enables provider swapping
+
+- **Interface Segregation**: Minimal interface
+  - Only three methods required
+  - No unnecessary dependencies
+
+- **Dependency Inversion**: Depend on abstractions
+  - Service layer depends on `LLMClient` interface, not concrete adapters
+  - Factory injects appropriate implementation
 
 ### 2. Type Safety
-- Pydantic models enforce schema at runtime
-- TypedDict for state provides editor support
-- Literal types for enums (e.g., grade values)
 
-### 3. Error Handling
-- Never silently fail
-- Errors stored in state for inspection
-- Graceful degradation (accept after max retries)
+- **Pydantic models**: Runtime validation and type checking
+- **StrEnum**: Type-safe identifiers
+- **Type hints**: `-> CharacterResponse`, `list[dict[str, str]]`
+- **Generic types**: `response_format: type`
+
+### 3. Separation of Concerns
+
+- **Layers**: CLI -> Service -> Adapter -> Infrastructure
+- **Prompt management**: Separate module for prompt logic
+- **Configuration**: Centralized in `config.py`
+- **Logging**: Consistent across all modules
 
 ### 4. Testability
-- Async functions can be mocked
-- State-based testing (pure functions)
-- Integration tests cover full pipeline
 
-### 5. Extensibility
-- Easy to add new providers
-- Pipeline structure defined declaratively
-- Prompts externalized from logic
+- **Dependency injection**: Factory provides clients
+- **Async support**: Full async/await for better performance
+- **Mocking**: All external dependencies mockable
+- **Comprehensive tests**: 43 tests covering critical paths
 
-## Potential Improvements
+### 5. Documentation
 
-When extending this project, consider:
+- **Docstrings**: All public methods documented
+- **Type hints**: Self-documenting interfaces
+- **Examples**: README with usage examples
+- **This file**: Architectural documentation
 
-1. **Parallel Processing**
-   - Use LangGraph's parallel edges for independent tasks
-   - Example: Analyze multiple documents concurrently
+## Performance Considerations
 
-2. **Caching**
-   - Cache analysis results by document hash
-   - Reduce redundant API calls during testing
+### Async I/O
 
-3. **Metrics and Monitoring**
-   - Track average retry count
-   - Monitor grade distribution
-   - Measure latency per stage
+All LLM calls are async, enabling:
+- Concurrent requests to different providers
+- Efficient I/O handling
+- Better resource utilization
 
-4. **Human-in-the-Loop**
-   - Add approval step before accepting low-grade results
-   - Allow manual feedback injection
+Example concurrent usage:
+```python
+async def compare_providers():
+    openai_task = request_llm(LLMProvider.OPENAI, OpenAIModel.GPT_4O)
+    gemini_task = request_llm(LLMProvider.GEMINI, GeminiModel.GEMINI_2_5_PRO)
 
-5. **Advanced Routing**
-   - Dynamic model selection based on document complexity
-   - Escalate to stronger model after failed retries
+    openai_result, gemini_result = await asyncio.gather(
+        openai_task, gemini_task
+    )
+    return openai_result, gemini_result
+```
 
-6. **Streaming Output**
-   - Stream analysis results as they're generated
-   - Provide real-time progress feedback
+### Caching Considerations
 
-## File Modification Guidelines
+For production systems, consider:
+- **Client reuse**: Don't recreate clients for each request
+- **Response caching**: Cache identical prompts (with TTL)
+- **Connection pooling**: Reuse HTTP connections
 
-### High-Change Areas
-- `src/prompt/llm_pipeline_prompt.py` - Frequently tuned for quality
-- `tests/` - Updated when adding features
-- `dataset/` - Sample documents for testing
+Example client singleton:
+```python
+class LLMClientFactory:
+    _clients: dict[tuple[str, str], LLMClient] = {}
 
-### Medium-Change Areas
-- `src/model/llm_pipeline_model.py` - When adding fields
-- `src/service/llm_pipeline_service.py` - When modifying pipeline structure
+    @classmethod
+    def create_client(cls, provider, model):
+        key = (provider, model)
+        if key not in cls._clients:
+            # Create client as before
+            cls._clients[key] = new_client
+        return cls._clients[key]
+```
 
-### Low-Change Areas
-- `src/client/llm_client.py` - Stable provider abstraction
-- `src/config.py` - Simple configuration loader
-- `src/logger.py` - Logging configuration
-- `src/main.py` - CLI interface
+## Security Considerations
 
-### Protected Areas
-- Do not modify generated outputs in `outputs/` directory
-- Do not commit `.envrc` (API keys)
-- Do not change `pyproject.toml` without testing dependencies
+1. **API Key Protection**:
+   - Never log API keys
+   - Use environment variables
+   - Rotate keys regularly
+
+2. **Input Validation**:
+   - Validate all user inputs (CLI args)
+   - Use Pydantic for automatic validation
+   - Sanitize prompts if user-generated
+
+3. **Output Validation**:
+   - Pydantic models ensure valid responses
+   - Handle parsing errors gracefully
+   - Log validation failures
+
+4. **Rate Limiting**:
+   - Implement retry logic with backoff
+   - Respect provider rate limits
+   - Consider async semaphores for concurrency control
+
+## Monitoring and Observability
+
+### Logging Strategy
+
+Current implementation logs:
+- Adapter initialization (`adapters.py:38, 92`)
+- Request start/completion (`request_llm.py:41, 52`)
+- Factory client creation (`factory.py:66`)
+
+**Recommended additions**:
+- Request latency metrics
+- Error rates by provider
+- Token usage tracking
+- Cost monitoring
+
+### Example Enhanced Logging:
+```python
+import time
+
+async def request_llm(provider, model):
+    start_time = time.time()
+    try:
+        client = LLMClientFactory.create_client(provider, model)
+        result = await client.chat(messages, response_format)
+
+        duration = time.time() - start_time
+        logger.info(
+            f"LLM request completed",
+            extra={
+                "provider": provider,
+                "model": model,
+                "duration_ms": duration * 1000,
+                "status": "success"
+            }
+        )
+        return result
+    except Exception as e:
+        duration = time.time() - start_time
+        logger.error(
+            f"LLM request failed",
+            extra={
+                "provider": provider,
+                "model": model,
+                "duration_ms": duration * 1000,
+                "error": str(e),
+                "status": "error"
+            }
+        )
+        raise
+```
+
+## Deployment Considerations
+
+### Environment-Specific Configuration
+
+Use different configurations for dev/staging/prod:
+```python
+class Config(BaseSettings):
+    env: str = "development"
+    openai_api_key: str
+    gemini_api_key: str
+    log_level: str = "INFO"
+
+    class Config:
+        env_file = f".env.{os.getenv('ENV', 'development')}"
+```
+
+### Docker Deployment
+
+Example `Dockerfile`:
+```dockerfile
+FROM python:3.13-slim
+
+WORKDIR /app
+COPY pyproject.toml .
+RUN pip install -e .
+
+COPY src/ src/
+COPY .env .env
+
+CMD ["python", "-m", "src.main"]
+```
+
+### Health Checks
+
+Add health check endpoint for monitoring:
+```python
+async def health_check() -> dict:
+    """Verify all configured providers are accessible."""
+    results = {}
+    for provider in LLMProvider:
+        try:
+            # Simple test request
+            results[provider] = "healthy"
+        except Exception as e:
+            results[provider] = f"unhealthy: {str(e)}"
+    return results
+```
+
+## Future Enhancements
+
+### 1. Retry Logic with Exponential Backoff
+
+```python
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10)
+)
+async def chat_with_retry(client, messages, response_format):
+    return await client.chat(messages, response_format)
+```
+
+### 2. Response Streaming
+
+Support streaming for real-time responses:
+```python
+class LLMClient(ABC):
+    @abstractmethod
+    async def chat_stream(
+        self,
+        messages: list[dict[str, str]],
+        **kwargs: Any,
+    ) -> AsyncIterator[str]:
+        """Stream chat completion chunks."""
+        pass
+```
+
+### 3. Cost Tracking
+
+Track token usage and costs:
+```python
+class UsageMetrics(BaseModel):
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    estimated_cost: float
+
+class LLMClient(ABC):
+    @abstractmethod
+    async def chat(
+        self, ...
+    ) -> tuple[BaseModel, UsageMetrics]:
+        pass
+```
+
+### 4. Multi-Model Ensemble
+
+Combine responses from multiple providers:
+```python
+async def ensemble_request(prompt, providers):
+    tasks = [
+        request_llm(provider, default_model)
+        for provider in providers
+    ]
+    results = await asyncio.gather(*tasks)
+    return consensus(results)  # Voting or averaging logic
+```
 
 ## Conclusion
 
-This project exemplifies production-grade LLM application development with:
-- Clear separation of concerns
-- Type-safe implementations
-- Comprehensive error handling
-- Testable architecture
-- Multi-provider flexibility
+This implementation demonstrates production-ready practices for LLM integration:
 
-When working with this codebase, prioritize maintaining these qualities while extending functionality.
+**Key Takeaways**:
+1. **Abstraction**: Hide provider differences behind common interface
+2. **Flexibility**: Easily swap or add providers
+3. **Type Safety**: Leverage Python's type system and Pydantic
+4. **Testability**: Comprehensive test coverage with mocking
+5. **Maintainability**: Clear separation of concerns
+6. **Extensibility**: Open/closed principle enables growth
+
+**When to Use This Pattern**:
+- Multi-provider LLM applications
+- Systems requiring provider flexibility
+- Production applications needing reliability
+- Projects with long-term maintenance needs
+
+**When NOT to Use**:
+- Simple scripts with single provider
+- Prototypes with no production plans
+- Provider-specific feature requirements (may need custom logic)
+
+This architecture balances pragmatism with best practices, providing a solid foundation for production LLM applications.

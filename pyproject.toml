@@ -73,6 +73,8 @@ docstring-code-line-length = "dynamic"
 
 [tool.uv.workspace]
 members = [
+    "chapter_2/section_1",
+    "chapter_2/section_2",
     "chapter_2/section_3",
     "chapter_2/section_4",
     "chapter_2/section_5",
@@ -82,10 +84,9 @@ members = [
     "chapter_2/section_9",
     "chapter_2/section_10",
     "chapter_2/section_11",
+    "chapter_2/section_12",
     "chapter_3/section_1",
     "chapter_3/section_3",
-    "chapter_2/section_1",
-    "chapter_2/section_2",
     "chapter_3/section_2",
     "chapter_4/section_6",
     "chapter_3/section_4",

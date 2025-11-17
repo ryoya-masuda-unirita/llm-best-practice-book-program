@@ -1,3 +1,9 @@
+"""Main CLI application for character generation using various LLM providers.
+
+This application demonstrates the Adapter and Factory pattern implementation
+for LLM API clients, allowing seamless switching between different providers.
+"""
+
 import asyncio
 import os
 from functools import wraps
@@ -5,14 +11,17 @@ from uuid import uuid4
 
 import click
 
-from src.client.llm_client import GeminiModel, LLMProvider, OpenAIModel
+from src.client import GeminiModel, LLMProvider, OpenAIModel
+from src.client.factory import LLMClientFactory
 from src.logger import make_logger
-from src.service import run_document_analysis_pipeline
+from src.service import request_llm
 
 logger = make_logger(__name__)
 
 
 def async_cmd(func):
+    """Decorator to run async functions in click commands."""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         return asyncio.run(func(*args, **kwargs))
@@ -27,7 +36,7 @@ def async_cmd(func):
     type=click.Choice(LLMProvider),
     required=True,
     default=LLMProvider.GEMINI,
-    help="The LLM provider to use.",
+    help="The LLM provider to use (openai, anthropic, or gemini).",
 )
 @click.option(
     "--model",
@@ -44,57 +53,55 @@ def async_cmd(func):
     default="outputs",
     help="The directory to save output files.",
 )
-@click.option(
-    "--document-path",
-    "-dp",
-    type=click.Path(exists=True),
-    required=True,
-    help="Path to the markdown document to analyze.",
-)
 @async_cmd
 async def main(
     llm_provider: LLMProvider,
     model: str,
-    document_path: str,
     output_directory: str = "outputs",
 ):
-    logger.info(f"""LLM provider: {llm_provider.value}
+    """Generate a fictional character using the specified LLM provider and model.
+
+    This CLI application uses the Adapter and Factory pattern to support
+    multiple LLM providers (OpenAI, Anthropic, Google Gemini) through a
+    unified interface.
+
+    Example:
+        python -m src.main -lp openai -m gpt-4o
+
+        python -m src.main -lp anthropic -m claude-sonnet-4-5 -t 0.7
+
+        python -m src.main -lp gemini -m gemini-2.5-pro
+    """
+    logger.info(
+        f"""LLM provider: {llm_provider.value}
 Model: {model}
-Document path: {document_path}
-Output directory: {output_directory}
-""")
+Output directory: {output_directory}"""
+    )
 
-    if llm_provider == LLMProvider.OPENAI and model not in OpenAIModel.list_str():
-        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
-    if llm_provider == LLMProvider.GEMINI and model not in GeminiModel.list_str():
-        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
+    # Validate provider-model combination using factory
+    if not LLMClientFactory.is_valid_combination(llm_provider.value, model):
+        supported_models = LLMClientFactory.get_supported_models(llm_provider.value)
+        raise ValueError(
+            f"Invalid model '{model}' for provider '{llm_provider.value}'. Supported models: {supported_models}"
+        )
 
+    # Create output directory
     os.makedirs(output_directory, exist_ok=True)
 
-    # Run document analysis pipeline
-    if not document_path:
-        raise ValueError("Document path is required for pipeline mode. Use --document-path option.")
-
-    result = await run_document_analysis_pipeline(
-        document_path=document_path,
-        llm_provider=llm_provider,
+    # Make unified LLM request using the adapter pattern
+    result = await request_llm(
+        provider=llm_provider.value,
         model=model,
     )
 
-    if result is None:
-        raise ValueError("Document analysis pipeline failed. Check logs for details.")
+    # Save result
+    file_name = f"{llm_provider.value}_{model.replace('.', '_')}_{uuid4().hex[:8]}.json"
+    file_path = os.path.join(output_directory, file_name)
+    result.save_as_json(file_path)
 
-    # Save both JSON and Markdown outputs
-    base_name = f"{llm_provider.value}_analysis_{uuid4().hex}"
-    json_file_path = os.path.join(output_directory, f"{base_name}.json")
-    md_file_path = os.path.join(output_directory, f"{base_name}.md")
-
-    result.save_as_json(json_file_path)
-    result.save_as_markdown(md_file_path)
-
-    logger.info(f"""Analysis results saved:
-JSON: {json_file_path}
-Markdown: {md_file_path}""")
+    logger.info("Character generated successfully!")
+    logger.info(f"File saved to: {file_path}")
+    logger.info(f"Character: {result.first_name} {result.last_name}, {result.age} years old")
 
 
 if __name__ == "__main__":

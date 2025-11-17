@@ -1,11 +1,9 @@
 import json
 
-from src.model.model import CharacterRequest, CharacterResponse
+from src.model.model import CharacterResponse
 
 
-def make_prompt(
-    character_request: CharacterRequest,
-) -> list:
+def make_prompt() -> list:
     params = CharacterResponse.detailed_model()
     param_dump = json.dumps(params, indent=2, ensure_ascii=False)
     return [
@@ -20,17 +18,14 @@ def make_prompt(
 以下を確認してください：
 1. 応答は有効なJSONであること
 2. すべてのフィールドが含まれていること
-3. 性別は指定された値であること
-4. 年齢は指定された値であること
+3. 性別は「female」または「male」のいずれかであること
+4. 年齢は0から100の間であること
 5. 正確に3つの性格特性が提供されていること
 6. JSON構造の外に説明や追加のテキストを含めないこと
 """,
         },
         {
             "role": "user",
-            "content": f"""ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。
-性別は「{character_request.gender.value}」、年齢は「{character_request.age}」歳です。
-{character_request.additional_instructions}
-""",
+            "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。",
         },
     ]

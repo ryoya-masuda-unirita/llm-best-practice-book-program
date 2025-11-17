@@ -1,312 +1,264 @@
-# Chapter 2 Section 9: LLMを安定して使うために自由度を下げる
+# Chapter 2 Section 5: LLMストリーミングレスポンスの実装
 
 ## 概要
 
-このプロジェクトは、**ユーザー入力の自由度を制限することでLLMアプリケーションの安定性を向上させる**という重要な設計原則を実践的に学ぶためのサンプルコードです。**Streamlit**を使用したインタラクティブなWebアプリケーションを通じて、自由形式の入力と構造化されたフォーム入力を比較し、それぞれのトレードオフを体験できます。
+このプロジェクトは、**FastAPI**を使用したLLM（大規模言語モデル）の**ストリーミングレスポンス**実装を示すサンプルコードです。OpenAI GPT-4o-miniとGoogle Gemini 2.5 Flashの両方に対応し、Server-Sent Events (SSE)形式でリアルタイムにテキスト生成結果をクライアントに配信します。
 
-LLMは柔軟性が高い一方で、その柔軟性がアプリケーションの予測不可能性やエラーの原因となることがあります。本セクションでは、**CharacterRequest**モデルを導入してユーザー入力を構造化し、内部的なプロンプト生成の柔軟性を維持しながら、外部からの入力を適切に制約する方法を示します。
-
-OpenAI GPT-5/4.1/4oシリーズとGoogle Gemini 2.5シリーズの両方に対応し、複数のモデルを選択できるようになっています。
+ストリーミング機能により、ユーザーは完全な応答を待つことなく、生成されたテキストを逐次的に受け取ることができ、より良いユーザーエクスペリエンスを提供できます。
 
 ## 機能
 
-### 主要機能
-
-- **2つのインターフェース比較**:
-  - **自由形式タブ**: ユーザーが任意のテキストを入力（柔軟性高・安定性低）
-  - **構造化フォームタブ**: 制約されたフィールドで入力（柔軟性低・安定性高）
-- **モデル選択サイドバー**: OpenAI/Geminiの複数モデルから選択可能
-- **リアルタイム生成**: 入力後すぐにキャラクター情報を生成
-- **2つの出力形式**:
-  - JSON形式（技術者向け）
-  - フォーマット済みプロフィール（一般ユーザー向け）
-- **内部プロンプト表示**: システムが実際に送信したプロンプトを確認可能
-- **教育的メッセージング**: 各インターフェースのトレードオフを説明
-
-### 技術的機能
-
-- **リクエスト/レスポンスパターン**: 入力（CharacterRequest）と出力（CharacterResponse）を明確に分離
-- **構造化プロンプト生成**: ユーザー入力をバリデーション済みの構造化データからプロンプトに変換
-- **型安全性**: Pydanticによる厳密な型検証
-- **非同期処理**: async/awaitパターンによる効率的なAPI呼び出し
-- **環境変数管理**: 安全なAPIキー管理
-- **詳細なログ出力**: 実行状況の可視化
+- **ストリーミングレスポンス**: Server-Sent Events (SSE)形式でリアルタイムにテキストを配信
+- **FastAPI統合**: 高性能な非同期WebフレームワークによるAPI実装
+- **マルチプロバイダー対応**: OpenAIとGoogle Gemini APIの両方をサポート
+- **複数のエンドポイント**: 統合エンドポイントとプロバイダー専用エンドポイントを提供
+- **非同期処理**: async/awaitパターンによる効率的なストリーミング処理
+- **CORS対応**: クロスオリジンリクエストのサポート
+- **エラーハンドリング**: 堅牢なエラー処理とロギング
+- **テストクライアント**: ストリーミングAPIをテストするためのCLIツール
+- **使用例**: さまざまなユースケースを示すサンプルコード
 
 ## プロジェクト構成
 
 ### ディレクトリ構成
 
 ```
-chapter_2/section_9/
-├── app.py                       # Streamlitアプリケーション（本セクション独自）
+chapter_2/section_5/
 ├── src/
 │   ├── __init__.py              # パッケージ初期化
 │   ├── config.py                # 設定管理（API キー読み込み）
 │   ├── logger.py                # ロギング設定
+│   ├── api/
+│   │   ├── __init__.py
+│   │   └── app.py               # FastAPIアプリケーション（メインAPI）
+│   ├── service/
+│   │   ├── __init__.py
+│   │   └── streaming_service.py # ストリーミングロジック
 │   ├── client/
 │   │   ├── __init__.py
 │   │   └── llm_client.py        # LLMクライアント初期化
-│   ├── model/
-│   │   ├── __init__.py
-│   │   └── model.py             # Pydanticモデル（CharacterRequest追加）
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── prompt.py            # プロンプト生成（リクエストベース）
-│   └── service/
+│   └── model/
 │       ├── __init__.py
-│       └── request_llm.py       # LLM呼び出しサービス
-├── outputs/                     # 生成結果の保存先（自動作成）
+│       └── model.py             # Pydanticデータモデル定義
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py              # pytestフィクスチャ設定
+│   ├── test_api.py              # APIエンドポイントのテスト
+│   ├── test_models.py           # データモデルのテスト
+│   └── test_streaming_service.py # ストリーミングサービスのテスト
 ├── .envrc.example               # 環境変数設定のサンプル
-├── pyproject.toml               # プロジェクト依存関係（streamlit含む）
-├── Makefile                     # ビルド・lint コマンド
+├── __init__.py                  # パッケージルート初期化
+├── Makefile                     # 共通タスク定義
+├── pyproject.toml               # プロジェクト依存関係
+├── pytest.ini                   # pytest設定ファイル
+├── run_server.py                # サーバー起動スクリプト
+├── test_client.py               # テストクライアントCLI
 ├── README.md                    # このファイル
 └── CLAUDE.md                    # プロジェクト状態レポート
 ```
 
 ### アーキテクチャ
 
-このプロジェクトは、Section 1の基本アーキテクチャを拡張し、**リクエスト層**を追加した4層構造になっています：
+このプロジェクトは、以下の4層アーキテクチャで構成されています：
 
 ```
 ┌─────────────────────────────────────────┐
-│      Presentation Layer                 │
-│  - Streamlit Web UI (app.py)            │  ← 新規追加
-│  - ユーザー入力の収集と表示             │
-│  - インタラクティブな比較デモ           │
+│         API Layer (api/)                │
+│  - FastAPI アプリケーション              │
+│  - エンドポイント定義                    │
+│  - リクエスト/レスポンスハンドリング     │
 └─────────────────┬───────────────────────┘
                   │
 ┌─────────────────▼───────────────────────┐
-│      Request Layer                      │  ← 新規追加
-│  - CharacterRequest (model.py)          │
-│  - 入力バリデーションと構造化           │
-│  - ドメインモデルへの変換               │
+│      Service Layer (service/)           │
+│  - ストリーミングロジック                │
+│  - 非同期ジェネレータ実装                │
 └─────────────────┬───────────────────────┘
                   │
 ┌─────────────────▼───────────────────────┐
 │      Business Logic Layer               │
-│  - プロンプト生成 (prompt.py)           │
-│  - LLM呼び出し (request_llm.py)         │
-│  - CharacterResponse (model.py)         │
+│  - LLMクライアント管理 (client/)        │
+│  - データモデル (model/)                │
 └─────────────────┬───────────────────────┘
                   │
 ┌─────────────────▼───────────────────────┐
 │      Infrastructure Layer               │
 │  - 設定管理 (config.py)                 │
 │  - ログ管理 (logger.py)                 │
-│  - LLMクライアント (llm_client.py)      │
 │  - 外部API (OpenAI, Gemini)             │
 └─────────────────────────────────────────┘
 ```
 
-**Section 1との主な違い**:
-- **Presentation Layer**: Streamlit Web UIを追加し、2つのインターフェース（自由形式 vs 構造化）を比較
-- **Request Layer**: CharacterRequestモデルで入力を構造化・バリデーション
-- **Interactive Demo**: ユーザーが実際に体験しながら設計原則を学べる教育的インターフェース
-
 ### 実装の詳細
 
-#### 1. リクエストモデル (`src/model/model.py`)
+#### 1. FastAPIアプリケーション (`src/api/app.py`)
 
-**新規追加**: ユーザー入力を構造化するためのモデル
+FastAPIを使用してRESTful APIを提供します：
 
 ```python
-class CharacterRequest(BaseModel):
-    """キャラクター生成リクエストを表すモデル（ユーザー入力の構造化）"""
+app = FastAPI(
+    title="LLM Streaming API",
+    description="OpenAIとGemini APIを使用したストリーミングレスポンスのデモAPI",
+    version="1.0.0",
+)
 
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="forbid",
-    )
-
-    gender: Gender = Field(..., description="The gender of the character.")
-    age: int = Field(..., description="The age of the character.", ge=0, le=100)
-    additional_instructions: str | None = Field(
-        default=None,
-        description="Additional instructions for character generation.",
-    )
+# CORS設定
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 ```
 
-**ポイント**:
-- `gender`: 列挙型で選択肢を制限（FEMALE/MALE のみ）
-- `age`: 0-100の範囲に制約（`ge=0, le=100`）
-- `additional_instructions`: オプションで追加の自由記述を許可
-- `frozen=True`により不変オブジェクトを保証
-- `extra="forbid"`で予期しないフィールドを拒否
+**提供されるエンドポイント**:
 
-#### 2. レスポンスモデル (`src/model/model.py`)
+- `GET /health` - ヘルスチェックエンドポイント
+- `POST /stream` - 統合ストリーミングエンドポイント（プロバイダーを選択可能）
+- `POST /stream/openai` - OpenAI専用ストリーミングエンドポイント
+- `POST /stream/gemini` - Gemini専用ストリーミングエンドポイント
 
-Section 1から継承したCharacterResponseモデル（変更なし）：
+#### 2. ストリーミングサービス (`src/service/streaming_service.py`)
 
-```python
-class CharacterResponse(BaseModel):
-    """LLMからのレスポンスを表すモデル（構造化出力）"""
+非同期ジェネレータを使用してストリーミング処理を実装します：
 
-    first_name: str
-    last_name: str
-    gender: Gender
-    age: int  # 0-100
-    personalities: list[CharacterPersonality]  # 正確に3つの性格特性
-```
-
-#### 3. 構造化プロンプト生成 (`src/prompt/prompt.py`)
-
-CharacterRequestから動的にプロンプトを生成：
+##### OpenAI実装
 
 ```python
-def make_prompt(character_request: CharacterRequest) -> list:
-    """CharacterRequestからプロンプトを生成"""
-    params = CharacterResponse.detailed_model()
-    param_dump = json.dumps(params, indent=2, ensure_ascii=False)
-
-    return [
-        {
-            "role": "system",
-            "content": f"""あなたは創造的なキャラクタージェネレーターです。
-以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：
-
-{param_dump}
-
-【重要な制約】
-- personalitiesは正確に3つの要素を含む配列である必要があります
-- short_personalityは5文字以下の簡潔な表現にしてください
-- descriptionは詳細な説明文にしてください""",
-        },
-        {
-            "role": "user",
-            "content": f"""フィクションの架空の人物のキャラクター情報を生成してください。
-
-性別は「{character_request.gender.value}」、年齢は「{character_request.age}」歳です。
-{character_request.additional_instructions or ""}""",
-        },
-    ]
-```
-
-**ポイント**:
-- リクエストの構造化データ（性別・年齢）をプロンプトに埋め込み
-- 追加指示は任意で含める
-- システムプロンプトでレスポンススキーマを明示
-- ユーザープロンプトで具体的な要求を伝達
-
-#### 4. Streamlitアプリケーション (`app.py`)
-
-**タブ1: 自由形式インターフェース**
-
-```python
-with tab1:
-    st.header("🎲 自由形式プロンプト入力")
-    st.info("""
-    このインターフェースでは、任意のテキストプロンプトを入力できます。
-    柔軟性は高いですが、予期しない結果や不安定な動作のリスクがあります。
-    """)
-
-    free_text = st.text_area(
-        "プロンプトを自由に入力してください",
-        placeholder="例: 30歳の女性キャラクターを作成してください",
-        height=150,
-    )
-
-    if st.button("生成", key="free_form_button"):
-        # 自由形式の入力を処理
-        # エラーハンドリングの難しさを示す
-```
-
-**タブ2: 構造化フォームインターフェース**
-
-```python
-with tab2:
-    st.header("📋 構造化フォーム入力")
-    st.success("""
-    このインターフェースでは、明確に定義されたフィールドに入力します。
-    予測可能で安定した結果が得られ、エラーハンドリングも容易です。
-    """)
-
-    # 構造化された入力フィールド
-    col1, col2 = st.columns(2)
-    with col1:
-        gender = st.selectbox(
-            "性別",
-            options=[Gender.FEMALE, Gender.MALE],
-            format_func=lambda x: {"female": "女性", "male": "男性"}[x.value],
-        )
-
-    with col2:
-        age = st.number_input(
-            "年齢",
-            min_value=0,
-            max_value=100,
-            value=25,
-            step=1,
-        )
-
-    additional_instructions = st.text_area(
-        "追加の指示（任意）",
-        placeholder="例: ファンタジー世界の魔法使いにしてください",
-        height=100,
-    )
-
-    if st.button("生成", key="structured_button"):
-        # CharacterRequestを作成してバリデーション
-        character_request = CharacterRequest(
-            gender=gender,
-            age=age,
-            additional_instructions=additional_instructions or None,
-        )
-        # 構造化されたデータから安全にプロンプトを生成
-```
-
-**モデル選択サイドバー**:
-
-```python
-with st.sidebar:
-    st.header("⚙️ モデル設定")
-
-    llm_provider = st.selectbox(
-        "LLMプロバイダー",
-        options=[LLMProvider.OPENAI, LLMProvider.GEMINI],
-    )
-
-    # プロバイダーに応じたモデル選択
-    if llm_provider == LLMProvider.OPENAI:
-        model = st.selectbox("モデル", options=list(OpenAIModel))
-    else:
-        model = st.selectbox("モデル", options=list(GeminiModel))
-```
-
-#### 5. サービス層 (`src/service/request_llm.py`)
-
-プロンプトとモデルを受け取り、LLMを呼び出す：
-
-```python
-async def request_openai(
-    prompt: list, model: OpenAIModel
-) -> CharacterResponse:
-    """OpenAI APIでキャラクター生成"""
-    result = await openai_client.beta.chat.completions.parse(
-        model=model.value,
-        messages=prompt,
-        response_format=CharacterResponse,
+async def stream_openai_response(prompt: str, model: str = "gpt-4o-mini") -> AsyncIterator[str]:
+    """OpenAI APIからストリーミングで応答を取得"""
+    stream = await openai_client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        stream=True,
         temperature=1.0,
     )
-    return result.choices[0].message.parsed
 
-
-async def request_gemini(
-    prompt: list, model: GeminiModel
-) -> CharacterResponse:
-    """Gemini APIでキャラクター生成"""
-    result = await google_genai_client.aio.models.generate_content(
-        model=model.value,
-        contents=prompt[-1]["content"],
-        config=GenerateContentConfig(
-            system_instruction=prompt[0]["content"],
-            response_mime_type="application/json",
-            response_schema=CharacterResponse,
-            temperature=2.0,
-        ),
-    )
-    return result.parsed
+    async for chunk in stream:
+        if chunk.choices[0].delta.content:
+            content = chunk.choices[0].delta.content
+            yield content
+            await asyncio.sleep(0.01)  # イベントループのブロッキング防止
 ```
+
+**特徴**:
+- `stream=True`でストリーミングモードを有効化
+- `async for`でチャンクを逐次処理
+- `yield`でクライアントにデータを送信
+
+##### Gemini実装
+
+```python
+async def stream_gemini_response(
+    prompt: str,
+    model: str = "gemini-2.5-flash",
+    system_instruction: str | None = None,
+) -> AsyncIterator[str]:
+    """Gemini APIからストリーミングで応答を取得"""
+    config = GenerateContentConfig(temperature=2.0)
+
+    if system_instruction:
+        config = GenerateContentConfig(
+            system_instruction=system_instruction,
+            temperature=2.0,
+        )
+
+    response = google_genai_client.models.generate_content_stream(
+        model=model,
+        contents=prompt,
+        config=config,
+    )
+
+    for chunk in response:
+        if chunk.text:
+            yield chunk.text
+```
+
+**特徴**:
+- `generate_content_stream`でストリーミング応答を取得
+- システム命令のサポート
+- 同期的なイテレーション（Gemini SDKの仕様）
+
+#### 3. APIエンドポイント実装
+
+```python
+@app.post("/stream")
+async def stream_response(request: StreamRequest):
+    """統合ストリーミングエンドポイント"""
+    logger.info(f"Streaming request received: provider={request.provider}")
+
+    if request.provider == LLMProvider.OPENAI:
+        model = request.model or "gpt-4o-mini"
+        return StreamingResponse(
+            stream_openai_response(request.prompt, model=model),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",  # nginxのバッファリング無効化
+            },
+        )
+    # Gemini実装も同様
+```
+
+**ポイント**:
+- `StreamingResponse`でSSE形式の応答を返す
+- 適切なヘッダーでキャッシュとバッファリングを制御
+- プロバイダーに応じて適切なサービス関数を呼び出し
+
+#### 4. データモデル (`src/model/model.py`)
+
+Pydanticモデルでリクエスト/レスポンスを定義します：
+
+```python
+class StreamRequest(BaseModel):
+    """ストリーミングリクエストのモデル"""
+    prompt: str = Field(..., description="ユーザーのプロンプト", min_length=1)
+    provider: LLMProvider = Field(
+        default=LLMProvider.GEMINI,
+        description="使用するLLMプロバイダー (openai または gemini)",
+    )
+    model: str | None = Field(
+        default=None,
+        description="使用するモデル名（未指定の場合はプロバイダーのデフォルトモデル）",
+    )
+    system_instruction: str | None = Field(
+        default=None,
+        description="システム命令（Geminiのみ有効）",
+    )
+
+class HealthResponse(BaseModel):
+    """ヘルスチェックレスポンスのモデル"""
+    status: str
+    message: str
+```
+
+**特徴**:
+- 型安全なリクエスト検証
+- デフォルト値のサポート
+- 詳細なフィールド説明
+
+#### 5. テストクライアント (`test_client.py`)
+
+ストリーミングAPIをテストするためのCLIツール：
+
+```python
+async def stream_request(url: str, prompt: str, provider: str = "gemini"):
+    """APIサーバーにストリーミングリクエストを送信"""
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, json=payload) as response:
+            # ストリーミングレスポンスを逐次的に表示
+            async for chunk in response.content.iter_any():
+                if chunk:
+                    text = chunk.decode("utf-8")
+                    print(text, end="", flush=True)
+```
+
+**特徴**:
+- `aiohttp`を使用した非同期HTTPクライアント
+- リアルタイムでチャンクを表示
+- 使いやすいCLIインターフェース
 
 ## 使い方
 
@@ -314,12 +266,14 @@ async def request_gemini(
 
 - **Python**: 3.13.2以上
 - **依存ライブラリ**:
-  - **streamlit>=1.50.0** ← Section 9独自の追加
-  - click>=8.3.0
+  - fastapi>=0.119.0
+  - uvicorn>=0.37.0
+  - aiohttp>=3.11.17
   - google-genai>=1.45.0
   - openai>=2.4.0
   - pydantic>=2.12.2
   - python-dotenv>=1.1.1
+  - click>=8.3.0
 
 ### セットアップ
 
@@ -345,158 +299,238 @@ uv sync
 pip install -e .
 ```
 
-### 使用方法、実行方法
+3. **開発ツール（オプション）**
 
-#### Streamlit Webアプリケーション
+プロジェクトには開発タスクを簡素化するMakefileが含まれています：
 
 ```bash
-# Webアプリケーションを起動
-streamlit run app.py
+# コードのリント（自動修正付き）
+make lint
+
+# コードのフォーマット
+make fmt
+
+# リントとフォーマットの両方を実行
+make fix
+
+# 型チェック
+make mypy
 ```
 
-ブラウザが自動的に開き（通常は `http://localhost:8501`）、以下の操作が可能になります：
+### 使用方法、実行方法
 
-1. **サイドバーでモデルを選択**
-   - LLMプロバイダー（OpenAI/Gemini）を選択
-   - 使用するモデルを選択
+#### 1. サーバーの起動
 
-2. **タブ1（自由形式）で試す**
-   - テキストエリアに任意のプロンプトを入力
-   - 「生成」ボタンをクリック
-   - 結果とプロンプトを確認
+```bash
+# デフォルト設定で起動（127.0.0.1:8000）
+python run_server.py
 
-3. **タブ2（構造化フォーム）で試す**
-   - 性別をドロップダウンから選択
-   - 年齢を数値入力（0-100）
-   - 必要に応じて追加指示を入力
-   - 「生成」ボタンをクリック
-   - 結果とプロンプトを確認
+# カスタムホストとポートを指定
+python run_server.py --host 0.0.0.0 --port 8080
 
-4. **2つのアプローチを比較**
-   - 使いやすさ
-   - 結果の安定性
-   - エラーハンドリングの容易さ
+# 開発モード（自動リロード有効）
+python run_server.py --reload
+```
 
-#### 利用可能なモデル
+**出力例**:
+```
+Starting LLM Streaming API server on 127.0.0.1:8000
+Press CTRL+C to quit
+INFO:     Started server process [12345]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+```
 
-**OpenAI**:
-- `gpt-5`
-- `gpt-5-mini`
-- `gpt-4.1`
-- `gpt-4.1-mini`
-- `gpt-4o`
-- `gpt-4o-mini`
-- `gpt-4o-2024-11-20`
-- `gpt-4o-2024-08-06`
+#### 2. テストクライアントの使用
 
-**Gemini**:
-- `gemini-2.5-pro`
-- `gemini-2.5-flash`
-- `gemini-2.5-flash-lite`
+別のターミナルでテストクライアントを実行します：
+
+```bash
+# Gemini APIを使用（デフォルト）
+python test_client.py --prompt "Pythonの非同期プログラミングについて説明してください"
+
+# OpenAI APIを使用
+python test_client.py --provider openai --prompt "AIの未来について教えて"
+
+# カスタムモデルを指定
+python test_client.py --provider openai --model gpt-4o --prompt "こんにちは"
+
+# システム命令を使用（Geminiのみ）
+python test_client.py --provider gemini \
+  --prompt "今日のランチにおすすめのメニューは？" \
+  --system-instruction "あなたは健康的な食事を提案する栄養士です"
+
+# カスタムURLを指定
+python test_client.py --url http://localhost:8080/stream --prompt "こんにちは"
+```
+
+#### 3. APIの直接利用
+
+##### curlを使用
+
+```bash
+# 統合エンドポイント
+curl -X POST http://127.0.0.1:8000/stream \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Pythonについて教えてください",
+    "provider": "gemini"
+  }'
+
+# OpenAI専用エンドポイント
+curl -X POST http://127.0.0.1:8000/stream/openai \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "こんにちは",
+    "model": "gpt-4o-mini"
+  }'
+```
+
+##### Pythonスクリプトから利用
+
+```python
+import asyncio
+import aiohttp
+
+async def test_streaming():
+    url = "http://127.0.0.1:8000/stream"
+    payload = {
+        "prompt": "ストリーミングAPIの利点を教えてください",
+        "provider": "gemini"
+    }
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, json=payload) as response:
+            async for chunk in response.content.iter_any():
+                if chunk:
+                    print(chunk.decode("utf-8"), end="", flush=True)
+
+asyncio.run(test_streaming())
+```
 
 ### 出力例
 
-**構造化フォームでの入力**:
-- 性別: 男性
-- 年齢: 28
-- 追加指示: "サイバーパンク世界のハッカーにしてください"
+#### テストクライアントの実行結果
 
-**生成結果（フォーマット済み）**:
 ```
-📋 キャラクタープロフィール
+============================================================
+Provider: gemini
+Prompt: Pythonの非同期プログラミングについて説明してください
+============================================================
 
-👤 基本情報
-名前: 蒼 雨宮
-性別: male
-年齢: 28歳
+Response:
+------------------------------------------------------------
+Pythonの非同期プログラミングは、複数のタスクを並行して実行する
+ための強力な手法です。asyncioモジュールを使用することで、
+I/O待機時間を有効活用し、アプリケーションのパフォーマンスを
+大幅に向上させることができます。
 
-🎭 性格特性
+主要な概念：
 
-1. 孤独な天才
-   常に一人で作業することを好み、複雑なシステムを解読する能力に長けている。
-   社会的なスキルは低いが、デジタル世界では無敵の存在。
+1. **async/await構文**: 非同期関数を定義し、await で非同期
+   処理を待機します。
 
-2. 反骨精神
-   権威や大企業に対して強い不信感を持ち、情報の自由を信じている。
-   正義感が強く、弱者を守るために自らのスキルを使う。
+2. **イベントループ**: すべての非同期タスクを管理・実行する
+   中心的な機構です。
 
-3. 完璧主義
-   すべてのコードに最高の基準を求め、セキュリティホールを決して許さない。
-   細部へのこだわりが時に強迫観念となることもある。
+3. **コルーチン**: async def で定義された特殊な関数で、
+   実行を一時停止・再開できます。
+
+非同期プログラミングは、Webスクレイピング、API呼び出し、
+データベースアクセスなど、I/Oバウンドな処理に特に効果的です。
+------------------------------------------------------------
+Stream completed successfully!
 ```
 
-**内部プロンプト（展開可能セクション）**:
+#### ヘルスチェックの実行
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+**レスポンス**:
 ```json
-[
-  {
-    "role": "system",
-    "content": "あなたは創造的なキャラクタージェネレーターです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n..."
-  },
-  {
-    "role": "user",
-    "content": "フィクションの架空の人物のキャラクター情報を生成してください。\n\n性別は「male」、年齢は「28」歳です。\nサイバーパンク世界のハッカーにしてください"
-  }
-]
+{
+  "status": "healthy",
+  "message": "LLM Streaming API is running"
+}
 ```
 
 ### テスト方法
 
+このプロジェクトには、ユニットテストと手動テストの両方が含まれています。
+
+#### ユニットテストの実行
+
+プロジェクトには以下のユニットテストが含まれています：
+
 ```bash
-# アプリケーションを起動
-streamlit run app.py
+# すべてのテストを実行
+pytest
+
+# カバレッジレポート付きで実行
+pytest --cov=src --cov-report=html
+
+# 特定のテストファイルのみ実行
+pytest tests/test_api.py
+pytest tests/test_models.py
+pytest tests/test_streaming_service.py
+
+# 詳細な出力で実行
+pytest -v
 ```
 
-**テストシナリオ**:
+**テスト内容**:
+- `tests/test_api.py`: FastAPIエンドポイントのテスト
+- `tests/test_models.py`: Pydanticモデルのバリデーションテスト
+- `tests/test_streaming_service.py`: ストリーミングサービスのロジックテスト
 
-**シナリオ1: 自由形式タブのテスト**
-1. タブ1「自由形式プロンプト入力」を開く
-2. テキストエリアに以下を入力: "20歳の男性キャラクターを作成してください"
-3. 「生成」ボタンをクリック
-4. 期待される動作:
-   - JSON出力とフォーマット済みプロフィールが表示される
-   - 「送信されたプロンプトを表示」セクションでプロンプトが確認できる
-   - 性別がmale、年齢が20に近い値になる
+#### 手動テスト
 
-**シナリオ2: 構造化フォームタブのテスト**
-1. タブ2「構造化フォーム入力」を開く
-2. 性別: 女性を選択
-3. 年齢: 45を入力
-4. 追加の指示: "歴史小説の主人公にしてください"を入力
-5. 「生成」ボタンをクリック
-6. 期待される動作:
-   - JSON出力で`"gender": "female"`、`"age": 45`が確認できる
-   - personalitiesが正確に3つ含まれる
-   - 歴史的な要素を含むキャラクターが生成される
+#### 1. サーバーの起動確認
 
-**シナリオ3: モデル切り替えテスト**
-1. サイドバーでLLMプロバイダーを「gemini」に変更
-2. モデルを「gemini-2.5-flash」に選択
-3. 構造化フォームで任意の値を入力して生成
-4. サイドバーでLLMプロバイダーを「openai」に変更
-5. モデルを「gpt-4o-mini」に選択
-6. 同じ値で再度生成
-7. 期待される動作:
-   - どちらのモデルでも正しくCharacterResponseスキーマに準拠したJSONが生成される
+```bash
+python run_server.py
+# 別のターミナルで
+curl http://127.0.0.1:8000/health
+```
 
-**シナリオ4: バリデーションテスト**
-1. 構造化フォームタブで年齢に101を入力しようとする
-2. 期待される動作:
-   - 数値入力フィールドが最大値100を超えないように制限される
+期待される動作：
+- サーバーが正常に起動する
+- ヘルスチェックが `{"status":"healthy",...}` を返す
 
-**シナリオ5: インターフェース比較テスト**
+#### 2. OpenAI ストリーミングのテスト
 
-同じ要求を自由形式と構造化フォームで試して比較：
+```bash
+python test_client.py --provider openai --prompt "Hello, world!"
+```
 
-1. **自由形式タブで入力**:
-   - 「25歳の女性で、明るくて社交的な性格のキャラクターを作ってください」
+期待される動作：
+- OpenAI APIに接続してストリーミング応答を受信
+- テキストがリアルタイムで表示される
+- エラーなく完了する
 
-2. **構造化フォームタブで入力**:
-   - 性別: 女性
-   - 年齢: 25
-   - 追加指示: "明るくて社交的な性格にしてください"
+#### 3. Gemini ストリーミングのテスト
 
-3. **比較観点**:
-   - **入力の容易さ**: フォームの方が選択肢が明確で入力しやすい
-   - **エラーの可能性**: 自由形式では年齢を書き忘れる可能性がある
-   - **結果の一貫性**: フォームの方が指定した年齢・性別が確実に反映される
-   - **プロンプトの品質**: どちらも内部プロンプトを確認して構造を理解できる
+```bash
+python test_client.py --provider gemini --prompt "こんにちは"
+```
+
+期待される動作：
+- Gemini APIに接続してストリーミング応答を受信
+- テキストがリアルタイムで表示される
+- エラーなく完了する
+
+#### 4. エラーハンドリングのテスト
+
+```bash
+# 空のプロンプトでエラーをテスト
+curl -X POST http://127.0.0.1:8000/stream \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "", "provider": "gemini"}'
+```
+
+期待される動作：
+- バリデーションエラーが返される
+- 適切なHTTPステータスコード（422）が返される

@@ -1,9 +1,16 @@
-from src.client.llm_client import (
-    GeminiModel,
-    LLMProvider,
-    OpenAIModel,
-    google_genai_client,
-    openai_client,
-)
+"""Client module exports for LLM adapters and factory."""
 
-__all__ = ["LLMProvider", "google_genai_client", "openai_client", "OpenAIModel", "GeminiModel"]
+from src.client.adapters import GeminiAdapter, OpenAIAdapter
+from src.client.base import LLMClient
+from src.client.factory import LLMClientFactory
+from src.client.model import GeminiModel, LLMProvider, OpenAIModel
+
+__all__ = [
+    "LLMProvider",
+    "OpenAIModel",
+    "GeminiModel",
+    "LLMClient",
+    "OpenAIAdapter",
+    "GeminiAdapter",
+    "LLMClientFactory",
+]

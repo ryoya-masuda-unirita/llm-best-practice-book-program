@@ -1,3 +1,8 @@
-from src.model.model import CharacterPersonality, CharacterResponse, Gender
+from src.model.model import CharacterPersonality, CharacterRequest, CharacterResponse, Gender
 
-__all__ = ["CharacterPersonality", "CharacterResponse", "Gender"]
+__all__ = [
+    "CharacterPersonality",
+    "CharacterResponse",
+    "Gender",
+    "CharacterRequest",
+]
