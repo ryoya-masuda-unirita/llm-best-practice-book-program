@@ -1,30 +1,40 @@
 from google.genai.types import GenerateContentConfig
 
-from src.client.llm_client import GeminiModel, OpenAIModel, google_genai_client, openai_client
+from src.client.llm_client import (
+    AnthropicModel,
+    GeminiModel,
+    LLMProvider,
+    OpenAIModel,
+    anthropic_client,
+    google_genai_client,
+    openai_client,
+)
 from src.logger import make_logger
 from src.model.llm_as_a_judge_model import JudgeRequest, JudgeResponse
-from src.model.model import CharacterResponse
-from src.service.llm_as_a_judge import judge_with_gemini, judge_with_openai
+from src.model.model import CharacterRequest, CharacterResponse
+from src.prompt.prompt import make_prompt
+from src.service.llm_as_a_judge import judge_with_anthropic, judge_with_gemini, judge_with_openai
 
 logger = make_logger(__name__)
 
 
 async def request_openai(prompt: list, model: OpenAIModel) -> CharacterResponse:
-    result = await openai_client.beta.chat.completions.parse(
+    result = await openai_client.responses.parse(
         model=model,
-        messages=prompt,
-        response_format=CharacterResponse,
-        temperature=1.0,
+        input=prompt,
+        text_format=CharacterResponse,
     )
-    return result.choices[0].message.parsed
+    logger.info(result)
+    return result.output_parsed
 
 
-async def request_gemini(prompt: list, model: GeminiModel) -> CharacterResponse:
+async def request_gemini(prompt: tuple[str, str], model: GeminiModel) -> CharacterResponse:
+    system_prompt, user_prompt = prompt
     result = await google_genai_client.aio.models.generate_content(
         model=model,
-        contents=prompt[-1]["content"],
+        contents=user_prompt,
         config=GenerateContentConfig(
-            system_instruction=prompt[0]["content"],
+            system_instruction=system_prompt,
             response_mime_type="application/json",
             response_schema=CharacterResponse,
             temperature=2.0,
@@ -34,20 +44,33 @@ async def request_gemini(prompt: list, model: GeminiModel) -> CharacterResponse:
     return result.parsed
 
 
+async def request_anthropic(prompt: list, model: AnthropicModel) -> CharacterResponse:
+    result = await anthropic_client.beta.messages.parse(
+        model=model,
+        max_tokens=1024,
+        betas=["structured-outputs-2025-11-13"],
+        messages=prompt,
+        output_format=CharacterResponse,
+    )
+
+    logger.info(result)
+    return result.parsed_output
+
+
 async def request_with_judge(
-    prompt: list,
-    model: OpenAIModel | GeminiModel,
+    character_request: CharacterRequest,
+    model: OpenAIModel | GeminiModel | AnthropicModel,
     provider: str,
-    judge_model: OpenAIModel | GeminiModel | None = None,
+    judge_model: OpenAIModel | GeminiModel | AnthropicModel | None = None,
     judge_provider: str | None = None,
 ) -> tuple[CharacterResponse, JudgeResponse]:
     """
     Request character generation and evaluate it using LLM-as-a-Judge.
 
     Args:
-        prompt: The prompt for character generation
+        character_request: The character request with gender, age, and additional instructions
         model: The model to use for character generation
-        provider: The provider for character generation ("openai" or "gemini")
+        provider: The provider for character generation ("openai", "gemini", or "anthropic")
         judge_model: The model to use for evaluation (defaults to same as generation model)
         judge_provider: The provider for evaluation (defaults to same as generation provider)
 
@@ -55,19 +78,25 @@ async def request_with_judge(
         Tuple of (CharacterResponse, JudgeResponse)
     """
 
-    # Step 1: Generate character
-    logger.info("Step 1: Generating character...")
-    if provider == "openai":
+    # Step 1: Generate prompt from character request
+    logger.info("Step 1: Generating prompt...")
+    prompt = make_prompt(character=character_request, provider=LLMProvider(provider))
+
+    # Step 2: Generate character
+    logger.info("Step 2: Generating character...")
+    if provider == LLMProvider.OPENAI:
         character_response = await request_openai(prompt=prompt, model=model)
-    elif provider == "gemini":
+    elif provider == LLMProvider.GEMINI:
         character_response = await request_gemini(prompt=prompt, model=model)
+    elif provider == LLMProvider.ANTHROPIC:
+        character_response = await request_anthropic(prompt=prompt, model=model)
     else:
         raise ValueError(f"Unsupported provider: {provider}")
 
     logger.info("Character generation completed.")
 
-    # Step 2: Evaluate the generated character using LLM-as-a-Judge
-    logger.info("Step 2: Evaluating character with LLM-as-a-Judge...")
+    # Step 3: Evaluate the generated character using LLM-as-a-Judge
+    logger.info("Step 3: Evaluating character with LLM-as-a-Judge...")
 
     # Use same model/provider for judgment if not specified
     if judge_model is None:
@@ -77,19 +106,32 @@ async def request_with_judge(
 
     # Create a judge request
     # Extract the user prompt from the messages
-    user_prompt = next((msg["content"] for msg in prompt if msg["role"] == "user"), "キャラクターを生成してください。")
+    if isinstance(prompt, tuple):
+        user_prompt = prompt[1]  # Gemini format: (system, user)
+    else:
+        user_prompt = next(
+            (msg["content"] for msg in prompt if msg["role"] == "user"), "キャラクターを生成してください。"
+        )
+
+    # Format request parameters as a string for evaluation
+    request_params_str = f"""Gender: {character_request.gender.value}
+Age: {character_request.age}
+Additional Instructions: {character_request.additional_instructions or "None"}"""
 
     judge_request = JudgeRequest(
         question=user_prompt,
         response=character_response.model_dump_json(indent=2, ensure_ascii=False),
         context=None,  # No reference context for creative generation
+        request_parameters=request_params_str,
     )
 
     # Get judgment
-    if judge_provider == "openai":
+    if judge_provider == LLMProvider.OPENAI:
         judge_response = await judge_with_openai(judge_request=judge_request, model=judge_model)
-    elif judge_provider == "gemini":
+    elif judge_provider == LLMProvider.GEMINI:
         judge_response = await judge_with_gemini(judge_request=judge_request, model=judge_model)
+    elif judge_provider == LLMProvider.ANTHROPIC:
+        judge_response = await judge_with_anthropic(judge_request=judge_request, model=judge_model)
     else:
         raise ValueError(f"Unsupported judge provider: {judge_provider}")
 

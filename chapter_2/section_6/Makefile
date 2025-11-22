@@ -65,11 +65,7 @@ test: pytest test-templates
 
 .PHONY: run-openai
 run-openai:
-	uv run python -m src.main --llm-provider openai --model gpt-4o
-
-.PHONY: run-gemini
-run-gemini:
-	uv run python -m src.main --llm-provider gemini --model gemini-2.0-flash-exp
+	uv run python -m src.main --model gpt-4o
 
 ############ SETUP ############
 
@@ -96,8 +92,7 @@ help:
 	@echo "  make test-templates  - Run all template tests"
 	@echo ""
 	@echo "LLM Execution:"
-	@echo "  make run-openai      - Run with OpenAI"
-	@echo "  make run-gemini      - Run with Gemini"
+	@echo "  make run-openai      - Run with OpenAI (GPT-4o)"
 	@echo ""
 	@echo "Code Quality:"
 	@echo "  make lint            - Run linter"

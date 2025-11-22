@@ -53,7 +53,7 @@ A template-driven architecture that separates prompt structure from code, enabli
 
 ### Application Integration
 - [x] Prompt generation using templates (src/prompt/prompt.py)
-- [x] LLM request handlers for OpenAI and Gemini (src/service/request_llm.py)
+- [x] LLM request handlers for OpenAI (src/service/request_llm.py)
 - [x] CLI with model and provider selection (src/main.py)
 - [x] Pydantic models for type safety (src/model/model.py)
 - [x] Configuration management (src/config.py)
@@ -91,7 +91,7 @@ section_6/
 │   ├── logger.py                  # Logging setup
 │   ├── client/
 │   │   ├── __init__.py
-│   │   └── llm_client.py          # OpenAI/Gemini clients
+│   │   └── llm_client.py          # OpenAI client
 │   ├── model/
 │   │   ├── __init__.py
 │   │   └── model.py               # Request/Response models
@@ -265,15 +265,11 @@ uv sync
 make install
 
 # Run with OpenAI
-uv run python -m src.main --llm-provider openai --model gpt-4o
+uv run python -m src.main --model gpt-4o
 make run-openai
 
-# Run with Gemini
-uv run python -m src.main --llm-provider gemini --model gemini-2.0-flash-exp
-make run-gemini
-
 # Custom output directory
-uv run python -m src.main -lp openai -m gpt-4o-mini -od ./my_outputs
+uv run python -m src.main -m gpt-4o-mini -od ./my_outputs
 ```
 
 ### Programmatic Usage

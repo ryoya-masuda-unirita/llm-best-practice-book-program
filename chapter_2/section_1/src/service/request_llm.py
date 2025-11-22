@@ -17,6 +17,7 @@ logger = make_logger(__name__)
 
 async def request_openai(model: OpenAIModel) -> CharacterResponse:
     prompt = make_openai_prompt()
+    openai_client.batches.create()
     result = await openai_client.responses.parse(
         model=model,
         input=prompt,
@@ -50,5 +51,6 @@ async def request_anthropic(model: AnthropicModel) -> CharacterResponse:
         messages=prompt,
         output_format=CharacterResponse,
     )
+
     logger.info(result)
     return result.parsed_output

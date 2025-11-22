@@ -13,7 +13,7 @@
 - **テンプレートバリデーション**: 必須変数の存在チェックによる実行時エラーの防止
 - **複数テンプレートのサポート**: キャラクター生成、商品説明、メールなど多様なユースケース
 - **変数ファイル管理**: テンプレートとデータを完全に分離した設計
-- **マルチプロバイダー対応**: OpenAIとGoogle Gemini APIの両方をサポート
+- **OpenAI API対応**: OpenAI APIをサポート
 - **型安全な構造化出力**: Pydanticモデルによる厳密な型検証
 - **包括的なテストスイート**: TemplateEngineとプロンプト生成の網羅的テスト
 - **CLIインターフェース**: 使いやすいコマンドラインツール
@@ -97,7 +97,7 @@ chapter_2/section_6/
 │      Infrastructure Layer                     │
 │  - 設定管理 (config.py)                       │
 │  - ログ管理 (logger.py)                       │
-│  - 外部API (OpenAI, Gemini)                   │
+│  - 外部API (OpenAI)                           │
 └───────────────────────────────────────────────┘
 ```
 
@@ -275,7 +275,7 @@ class CharacterResponse(BaseModel):
 
 #### 6. LLM APIリクエスト (`src/service/request_llm.py`)
 
-OpenAIとGeminiの両方に対応したAPI呼び出し：
+OpenAI APIに対応したAPI呼び出し:
 
 ```python
 async def request_openai(model: OpenAIModel) -> CharacterResponse:
@@ -292,25 +292,6 @@ async def request_openai(model: OpenAIModel) -> CharacterResponse:
         temperature=1.0,
     )
     return result.choices[0].message.parsed
-
-async def request_gemini(model: GeminiModel) -> CharacterResponse:
-    character_request = CharacterRequest(
-        gender=Gender.FEMALE,
-        age=30,
-        additional_instructions="このキャラクターは知的で、洞察力に優れています。",
-    )
-    prompt = make_prompt(character_request)
-    result = await google_genai_client.aio.models.generate_content(
-        model=model,
-        contents=prompt[-1]["content"],
-        config=GenerateContentConfig(
-            system_instruction=prompt[0]["content"],
-            response_mime_type="application/json",
-            response_schema=CharacterResponse,
-            temperature=2.0,
-        ),
-    )
-    return result.parsed
 ```
 
 **ポイント**:
@@ -324,7 +305,6 @@ async def request_gemini(model: GeminiModel) -> CharacterResponse:
 - **Python**: 3.13.2以上
 - **依存ライブラリ**:
   - click>=8.3.0 (CLIインターフェース)
-  - google-genai>=1.45.0 (Gemini API)
   - jinja2>=3.1.6 (テンプレートエンジン)
   - openai>=2.4.0 (OpenAI API)
   - pydantic>=2.12.2 (データモデル)
@@ -342,7 +322,6 @@ cp .envrc.example .envrc
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
 ```
 
 2. **依存関係のインストール**
@@ -363,14 +342,10 @@ pip install -e .
 #### 基本的な使い方
 
 ```bash
-# Gemini APIを使用（デフォルト）
-uv run python -m src.main --llm-provider gemini --model gemini-2.0-flash-exp
-
 # OpenAI APIを使用
-uv run python -m src.main --llm-provider openai --model gpt-4o
+uv run python -m src.main --model gpt-4o
 
 # Makefileを使用
-make run-gemini
 make run-openai
 ```
 
@@ -378,10 +353,10 @@ make run-openai
 
 ```bash
 # カスタム出力ディレクトリを指定
-uv run python -m src.main -lp openai -m gpt-4o-mini -od ./custom_output
+uv run python -m src.main -m gpt-4o-mini -od ./custom_output
 
 # 短縮オプション
-uv run python -m src.main -lp gemini -m gemini-2.0-flash-exp -od ./my_characters
+uv run python -m src.main -m gpt-4o -od ./my_characters
 ```
 
 #### ヘルプの表示
@@ -395,9 +370,7 @@ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
 Options:
-  -lp, --llm-provider [openai|gemini]
-                                  The LLM provider to use.  [required]
-  -m, --model TEXT                The model to use for the request.  [required]
+  -m, --model TEXT                The OpenAI model to use for the request.  [required]
   -od, --output-directory PATH    The directory to save output files.
   --help                          Show this message and exit.
 ```
@@ -422,7 +395,6 @@ make mypy               # 型チェック
 
 # LLM実行
 make run-openai         # OpenAI APIで実行
-make run-gemini         # Gemini APIで実行
 ```
 
 ### 出力例
@@ -461,96 +433,3 @@ Model: gpt-4o
 Output directory: outputs
 [2025-01-18 10:30:47] [INFO] [__main__] [main.py:74] [main] File saved to outputs/openai_c5339cd3f7b240b3b6e7b113eeacd216.json
 ```
-
-### テスト方法
-
-このプロジェクトには包括的なテストスイートが含まれています。
-
-#### 1. すべてのテストを実行
-
-```bash
-make test
-# または
-uv run pytest
-```
-
-期待される出力：
-```
-tests/test_prompt.py ....                                    [ 30%]
-tests/test_template_engine.py .............................. [100%]
-
-====== 32 passed in 0.45s ======
-```
-
-#### 2. カバレッジレポート付きテスト
-
-```bash
-make pytest-cov
-```
-
-期待される出力：
-```
----------- coverage: platform darwin, python 3.13.2 ----------
-Name                                Stmts   Miss  Cover   Missing
------------------------------------------------------------------
-src/__init__.py                         0      0   100%
-src/service/template_engine.py         47      0   100%
-src/prompt/prompt.py                   15      0   100%
------------------------------------------------------------------
-TOTAL                                  62      0   100%
-
-HTML coverage report generated at htmlcov/index.html
-```
-
-#### 3. 特定のテストのみ実行
-
-```bash
-# TemplateEngineのテストのみ
-uv run pytest tests/test_template_engine.py -v
-
-# プロンプト生成のテストのみ
-uv run pytest tests/test_prompt.py -v
-
-# または Makefile
-make pytest-unit
-```
-
-#### 4. テンプレートの手動テスト
-
-```bash
-# 基本的なテンプレートテスト
-make test-basic
-
-# すべてのテンプレート組み合わせをテスト
-make test-all
-```
-
-#### 5. 失敗したテストのみ再実行
-
-```bash
-make pytest-failed
-# または
-uv run pytest --lf
-```
-
-#### テストの構成
-
-テストスイートは以下のカテゴリで構成されています：
-
-1. **TemplateEngineテスト** (`tests/test_template_engine.py`):
-   - 初期化とディレクトリ検証
-   - 変数抽出機能
-   - 変数バリデーション
-   - テンプレートレンダリング
-   - メッセージフォーマット変換
-   - エッジケース（特殊文字、None値、ネストされたデータ構造など）
-
-2. **プロンプト生成テスト** (`tests/test_prompt.py`):
-   - make_prompt()関数の動作検証
-   - レンダリングされたメッセージ形式の確認
-   - 変数注入の正確性
-
-3. **フィクスチャ** (`tests/conftest.py`):
-   - 一時テンプレートディレクトリの作成
-   - サンプルテンプレートファイルの生成
-   - 各テスト間での独立性確保

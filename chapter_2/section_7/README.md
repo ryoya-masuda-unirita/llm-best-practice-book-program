@@ -4,7 +4,7 @@
 
 このプロジェクトは、**LLM-as-a-Judge**（LLMを審査員として活用する設計手法）の実装を示すサンプルコードです。LLMが生成したコンテンツを別のLLMが自動的に評価することで、品質管理の自動化と効率化を実現します。
 
-OpenAI GPT-4o-miniとGoogle Gemini 2.5 Flashの両方に対応し、**クロスプロバイダー評価**（異なるプロバイダーで生成と評価を行う）もサポートしています。キャラクター生成という具体的なユースケースを通じて、LLM-as-a-Judgeの実践的な実装方法を学ぶことができます。
+OpenAI、Google Gemini、Anthropic Claudeの3つのプロバイダーに対応し、**クロスプロバイダー評価**（異なるプロバイダーで生成と評価を行う）もサポートしています。キャラクター生成という具体的なユースケースを通じて、LLM-as-a-Judgeの実践的な実装方法を学ぶことができます。
 
 ## 機能
 
@@ -17,9 +17,11 @@ OpenAI GPT-4o-miniとGoogle Gemini 2.5 Flashの両方に対応し、**クロス�
 
 ### 高度な機能
 - **クロスプロバイダー評価**: 異なるLLMプロバイダーで生成と評価を実行
+- **リクエストパラメータ評価**: 生成されたキャラクターが元のリクエスト要件（性別、年齢、追加指示）を満たしているかを自動検証
 - **カスタム評価基準**: プログラマティックAPIでドメイン固有の評価基準を定義可能
 - **温度パラメータ制御**: 評価の一貫性を高めるため低温度（0.0）で実行
-- **マルチプロバイダー対応**: OpenAIとGoogle Gemini APIの両方をサポート
+- **マルチプロバイダー対応**: OpenAI、Google Gemini、Anthropic Claude APIの3つをサポート
+- **プロバイダー別プロンプト**: 各LLMプロバイダーの特性に最適化されたプロンプト形式を自動選択
 - **非同期処理**: async/awaitパターンによる効率的なAPI呼び出し
 
 ### システム機能
@@ -117,25 +119,18 @@ chapter_2/section_7/
 評価に関連するデータ構造を定義します：
 
 ```python
-class EvaluationScore(IntEnum):
-    """評価スコア 1-5"""
-    COMPLETELY_INAPPROPRIATE = 1
-    POOR = 2
-    ACCEPTABLE = 3
-    GOOD = 4
-    PERFECT = 5
-
 class EvaluationCriterion(BaseModel):
     """個別の評価基準の結果"""
     criterion_name: str        # 評価基準名
-    score: EvaluationScore     # スコア（1-5）
+    score: int                 # スコア（1-5）with ge=1, le=5 constraints
     reasoning: str             # スコアの理由
 
 class JudgeRequest(BaseModel):
     """評価リクエスト"""
-    question: str              # 元の質問・プロンプト
-    response: str              # 評価対象の応答
-    context: str | None        # オプションの参照情報（RAG評価用）
+    question: str                      # 元の質問・プロンプト
+    response: str                      # 評価対象の応答
+    context: str | None                # オプションの参照情報（RAG評価用）
+    request_parameters: str | None     # オプションのリクエストパラメータ
 
 class JudgeResponse(BaseModel):
     """評価結果"""
@@ -149,21 +144,41 @@ class JudgeResponse(BaseModel):
 ```
 
 **ポイント**:
-- `EvaluationScore`で1-5の評価スケールを型安全に管理
+- `score`フィールドは`int`型で1-5の制約を設定（Gemini APIとの互換性のため）
+- `JudgeRequest`に`request_parameters`フィールドを追加し、元のリクエスト要件との整合性を評価
 - `JudgeRequest`にオプションの`context`フィールドを持たせることでRAG評価にも対応
 - `is_passing()`メソッドで品質ゲーティング機能を提供
 
 #### 2. 評価プロンプト生成 (`src/prompt/llm_as_a_judge_prompt.py`)
 
-評価用のプロンプトを動的に生成します：
+各プロバイダーに最適化された評価プロンプトを生成します：
 
 ```python
-def make_judge_prompt(request: JudgeRequest) -> list:
-    """標準的な3基準評価プロンプトを生成"""
-    params = JudgeResponse.detailed_model()
-    param_dump = json.dumps(params, indent=2, ensure_ascii=False)
+def make_openai_judge_prompt(request: JudgeRequest) -> list:
+    """OpenAI用の標準的な3基準評価プロンプトを生成"""
+    # systemとuserロールを分離したOpenAI形式
+    return [
+        {"role": "system", "content": system_instruction},
+        {"role": "user", "content": evaluation_content}
+    ]
 
-    evaluation_content = f"""以下の質問と回答を評価してください。
+def make_gemini_judge_prompt(request: JudgeRequest) -> tuple[str, str]:
+    """Gemini用の標準的な3基準評価プロンプトを生成"""
+    # system_promptとuser_promptを分離したGemini形式
+    return system_prompt, user_prompt
+
+def make_anthropic_judge_prompt(request: JudgeRequest) -> list:
+    """Anthropic用の標準的な3基準評価プロンプトを生成"""
+    # userロールのみのAnthropic形式
+    return [
+        {"role": "user", "content": combined_content}
+    ]
+```
+
+評価内容の構築：
+
+```python
+evaluation_content = f"""以下の質問と回答を評価してください。
 
 【質問】
 {request.question}
@@ -172,42 +187,46 @@ def make_judge_prompt(request: JudgeRequest) -> list:
 {request.response}
 """
 
-    if request.context:
-        evaluation_content += f"""
+# リクエストパラメータを含める
+if request.request_parameters:
+    evaluation_content += f"""
+【リクエストパラメータ】
+{request.request_parameters}
+"""
+
+# 参照情報を含める（RAG評価用）
+if request.context:
+    evaluation_content += f"""
 【参照情報】
 {request.context}
 """
+```
 
-    return [
-        {
-            "role": "system",
-            "content": f"""あなたは優秀なレビュアーです。
-提示された質問と回答を読み、以下の評価軸について1から5の5段階で評価してください。
+**評価基準**:
+```
+1. 正確性 (accuracy):
+   - リクエストパラメータがある場合、その要件に忠実であるか
+   - 参照情報がある場合、その内容に忠実であるか
+   - 誤った情報やハルシネーションが含まれていないか
 
-【評価軸】
-1. 正確性 (accuracy): 回答が質問に対して正確かつ事実として正しいか
-2. 網羅性 (comprehensiveness): 質問に対して必要な情報が十分に含まれているか
-3. 明瞭さ (clarity): 回答が理解しやすく、適切な表現で書かれているか
+2. 網羅性 (comprehensiveness):
+   - リクエストパラメータで指定された要件をすべて満たしているか
+   - ユーザーの質問に直接答えているか
+   - 重要な情報が欠けていないか
 
-評価結果は以下のJSON構造で出力してください：
-{param_dump}
-"""
-        },
-        {
-            "role": "user",
-            "content": evaluation_content
-        }
-    ]
+3. 明瞭さ (clarity):
+   - 回答が理解しやすく、適切な表現で書かれているか
 ```
 
 **ポイント**:
-- 3つの標準評価基準（正確性、網羅性、明瞭さ）を定義
-- モデルから自動的にスキーマ情報を抽出してプロンプトに埋め込み
+- プロバイダーごとに最適化されたプロンプト形式を提供
+- リクエストパラメータを評価に含めることで、元の要件との整合性を検証
 - `context`がある場合は参照情報として含める（RAG評価用）
+- モデルから自動的にスキーマ情報を抽出してプロンプトに埋め込み
 
 #### 3. 評価サービス (`src/service/llm_as_a_judge.py`)
 
-OpenAIとGeminiを使った評価実装：
+3つのプロバイダーを使った評価実装：
 
 ```python
 async def judge_with_openai(
@@ -215,29 +234,28 @@ async def judge_with_openai(
     model: OpenAIModel,
 ) -> JudgeResponse:
     """OpenAIを使用して評価"""
-    prompt = make_judge_prompt(judge_request)
+    prompt = make_openai_judge_prompt(judge_request)
 
-    result = await openai_client.beta.chat.completions.parse(
+    result = await openai_client.responses.parse(
         model=model,
-        messages=prompt,
-        response_format=JudgeResponse,
-        temperature=0.0,  # 一貫した評価のため低温度
+        input=prompt,
+        text_format=JudgeResponse,
     )
 
-    return result.choices[0].message.parsed
+    return result.output_parsed
 
 async def judge_with_gemini(
     judge_request: JudgeRequest,
     model: GeminiModel,
 ) -> JudgeResponse:
     """Geminiを使用して評価"""
-    prompt = make_judge_prompt(judge_request)
+    system_prompt, user_prompt = make_gemini_judge_prompt(judge_request)
 
     result = await google_genai_client.aio.models.generate_content(
         model=model,
-        contents=prompt[-1]["content"],
+        contents=user_prompt,
         config=GenerateContentConfig(
-            system_instruction=prompt[0]["content"],
+            system_instruction=system_prompt,
             response_mime_type="application/json",
             response_schema=JudgeResponse,
             temperature=0.0,  # 一貫した評価のため低温度
@@ -245,12 +263,30 @@ async def judge_with_gemini(
     )
 
     return result.parsed
+
+async def judge_with_anthropic(
+    judge_request: JudgeRequest,
+    model: AnthropicModel,
+) -> JudgeResponse:
+    """Anthropicを使用して評価"""
+    prompt = make_anthropic_judge_prompt(judge_request)
+
+    result = await anthropic_client.beta.messages.parse(
+        model=model,
+        max_tokens=4096,
+        betas=["structured-outputs-2025-11-13"],
+        messages=prompt,
+        output_format=JudgeResponse,
+    )
+
+    return result.parsed_output
 ```
 
 **特徴**:
-- `temperature=0.0`で評価の一貫性を確保
+- 各プロバイダーに最適化されたプロンプト関数を使用
+- `temperature=0.0`で評価の一貫性を確保（Geminiのみ、他はプロバイダーのデフォルト）
 - 構造化出力により確実にJSONフォーマットで評価結果を取得
-- 両プロバイダーで同一のインターフェースを提供
+- 3つのプロバイダーで統一されたインターフェースを提供
 
 #### 4. 統合ワークフロー (`src/service/request_llm.py`)
 
@@ -258,10 +294,10 @@ async def judge_with_gemini(
 
 ```python
 async def request_with_judge(
-    prompt: list,
-    model: OpenAIModel | GeminiModel,
+    character_request: CharacterRequest,
+    model: OpenAIModel | GeminiModel | AnthropicModel,
     provider: str,
-    judge_model: OpenAIModel | GeminiModel | None = None,
+    judge_model: OpenAIModel | GeminiModel | AnthropicModel | None = None,
     judge_provider: str | None = None,
 ) -> tuple[CharacterResponse, JudgeResponse]:
     """
@@ -271,31 +307,46 @@ async def request_with_judge(
     - judge_modelとjudge_providerを指定すると異なるプロバイダーで評価
     - 指定しない場合は生成と同じモデル/プロバイダーで評価
     """
-    # ステップ1: キャラクター生成
-    if provider == "openai":
-        character_response = await request_openai(prompt=prompt, model=model)
-    elif provider == "gemini":
-        character_response = await request_gemini(prompt=prompt, model=model)
+    # ステップ1: プロンプト生成
+    prompt = make_prompt(character=character_request, provider=LLMProvider(provider))
 
-    # ステップ2: 評価リクエストの作成
+    # ステップ2: キャラクター生成
+    if provider == LLMProvider.OPENAI:
+        character_response = await request_openai(prompt=prompt, model=model)
+    elif provider == LLMProvider.GEMINI:
+        character_response = await request_gemini(prompt=prompt, model=model)
+    elif provider == LLMProvider.ANTHROPIC:
+        character_response = await request_anthropic(prompt=prompt, model=model)
+
+    # ステップ3: リクエストパラメータのフォーマット
+    request_params_str = f"""Gender: {character_request.gender.value}
+Age: {character_request.age}
+Additional Instructions: {character_request.additional_instructions or "None"}"""
+
+    # ステップ4: 評価リクエストの作成
     judge_request = JudgeRequest(
         question=user_prompt,
-        response=character_response.model_dump_json(indent=2),
-        context=None
+        response=character_response.model_dump_json(indent=2, ensure_ascii=False),
+        context=None,
+        request_parameters=request_params_str
     )
 
-    # ステップ3: 評価実行
-    if judge_provider == "openai":
+    # ステップ5: 評価実行
+    if judge_provider == LLMProvider.OPENAI:
         judge_response = await judge_with_openai(judge_request, judge_model)
-    elif judge_provider == "gemini":
+    elif judge_provider == LLMProvider.GEMINI:
         judge_response = await judge_with_gemini(judge_request, judge_model)
+    elif judge_provider == LLMProvider.ANTHROPIC:
+        judge_response = await judge_with_anthropic(judge_request, judge_model)
 
     return character_response, judge_response
 ```
 
 **ポイント**:
+- CharacterRequestを受け取り、内部でプロンプト生成を実行
+- リクエストパラメータを自動的にフォーマットして評価に含める
 - 生成と評価を1つの関数で完結
-- クロスプロバイダー評価をサポート
+- 3つのプロバイダーすべてでクロスプロバイダー評価をサポート
 - 生成結果をJSON化して評価リクエストに含める
 
 #### 5. CLI統合 (`src/main.py`)
@@ -304,23 +355,36 @@ async def request_with_judge(
 
 ```python
 @click.command()
-@click.option("--gender", "-g", ...)
-@click.option("--age", "-a", ...)
-@click.option("--llm-provider", "-lp", ...)
-@click.option("--model", "-m", ...)
-@click.option("--judge-provider", "-jp", required=False)  # オプション
-@click.option("--judge-model", "-jm", required=False)     # オプション
+@click.option("--gender", "-g", type=click.Choice(Gender), ...)
+@click.option("--age", "-a", type=click.IntRange(0, 100), ...)
+@click.option("--additional-instructions", "-ai", type=str, ...)
+@click.option("--llm-provider", "-lp", type=click.Choice(LLMProvider), ...)
+@click.option("--model", "-m",
+    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str() + AnthropicModel.list_str()),
+    ...)
+@click.option("--judge-provider", "-jp", type=click.Choice(LLMProvider), required=False)
+@click.option("--judge-model", "-jm",
+    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str() + AnthropicModel.list_str()),
+    required=False)
 async def main(
     gender: Gender,
     age: int,
+    additional_instructions: str,
     llm_provider: LLMProvider,
     model: str,
     judge_provider: LLMProvider | None = None,
     judge_model: str | None = None,
 ):
+    # CharacterRequestを作成
+    character_request = CharacterRequest(
+        gender=gender,
+        age=age,
+        additional_instructions=additional_instructions
+    )
+
     # 常にLLM-as-a-Judgeワークフローを使用
     character_result, judge_result = await request_with_judge(
-        prompt=prompt,
+        character_request=character_request,
         model=model,
         provider=llm_provider.value,
         judge_model=judge_model,
@@ -337,6 +401,8 @@ async def main(
 ```
 
 **特徴**:
+- 3つのプロバイダー（OpenAI、Gemini、Anthropic）すべてをサポート
+- CharacterRequestを直接渡すシンプルな設計
 - すべての実行で自動的に評価を実行
 - オプションで異なるプロバイダー/モデルを評価に使用可能
 - 品質閾値チェックと警告機能
@@ -347,6 +413,7 @@ async def main(
 
 - **Python**: 3.13.2以上
 - **依存ライブラリ**:
+  - anthropic>=0.42.0
   - click>=8.3.0
   - google-genai>=1.45.0
   - openai>=2.4.0
@@ -365,6 +432,7 @@ cp .envrc.example .envrc
 # .envrc
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
 GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
 ```
 
 2. **依存関係のインストール**
@@ -383,10 +451,13 @@ pip install -e .
 
 ```bash
 # Geminiで生成し、Geminiで評価
-uv run python -m src.main -g female -a 25 -lp gemini -m gemini-2.5-flash
+python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH
 
 # OpenAIで生成し、OpenAIで評価
-uv run python -m src.main -g female -a 25 -lp openai -m gpt-4o-mini
+python -m src.main -g FEMALE -a 25 -lp OPENAI -m GPT_4O_MINI
+
+# Anthropicで生成し、Anthropicで評価
+python -m src.main -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_SONNET_4_5
 ```
 
 #### クロスプロバイダー評価（推奨）
@@ -395,32 +466,38 @@ uv run python -m src.main -g female -a 25 -lp openai -m gpt-4o-mini
 
 ```bash
 # Geminiで生成、OpenAIで評価
-uv run python -m src.main \
-  -g female -a 25 \
-  -lp gemini -m gemini-2.5-flash \
-  -jp openai -jm gpt-4o-mini
+python -m src.main \
+  -g FEMALE -a 25 \
+  -lp GEMINI -m GEMINI_2_5_FLASH \
+  -jp OPENAI -jm GPT_4O_MINI
 
-# OpenAIで生成、Geminiで評価
-uv run python -m src.main \
-  -g male -a 40 \
-  -lp openai -m gpt-4o \
-  -jp gemini -jm gemini-2.5-pro
+# OpenAIで生成、Anthropicで評価
+python -m src.main \
+  -g MALE -a 40 \
+  -lp OPENAI -m GPT_4O \
+  -jp ANTHROPIC -jm CLAUDE_OPUS_4_1
+
+# Anthropicで生成、Geminiで評価
+python -m src.main \
+  -g FEMALE -a 30 \
+  -lp ANTHROPIC -m CLAUDE_SONNET_4_5 \
+  -jp GEMINI -jm GEMINI_2_5_PRO
 ```
 
 #### 追加指示の指定
 
 ```bash
-uv run python -m src.main \
-  -g female -a 30 \
-  -ai "SF小説の主人公として適したキャラクターを生成してください。" \
-  -lp gemini -m gemini-2.5-flash \
-  -jp openai -jm gpt-4o-mini
+python -m src.main \
+  -g FEMALE -a 30 \
+  -ai "mysterious artist" \
+  -lp GEMINI -m GEMINI_2_5_FLASH \
+  -jp OPENAI -jm GPT_4O_MINI
 ```
 
 #### ヘルプの表示
 
 ```bash
-uv run python -m src.main --help
+python -m src.main --help
 ```
 
 **出力例**:
@@ -428,18 +505,18 @@ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
 Options:
-  -g, --gender [FEMALE|MALE]      キャラクターの性別 [required]
-  -a, --age INTEGER RANGE         キャラクターの年齢 [0<=x<=100; required]
-  -ai, --additional-instructions TEXT
-                                  追加の生成指示
-  -lp, --llm-provider [OPENAI|GEMINI]
-                                  生成に使用するLLMプロバイダー [required]
-  -m, --model [...]               生成に使用するモデル [required]
-  -od, --output-directory PATH    出力ディレクトリ
-  -jp, --judge-provider [OPENAI|GEMINI]
-                                  評価に使用するLLMプロバイダー（省略時は生成と同じ）
-  -jm, --judge-model [...]        評価に使用するモデル（省略時は生成と同じ）
-  --help                          ヘルプを表示
+  -g, --gender [FEMALE|MALE]           キャラクターの性別 [required]
+  -a, --age INTEGER RANGE              キャラクターの年齢 [0<=x<=100; required]
+  -ai, --additional-instructions TEXT  追加の生成指示
+  -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
+                                       生成に使用するLLMプロバイダー [required]
+  -m, --model [GPT_5|GPT_5_MINI|...|CLAUDE_SONNET_4_5|CLAUDE_OPUS_4_1]
+                                       生成に使用するモデル [required]
+  -od, --output-directory PATH         出力ディレクトリ
+  -jp, --judge-provider [OPENAI|GEMINI|ANTHROPIC]
+                                       評価に使用するLLMプロバイダー（省略時は生成と同じ）
+  -jm, --judge-model [...]             評価に使用するモデル（省略時は生成と同じ）
+  --help                               ヘルプを表示
 ```
 
 ### 出力例
@@ -526,77 +603,4 @@ Output directory: outputs
 品質閾値を下回った場合の警告例：
 ```
 [2025-10-18 14:30:05] [WARNING] The generated character did not meet the quality threshold (3.0/5.0)
-```
-
-### テスト方法
-
-現在、このセクションにはユニットテストは含まれていません。手動テストは以下の方法で行います：
-
-#### 1. 基本機能のテスト
-
-```bash
-# 同じプロバイダーで生成と評価
-uv run python -m src.main -g female -a 25 -lp gemini -m gemini-2.5-flash -od test_outputs
-```
-
-期待される動作：
-- `test_outputs`ディレクトリが作成される
-- `gemini_character_XXXXXXXX.json`形式のファイルが生成される
-- `gemini_judge_XXXXXXXX.json`形式のファイルが生成される
-- 両方のJSONファイルが対応するスキーマに準拠している
-
-#### 2. クロスプロバイダー評価のテスト
-
-```bash
-# Geminiで生成、OpenAIで評価
-uv run python -m src.main \
-  -g male -a 30 \
-  -lp gemini -m gemini-2.5-flash \
-  -jp openai -jm gpt-4o-mini \
-  -od test_outputs
-```
-
-期待される動作：
-- キャラクターファイル: `gemini_character_XXXXXXXX.json`
-- 評価ファイル: `openai_judge_XXXXXXXX.json`
-- 評価ファイルのプレフィックスが評価プロバイダーと一致
-
-#### 3. 評価結果の検証
-
-生成された評価結果が正しい構造を持っているか確認：
-
-```bash
-# jqを使用してJSONを検証
-cat test_outputs/openai_judge_*.json | jq .
-
-# Pythonで評価結果を読み込みテスト
-python -c "
-from src.model.llm_as_a_judge_model import JudgeResponse
-import json
-import glob
-
-judge_file = glob.glob('test_outputs/*_judge_*.json')[0]
-with open(judge_file) as f:
-    data = json.load(f)
-    judge_response = JudgeResponse(**data)
-    print(f'Overall Score: {judge_response.overall_score:.2f}/5.0')
-    print(f'Passing: {judge_response.is_passing()}')
-    for eval in judge_response.evaluations:
-        print(f'  {eval.criterion_name}: {eval.score}/5')
-"
-```
-
-#### 4. 異なる組み合わせのテスト
-
-推奨されるクロスプロバイダー組み合わせをテスト：
-
-```bash
-# パターン1: Gemini Flash → GPT-4o Mini
-uv run python -m src.main -g female -a 25 -lp gemini -m gemini-2.5-flash -jp openai -jm gpt-4o-mini
-
-# パターン2: GPT-4o → Gemini Pro
-uv run python -m src.main -g male -a 40 -lp openai -m gpt-4o -jp gemini -jm gemini-2.5-pro
-
-# パターン3: Gemini Pro → GPT-4o
-uv run python -m src.main -g female -a 30 -lp gemini -m gemini-2.5-pro -jp openai -jm gpt-4o
 ```

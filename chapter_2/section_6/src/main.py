@@ -5,9 +5,9 @@ from uuid import uuid4
 
 import click
 
-from src.client.llm_client import GeminiModel, LLMProvider, OpenAIModel
+from src.client.llm_client import OpenAIModel
 from src.logger import make_logger
-from src.service import request_gemini, request_openai
+from src.service import request_openai
 
 logger = make_logger(__name__)
 
@@ -22,19 +22,12 @@ def async_cmd(func):
 
 @click.command()
 @click.option(
-    "--llm-provider",
-    "-lp",
-    type=click.Choice(LLMProvider),
-    required=True,
-    default=LLMProvider.GEMINI,
-    help="The LLM provider to use.",
-)
-@click.option(
     "--model",
     "-m",
-    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str()),
+    type=click.Choice(OpenAIModel.list_str()),
     required=True,
-    help="The model to use for the request.",
+    default=OpenAIModel.GPT_4O,
+    help="The OpenAI model to use for the request.",
 )
 @click.option(
     "--output-directory",
@@ -46,29 +39,20 @@ def async_cmd(func):
 )
 @async_cmd
 async def main(
-    llm_provider: LLMProvider,
     model: str,
     output_directory: str = "outputs",
 ):
-    logger.info(f"""LLM provider: {llm_provider.value}
-Model: {model}
+    logger.info(f"""Model: {model}
 Output directory: {output_directory}""")
 
-    if llm_provider == LLMProvider.OPENAI and model not in OpenAIModel.list_str():
-        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
-    if llm_provider == LLMProvider.GEMINI and model not in GeminiModel.list_str():
-        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
+    if model not in OpenAIModel.list_str():
+        raise ValueError(f"Invalid model '{model}'. Must be one of {OpenAIModel.list_str()}")
 
     os.makedirs(output_directory, exist_ok=True)
 
-    if llm_provider == LLMProvider.OPENAI:
-        result = await request_openai(model=model)
-    elif llm_provider == LLMProvider.GEMINI:
-        result = await request_gemini(model=model)
-    else:
-        raise ValueError(f"Unsupported LLM provider: {llm_provider.value}")
+    result = await request_openai(model=model)
 
-    file_name = f"{llm_provider.value}_{uuid4().hex}.json"
+    file_name = f"openai_{uuid4().hex}.json"
     file_path = os.path.join(output_directory, file_name)
     result.save_as_json(file_path)
     logger.info(f"""File saved to {file_path}""")

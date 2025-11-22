@@ -635,7 +635,6 @@ version = "0.1.0"
 source = { virtual = "chapter_2/section_6" }
 dependencies = [
     { name = "click" },
-    { name = "google-genai" },
     { name = "jinja2" },
     { name = "openai" },
     { name = "pydantic" },
@@ -653,7 +652,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.3.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "openai", specifier = ">=2.4.0" },
     { name = "pydantic", specifier = ">=2.12.2" },
@@ -673,6 +671,7 @@ name = "chapter-2-section-7"
 version = "0.1.0"
 source = { virtual = "chapter_2/section_7" }
 dependencies = [
+    { name = "anthropic" },
     { name = "click" },
     { name = "google-genai" },
     { name = "openai" },
@@ -690,6 +689,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", specifier = ">=0.73.0" },
     { name = "click", specifier = ">=8.3.0" },
     { name = "google-genai", specifier = ">=1.45.0" },
     { name = "openai", specifier = ">=2.4.0" },
