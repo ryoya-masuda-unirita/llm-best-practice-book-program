@@ -42,6 +42,7 @@ class JudgeRequest(BaseModel):
     question: str = Field(..., description="The original question or prompt.")
     response: str = Field(..., description="The response to be evaluated.")
     context: str | None = Field(None, description="Optional context or source material for evaluation.")
+    request_parameters: str | None = Field(None, description="Optional request parameters for evaluation.")
 
 
 class JudgeResponse(BaseModel):

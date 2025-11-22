@@ -710,6 +710,7 @@ name = "chapter-2-section-8"
 version = "0.1.0"
 source = { virtual = "chapter_2/section_8" }
 dependencies = [
+    { name = "anthropic" },
     { name = "click" },
     { name = "google-genai" },
     { name = "openai" },
@@ -726,6 +727,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", specifier = ">=0.73.0" },
     { name = "click", specifier = ">=8.3.0" },
     { name = "google-genai", specifier = ">=1.45.0" },
     { name = "openai", specifier = ">=2.4.0" },

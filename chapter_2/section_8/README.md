@@ -15,7 +15,7 @@
 - **プロンプトユニットテスト**: pytestベースの体系的なプロンプト品質検証
 - **LLM-as-a-Judge**: 別のLLMを用いた自動品質評価システム
 - **構造化出力**: PydanticモデルによるAPI応答形式の型安全性保証
-- **マルチプロバイダー対応**: OpenAIとGoogle Gemini APIの両方をサポート
+- **マルチプロバイダー対応**: OpenAI、Google Gemini、Anthropic APIの3つのプロバイダーをサポート
 - **品質スコアリング**: 5段階評価による定量的な品質測定
 
 ### テスト機能
@@ -100,7 +100,7 @@ chapter_2/section_8/
 │      Infrastructure Layer                       │
 │  - 設定管理 (config.py)                         │
 │  - ログ管理 (logger.py)                         │
-│  - 外部API (OpenAI, Gemini)                     │
+│  - 外部API (OpenAI, Gemini, Anthropic)          │
 └─────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────┐
@@ -226,37 +226,64 @@ async def judge_with_openai(
     model: OpenAIModel
 ) -> JudgeResponse:
     """OpenAI APIを使用してLLM-as-a-Judge評価を実行"""
-    prompt = make_judge_prompt(judge_request)
+    prompt = make_openai_judge_prompt(judge_request)
 
-    result = await openai_client.beta.chat.completions.parse(
+    result = await openai_client.responses.parse(
         model=model,
-        messages=prompt,
-        response_format=JudgeResponse,
-        temperature=0.0,  # 評価は一貫性を重視
+        input=prompt,
+        text_format=JudgeResponse,
     )
-    return result.choices[0].message.parsed
+    return result.output_parsed
 
 async def judge_with_gemini(
     judge_request: JudgeRequest,
     model: GeminiModel
 ) -> JudgeResponse:
     """Gemini APIを使用してLLM-as-a-Judge評価を実行"""
-    ...
+    system_prompt, user_prompt = make_gemini_judge_prompt(judge_request)
+
+    result = await google_genai_client.aio.models.generate_content(
+        model=model,
+        contents=user_prompt,
+        config=GenerateContentConfig(
+            system_instruction=system_prompt,
+            response_mime_type="application/json",
+            response_schema=JudgeResponse,
+            temperature=0.0,
+        ),
+    )
+    return result.parsed
+
+async def judge_with_anthropic(
+    judge_request: JudgeRequest,
+    model: AnthropicModel
+) -> JudgeResponse:
+    """Anthropic APIを使用してLLM-as-a-Judge評価を実行"""
+    prompt = make_anthropic_judge_prompt(judge_request)
+
+    result = await anthropic_client.beta.messages.parse(
+        model=model,
+        max_tokens=4096,
+        betas=["structured-outputs-2025-11-13"],
+        messages=prompt,
+        output_format=JudgeResponse,
+    )
+    return result.parsed_output
 ```
 
 **特徴**:
-- `temperature=0.0`で評価の一貫性を確保
+- `temperature=0.0`で評価の一貫性を確保（Geminiのみ設定可能）
 - 構造化出力で評価結果を確実にパース
-- マルチプロバイダー対応で柔軟な評価環境を提供
+- マルチプロバイダー対応（OpenAI、Gemini、Anthropic）で柔軟な評価環境を提供
 
 #### 4. 統合ワークフロー (`src/service/request_llm.py`)
 
 ```python
 async def request_with_judge(
-    prompt: list,
-    model: OpenAIModel | GeminiModel,
+    character_request: CharacterRequest,
+    model: OpenAIModel | GeminiModel | AnthropicModel,
     provider: str,
-    judge_model: OpenAIModel | GeminiModel | None = None,
+    judge_model: OpenAIModel | GeminiModel | AnthropicModel | None = None,
     judge_provider: str | None = None,
 ) -> tuple[CharacterResponse, JudgeResponse]:
     """
@@ -392,6 +419,7 @@ cp .envrc.example .envrc
 # .envrc
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
 GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
 ```
 
 2. **依存関係のインストール**
@@ -414,10 +442,10 @@ pip install -e ".[dev]"  # テスト用依存関係も含む
 ##### 基本的な使い方
 
 ```bash
-# Gemini APIを使用（デフォルト）
+# Gemini APIを使用
 uv run python -m src.main \
     --llm-provider gemini \
-    --model gemini-2.0-flash-exp \
+    --model gemini-2.5-flash \
     --gender female \
     --age 25
 
@@ -427,6 +455,13 @@ uv run python -m src.main \
     --model gpt-4o-mini \
     --gender male \
     --age 30
+
+# Anthropic APIを使用
+uv run python -m src.main \
+    --llm-provider anthropic \
+    --model claude-sonnet-4-5 \
+    --gender female \
+    --age 28
 ```
 
 ##### 追加指示を指定
@@ -443,14 +478,14 @@ uv run python -m src.main \
 ##### 異なるモデルで評価
 
 ```bash
-# gpt-4o-miniで生成し、gpt-4oで評価
+# gpt-4o-miniで生成し、claude-sonnet-4-5で評価
 uv run python -m src.main \
     -lp openai \
     -m gpt-4o-mini \
     -g female \
     -a 25 \
-    --judge-provider openai \
-    --judge-model gpt-4o
+    --judge-provider anthropic \
+    --judge-model claude-sonnet-4-5
 ```
 
 ##### 出力先の指定
@@ -458,7 +493,7 @@ uv run python -m src.main \
 ```bash
 uv run python -m src.main \
     -lp gemini \
-    -m gemini-2.0-flash-exp \
+    -m gemini-2.5-flash \
     -g male \
     -a 40 \
     --output-directory ./custom_output
@@ -473,17 +508,15 @@ uv run python -m src.main --help
 **出力例**:
 ```
 Options:
-  -g, --gender [female|male]              The gender of the character to generate.
-  -a, --age INTEGER RANGE                 The age of the character to generate.  [0<=x<=100]
-  -ai, --additional-instructions TEXT     Additional instructions for character generation.
-  -lp, --llm-provider [openai|gemini]     The LLM provider to use.
-  -m, --model [gpt-4o-mini|gpt-4o|gemini-2.0-flash-exp|gemini-2.5-flash]
-                                          The model to use for the request.
-  -od, --output-directory PATH            The directory to save output files.
-  -jp, --judge-provider [openai|gemini]   The LLM provider to use for judgment.
-  -jm, --judge-model [gpt-4o-mini|gpt-4o|gemini-2.0-flash-exp|gemini-2.5-flash]
-                                          The model to use for judgment.
-  --help                                  Show this message and exit.
+  -g, --gender [female|male]                    The gender of the character to generate.
+  -a, --age INTEGER RANGE                       The age of the character to generate.  [0<=x<=100]
+  -ai, --additional-instructions TEXT           Additional instructions for character generation.
+  -lp, --llm-provider [openai|gemini|anthropic] The LLM provider to use.
+  -m, --model TEXT                              The model to use for the request.
+  -od, --output-directory PATH                  The directory to save output files.
+  -jp, --judge-provider [openai|gemini|anthropic] The LLM provider to use for judgment.
+  -jm, --judge-model TEXT                       The model to use for judgment.
+  --help                                        Show this message and exit.
 ```
 
 #### テストの実行
@@ -655,130 +688,3 @@ tests/test_prompt_unit_testing.py::TestRegressionDetection::test_output_is_valid
 
 ============================== 25 passed in 2.45s ===============================
 ```
-
-### テスト方法
-
-このプロジェクトでは、複数のタイプのテストを実装しています：
-
-#### 1. プロンプト構造検証テスト
-
-プロンプトが正しい構造を持つことを検証します：
-
-```bash
-uv run pytest tests/test_prompt_unit_testing.py::TestCharacterPromptStructure -v
-```
-
-**検証内容**:
-- 必須フィールド（first_name, last_name, gender, age, personalities）の存在
-- 性格特性の数（3個）の指定
-- JSON形式の要求
-- リクエストパラメータの反映
-
-#### 2. 出力品質テスト
-
-LLM-as-a-Judgeを使用して、生成された出力が品質基準を満たすことを検証します：
-
-```bash
-uv run pytest tests/test_prompt_unit_testing.py::TestCharacterOutputQuality -v
-```
-
-**検証内容**:
-- 品質閾値（3.0/5.0）を超えているか
-- 良好な品質スコア（4.0以上）を達成しているか
-- 低品質な出力が正しく検出されるか
-
-#### 3. リグレッション検出テスト
-
-プロンプト変更による品質劣化を検出します：
-
-```bash
-uv run pytest tests/test_prompt_unit_testing.py::TestRegressionDetection -v
-```
-
-**検証内容**:
-- すべての必須フィールドが出力に含まれているか
-- 性格特性に短い説明と詳細説明の両方があるか
-- 出力が有効なJSON形式でシリアライズ可能か
-- 生成された名前が空でないか
-- 年齢と性別が要求通りか
-
-**重要**: これらのテストが失敗した場合、プロンプトの変更により意図しない品質劣化が発生している可能性があります。
-
-#### 4. 代表的入力テスト
-
-最も重要な3-5個のユースケースをテストします：
-
-```bash
-uv run pytest tests/test_prompt_unit_testing.py::TestRepresentativeInputs -v
-```
-
-**テストケース**:
-1. 若い女性ファンタジーキャラクター（主要ユースケース）
-2. 高齢男性現実的キャラクター（異なる人口統計）
-3. 追加指示なしの若い成人（最小入力）
-
-#### 5. Judge機能テスト
-
-LLM-as-a-Judgeの機能自体をテストします：
-
-```bash
-uv run pytest tests/test_llm_as_a_judge.py -v
-```
-
-**検証内容**:
-- JudgeRequestとJudgeResponseの構造
-- 評価スコアの値
-- 品質閾値判定
-- OpenAI/Gemini両方のJudge実装
-- カスタム評価基準のサポート
-
-#### 6. CI/CDへの統合
-
-プロンプトのユニットテストをCI/CDパイプラインに統合する例：
-
-```yaml
-# .github/workflows/test.yml
-name: Prompt Unit Tests
-
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: '3.13'
-      - name: Install uv
-        run: pip install uv
-      - name: Install dependencies
-        run: uv sync
-      - name: Run tests
-        run: uv run pytest -v -k "not test_full_generation" --tb=short
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-```
-
-#### テストのベストプラクティス
-
-1. **最初は3-5個の代表的なケースから始める**
-   - すべてのケースを網羅しようとしない
-   - 最も重要なユースケースに焦点を当てる
-
-2. **モックを活用してコストを削減**
-   - API呼び出しを伴わないテストには`conftest.py`のフィクスチャを使用
-   - 実際のAPI呼び出しは`@pytest.mark.skip`でスキップ
-
-3. **リグレッションテストを継続的に実行**
-   - プロンプト変更時には必ずテストを実行
-   - CI/CDパイプラインに統合
-
-4. **品質閾値を明確に定義**
-   - `is_passing(threshold=3.0)`で最低品質基準を設定
-   - プロジェクトの要件に応じて閾値を調整
-
-5. **テスト結果を記録**
-   - 失敗したテストは、プロンプト改善の機会
-   - 品質スコアの推移を追跡

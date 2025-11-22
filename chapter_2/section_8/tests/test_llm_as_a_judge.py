@@ -132,10 +132,9 @@ class TestJudgeService:
         """Test judging with OpenAI."""
         # Mock the OpenAI API response
         mock_result = mocker.AsyncMock()
-        mock_result.choices = [mocker.AsyncMock()]
-        mock_result.choices[0].message.parsed = sample_judge_response
+        mock_result.output_parsed = sample_judge_response
 
-        mock_parse = mocker.patch("src.service.llm_as_a_judge.openai_client.beta.chat.completions.parse")
+        mock_parse = mocker.patch("src.service.llm_as_a_judge.openai_client.responses.parse")
         mock_parse.return_value = mock_result
 
         result = await judge_with_openai(

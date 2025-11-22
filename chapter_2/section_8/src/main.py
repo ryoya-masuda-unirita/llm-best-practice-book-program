@@ -5,11 +5,10 @@ from uuid import uuid4
 
 import click
 
-from src.client.llm_client import GeminiModel, LLMProvider, OpenAIModel
+from src.client.llm_client import AnthropicModel, GeminiModel, LLMProvider, OpenAIModel
 from src.logger import make_logger
 from src.model.model import CharacterRequest, Gender
-from src.prompt.prompt import make_prompt
-from src.service import request_with_judge
+from src.service.request_llm import request_with_judge
 
 logger = make_logger(__name__)
 
@@ -58,7 +57,7 @@ def async_cmd(func):
 @click.option(
     "--model",
     "-m",
-    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str()),
+    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str() + AnthropicModel.list_str()),
     required=True,
     help="The model to use for the request.",
 )
@@ -80,7 +79,7 @@ def async_cmd(func):
 @click.option(
     "--judge-model",
     "-jm",
-    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str()),
+    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str() + AnthropicModel.list_str()),
     required=False,
     help="The model to use for judgment (defaults to same as generation model).",
 )
@@ -113,6 +112,8 @@ Output directory: {output_directory}""")
         raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
     if llm_provider == LLMProvider.GEMINI and model not in GeminiModel.list_str():
         raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
+    if llm_provider == LLMProvider.ANTHROPIC and model not in AnthropicModel.list_str():
+        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
 
     # Validate judge model if specified
     if judge_provider and judge_model:
@@ -120,15 +121,16 @@ Output directory: {output_directory}""")
             raise ValueError(f"Invalid judge model '{judge_model}' for provider '{judge_provider.value}'.")
         if judge_provider == LLMProvider.GEMINI and judge_model not in GeminiModel.list_str():
             raise ValueError(f"Invalid judge model '{judge_model}' for provider '{judge_provider.value}'.")
+        if judge_provider == LLMProvider.ANTHROPIC and judge_model not in AnthropicModel.list_str():
+            raise ValueError(f"Invalid judge model '{judge_model}' for provider '{judge_provider.value}'.")
 
     os.makedirs(output_directory, exist_ok=True)
 
     character_request = CharacterRequest(gender=gender, age=age, additional_instructions=additional_instructions)
-    prompt = make_prompt(character_request=character_request)
 
     # Always use LLM-as-a-Judge workflow
     character_result, judge_result = await request_with_judge(
-        prompt=prompt,
+        character_request=character_request,
         model=model,
         provider=llm_provider.value,
         judge_model=judge_model,

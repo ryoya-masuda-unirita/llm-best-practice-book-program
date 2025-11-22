@@ -56,10 +56,11 @@ class TestCharacterPromptStructure:
     def test_prompt_includes_request_parameters(self, sample_character_request: CharacterRequest):
         """Test that prompt includes user-specified parameters."""
         prompt = make_prompt(sample_character_request)
-        user_content = prompt[1]["content"]
+        # In section_7 format, parameters are in the system message
+        system_content = prompt[0]["content"]
 
-        assert sample_character_request.gender.value in user_content
-        assert str(sample_character_request.age) in user_content
+        assert sample_character_request.gender.value in system_content
+        assert str(sample_character_request.age) in system_content
 
 
 class TestCharacterOutputQuality:
@@ -150,8 +151,9 @@ class TestRepresentativeInputs:
 
         # Verify prompt structure
         assert len(prompt) == 2
-        assert "female" in prompt[1]["content"]
-        assert "25" in prompt[1]["content"]
+        # In section_7 format, parameters are in the system message
+        assert "female" in prompt[0]["content"]
+        assert "25" in prompt[0]["content"]
 
     @pytest.mark.asyncio
     async def test_elderly_male_realistic_character(self):
@@ -163,9 +165,10 @@ class TestRepresentativeInputs:
         )
         prompt = make_prompt(request)
 
-        user_content = prompt[1]["content"]
-        assert "male" in user_content
-        assert "75" in user_content
+        # In section_7 format, parameters are in the system message
+        system_content = prompt[0]["content"]
+        assert "male" in system_content
+        assert "75" in system_content
 
     @pytest.mark.asyncio
     async def test_young_adult_no_additional_instructions(self):
@@ -327,11 +330,9 @@ class TestEndToEndWithJudge:
             additional_instructions="Generate a wizard from a fantasy world.",
         )
 
-        prompt = make_prompt(request)
-
-        # Generate and evaluate
+        # Generate and evaluate (using updated API)
         character_response, judge_response = await request_with_judge(
-            prompt=prompt,
+            character_request=request,
             model=OpenAIModel.GPT_4O_MINI,
             provider="openai",
         )
@@ -361,11 +362,9 @@ class TestEndToEndWithJudge:
             additional_instructions="Generate a retired teacher from the modern world.",
         )
 
-        prompt = make_prompt(request)
-
-        # Generate and evaluate
+        # Generate and evaluate (using updated API)
         character_response, judge_response = await request_with_judge(
-            prompt=prompt,
+            character_request=request,
             model=OpenAIModel.GPT_4O_MINI,
             provider="openai",
         )
@@ -402,11 +401,9 @@ class TestEndToEndWithJudge:
             additional_instructions="",  # Empty instructions
         )
 
-        prompt = make_prompt(request)
-
-        # Generate and evaluate
+        # Generate and evaluate (using updated API)
         character_response, judge_response = await request_with_judge(
-            prompt=prompt,
+            character_request=request,
             model=OpenAIModel.GPT_4O_MINI,
             provider="openai",
         )
