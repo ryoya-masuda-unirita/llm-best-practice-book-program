@@ -1,16 +1,46 @@
 import asyncio
 from typing import AsyncIterator
 
-from google.genai.types import GenerateContentConfig
-from src.client.llm_client import google_genai_client, openai_client
+from src.client.llm_client import OpenAIModel, openai_client
 from src.logger import make_logger
 
 logger = make_logger(__name__)
 
 
+async def get_openai_response(
+    prompt: str,
+    model: str = OpenAIModel.GPT_4O_MINI,
+) -> str:
+    """
+    OpenAI APIから非ストリーミングで応答を取得する非同期関数
+
+    Args:
+        prompt: ユーザーのプロンプト
+        model: 使用するOpenAIモデル
+
+    Returns:
+        生成されたテキスト全体
+
+    Raises:
+        Exception: OpenAI API呼び出しでエラーが発生した場合
+    """
+    try:
+        response = await openai_client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            stream=False,
+        )
+
+        return response.choices[0].message.content or ""
+
+    except Exception as e:
+        logger.error(f"Error in OpenAI non-streaming: {e}")
+        raise
+
+
 async def stream_openai_response(
     prompt: str,
-    model: str = "gpt-4o-mini",
+    model: str = OpenAIModel.GPT_4O_MINI,
 ) -> AsyncIterator[str]:
     """
     OpenAI APIからストリーミングで応答を取得する非同期ジェネレータ
@@ -27,7 +57,6 @@ async def stream_openai_response(
             model=model,
             messages=[{"role": "user", "content": prompt}],
             stream=True,
-            temperature=1.0,
         )
 
         async for chunk in stream:
@@ -39,44 +68,4 @@ async def stream_openai_response(
 
     except Exception as e:
         logger.error(f"Error in OpenAI streaming: {e}")
-        yield f"data: [ERROR] {str(e)}\n\n"
-
-
-async def stream_gemini_response(
-    prompt: str,
-    model: str = "gemini-2.5-flash",
-    system_instruction: str | None = None,
-) -> AsyncIterator[str]:
-    """
-    Gemini APIからストリーミングで応答を取得する非同期ジェネレータ
-
-    Args:
-        prompt: ユーザーのプロンプト
-        model: 使用するGeminiモデル
-        system_instruction: システム命令（オプション）
-
-    Yields:
-        生成されたテキストのチャンク
-    """
-    try:
-        config = GenerateContentConfig(temperature=2.0)
-
-        if system_instruction:
-            config = GenerateContentConfig(
-                system_instruction=system_instruction,
-                temperature=2.0,
-            )
-
-        response = google_genai_client.models.generate_content_stream(
-            model=model,
-            contents=prompt,
-            config=config,
-        )
-
-        for chunk in response:
-            if chunk.text:
-                yield chunk.text
-
-    except Exception as e:
-        logger.error(f"Error in Gemini streaming: {e}")
         yield f"data: [ERROR] {str(e)}\n\n"

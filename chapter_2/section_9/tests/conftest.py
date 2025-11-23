@@ -47,29 +47,6 @@ def mock_openai_client():
 
 
 @pytest.fixture
-def mock_gemini_client():
-    """Mock Gemini client for testing."""
-    mock_client = Mock()
-
-    # Mock chunk structure
-    class MockChunk:
-        def __init__(self, text):
-            self.text = text
-
-    # Set up iteration
-    def mock_iter():
-        for text in ["こんにちは", "世界"]:
-            yield MockChunk(text)
-
-    mock_response = Mock()
-    mock_response.__iter__ = lambda self: mock_iter()
-
-    mock_client.models.generate_content_stream.return_value = mock_response
-
-    return mock_client
-
-
-@pytest.fixture
 def mock_openai_client_with_error():
     """Mock OpenAI client that raises an error."""
     mock_client = Mock()
@@ -83,26 +60,12 @@ def mock_openai_client_with_error():
 
 
 @pytest.fixture
-def mock_gemini_client_with_error():
-    """Mock Gemini client that raises an error."""
-    mock_client = Mock()
-
-    def mock_generate(*args, **kwargs):
-        raise Exception("Gemini API error")
-
-    mock_client.models.generate_content_stream = mock_generate
-
-    return mock_client
-
-
-@pytest.fixture
 def sample_stream_request():
     """Sample streaming request data."""
     return {
         "prompt": "Hello, world!",
-        "provider": "gemini",
+        "provider": "openai",
         "model": None,
-        "system_instruction": None,
     }
 
 
@@ -113,16 +76,4 @@ def sample_openai_request():
         "prompt": "What is AI?",
         "provider": "openai",
         "model": "gpt-4o-mini",
-        "system_instruction": None,
-    }
-
-
-@pytest.fixture
-def sample_gemini_request():
-    """Sample Gemini request data."""
-    return {
-        "prompt": "こんにちは",
-        "provider": "gemini",
-        "model": "gemini-2.5-flash",
-        "system_instruction": "You are a helpful assistant",
     }

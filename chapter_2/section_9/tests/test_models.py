@@ -2,7 +2,7 @@
 
 import pytest
 from pydantic import ValidationError
-from src.client.llm_client import GeminiModel, LLMProvider, OpenAIModel
+from src.client.llm_client import LLMProvider, OpenAIModel
 from src.model.model import HealthResponse, StreamRequest
 
 
@@ -15,23 +15,16 @@ class TestStreamRequest:
         request = StreamRequest(prompt="Hello")
 
         assert request.prompt == "Hello"
-        assert request.provider == LLMProvider.GEMINI
+        assert request.provider == LLMProvider.OPENAI
         assert request.model is None
-        assert request.system_instruction is None
 
-    @pytest.mark.parametrize(
-        "provider,expected",
-        [
-            ("openai", LLMProvider.OPENAI),
-            ("gemini", LLMProvider.GEMINI),
-            (LLMProvider.OPENAI, LLMProvider.OPENAI),
-            (LLMProvider.GEMINI, LLMProvider.GEMINI),
-        ],
-    )
-    def test_valid_providers(self, provider, expected):
-        """Test various valid provider formats."""
-        request = StreamRequest(prompt="Test", provider=provider)
-        assert request.provider == expected
+    def test_valid_openai_provider(self):
+        """Test OpenAI provider."""
+        request = StreamRequest(prompt="Test", provider="openai")
+        assert request.provider == LLMProvider.OPENAI
+
+        request = StreamRequest(prompt="Test", provider=LLMProvider.OPENAI)
+        assert request.provider == LLMProvider.OPENAI
 
     @pytest.mark.parametrize(
         "model",
@@ -50,34 +43,6 @@ class TestStreamRequest:
             model=model,
         )
         assert request.model is not None
-
-    @pytest.mark.parametrize(
-        "model",
-        [
-            "gemini-2.5-flash",
-            "gemini-2.5-pro",
-            GeminiModel.GEMINI_2_5_FLASH,
-            GeminiModel.GEMINI_2_5_PRO,
-        ],
-    )
-    def test_valid_gemini_models(self, model):
-        """Test various valid Gemini model formats."""
-        request = StreamRequest(
-            prompt="Test",
-            provider=LLMProvider.GEMINI,
-            model=model,
-        )
-        assert request.model is not None
-
-    def test_with_system_instruction(self):
-        """Test request with system instruction."""
-        request = StreamRequest(
-            prompt="Hello",
-            provider=LLMProvider.GEMINI,
-            system_instruction="You are a helpful assistant",
-        )
-
-        assert request.system_instruction == "You are a helpful assistant"
 
     def test_empty_prompt_raises_error(self):
         """Test that empty prompt raises validation error."""
@@ -139,7 +104,6 @@ class TestStreamRequest:
             prompt="Hello",
             provider=LLMProvider.OPENAI,
             model="gpt-4o",
-            system_instruction="Be concise",
         )
 
         data = request.model_dump()
@@ -147,7 +111,6 @@ class TestStreamRequest:
         assert data["prompt"] == "Hello"
         assert data["provider"] == "openai"
         assert data["model"] == "gpt-4o"
-        assert data["system_instruction"] == "Be concise"
 
     def test_model_json_output(self):
         """Test model_dump_json output."""
@@ -156,7 +119,7 @@ class TestStreamRequest:
 
         assert isinstance(json_str, str)
         assert "Test" in json_str
-        assert "gemini" in json_str
+        assert "openai" in json_str
 
 
 @pytest.mark.unit

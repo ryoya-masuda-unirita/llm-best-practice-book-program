@@ -1,29 +1,33 @@
-# Chapter 2 Section 5: LLMストリーミングレスポンスの実装
+# Chapter 2 Section 9: LLMストリーミング・非ストリーミングレスポンスの実装
 
 ## 概要
 
-このプロジェクトは、**FastAPI**を使用したLLM（大規模言語モデル）の**ストリーミングレスポンス**実装を示すサンプルコードです。OpenAI GPT-4o-miniとGoogle Gemini 2.5 Flashの両方に対応し、Server-Sent Events (SSE)形式でリアルタイムにテキスト生成結果をクライアントに配信します。
+このプロジェクトは、**FastAPI**を使用したLLM（大規模言語モデル）の**ストリーミング・非ストリーミングレスポンス**実装を示すサンプルコードです。OpenAI GPT-4o-miniに対応し、以下の2つのモードでテキスト生成結果をクライアントに配信します：
 
-ストリーミング機能により、ユーザーは完全な応答を待つことなく、生成されたテキストを逐次的に受け取ることができ、より良いユーザーエクスペリエンスを提供できます。
+- **ストリーミングモード**: Server-Sent Events (SSE)形式でリアルタイムにテキストを配信
+- **非ストリーミングモード**: 完全な応答を一度に返す従来型のレスポンス
+
+ストリーミング機能により、ユーザーは完全な応答を待つことなく、生成されたテキストを逐次的に受け取ることができ、より良いユーザーエクスペリエンスを提供できます。一方、非ストリーミングモードは、完全な応答が必要な場合や、シンプルな実装が求められる場合に適しています。
 
 ## 機能
 
 - **ストリーミングレスポンス**: Server-Sent Events (SSE)形式でリアルタイムにテキストを配信
+- **非ストリーミングレスポンス**: 完全な応答を一度に返すJSONレスポンス
 - **FastAPI統合**: 高性能な非同期WebフレームワークによるAPI実装
-- **マルチプロバイダー対応**: OpenAIとGoogle Gemini APIの両方をサポート
-- **複数のエンドポイント**: 統合エンドポイントとプロバイダー専用エンドポイントを提供
-- **非同期処理**: async/awaitパターンによる効率的なストリーミング処理
+- **OpenAI API対応**: GPT-4o-mini, GPT-4oなどのOpenAIモデルをサポート
+- **複数のエンドポイント**: ストリーミング (`/stream`) と非ストリーミング (`/completions`) を提供
+- **非同期処理**: async/awaitパターンによる効率的な処理
 - **CORS対応**: クロスオリジンリクエストのサポート
 - **エラーハンドリング**: 堅牢なエラー処理とロギング
-- **テストクライアント**: ストリーミングAPIをテストするためのCLIツール
-- **使用例**: さまざまなユースケースを示すサンプルコード
+- **統合テストクライアント**: ストリーミング・非ストリーミング両方をサポートするCLIツール
+- **包括的なテスト**: pytestによるユニットテスト・統合テスト
 
 ## プロジェクト構成
 
 ### ディレクトリ構成
 
 ```
-chapter_2/section_5/
+chapter_2/section_9/
 ├── src/
 │   ├── __init__.py              # パッケージ初期化
 │   ├── config.py                # 設定管理（API キー読み込み）
@@ -33,7 +37,7 @@ chapter_2/section_5/
 │   │   └── app.py               # FastAPIアプリケーション（メインAPI）
 │   ├── service/
 │   │   ├── __init__.py
-│   │   └── streaming_service.py # ストリーミングロジック
+│   │   └── streaming_service.py # ストリーミング・非ストリーミングロジック
 │   ├── client/
 │   │   ├── __init__.py
 │   │   └── llm_client.py        # LLMクライアント初期化
@@ -47,14 +51,11 @@ chapter_2/section_5/
 │   ├── test_models.py           # データモデルのテスト
 │   └── test_streaming_service.py # ストリーミングサービスのテスト
 ├── .envrc.example               # 環境変数設定のサンプル
-├── __init__.py                  # パッケージルート初期化
-├── Makefile                     # 共通タスク定義
 ├── pyproject.toml               # プロジェクト依存関係
 ├── pytest.ini                   # pytest設定ファイル
 ├── run_server.py                # サーバー起動スクリプト
-├── test_client.py               # テストクライアントCLI
-├── README.md                    # このファイル
-└── CLAUDE.md                    # プロジェクト状態レポート
+├── example_client.py            # 統合テストクライアントCLI
+└── README.md                    # このファイル
 ```
 
 ### アーキテクチャ
@@ -98,7 +99,7 @@ FastAPIを使用してRESTful APIを提供します：
 ```python
 app = FastAPI(
     title="LLM Streaming API",
-    description="OpenAIとGemini APIを使用したストリーミングレスポンスのデモAPI",
+    description="OpenAI APIを使用したストリーミング/非ストリーミングレスポンスのデモAPI",
     version="1.0.0",
 )
 
@@ -115,15 +116,14 @@ app.add_middleware(
 **提供されるエンドポイント**:
 
 - `GET /health` - ヘルスチェックエンドポイント
-- `POST /stream` - 統合ストリーミングエンドポイント（プロバイダーを選択可能）
-- `POST /stream/openai` - OpenAI専用ストリーミングエンドポイント
-- `POST /stream/gemini` - Gemini専用ストリーミングエンドポイント
+- `POST /stream` - ストリーミングエンドポイント（SSE形式）
+- `POST /completions` - 非ストリーミングエンドポイント（JSON形式）
 
-#### 2. ストリーミングサービス (`src/service/streaming_service.py`)
+#### 2. ストリーミング・非ストリーミングサービス (`src/service/streaming_service.py`)
 
-非同期ジェネレータを使用してストリーミング処理を実装します：
+非同期ジェネレータとawait呼び出しを使用して両方のレスポンス形式を実装します：
 
-##### OpenAI実装
+##### ストリーミング実装
 
 ```python
 async def stream_openai_response(prompt: str, model: str = "gpt-4o-mini") -> AsyncIterator[str]:
@@ -147,49 +147,41 @@ async def stream_openai_response(prompt: str, model: str = "gpt-4o-mini") -> Asy
 - `async for`でチャンクを逐次処理
 - `yield`でクライアントにデータを送信
 
-##### Gemini実装
+##### 非ストリーミング実装
 
 ```python
-async def stream_gemini_response(
-    prompt: str,
-    model: str = "gemini-2.5-flash",
-    system_instruction: str | None = None,
-) -> AsyncIterator[str]:
-    """Gemini APIからストリーミングで応答を取得"""
-    config = GenerateContentConfig(temperature=2.0)
-
-    if system_instruction:
-        config = GenerateContentConfig(
-            system_instruction=system_instruction,
-            temperature=2.0,
+async def get_openai_response(prompt: str, model: str = "gpt-4o-mini") -> str:
+    """OpenAI APIから非ストリーミングで完全な応答を取得"""
+    try:
+        response = await openai_client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            stream=False,
+            temperature=1.0,
         )
-
-    response = google_genai_client.models.generate_content_stream(
-        model=model,
-        contents=prompt,
-        config=config,
-    )
-
-    for chunk in response:
-        if chunk.text:
-            yield chunk.text
+        return response.choices[0].message.content or ""
+    except Exception as e:
+        logger.error(f"Error in get_openai_response: {e}")
+        raise
 ```
 
 **特徴**:
-- `generate_content_stream`でストリーミング応答を取得
-- システム命令のサポート
-- 同期的なイテレーション（Gemini SDKの仕様）
+- `stream=False`で非ストリーミングモードを使用
+- 完全な応答を文字列として返す
+- シンプルな実装で即座に完全な結果を取得
 
 #### 3. APIエンドポイント実装
+
+##### ストリーミングエンドポイント
 
 ```python
 @app.post("/stream")
 async def stream_response(request: StreamRequest):
-    """統合ストリーミングエンドポイント"""
+    """ストリーミングエンドポイント"""
     logger.info(f"Streaming request received: provider={request.provider}")
 
     if request.provider == LLMProvider.OPENAI:
-        model = request.model or "gpt-4o-mini"
+        model = request.model or OpenAIModel.GPT_4O_MINI
         return StreamingResponse(
             stream_openai_response(request.prompt, model=model),
             media_type="text/event-stream",
@@ -199,13 +191,35 @@ async def stream_response(request: StreamRequest):
                 "X-Accel-Buffering": "no",  # nginxのバッファリング無効化
             },
         )
-    # Gemini実装も同様
 ```
 
 **ポイント**:
 - `StreamingResponse`でSSE形式の応答を返す
 - 適切なヘッダーでキャッシュとバッファリングを制御
-- プロバイダーに応じて適切なサービス関数を呼び出し
+- リアルタイムでテキストを配信
+
+##### 非ストリーミングエンドポイント
+
+```python
+@app.post("/completions", response_model=CompletionResponse)
+async def get_completion(request: StreamRequest):
+    """非ストリーミング完了エンドポイント"""
+    logger.info(f"Completion request received: provider={request.provider}")
+
+    if request.provider == LLMProvider.OPENAI:
+        model = request.model or OpenAIModel.GPT_4O_MINI
+        content = await get_openai_response(request.prompt, model=model)
+        return CompletionResponse(
+            content=content,
+            model=str(model),
+            provider="openai",
+        )
+```
+
+**ポイント**:
+- JSON形式で完全な応答を返す
+- Pydanticモデルによる型安全なレスポンス
+- シンプルで実装が容易
 
 #### 4. データモデル (`src/model/model.py`)
 
@@ -213,38 +227,43 @@ Pydanticモデルでリクエスト/レスポンスを定義します：
 
 ```python
 class StreamRequest(BaseModel):
-    """ストリーミングリクエストのモデル"""
+    """ストリーミング/非ストリーミングリクエストのモデル"""
     prompt: str = Field(..., description="ユーザーのプロンプト", min_length=1)
     provider: LLMProvider = Field(
-        default=LLMProvider.GEMINI,
-        description="使用するLLMプロバイダー (openai または gemini)",
+        default=LLMProvider.OPENAI,
+        description="使用するLLMプロバイダー (openai)",
     )
-    model: str | None = Field(
+    model: OpenAIModel | None = Field(
         default=None,
-        description="使用するモデル名（未指定の場合はプロバイダーのデフォルトモデル）",
+        description="使用するモデル名（未指定の場合はデフォルトモデル）",
     )
-    system_instruction: str | None = Field(
-        default=None,
-        description="システム命令（Geminiのみ有効）",
-    )
+
+class CompletionResponse(BaseModel):
+    """非ストリーミング完了レスポンスのモデル"""
+    content: str = Field(..., description="生成されたテキスト")
+    model: str = Field(..., description="使用されたモデル名")
+    provider: str = Field(..., description="使用されたプロバイダー")
 
 class HealthResponse(BaseModel):
     """ヘルスチェックレスポンスのモデル"""
-    status: str
-    message: str
+    status: str = Field(..., description="サービスのステータス")
+    message: str = Field(..., description="メッセージ")
 ```
 
 **特徴**:
-- 型安全なリクエスト検証
+- 型安全なリクエスト・レスポンス検証
 - デフォルト値のサポート
 - 詳細なフィールド説明
+- `CompletionResponse`で非ストリーミング応答を構造化
 
-#### 5. テストクライアント (`test_client.py`)
+#### 5. 統合テストクライアント (`example_client.py`)
 
-ストリーミングAPIをテストするためのCLIツール：
+ストリーミング・非ストリーミング両方をサポートするCLIツール：
+
+##### ストリーミングリクエスト
 
 ```python
-async def stream_request(url: str, prompt: str, provider: str = "gemini"):
+async def stream_request(url: str, prompt: str, model: str | None = None):
     """APIサーバーにストリーミングリクエストを送信"""
     async with aiohttp.ClientSession() as session:
         async with session.post(url, json=payload) as response:
@@ -255,9 +274,23 @@ async def stream_request(url: str, prompt: str, provider: str = "gemini"):
                     print(text, end="", flush=True)
 ```
 
+##### 非ストリーミングリクエスト
+
+```python
+async def completion_request(url: str, prompt: str, model: str | None = None):
+    """APIサーバーに非ストリーミングリクエストを送信"""
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, json=payload) as response:
+            # 完全なレスポンスをJSON形式で取得
+            response_data = await response.json()
+            print(response_data["content"])
+```
+
 **特徴**:
 - `aiohttp`を使用した非同期HTTPクライアント
-- リアルタイムでチャンクを表示
+- ストリーミング・非ストリーミング両方のモードをサポート
+- `--mode`オプションでモード切り替え
+- リアルタイムでチャンクを表示（ストリーミング）
 - 使いやすいCLIインターフェース
 
 ## 使い方
@@ -346,48 +379,79 @@ INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 
 別のターミナルでテストクライアントを実行します：
 
+##### ストリーミングモード（デフォルト）
+
 ```bash
-# Gemini APIを使用（デフォルト）
-python test_client.py --prompt "Pythonの非同期プログラミングについて説明してください"
+# 基本的な使用方法
+python example_client.py --prompt "Pythonの非同期プログラミングについて説明してください"
 
-# OpenAI APIを使用
-python test_client.py --provider openai --prompt "AIの未来について教えて"
-
-# カスタムモデルを指定
-python test_client.py --provider openai --model gpt-4o --prompt "こんにちは"
-
-# システム命令を使用（Geminiのみ）
-python test_client.py --provider gemini \
-  --prompt "今日のランチにおすすめのメニューは？" \
-  --system-instruction "あなたは健康的な食事を提案する栄養士です"
+# モデルを明示的に指定
+python example_client.py --model gpt-4o --prompt "AIの未来について教えて"
 
 # カスタムURLを指定
-python test_client.py --url http://localhost:8080/stream --prompt "こんにちは"
+python example_client.py --url http://localhost:8080/stream --prompt "こんにちは"
+```
+
+##### 非ストリーミングモード
+
+```bash
+# 非ストリーミングモードを使用
+python example_client.py --mode completion --prompt "Pythonについて教えてください"
+
+# カスタムモデルを指定
+python example_client.py --mode completion --model gpt-4o --prompt "こんにちは"
+
+# カスタムURLを指定
+python example_client.py --mode completion --url http://localhost:8080/completions --prompt "こんにちは"
 ```
 
 #### 3. APIの直接利用
 
 ##### curlを使用
 
+**ストリーミングエンドポイント**:
+
 ```bash
-# 統合エンドポイント
 curl -X POST http://127.0.0.1:8000/stream \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "Pythonについて教えてください",
-    "provider": "gemini"
+    "provider": "openai"
   }'
 
-# OpenAI専用エンドポイント
-curl -X POST http://127.0.0.1:8000/stream/openai \
+# カスタムモデルを指定
+curl -X POST http://127.0.0.1:8000/stream \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "こんにちは",
-    "model": "gpt-4o-mini"
+    "provider": "openai",
+    "model": "gpt-4o"
+  }'
+```
+
+**非ストリーミングエンドポイント**:
+
+```bash
+curl -X POST http://127.0.0.1:8000/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "Pythonについて教えてください",
+    "provider": "openai"
+  }'
+
+# カスタムモデルを指定
+curl -X POST http://127.0.0.1:8000/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "こんにちは",
+    "provider": "openai",
+    "model": "gpt-4o"
   }'
 ```
 
 ##### Pythonスクリプトから利用
+
+**ストリーミングリクエスト**:
 
 ```python
 import asyncio
@@ -397,7 +461,7 @@ async def test_streaming():
     url = "http://127.0.0.1:8000/stream"
     payload = {
         "prompt": "ストリーミングAPIの利点を教えてください",
-        "provider": "gemini"
+        "provider": "openai"
     }
 
     async with aiohttp.ClientSession() as session:
@@ -409,13 +473,36 @@ async def test_streaming():
 asyncio.run(test_streaming())
 ```
 
+**非ストリーミングリクエスト**:
+
+```python
+import asyncio
+import aiohttp
+
+async def test_completion():
+    url = "http://127.0.0.1:8000/completions"
+    payload = {
+        "prompt": "非ストリーミングAPIの利点を教えてください",
+        "provider": "openai"
+    }
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, json=payload) as response:
+            result = await response.json()
+            print(result["content"])
+            print(f"\nModel: {result['model']}")
+            print(f"Provider: {result['provider']}")
+
+asyncio.run(test_completion())
+```
+
 ### 出力例
 
-#### テストクライアントの実行結果
+#### ストリーミングモードの実行結果
 
 ```
 ============================================================
-Provider: gemini
+Provider: openai
 Prompt: Pythonの非同期プログラミングについて説明してください
 ============================================================
 
@@ -443,6 +530,34 @@ I/O待機時間を有効活用し、アプリケーションのパフォーマ�
 Stream completed successfully!
 ```
 
+#### 非ストリーミングモードの実行結果
+
+```
+============================================================
+Provider: openai
+Prompt: Pythonについて教えてください
+============================================================
+
+Response:
+------------------------------------------------------------
+Pythonは、シンプルで読みやすい構文を持つ高水準プログラミング言語です。
+1991年にGuido van Rossumによって開発され、現在では世界中で広く使用されています。
+
+主な特徴：
+- 読みやすく書きやすい文法
+- 豊富な標準ライブラリとサードパーティパッケージ
+- データサイエンス、Web開発、自動化など幅広い用途
+- クロスプラットフォーム対応
+- 動的型付け
+
+Pythonは初心者にも学びやすく、同時にプロフェッショナルな開発にも
+適した強力な言語です。
+------------------------------------------------------------
+Completion request successful!
+Model used: gpt-4o-mini
+Provider: openai
+```
+
 #### ヘルスチェックの実行
 
 ```bash
@@ -457,80 +572,17 @@ curl http://127.0.0.1:8000/health
 }
 ```
 
-### テスト方法
+## ストリーミング vs 非ストリーミング
 
-このプロジェクトには、ユニットテストと手動テストの両方が含まれています。
+### それぞれの特徴と使い分け
 
-#### ユニットテストの実行
-
-プロジェクトには以下のユニットテストが含まれています：
-
-```bash
-# すべてのテストを実行
-pytest
-
-# カバレッジレポート付きで実行
-pytest --cov=src --cov-report=html
-
-# 特定のテストファイルのみ実行
-pytest tests/test_api.py
-pytest tests/test_models.py
-pytest tests/test_streaming_service.py
-
-# 詳細な出力で実行
-pytest -v
-```
-
-**テスト内容**:
-- `tests/test_api.py`: FastAPIエンドポイントのテスト
-- `tests/test_models.py`: Pydanticモデルのバリデーションテスト
-- `tests/test_streaming_service.py`: ストリーミングサービスのロジックテスト
-
-#### 手動テスト
-
-#### 1. サーバーの起動確認
-
-```bash
-python run_server.py
-# 別のターミナルで
-curl http://127.0.0.1:8000/health
-```
-
-期待される動作：
-- サーバーが正常に起動する
-- ヘルスチェックが `{"status":"healthy",...}` を返す
-
-#### 2. OpenAI ストリーミングのテスト
-
-```bash
-python test_client.py --provider openai --prompt "Hello, world!"
-```
-
-期待される動作：
-- OpenAI APIに接続してストリーミング応答を受信
-- テキストがリアルタイムで表示される
-- エラーなく完了する
-
-#### 3. Gemini ストリーミングのテスト
-
-```bash
-python test_client.py --provider gemini --prompt "こんにちは"
-```
-
-期待される動作：
-- Gemini APIに接続してストリーミング応答を受信
-- テキストがリアルタイムで表示される
-- エラーなく完了する
-
-#### 4. エラーハンドリングのテスト
-
-```bash
-# 空のプロンプトでエラーをテスト
-curl -X POST http://127.0.0.1:8000/stream \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "", "provider": "gemini"}'
-```
-
-期待される動作：
-- バリデーションエラーが返される
-- 適切なHTTPステータスコード（422）が返される
+| 特徴 | ストリーミング (`/stream`) | 非ストリーミング (`/completions`) |
+|------|---------------------------|----------------------------------|
+| **レスポンス形式** | Server-Sent Events (SSE) | JSON |
+| **配信方式** | リアルタイム・逐次配信 | 完全な応答を一度に返す |
+| **初回応答速度** | 速い（即座に開始） | 遅い（完全生成後） |
+| **ユーザー体験** | リアルタイム表示で待ち時間が短く感じる | 生成完了まで待機が必要 |
+| **実装の複雑さ** | 高い（チャンク処理が必要） | 低い（通常のHTTPリクエスト） |
+| **クライアント要件** | SSE対応が必要 | 標準的なHTTPクライアント |
+| **キャンセル** | 途中で接続を切断可能 | 完全生成まで待つ必要がある |
+| **適用場面** | チャットボット、リアルタイムUI | バッチ処理、API統合、完全な応答が必要な場合 |

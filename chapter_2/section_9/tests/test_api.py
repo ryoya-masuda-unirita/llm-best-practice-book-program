@@ -46,7 +46,7 @@ class TestStreamEndpoint:
         """Test that stream endpoint requires prompt field."""
         response = test_client.post(
             "/stream",
-            json={"provider": "gemini"},
+            json={"provider": "openai"},
         )
 
         assert response.status_code == 422
@@ -55,49 +55,37 @@ class TestStreamEndpoint:
         """Test that stream endpoint rejects empty prompt."""
         response = test_client.post(
             "/stream",
-            json={"prompt": "", "provider": "gemini"},
+            json={"prompt": "", "provider": "openai"},
         )
 
         assert response.status_code == 422
 
-    @pytest.mark.parametrize(
-        "provider",
-        ["openai", "gemini"],
-    )
-    def test_stream_endpoint_accepts_valid_providers(
+    def test_stream_endpoint_accepts_openai_provider(
         self,
         test_client,
         mock_openai_client,
-        mock_gemini_client,
-        provider,
     ):
-        """Test stream endpoint accepts valid providers."""
-        with (
-            patch(
-                "src.service.streaming_service.openai_client",
-                mock_openai_client,
-            ),
-            patch(
-                "src.service.streaming_service.google_genai_client",
-                mock_gemini_client,
-            ),
+        """Test stream endpoint accepts OpenAI provider."""
+        with patch(
+            "src.service.streaming_service.openai_client",
+            mock_openai_client,
         ):
             response = test_client.post(
                 "/stream",
-                json={"prompt": "Test", "provider": provider},
+                json={"prompt": "Test", "provider": "openai"},
             )
 
             assert response.status_code == 200
 
-    def test_stream_endpoint_gemini_default(
+    def test_stream_endpoint_openai_default(
         self,
         test_client,
-        mock_gemini_client,
+        mock_openai_client,
     ):
-        """Test stream endpoint uses Gemini as default provider."""
+        """Test stream endpoint uses OpenAI as default provider."""
         with patch(
-            "src.service.streaming_service.google_genai_client",
-            mock_gemini_client,
+            "src.service.streaming_service.openai_client",
+            mock_openai_client,
         ):
             response = test_client.post(
                 "/stream",
@@ -131,62 +119,19 @@ class TestStreamEndpoint:
             assert response.headers["cache-control"] == "no-cache"
             assert response.headers["connection"] == "keep-alive"
 
-    def test_stream_endpoint_gemini_response(
-        self,
-        test_client,
-        mock_gemini_client,
-    ):
-        """Test stream endpoint with Gemini provider."""
-        with patch(
-            "src.service.streaming_service.google_genai_client",
-            mock_gemini_client,
-        ):
-            response = test_client.post(
-                "/stream",
-                json={
-                    "prompt": "こんにちは",
-                    "provider": "gemini",
-                    "model": "gemini-2.5-flash",
-                },
-            )
-
-            assert response.status_code == 200
-            assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
-
-    def test_stream_endpoint_with_system_instruction(
-        self,
-        test_client,
-        mock_gemini_client,
-    ):
-        """Test stream endpoint with system instruction."""
-        with patch(
-            "src.service.streaming_service.google_genai_client",
-            mock_gemini_client,
-        ):
-            response = test_client.post(
-                "/stream",
-                json={
-                    "prompt": "Test",
-                    "provider": "gemini",
-                    "system_instruction": "You are a helpful assistant",
-                },
-            )
-
-            assert response.status_code == 200
-
     def test_stream_endpoint_streaming_headers(
         self,
         test_client,
-        mock_gemini_client,
+        mock_openai_client,
     ):
         """Test stream endpoint sets correct streaming headers."""
         with patch(
-            "src.service.streaming_service.google_genai_client",
-            mock_gemini_client,
+            "src.service.streaming_service.openai_client",
+            mock_openai_client,
         ):
             response = test_client.post(
                 "/stream",
-                json={"prompt": "Test", "provider": "gemini"},
+                json={"prompt": "Test", "provider": "openai"},
             )
 
             assert response.headers["cache-control"] == "no-cache"
@@ -214,37 +159,11 @@ class TestStreamEndpoint:
 
             assert response.status_code == 200
 
-    def test_stream_endpoint_gemini_with_custom_model(
-        self,
-        test_client,
-        mock_gemini_client,
-    ):
-        """Test stream endpoint with custom Gemini model."""
-        with patch(
-            "src.service.streaming_service.google_genai_client",
-            mock_gemini_client,
-        ):
-            response = test_client.post(
-                "/stream",
-                json={
-                    "prompt": "Test",
-                    "provider": "gemini",
-                    "model": "gemini-2.5-pro",
-                },
-            )
-
-            assert response.status_code == 200
-
     @pytest.mark.parametrize(
         "request_data",
         [
             {"prompt": "Hello", "provider": "openai"},
-            {"prompt": "こんにちは", "provider": "gemini"},
-            {
-                "prompt": "Test",
-                "provider": "gemini",
-                "system_instruction": "Be helpful",
-            },
+            {"prompt": "こんにちは", "provider": "openai"},
             {"prompt": "Long prompt" * 100, "provider": "openai"},
         ],
     )
@@ -252,19 +171,12 @@ class TestStreamEndpoint:
         self,
         test_client,
         mock_openai_client,
-        mock_gemini_client,
         request_data,
     ):
         """Test stream endpoint with various request formats."""
-        with (
-            patch(
-                "src.service.streaming_service.openai_client",
-                mock_openai_client,
-            ),
-            patch(
-                "src.service.streaming_service.google_genai_client",
-                mock_gemini_client,
-            ),
+        with patch(
+            "src.service.streaming_service.openai_client",
+            mock_openai_client,
         ):
             response = test_client.post("/stream", json=request_data)
 
@@ -360,149 +272,14 @@ class TestStreamOpenAIEndpoint:
 
 
 @pytest.mark.unit
-class TestStreamGeminiEndpoint:
-    """Tests for /stream/gemini endpoint."""
-
-    def test_stream_gemini_endpoint_success(
-        self,
-        test_client,
-        mock_gemini_client,
-    ):
-        """Test Gemini-specific endpoint success."""
-        with patch(
-            "src.service.streaming_service.google_genai_client",
-            mock_gemini_client,
-        ):
-            response = test_client.post(
-                "/stream/gemini",
-                json={"prompt": "こんにちは"},
-            )
-
-            assert response.status_code == 200
-            assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
-
-    def test_stream_gemini_endpoint_with_model(
-        self,
-        test_client,
-        mock_gemini_client,
-    ):
-        """Test Gemini endpoint with custom model."""
-        with patch(
-            "src.service.streaming_service.google_genai_client",
-            mock_gemini_client,
-        ):
-            response = test_client.post(
-                "/stream/gemini",
-                json={"prompt": "Test", "model": "gemini-2.5-pro"},
-            )
-
-            assert response.status_code == 200
-
-    def test_stream_gemini_endpoint_with_system_instruction(
-        self,
-        test_client,
-        mock_gemini_client,
-    ):
-        """Test Gemini endpoint with system instruction."""
-        with patch(
-            "src.service.streaming_service.google_genai_client",
-            mock_gemini_client,
-        ):
-            response = test_client.post(
-                "/stream/gemini",
-                json={
-                    "prompt": "Test",
-                    "system_instruction": "You are a helpful assistant",
-                },
-            )
-
-            assert response.status_code == 200
-
-    def test_stream_gemini_endpoint_requires_prompt(self, test_client):
-        """Test Gemini endpoint requires prompt."""
-        response = test_client.post("/stream/gemini", json={})
-
-        assert response.status_code == 422
-
-    def test_stream_gemini_endpoint_streaming_headers(
-        self,
-        test_client,
-        mock_gemini_client,
-    ):
-        """Test Gemini endpoint sets correct streaming headers."""
-        with patch(
-            "src.service.streaming_service.google_genai_client",
-            mock_gemini_client,
-        ):
-            response = test_client.post(
-                "/stream/gemini",
-                json={"prompt": "Test"},
-            )
-
-            assert response.headers["cache-control"] == "no-cache"
-            assert response.headers["connection"] == "keep-alive"
-            assert response.headers["x-accel-buffering"] == "no"
-
-    @pytest.mark.parametrize(
-        "model",
-        ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.5-flash-lite", None],
-    )
-    def test_stream_gemini_endpoint_various_models(
-        self,
-        test_client,
-        mock_gemini_client,
-        model,
-    ):
-        """Test Gemini endpoint with various models."""
-        with patch(
-            "src.service.streaming_service.google_genai_client",
-            mock_gemini_client,
-        ):
-            request_data = {"prompt": "Test"}
-            if model is not None:
-                request_data["model"] = model
-
-            response = test_client.post("/stream/gemini", json=request_data)
-
-            assert response.status_code == 200
-
-    @pytest.mark.parametrize(
-        "system_instruction",
-        [
-            "You are a helpful assistant",
-            "You are a nutritionist",
-            None,
-        ],
-    )
-    def test_stream_gemini_endpoint_various_system_instructions(
-        self,
-        test_client,
-        mock_gemini_client,
-        system_instruction,
-    ):
-        """Test Gemini endpoint with various system instructions."""
-        with patch(
-            "src.service.streaming_service.google_genai_client",
-            mock_gemini_client,
-        ):
-            request_data = {"prompt": "Test"}
-            if system_instruction is not None:
-                request_data["system_instruction"] = system_instruction
-
-            response = test_client.post("/stream/gemini", json=request_data)
-
-            assert response.status_code == 200
-
-
-@pytest.mark.unit
 class TestCORSMiddleware:
     """Tests for CORS middleware configuration."""
 
-    def test_cors_headers_present(self, test_client, mock_gemini_client):
+    def test_cors_headers_present(self, test_client, mock_openai_client):
         """Test CORS headers are present in response."""
         with patch(
-            "src.service.streaming_service.google_genai_client",
-            mock_gemini_client,
+            "src.service.streaming_service.openai_client",
+            mock_openai_client,
         ):
             response = test_client.post(
                 "/stream",

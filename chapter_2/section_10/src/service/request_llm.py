@@ -2,30 +2,32 @@ from google.genai.types import GenerateContentConfig
 
 from src.client.llm_client import GeminiModel, OpenAIModel, google_genai_client, openai_client
 from src.logger import make_logger
-from src.model.model import CharacterResponse
+from src.model.model import CharacterRequest, CharacterResponse
+from src.prompt.prompt import make_gemini_prompt, make_openai_prompt
 
 logger = make_logger(__name__)
 
 
-async def request_openai(prompt: list, model: OpenAIModel) -> CharacterResponse:
-    result = await openai_client.beta.chat.completions.parse(
+async def request_openai(character_request: CharacterRequest, model: OpenAIModel) -> CharacterResponse:
+    prompt = make_openai_prompt(character_request)
+    result = await openai_client.responses.parse(
         model=model,
-        messages=prompt,
-        response_format=CharacterResponse,
-        temperature=1.0,
+        input=prompt,
+        text_format=CharacterResponse,
     )
-    return result.choices[0].message.parsed
+    logger.info(result)
+    return result.output_parsed
 
 
-async def request_gemini(prompt: list, model: GeminiModel) -> CharacterResponse:
+async def request_gemini(character_request: CharacterRequest, model: GeminiModel) -> CharacterResponse:
+    system_prompt, user_prompt = make_gemini_prompt(character_request)
     result = await google_genai_client.aio.models.generate_content(
         model=model,
-        contents=prompt[-1]["content"],
+        contents=user_prompt,
         config=GenerateContentConfig(
-            system_instruction=prompt[0]["content"],
+            system_instruction=system_prompt,
             response_mime_type="application/json",
             response_schema=CharacterResponse,
-            temperature=2.0,
         ),
     )
     logger.info(result)

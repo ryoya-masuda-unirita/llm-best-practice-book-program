@@ -1,4 +1,4 @@
-# Chapter 2 Section 9: LLMを安定して使うために自由度を下げる
+# Chapter 2 Section 10: LLMを安定して使うために自由度を下げる
 
 ## 概要
 
@@ -37,7 +37,7 @@ OpenAI GPT-5/4.1/4oシリーズとGoogle Gemini 2.5シリーズの両方に対�
 ### ディレクトリ構成
 
 ```
-chapter_2/section_9/
+chapter_2/section_10/
 ├── app.py                       # Streamlitアプリケーション（本セクション独自）
 ├── src/
 │   ├── __init__.py              # パッケージ初期化
@@ -55,7 +55,6 @@ chapter_2/section_9/
 │   └── service/
 │       ├── __init__.py
 │       └── request_llm.py       # LLM呼び出しサービス
-├── outputs/                     # 生成結果の保存先（自動作成）
 ├── .envrc.example               # 環境変数設定のサンプル
 ├── pyproject.toml               # プロジェクト依存関係（streamlit含む）
 ├── Makefile                     # ビルド・lint コマンド
@@ -116,13 +115,14 @@ class CharacterRequest(BaseModel):
     model_config = ConfigDict(
         validate_assignment=True,
         frozen=True,
-        extra="forbid",
+        extra="ignore",
+        arbitrary_types_allowed=True,
     )
 
     gender: Gender = Field(..., description="The gender of the character.")
     age: int = Field(..., description="The age of the character.", ge=0, le=100)
-    additional_instructions: str | None = Field(
-        default=None,
+    additional_instructions: Optional[str] = Field(
+        ...,
         description="Additional instructions for character generation.",
     )
 ```
@@ -130,32 +130,61 @@ class CharacterRequest(BaseModel):
 **ポイント**:
 - `gender`: 列挙型で選択肢を制限（FEMALE/MALE のみ）
 - `age`: 0-100の範囲に制約（`ge=0, le=100`）
-- `additional_instructions`: オプションで追加の自由記述を許可
+- `additional_instructions`: 必須フィールドだが空文字列やNoneを許可
 - `frozen=True`により不変オブジェクトを保証
-- `extra="forbid"`で予期しないフィールドを拒否
+- `extra="ignore"`で予期しないフィールドを無視
 
 #### 2. レスポンスモデル (`src/model/model.py`)
 
-Section 1から継承したCharacterResponseモデル（変更なし）：
+Section 1から継承したCharacterResponseモデル：
 
 ```python
+class CharacterPersonality(BaseModel):
+    """キャラクターの性格特性を表すモデル"""
+
+    model_config = ConfigDict(
+        validate_assignment=True,
+        frozen=True,
+        extra="ignore",
+        arbitrary_types_allowed=True,
+    )
+
+    short_personality: str = Field(
+        ..., description="A short description of the character's personality."
+    )
+    description: str = Field(
+        ..., description="A description of the character's personality traits and behaviors."
+    )
+
+
 class CharacterResponse(BaseModel):
     """LLMからのレスポンスを表すモデル（構造化出力）"""
 
-    first_name: str
-    last_name: str
-    gender: Gender
-    age: int  # 0-100
-    personalities: list[CharacterPersonality]  # 正確に3つの性格特性
+    model_config = ConfigDict(
+        validate_assignment=True,
+        frozen=True,
+        extra="ignore",
+        arbitrary_types_allowed=True,
+    )
+
+    first_name: str = Field(..., description="The first name of the character.")
+    last_name: str = Field(..., description="The last name of the character.")
+    gender: Gender = Field(Gender.MALE, description="The gender of the character.")
+    age: int = Field(..., description="The age of the character.", ge=0, le=100)
+    personalities: list[CharacterPersonality] = Field(
+        ..., description="The three most important personality traits of the character."
+    )
 ```
 
 #### 3. 構造化プロンプト生成 (`src/prompt/prompt.py`)
 
-CharacterRequestから動的にプロンプトを生成：
+CharacterRequestから動的にプロンプトを生成する関数を、OpenAIとGemini用にそれぞれ提供：
+
+**OpenAI用プロンプト生成**:
 
 ```python
-def make_prompt(character_request: CharacterRequest) -> list:
-    """CharacterRequestからプロンプトを生成"""
+def make_openai_prompt(character_request: CharacterRequest) -> list:
+    """OpenAI用のプロンプトを生成"""
     params = CharacterResponse.detailed_model()
     param_dump = json.dumps(params, indent=2, ensure_ascii=False)
 
@@ -163,150 +192,238 @@ def make_prompt(character_request: CharacterRequest) -> list:
         {
             "role": "system",
             "content": f"""あなたは創造的なキャラクタージェネレーターです。
+あなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。
 以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：
 
 {param_dump}
 
-【重要な制約】
-- personalitiesは正確に3つの要素を含む配列である必要があります
-- short_personalityは5文字以下の簡潔な表現にしてください
-- descriptionは詳細な説明文にしてください""",
+以下を確認してください：
+1. 応答は有効なJSONであること
+2. すべてのフィールドが含まれていること
+3. 性別は指定された値であること
+4. 年齢は指定された値であること
+5. 正確に3つの性格特性が提供されていること
+6. JSON構造の外に説明や追加のテキストを含めないこと""",
         },
         {
             "role": "user",
-            "content": f"""フィクションの架空の人物のキャラクター情報を生成してください。
-
+            "content": f"""ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。
 性別は「{character_request.gender.value}」、年齢は「{character_request.age}」歳です。
-{character_request.additional_instructions or ""}""",
+{character_request.additional_instructions}""",
         },
     ]
 ```
 
+**Gemini用プロンプト生成**:
+
+```python
+def make_gemini_prompt(character_request: CharacterRequest) -> tuple[str, str]:
+    """Gemini用のプロンプトを生成（システムプロンプトとユーザープロンプトを分離）"""
+    params = CharacterResponse.detailed_model()
+    param_dump = json.dumps(params, indent=2, ensure_ascii=False)
+
+    system_prompt = f"""あなたは創造的なキャラクタージェネレーターです。
+あなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。
+以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：
+
+{param_dump}
+
+以下を確認してください：
+1. 応答は有効なJSONであること
+2. すべてのフィールドが含まれていること
+3. 性別は指定された値であること
+4. 年齢は指定された値であること
+5. 正確に3つの性格特性が提供されていること
+6. JSON構造の外に説明や追加のテキストを含めないこと"""
+
+    user_prompt = f"""ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。
+性別は「{character_request.gender.value}」、年齢は「{character_request.age}」歳です。
+{character_request.additional_instructions}"""
+
+    return system_prompt, user_prompt
+```
+
 **ポイント**:
 - リクエストの構造化データ（性別・年齢）をプロンプトに埋め込み
-- 追加指示は任意で含める
+- 追加指示をプロンプトに含める
 - システムプロンプトでレスポンススキーマを明示
-- ユーザープロンプトで具体的な要求を伝達
+- OpenAIはメッセージリスト、Geminiはタプル形式で返す
 
 #### 4. Streamlitアプリケーション (`app.py`)
 
 **タブ1: 自由形式インターフェース**
 
 ```python
-with tab1:
-    st.header("🎲 自由形式プロンプト入力")
-    st.info("""
-    このインターフェースでは、任意のテキストプロンプトを入力できます。
-    柔軟性は高いですが、予期しない結果や不安定な動作のリスクがあります。
+def render_freeform_tab(provider: LLMProvider, model: str) -> None:
+    st.header("自由形式プロンプトインターフェース")
+    st.markdown("""
+    任意のプロンプトを入力してください。システムはキャラクターを生成しようとしますが、
+    結果が一貫しなかったり、期待した形式と一致しない場合があります。
     """)
 
-    free_text = st.text_area(
-        "プロンプトを自由に入力してください",
-        placeholder="例: 30歳の女性キャラクターを作成してください",
+    free_prompt = st.text_area(
+        "プロンプトを入力:",
+        placeholder="例: かっこいいキャラクターを作ってください",
         height=150,
+        key="free_prompt",
     )
 
-    if st.button("生成", key="free_form_button"):
-        # 自由形式の入力を処理
-        # エラーハンドリングの難しさを示す
+    col1, col2 = st.columns([1, 5])
+    with col1:
+        free_submit = st.button("生成", type="primary", key="free_submit")
+
+    if free_submit and free_prompt:
+        with st.spinner("キャラクターを生成中..."):
+            try:
+                # 自由形式の入力をCharacterRequestに変換（デフォルト値を使用）
+                request = create_freeform_request(free_prompt)
+                result = call_llm(provider, model, request)
+                display_character_result(result)
+            except Exception as e:
+                st.error(f"❌ エラー: {str(e)}")
 ```
 
 **タブ2: 構造化フォームインターフェース**
 
 ```python
-with tab2:
-    st.header("📋 構造化フォーム入力")
-    st.success("""
-    このインターフェースでは、明確に定義されたフィールドに入力します。
-    予測可能で安定した結果が得られ、エラーハンドリングも容易です。
+def render_structured_form_tab(provider: LLMProvider, model: str) -> None:
+    st.header("構造化フォームインターフェース")
+    st.markdown("""
+    以下のフォームに入力してください。システムが内部で最適化されたプロンプトを構築し、
+    一貫性のある予測可能な結果を保証します。
     """)
 
-    # 構造化された入力フィールド
-    col1, col2 = st.columns(2)
-    with col1:
-        gender = st.selectbox(
-            "性別",
-            options=[Gender.FEMALE, Gender.MALE],
-            format_func=lambda x: {"female": "女性", "male": "男性"}[x.value],
+    with st.form("character_form"):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            gender = st.selectbox(
+                "性別 *",
+                options=[Gender.MALE, Gender.FEMALE],
+                format_func=lambda x: "男性" if x == Gender.MALE else "女性",
+            )
+
+        with col2:
+            age = st.number_input("年齢 *", min_value=0, max_value=100, value=25, step=1)
+
+        additional_instructions = st.text_area(
+            "追加指示（任意）",
+            placeholder="例: ファンタジー世界の戦士にしてください",
+            height=100,
         )
 
-    with col2:
-        age = st.number_input(
-            "年齢",
-            min_value=0,
-            max_value=100,
-            value=25,
-            step=1,
-        )
+        submitted = st.form_submit_button("キャラクターを生成", type="primary")
 
-    additional_instructions = st.text_area(
-        "追加の指示（任意）",
-        placeholder="例: ファンタジー世界の魔法使いにしてください",
-        height=100,
-    )
+        if submitted:
+            with st.spinner("構造化プロンプトでキャラクターを生成中..."):
+                try:
+                    # CharacterRequestを作成
+                    request = CharacterRequest(
+                        gender=gender,
+                        age=age,
+                        additional_instructions=additional_instructions or "",
+                    )
 
-    if st.button("生成", key="structured_button"):
-        # CharacterRequestを作成してバリデーション
-        character_request = CharacterRequest(
-            gender=gender,
-            age=age,
-            additional_instructions=additional_instructions or None,
-        )
-        # 構造化されたデータから安全にプロンプトを生成
+                    # LLMを呼び出し
+                    result = call_llm(provider, model, request)
+
+                    # 結果を表示
+                    display_character_result(result)
+
+                    # 内部プロンプトを表示
+                    display_internal_prompt(provider, request)
+
+                except Exception as e:
+                    st.error(f"❌ エラー: {str(e)}")
 ```
 
 **モデル選択サイドバー**:
 
 ```python
-with st.sidebar:
-    st.header("⚙️ モデル設定")
+def render_sidebar() -> tuple[LLMProvider, str]:
+    with st.sidebar:
+        st.header("⚙️ LLM設定")
+        provider = st.selectbox(
+            "プロバイダーを選択",
+            options=[LLMProvider.OPENAI, LLMProvider.GEMINI],
+            format_func=lambda x: x.value.upper(),
+        )
 
-    llm_provider = st.selectbox(
-        "LLMプロバイダー",
-        options=[LLMProvider.OPENAI, LLMProvider.GEMINI],
-    )
+        if provider == LLMProvider.OPENAI:
+            model = st.selectbox(
+                "モデルを選択",
+                options=OpenAIModel.list_str(),
+                index=OpenAIModel.list_str().index(OpenAIModel.GPT_4O_MINI),
+            )
+        else:
+            model = st.selectbox(
+                "モデルを選択",
+                options=GeminiModel.list_str(),
+                index=GeminiModel.list_str().index(GeminiModel.GEMINI_2_5_FLASH),
+            )
 
-    # プロバイダーに応じたモデル選択
-    if llm_provider == LLMProvider.OPENAI:
-        model = st.selectbox("モデル", options=list(OpenAIModel))
-    else:
-        model = st.selectbox("モデル", options=list(GeminiModel))
+        st.divider()
+        st.markdown("""
+### 💡 主な違い
+
+**自由形式:**
+- ✅ 最大限の柔軟性
+- ❌ 一貫性のない結果
+- ❌ セキュリティリスク
+- ❌ ユーザーの混乱
+
+**構造化:**
+- ✅ 予測可能な出力
+- ✅ より良いUX
+- ✅ リスク軽減
+- ❌ 柔軟性が低い
+""")
+
+    return provider, model
 ```
 
 #### 5. サービス層 (`src/service/request_llm.py`)
 
-プロンプトとモデルを受け取り、LLMを呼び出す：
+CharacterRequestとモデル名を受け取り、LLMを呼び出す：
 
 ```python
 async def request_openai(
-    prompt: list, model: OpenAIModel
+    character_request: CharacterRequest, model: OpenAIModel
 ) -> CharacterResponse:
     """OpenAI APIでキャラクター生成"""
-    result = await openai_client.beta.chat.completions.parse(
-        model=model.value,
-        messages=prompt,
-        response_format=CharacterResponse,
-        temperature=1.0,
+    prompt = make_openai_prompt(character_request)
+    result = await openai_client.responses.parse(
+        model=model,
+        input=prompt,
+        text_format=CharacterResponse,
     )
-    return result.choices[0].message.parsed
+    logger.info(result)
+    return result.output_parsed
 
 
 async def request_gemini(
-    prompt: list, model: GeminiModel
+    character_request: CharacterRequest, model: GeminiModel
 ) -> CharacterResponse:
     """Gemini APIでキャラクター生成"""
+    system_prompt, user_prompt = make_gemini_prompt(character_request)
     result = await google_genai_client.aio.models.generate_content(
-        model=model.value,
-        contents=prompt[-1]["content"],
+        model=model,
+        contents=user_prompt,
         config=GenerateContentConfig(
-            system_instruction=prompt[0]["content"],
+            system_instruction=system_prompt,
             response_mime_type="application/json",
             response_schema=CharacterResponse,
-            temperature=2.0,
         ),
     )
+    logger.info(result)
     return result.parsed
 ```
+
+**ポイント**:
+- CharacterRequestを直接受け取り、内部でプロンプトを生成
+- OpenAIは新しい`responses.parse()` APIを使用
+- Geminiは`aio.models.generate_content()`で非同期生成
+- どちらもCharacterResponseスキーマに基づいて構造化出力を取得
 
 ## 使い方
 
@@ -314,7 +431,7 @@ async def request_gemini(
 
 - **Python**: 3.13.2以上
 - **依存ライブラリ**:
-  - **streamlit>=1.50.0** ← Section 9独自の追加
+  - **streamlit>=1.50.0** ← Section 10独自の追加
   - click>=8.3.0
   - google-genai>=1.45.0
   - openai>=2.4.0
@@ -382,12 +499,12 @@ streamlit run app.py
 **OpenAI**:
 - `gpt-5`
 - `gpt-5-mini`
+- `gpt-5-nano`
 - `gpt-4.1`
 - `gpt-4.1-mini`
+- `gpt-4.1-nano`
 - `gpt-4o`
 - `gpt-4o-mini`
-- `gpt-4o-2024-11-20`
-- `gpt-4o-2024-08-06`
 
 **Gemini**:
 - `gemini-2.5-pro`
@@ -438,65 +555,3 @@ streamlit run app.py
   }
 ]
 ```
-
-### テスト方法
-
-```bash
-# アプリケーションを起動
-streamlit run app.py
-```
-
-**テストシナリオ**:
-
-**シナリオ1: 自由形式タブのテスト**
-1. タブ1「自由形式プロンプト入力」を開く
-2. テキストエリアに以下を入力: "20歳の男性キャラクターを作成してください"
-3. 「生成」ボタンをクリック
-4. 期待される動作:
-   - JSON出力とフォーマット済みプロフィールが表示される
-   - 「送信されたプロンプトを表示」セクションでプロンプトが確認できる
-   - 性別がmale、年齢が20に近い値になる
-
-**シナリオ2: 構造化フォームタブのテスト**
-1. タブ2「構造化フォーム入力」を開く
-2. 性別: 女性を選択
-3. 年齢: 45を入力
-4. 追加の指示: "歴史小説の主人公にしてください"を入力
-5. 「生成」ボタンをクリック
-6. 期待される動作:
-   - JSON出力で`"gender": "female"`、`"age": 45`が確認できる
-   - personalitiesが正確に3つ含まれる
-   - 歴史的な要素を含むキャラクターが生成される
-
-**シナリオ3: モデル切り替えテスト**
-1. サイドバーでLLMプロバイダーを「gemini」に変更
-2. モデルを「gemini-2.5-flash」に選択
-3. 構造化フォームで任意の値を入力して生成
-4. サイドバーでLLMプロバイダーを「openai」に変更
-5. モデルを「gpt-4o-mini」に選択
-6. 同じ値で再度生成
-7. 期待される動作:
-   - どちらのモデルでも正しくCharacterResponseスキーマに準拠したJSONが生成される
-
-**シナリオ4: バリデーションテスト**
-1. 構造化フォームタブで年齢に101を入力しようとする
-2. 期待される動作:
-   - 数値入力フィールドが最大値100を超えないように制限される
-
-**シナリオ5: インターフェース比較テスト**
-
-同じ要求を自由形式と構造化フォームで試して比較：
-
-1. **自由形式タブで入力**:
-   - 「25歳の女性で、明るくて社交的な性格のキャラクターを作ってください」
-
-2. **構造化フォームタブで入力**:
-   - 性別: 女性
-   - 年齢: 25
-   - 追加指示: "明るくて社交的な性格にしてください"
-
-3. **比較観点**:
-   - **入力の容易さ**: フォームの方が選択肢が明確で入力しやすい
-   - **エラーの可能性**: 自由形式では年齢を書き忘れる可能性がある
-   - **結果の一貫性**: フォームの方が指定した年齢・性別が確実に反映される
-   - **プロンプトの品質**: どちらも内部プロンプトを確認して構造を理解できる
