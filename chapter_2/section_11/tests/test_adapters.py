@@ -8,9 +8,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from pydantic import BaseModel
-from src.client.adapters import GeminiAdapter, OpenAIAdapter
+from src.client.adapters import AnthropicAdapter, GeminiAdapter, OpenAIAdapter
 from src.client.base import LLMClient
-from src.client.model import GeminiModel, LLMProvider, OpenAIModel
+from src.client.model import AnthropicModel, GeminiModel, LLMProvider, OpenAIModel
+from src.prompt import make_prompt
 
 
 class MockResponse(BaseModel):
@@ -53,16 +54,12 @@ class TestOpenAIAdapter:
     @pytest.mark.asyncio
     async def test_chat_success(self, adapter):
         """Test successful chat completion."""
-        # Setup mock response
+        # Setup mock response using new API structure
         mock_parsed = MockResponse(message="Hello", confidence=0.95)
-        mock_message = MagicMock()
-        mock_message.parsed = mock_parsed
-        mock_choice = MagicMock()
-        mock_choice.message = mock_message
         mock_result = MagicMock()
-        mock_result.choices = [mock_choice]
+        mock_result.output_parsed = mock_parsed
 
-        adapter._client.beta.chat.completions.parse = AsyncMock(return_value=mock_result)
+        adapter._client.responses.parse = AsyncMock(return_value=mock_result)
 
         # Execute
         messages = [{"role": "user", "content": "Hello"}]
@@ -72,33 +69,29 @@ class TestOpenAIAdapter:
         assert result == mock_parsed
         assert result.message == "Hello"
         assert result.confidence == 0.95
-        adapter._client.beta.chat.completions.parse.assert_called_once_with(
+        adapter._client.responses.parse.assert_called_once_with(
             model=OpenAIModel.GPT_4O,
-            messages=messages,
-            response_format=MockResponse,
+            input=messages,
+            text_format=MockResponse,
         )
 
     @pytest.mark.asyncio
     async def test_chat_with_additional_kwargs(self, adapter):
         """Test chat with additional parameters."""
         mock_parsed = MockResponse(message="Test", confidence=0.8)
-        mock_message = MagicMock()
-        mock_message.parsed = mock_parsed
-        mock_choice = MagicMock()
-        mock_choice.message = mock_message
         mock_result = MagicMock()
-        mock_result.choices = [mock_choice]
+        mock_result.output_parsed = mock_parsed
 
-        adapter._client.beta.chat.completions.parse = AsyncMock(return_value=mock_result)
+        adapter._client.responses.parse = AsyncMock(return_value=mock_result)
 
         messages = [{"role": "user", "content": "Test"}]
         result = await adapter.chat(messages, MockResponse, temperature=0.7, max_tokens=100)
 
         assert result == mock_parsed
-        adapter._client.beta.chat.completions.parse.assert_called_once_with(
+        adapter._client.responses.parse.assert_called_once_with(
             model=OpenAIModel.GPT_4O,
-            messages=messages,
-            response_format=MockResponse,
+            input=messages,
+            text_format=MockResponse,
             temperature=0.7,
             max_tokens=100,
         )
@@ -106,7 +99,7 @@ class TestOpenAIAdapter:
     @pytest.mark.asyncio
     async def test_chat_api_error(self, adapter):
         """Test handling of API errors."""
-        adapter._client.beta.chat.completions.parse = AsyncMock(side_effect=Exception("API Error"))
+        adapter._client.responses.parse = AsyncMock(side_effect=Exception("API Error"))
 
         messages = [{"role": "user", "content": "Test"}]
         with pytest.raises(Exception, match="API Error"):
@@ -220,6 +213,82 @@ class TestGeminiAdapter:
             await adapter.chat(messages, MockResponse)
 
 
+class TestAnthropicAdapter:
+    """Test suite for AnthropicAdapter."""
+
+    @pytest.fixture
+    def adapter(self):
+        """Create an AnthropicAdapter instance for testing."""
+        with patch("src.client.adapters.AsyncAnthropic") as mock_client:
+            adapter = AnthropicAdapter(model=AnthropicModel.CLAUDE_SONNET_4_5)
+            adapter._client = mock_client.return_value
+            return adapter
+
+    def test_implements_llm_client_interface(self, adapter):
+        """Verify AnthropicAdapter implements LLMClient interface."""
+        assert isinstance(adapter, LLMClient)
+
+    def test_initialization(self):
+        """Test adapter initialization with model."""
+        with patch("src.client.adapters.AsyncAnthropic") as mock_client:
+            adapter = AnthropicAdapter(model=AnthropicModel.CLAUDE_OPUS_4_1)
+            assert adapter._model == AnthropicModel.CLAUDE_OPUS_4_1
+            mock_client.assert_called_once()
+
+    def test_get_provider_name(self, adapter):
+        """Test provider name retrieval."""
+        assert adapter.get_provider_name() == LLMProvider.ANTHROPIC
+
+    def test_get_model_name(self, adapter):
+        """Test model name retrieval."""
+        assert adapter.get_model_name() == AnthropicModel.CLAUDE_SONNET_4_5
+
+    @pytest.mark.asyncio
+    async def test_chat_success(self, adapter):
+        """Test successful chat completion."""
+        mock_parsed = MockResponse(message="Response", confidence=0.92)
+        mock_result = MagicMock()
+        mock_result.parsed_output = mock_parsed
+
+        adapter._client.beta.messages.parse = AsyncMock(return_value=mock_result)
+
+        messages = [{"role": "user", "content": "Hello"}]
+        result = await adapter.chat(messages, MockResponse)
+
+        assert result == mock_parsed
+        call_args = adapter._client.beta.messages.parse.call_args
+        assert call_args.kwargs["model"] == AnthropicModel.CLAUDE_SONNET_4_5
+        assert call_args.kwargs["messages"] == messages
+        assert call_args.kwargs["output_format"] == MockResponse
+        assert call_args.kwargs["max_tokens"] == 1024
+        assert "structured-outputs-2025-11-13" in call_args.kwargs["betas"]
+
+    @pytest.mark.asyncio
+    async def test_chat_with_custom_max_tokens(self, adapter):
+        """Test chat with custom max_tokens parameter."""
+        mock_parsed = MockResponse(message="Test", confidence=0.88)
+        mock_result = MagicMock()
+        mock_result.parsed_output = mock_parsed
+
+        adapter._client.beta.messages.parse = AsyncMock(return_value=mock_result)
+
+        messages = [{"role": "user", "content": "Test"}]
+        result = await adapter.chat(messages, MockResponse, max_tokens=2048)
+
+        assert result == mock_parsed
+        call_args = adapter._client.beta.messages.parse.call_args
+        assert call_args.kwargs["max_tokens"] == 2048
+
+    @pytest.mark.asyncio
+    async def test_chat_api_error(self, adapter):
+        """Test handling of API errors."""
+        adapter._client.beta.messages.parse = AsyncMock(side_effect=Exception("Anthropic API Error"))
+
+        messages = [{"role": "user", "content": "Test"}]
+        with pytest.raises(Exception, match="Anthropic API Error"):
+            await adapter.chat(messages, MockResponse)
+
+
 class TestAdapterComparison:
     """Test suite comparing adapter behaviors."""
 
@@ -229,13 +298,9 @@ class TestAdapterComparison:
         with patch("src.client.adapters.AsyncOpenAI"):
             openai_adapter = OpenAIAdapter(model=OpenAIModel.GPT_4O)
             mock_parsed = MockResponse(message="OpenAI", confidence=0.9)
-            mock_message = MagicMock()
-            mock_message.parsed = mock_parsed
-            mock_choice = MagicMock()
-            mock_choice.message = mock_message
             mock_result = MagicMock()
-            mock_result.choices = [mock_choice]
-            openai_adapter._client.beta.chat.completions.parse = AsyncMock(return_value=mock_result)
+            mock_result.output_parsed = mock_parsed
+            openai_adapter._client.responses.parse = AsyncMock(return_value=mock_result)
 
             messages = [{"role": "user", "content": "Test"}]
             openai_result = await openai_adapter.chat(messages, MockResponse)
@@ -264,6 +329,44 @@ class TestAdapterComparison:
         gemini_methods = {m for m in dir(gemini_adapter) if not m.startswith("_")}
 
         # Both should implement the same LLMClient interface
-        required_methods = {"chat", "get_provider_name", "get_model_name"}
+        required_methods = {"chat", "get_provider_name", "get_model_name", "aclose"}
         assert required_methods.issubset(openai_methods)
         assert required_methods.issubset(gemini_methods)
+
+
+class TestMakePrompt:
+    """Test suite for the unified make_prompt function."""
+
+    def test_make_prompt_openai(self):
+        """Test make_prompt returns correct format for OpenAI."""
+        prompt = make_prompt(LLMProvider.OPENAI)
+        assert isinstance(prompt, list)
+        assert len(prompt) == 2
+        assert prompt[0]["role"] == "system"
+        assert prompt[1]["role"] == "user"
+        assert "content" in prompt[0]
+        assert "content" in prompt[1]
+
+    def test_make_prompt_gemini(self):
+        """Test make_prompt returns correct format for Gemini."""
+        prompt = make_prompt(LLMProvider.GEMINI)
+        assert isinstance(prompt, tuple)
+        assert len(prompt) == 2
+        system_prompt, user_prompt = prompt
+        assert isinstance(system_prompt, str)
+        assert isinstance(user_prompt, str)
+        assert len(system_prompt) > 0
+        assert len(user_prompt) > 0
+
+    def test_make_prompt_anthropic(self):
+        """Test make_prompt returns correct format for Anthropic."""
+        prompt = make_prompt(LLMProvider.ANTHROPIC)
+        assert isinstance(prompt, list)
+        assert len(prompt) == 1
+        assert prompt[0]["role"] == "user"
+        assert "content" in prompt[0]
+
+    def test_make_prompt_unsupported_provider(self):
+        """Test make_prompt raises error for unsupported provider."""
+        with pytest.raises(ValueError, match="Unsupported provider"):
+            make_prompt("unsupported_provider")

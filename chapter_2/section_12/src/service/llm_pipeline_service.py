@@ -73,27 +73,26 @@ async def analyze_document_openai_node(state: PipelineState) -> PipelineState:
         evaluation_result = state.get("evaluation_result")
         if evaluation_result and retry_count > 0:
             feedback_msg = f"""
-Previous analysis received a grade of {evaluation_result.grade}/5.
+前回の分析は {evaluation_result.grade}/5 の評価を受けました。
 
-Evaluation feedback:
+評価フィードバック:
 {evaluation_result.reasoning}
 
-Specific improvements needed:
+改善が必要な具体的な点:
 {chr(10).join(f"- {imp}" for imp in evaluation_result.specific_improvements)}
 
-Please improve your analysis based on this feedback.
+このフィードバックに基づいて分析を改善してください。
 """
             prompt.append({"role": "user", "content": feedback_msg})
             logger.info("Added judge feedback to prompt for retry")
 
-        result = await openai_client.beta.chat.completions.parse(
+        result = await openai_client.responses.parse(
             model=model,
-            messages=prompt,
-            response_format=DocumentAnalysis,
-            temperature=0.7,
+            input=prompt,
+            text_format=DocumentAnalysis,
         )
 
-        analysis_result = result.choices[0].message.parsed
+        analysis_result = result.output_parsed
         logger.info("Successfully analyzed document with OpenAI")
 
         return {
@@ -132,15 +131,15 @@ async def analyze_document_gemini_node(state: PipelineState) -> PipelineState:
         evaluation_result = state.get("evaluation_result")
         if evaluation_result and retry_count > 0:
             feedback_msg = f"""
-Previous analysis received a grade of {evaluation_result.grade}/5.
+前回の分析は {evaluation_result.grade}/5 の評価を受けました。
 
-Evaluation feedback:
+評価フィードバック:
 {evaluation_result.reasoning}
 
-Specific improvements needed:
+改善が必要な具体的な点:
 {chr(10).join(f"- {imp}" for imp in evaluation_result.specific_improvements)}
 
-Please improve your analysis based on this feedback.
+このフィードバックに基づいて分析を改善してください。
 """
             user_content += "\n\n" + feedback_msg
             logger.info("Added judge feedback to prompt for retry")
@@ -152,7 +151,6 @@ Please improve your analysis based on this feedback.
                 system_instruction=system_instruction,
                 response_mime_type="application/json",
                 response_schema=DocumentAnalysis,
-                temperature=0.7,
             ),
         )
 
@@ -194,14 +192,13 @@ async def judge_analysis_openai_node(state: PipelineState) -> PipelineState:
         model = state.get("model", OpenAIModel.GPT_4O)
         prompt = make_judge_prompt(state["document_content"], state["analysis_result"])
 
-        result = await openai_client.beta.chat.completions.parse(
+        result = await openai_client.responses.parse(
             model=model,
-            messages=prompt,
-            response_format=AnalysisEvaluation,
-            temperature=0.3,  # Lower temperature for more consistent evaluation
+            input=prompt,
+            text_format=AnalysisEvaluation,
         )
 
-        evaluation_result = result.choices[0].message.parsed
+        evaluation_result = result.output_parsed
         logger.info(f"Evaluation complete: Grade {evaluation_result.grade}/5")
         logger.info(f"Reasoning: {evaluation_result.reasoning}")
 
@@ -249,7 +246,6 @@ async def judge_analysis_gemini_node(state: PipelineState) -> PipelineState:
                 system_instruction=system_instruction,
                 response_mime_type="application/json",
                 response_schema=AnalysisEvaluation,
-                temperature=0.3,  # Lower temperature for more consistent evaluation
             ),
         )
 

@@ -17,7 +17,6 @@ logger = make_logger(__name__)
 
 async def request_openai(model: OpenAIModel) -> CharacterResponse:
     prompt = make_openai_prompt()
-    openai_client.batches.create()
     result = await openai_client.responses.parse(
         model=model,
         input=prompt,

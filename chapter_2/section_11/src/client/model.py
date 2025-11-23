@@ -1,8 +1,4 @@
-"""LLM client module with enums and client exports.
-
-This module provides enums for different LLM providers and models,
-as well as exports for the adapter pattern implementation.
-"""
+"""LLM provider and model enums."""
 
 from enum import StrEnum
 
@@ -10,10 +6,11 @@ from enum import StrEnum
 
 
 class LLMProvider(StrEnum):
-    """Enum for LLM providers."""
+    """LLM provider identifiers."""
 
     OPENAI = "openai"
     GEMINI = "gemini"
+    ANTHROPIC = "anthropic"
 
 
 class OpenAIModel(StrEnum):
@@ -30,12 +27,11 @@ class OpenAIModel(StrEnum):
 
     @staticmethod
     def list_str() -> list[str]:
-        """Return list of all OpenAI model identifiers."""
         return [model for model in OpenAIModel]
 
 
 class GeminiModel(StrEnum):
-    """Google Gemini model identifiers."""
+    """Gemini model identifiers."""
 
     GEMINI_2_5_PRO = "gemini-2.5-pro"
     GEMINI_2_5_FLASH = "gemini-2.5-flash"
@@ -43,5 +39,15 @@ class GeminiModel(StrEnum):
 
     @staticmethod
     def list_str() -> list[str]:
-        """Return list of all Gemini model identifiers."""
         return [model for model in GeminiModel]
+
+
+class AnthropicModel(StrEnum):
+    """Anthropic model identifiers."""
+
+    CLAUDE_SONNET_4_5 = "claude-sonnet-4-5"
+    CLAUDE_OPUS_4_1 = "claude-opus-4-1"
+
+    @staticmethod
+    def list_str() -> list[str]:
+        return [model for model in AnthropicModel]

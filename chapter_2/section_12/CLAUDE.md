@@ -105,22 +105,35 @@ class PipelineState(TypedDict):
     evaluation_result: AnalysisEvaluation | None
     retry_count: int
     error: str | None
-    llm_provider: LLMProvider  # Added at runtime
-    model: str  # Added at runtime
 ```
 
 **Purpose**: Type-safe state management for LangGraph
+
+**Note**: Additional fields `llm_provider` and `model` are added at runtime in `run_document_analysis_pipeline()` (line 491-492) with type ignore comments:
+```python
+"llm_provider": llm_provider,  # type: ignore
+"model": model,  # type: ignore
+```
+These fields are accessed throughout the pipeline but aren't in the TypedDict definition to maintain type safety for the core state fields.
 
 ## Implementation Details
 
 ### Prompt Engineering (src/prompt/llm_pipeline_prompt.py)
 
+The project implements 4 prompt generation functions:
+
+1. **`make_document_analysis_prompt()`** - For OpenAI analysis (returns messages list)
+2. **`make_document_analysis_system_instruction()`** - For Gemini analysis (returns system_instruction + user_content tuple)
+3. **`make_judge_prompt()`** - For OpenAI evaluation (returns messages list)
+4. **`make_judge_system_instruction()`** - For Gemini evaluation (returns system_instruction + user_content tuple)
+
 #### Analysis Prompt Strategy
 - Clear role definition ("excellent document analyst")
-- Structured output requirements with JSON schema
+- Structured output requirements with JSON schema dynamically generated from Pydantic model
 - Explicit constraints (sentence counts, item counts)
-- Language specification (Japanese markdown)
+- Language specification (Japanese markdown with explicit instruction)
 - Objective and constructive tone
+- **IMPORTANT**: All responses must be in Japanese
 
 #### Judge Prompt Strategy
 - Expert evaluator persona
@@ -130,39 +143,47 @@ class PipelineState(TypedDict):
   - Improvement Quality (30%)
   - Completeness (10%)
   - Clarity (10%)
-- Clear grading rubric (1-5 scale with descriptions)
-- Requirement to provide actionable feedback
+- Clear grading rubric (1-5 scale with descriptions):
+  - 5 (Excellent): Outstanding analysis with highly valuable insights
+  - 4 (Good): Solid analysis with minor improvements needed
+  - 3 (Acceptable): Adequate but missing some aspects or depth
+  - 2 (Poor): Significant issues with accuracy/completeness
+  - 1 (Very Poor): Fails to capture document's essence
+- Requirement to provide actionable feedback (3-5 specific improvements if grade < 4)
+- **IMPORTANT**: All evaluations must be in Japanese
 
 ### LLM Provider Abstraction
 
-#### OpenAI Implementation (src/service/llm_pipeline_service.py:55-112, 177-221)
+#### OpenAI Implementation (src/service/llm_pipeline_service.py:55-112, 175-218)
 ```python
-await openai_client.beta.chat.completions.parse(
+result = await openai_client.responses.parse(
     model=model,
-    messages=prompt,
-    response_format=DocumentAnalysis,  # Structured output
-    temperature=0.7,  # Analysis: creative
+    input=prompt,
+    text_format=DocumentAnalysis,  # Structured output
 )
+analysis_result = result.output_parsed
 ```
 
-#### Gemini Implementation (src/service/llm_pipeline_service.py:114-174, 223-273)
+#### Gemini Implementation (src/service/llm_pipeline_service.py:113-173, 220-268)
 ```python
-await google_genai_client.aio.models.generate_content(
+result = await google_genai_client.aio.models.generate_content(
     model=model,
     contents=user_content,
     config=GenerateContentConfig(
         system_instruction=system_instruction,
         response_mime_type="application/json",
         response_schema=DocumentAnalysis,
-        temperature=0.7,
     ),
 )
+analysis_result = result.parsed
 ```
 
 **Key Differences**:
-- OpenAI uses messages array; Gemini uses system_instruction + contents
+- OpenAI uses `input` parameter with messages array; Gemini uses `system_instruction` + `contents`
+- OpenAI uses `text_format` parameter; Gemini uses `response_schema` with `response_mime_type`
+- OpenAI result is accessed via `result.output_parsed`; Gemini via `result.parsed`
 - Both support structured output with Pydantic models
-- Temperature settings: 0.7 for analysis, 0.3 for judging
+- Temperature configuration removed in current implementation (using defaults)
 
 ### Error Handling Strategy
 
@@ -179,7 +200,13 @@ await google_genai_client.aio.models.generate_content(
 3. **Retry Logic**
    - Maximum 2 retries (3 total attempts)
    - Retry only when grade < 4
-   - Each retry includes previous feedback
+   - Each retry includes previous feedback in Japanese:
+     ```
+     前回の分析は {grade}/5 の評価を受けました。
+     評価フィードバック: {reasoning}
+     改善が必要な具体的な点: {specific_improvements}
+     このフィードバックに基づいて分析を改善してください。
+     ```
    - Graceful acceptance after max retries
 
 ## Working with This Codebase
@@ -392,10 +419,16 @@ When extending this project, consider:
 - `src/service/llm_pipeline_service.py` - When modifying pipeline structure
 
 ### Low-Change Areas
-- `src/client/llm_client.py` - Stable provider abstraction
+- `src/client/llm_client.py` - Stable provider abstraction (defines enums and initializes clients)
 - `src/config.py` - Simple configuration loader
 - `src/logger.py` - Logging configuration
 - `src/main.py` - CLI interface
+
+**Note**: The `llm_client.py` module initializes both API clients at import time:
+```python
+google_genai_client = genai.Client(api_key=config.gemini_api_key)
+openai_client = AsyncOpenAI(api_key=config.openai_api_key)
+```
 
 ### Protected Areas
 - Do not modify generated outputs in `outputs/` directory

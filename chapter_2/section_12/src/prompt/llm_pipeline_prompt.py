@@ -41,6 +41,7 @@ Requirements:
 - Improvement requests must be between 3 and 5 items
 - Do not include explanations or additional text outside the JSON structure
 - Analysis should be objective and constructive
+- **IMPORTANT: All responses must be in Japanese (日本語で回答してください)**
 """
 
     user_prompt = f"""Please analyze the following markdown document:
@@ -92,6 +93,7 @@ Requirements:
 - Improvement requests must be between 3 and 5 items
 - Do not include explanations or additional text outside the JSON structure
 - Analysis should be objective and constructive
+- **IMPORTANT: All responses must be in Japanese (日本語で回答してください)**
 """
 
     user_content = f"""Please analyze the following markdown document:
@@ -151,6 +153,7 @@ Requirements:
 - Reasoning must be 3-5 sentences explaining the grade
 - If grade is below 4, include 3-5 specific improvements in the specific_improvements array
 - Be objective and constructive in your evaluation
+- **IMPORTANT: All responses must be in Japanese (日本語で回答してください)**
 """
 
     analysis_json = json.dumps(analysis_result.model_dump(), indent=2, ensure_ascii=False)
@@ -221,6 +224,7 @@ Requirements:
 - Reasoning must be 3-5 sentences explaining the grade
 - If grade is below 4, include 3-5 specific improvements in the specific_improvements array
 - Be objective and constructive in your evaluation
+- **IMPORTANT: All responses must be in Japanese (日本語で回答してください)**
 """
 
     analysis_json = json.dumps(analysis_result.model_dump(), indent=2, ensure_ascii=False)

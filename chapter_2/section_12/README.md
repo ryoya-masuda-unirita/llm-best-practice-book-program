@@ -1,4 +1,4 @@
-# Chapter 2 Section 11: LLMパイプラインの実装
+# Chapter 2 Section 12: LLMパイプラインの実装
 
 ## 概要
 
@@ -23,7 +23,7 @@ LLM-as-a-Judge（LLMを評価者として活用する）パターンを採用し
 ### ディレクトリ構成
 
 ```
-chapter_2/section_11/
+chapter_2/section_12/
 ├── src/
 │   ├── __init__.py              # パッケージ初期化
 │   ├── config.py                # 設定管理（API キー読み込み）
@@ -48,9 +48,12 @@ chapter_2/section_11/
 ├── outputs/                      # 生成結果の保存先（自動作成）
 ├── tests/                        # テストファイル
 │   ├── __init__.py
-│   └── conftest.py
+│   ├── conftest.py
+│   ├── test_models.py
+│   └── test_llm_pipeline_service.py
 ├── .envrc.example                # 環境変数設定のサンプル
 ├── pyproject.toml                # プロジェクト依存関係
+├── pytest.ini                    # Pytestの設定ファイル
 ├── Makefile                      # タスク自動化スクリプト
 ├── README.md                     # このファイル
 └── CLAUDE.md                     # プロジェクト設計ドキュメント
@@ -518,99 +521,3 @@ Markdown: outputs/gemini_analysis_a1b2c3d4e5f6.md
 2. 1回目の分析実行 → 評価grade 3/5（基準未達）
 3. 改善フィードバック付きで2回目の分析実行 → 評価grade 4/5（合格）
 4. パイプライン完了、結果をJSON/Markdown形式で保存
-
-### テスト方法
-
-#### 1. ユニットテストの実行
-
-```bash
-# すべてのテストを実行
-uv run pytest
-
-# 詳細な出力で実行
-uv run pytest -v
-
-# カバレッジレポート付きで実行
-uv run pytest --cov=src --cov-report=html
-
-# または Makefile経由
-make test
-```
-
-#### 2. 手動テスト
-
-##### OpenAI APIのテスト
-
-```bash
-uv run python -m src.main \
-  -lp openai \
-  -m gpt-4o \
-  -dp dataset/document_0.md \
-  -od test_outputs
-```
-
-期待される動作：
-- `test_outputs`ディレクトリが作成される
-- `openai_analysis_XXXXXXXX.json`と`.md`ファイルが生成される
-- JSONファイルが`DocumentAnalysis`スキーマに準拠している
-- ログに分析→評価→（必要に応じて再試行）の流れが記録される
-
-##### Gemini APIのテスト
-
-```bash
-uv run python -m src.main \
-  -lp gemini \
-  -m gemini-2.5-flash \
-  -dp dataset/document_1.md \
-  -od test_outputs
-```
-
-期待される動作：
-- `test_outputs`ディレクトリが作成される
-- `gemini_analysis_XXXXXXXX.json`と`.md`ファイルが生成される
-- JSONファイルが`DocumentAnalysis`スキーマに準拠している
-- LLM-as-a-Judgeによる評価が実行される
-
-#### 3. パイプラインの動作検証
-
-生成されたJSONファイルが正しい構造を持っているか確認：
-
-```bash
-# jqを使用してJSONを検証
-cat test_outputs/gemini_analysis_*.json | jq .
-
-# Pythonで読み込みテスト
-python -c "
-from src.model.llm_pipeline_model import DocumentAnalysis
-import json
-import glob
-
-json_files = glob.glob('test_outputs/*_analysis_*.json')
-for file_path in json_files:
-    with open(file_path) as f:
-        data = json.load(f)
-        analysis = DocumentAnalysis(**data)
-        print(f'✓ Valid: {file_path}')
-        print(f'  Theme: {analysis.theme[:50]}...')
-        print(f'  Improvements: {len(analysis.improvement_requests)} items')
-"
-```
-
-#### 4. リトライ機構のテスト
-
-意図的に低品質な分析を生成させてリトライ動作を確認：
-
-```bash
-# ログレベルをINFOにしてリトライの様子を観察
-uv run python -m src.main \
-  -lp gemini \
-  -m gemini-2.5-flash \
-  -dp dataset/document_2.md \
-  -od test_outputs 2>&1 | grep -E "(attempt|Grade|Retrying)"
-```
-
-期待される出力：
-- "Analyzing document with Gemini (attempt 1)"
-- "Evaluation complete: Grade X/5"
-- （grade < 4の場合）"Retrying (attempt 2/3)"
-- 最大3回の試行（初回 + 2回のリトライ）

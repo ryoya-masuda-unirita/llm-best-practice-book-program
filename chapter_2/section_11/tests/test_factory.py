@@ -10,7 +10,7 @@ import pytest
 from src.client.adapters import GeminiAdapter, OpenAIAdapter
 from src.client.base import LLMClient
 from src.client.factory import LLMClientFactory
-from src.client.model import GeminiModel, LLMProvider, OpenAIModel
+from src.client.model import AnthropicModel, GeminiModel, LLMProvider, OpenAIModel
 
 
 class TestLLMClientFactory:
@@ -22,7 +22,8 @@ class TestLLMClientFactory:
         assert isinstance(providers, list)
         assert LLMProvider.OPENAI in providers
         assert LLMProvider.GEMINI in providers
-        assert len(providers) == 2
+        assert LLMProvider.ANTHROPIC in providers
+        assert len(providers) == 3
 
     def test_get_supported_models_openai(self):
         """Test retrieval of OpenAI supported models."""
@@ -38,6 +39,14 @@ class TestLLMClientFactory:
         assert isinstance(models, list)
         assert GeminiModel.GEMINI_2_5_PRO in models
         assert GeminiModel.GEMINI_2_5_FLASH in models
+        assert len(models) > 0
+
+    def test_get_supported_models_anthropic(self):
+        """Test retrieval of Anthropic supported models."""
+        models = LLMClientFactory.get_supported_models(LLMProvider.ANTHROPIC)
+        assert isinstance(models, list)
+        assert AnthropicModel.CLAUDE_SONNET_4_5 in models
+        assert AnthropicModel.CLAUDE_OPUS_4_1 in models
         assert len(models) > 0
 
     def test_get_supported_models_unknown_provider(self):
@@ -62,6 +71,11 @@ class TestLLMClientFactory:
         """Test valid Gemini provider-model combination."""
         assert LLMClientFactory.is_valid_combination(LLMProvider.GEMINI, GeminiModel.GEMINI_2_5_PRO)
         assert LLMClientFactory.is_valid_combination(LLMProvider.GEMINI, GeminiModel.GEMINI_2_5_FLASH)
+
+    def test_is_valid_combination_valid_anthropic(self):
+        """Test valid Anthropic provider-model combination."""
+        assert LLMClientFactory.is_valid_combination(LLMProvider.ANTHROPIC, AnthropicModel.CLAUDE_SONNET_4_5)
+        assert LLMClientFactory.is_valid_combination(LLMProvider.ANTHROPIC, AnthropicModel.CLAUDE_OPUS_4_1)
 
     def test_is_valid_combination_invalid_provider(self):
         """Test invalid provider returns False."""
@@ -104,6 +118,20 @@ class TestLLMClientFactory:
         """Test creation of Gemini clients with different models."""
         for model in [GeminiModel.GEMINI_2_5_PRO, GeminiModel.GEMINI_2_5_FLASH]:
             LLMClientFactory.create_client(LLMProvider.GEMINI, model)
+
+        assert mock_adapter.call_count == 2
+
+    @patch("src.client.factory.AnthropicAdapter")
+    def test_create_client_anthropic(self, mock_adapter):
+        """Test creation of Anthropic client."""
+        LLMClientFactory.create_client(LLMProvider.ANTHROPIC, AnthropicModel.CLAUDE_SONNET_4_5)
+        mock_adapter.assert_called_once_with(model=AnthropicModel.CLAUDE_SONNET_4_5)
+
+    @patch("src.client.factory.AnthropicAdapter")
+    def test_create_client_anthropic_different_models(self, mock_adapter):
+        """Test creation of Anthropic clients with different models."""
+        for model in [AnthropicModel.CLAUDE_SONNET_4_5, AnthropicModel.CLAUDE_OPUS_4_1]:
+            LLMClientFactory.create_client(LLMProvider.ANTHROPIC, model)
 
         assert mock_adapter.call_count == 2
 

@@ -4,7 +4,7 @@
 
 This project demonstrates **Adapter and Factory design patterns** for managing multiple LLM providers through a unified interface. It showcases best practices for avoiding vendor lock-in while maintaining code maintainability and extensibility.
 
-**Core Objective**: Generate fictional character data (name, gender, age, personality traits) using either OpenAI or Google Gemini APIs through a common interface.
+**Core Objective**: Generate fictional character data (name, gender, age, personality traits) using OpenAI, Anthropic Claude, or Google Gemini APIs through a common interface.
 
 **Key Patterns**:
 - **Adapter Pattern**: Abstracts provider-specific API differences
@@ -17,7 +17,7 @@ This project demonstrates **Adapter and Factory design patterns** for managing m
 src/
 ├── client/                    # Adapter and Factory implementation
 │   ├── base.py               # Abstract base class (LLMClient)
-│   ├── adapters.py           # Concrete adapters (OpenAI, Gemini)
+│   ├── adapters.py           # Concrete adapters (OpenAI, Anthropic, Gemini)
 │   ├── factory.py            # Factory for creating clients
 │   └── model.py              # Provider/model enums
 ├── model/                    # Domain models
@@ -31,8 +31,8 @@ src/
 └── main.py                   # CLI entry point
 
 tests/
-├── test_adapters.py          # Adapter tests (17 tests)
-└── test_factory.py           # Factory tests (26 tests)
+├── test_adapters.py          # Adapter tests
+└── test_factory.py           # Factory tests
 ```
 
 ## Architecture
@@ -68,7 +68,7 @@ tests/
 |  - Configuration (config.py)                |
 |  - Logging (logger.py)                      |
 |  - Data models (model/)                     |
-|  - External APIs (OpenAI, Gemini)           |
+|  - External APIs (OpenAI, Anthropic, Gemini)|
 +---------------------------------------------+
 ```
 
@@ -78,7 +78,7 @@ tests/
 
 **Purpose**: Translate different provider APIs into a common interface.
 
-**Abstract Interface** (`base.py:9-54`):
+**Abstract Interface** (`base.py`):
 ```python
 class LLMClient(ABC):
     @abstractmethod
@@ -100,6 +100,11 @@ class LLMClient(ABC):
     def get_model_name(self) -> str:
         """Return model identifier."""
         pass
+
+    @abstractmethod
+    async def aclose(self) -> None:
+        """Close the client and release resources."""
+        pass
 ```
 
 **Key Design Decisions**:
@@ -107,22 +112,34 @@ class LLMClient(ABC):
 - **Pydantic integration**: `response_format` ensures type-safe responses
 - **Flexible kwargs**: Allows provider-specific parameters without breaking the interface
 - **Provider identification**: Methods for runtime introspection
+- **Resource management**: `aclose()` method ensures proper cleanup of resources
 
-**OpenAI Adapter** (`adapters.py:23-74`):
+**OpenAI Adapter** (`adapters.py`):
 - Uses `AsyncOpenAI` client
-- Leverages `beta.chat.completions.parse()` for structured output
-- Returns `result.choices[0].message.parsed` (Pydantic model)
+- Leverages latest `responses.parse()` API for structured output
+- Returns `result.output_parsed` (Pydantic model)
+- Implements `aclose()` to properly close the client
 
-**Gemini Adapter** (`adapters.py:77-147`):
+**Anthropic Adapter** (`adapters.py`):
+- Uses `AsyncAnthropic` client
+- Leverages beta `messages.parse()` API with structured outputs
+- Uses `betas=["structured-outputs-2025-11-13"]` for latest features
+- Returns `result.parsed_output` (Pydantic model)
+- Implements `aclose()` to properly close the client
+
+**Gemini Adapter** (`adapters.py`):
 - Uses `genai.Client` with async methods
 - Separates system instructions from user messages (Gemini requirement)
+- Supports both tuple `(system, user)` and list message formats
 - Uses `GenerateContentConfig` with `response_schema` for structured output
 - Returns `result.parsed` directly
+- Implements `aclose()` to properly close the async client
 
 **Provider Differences Handled**:
-- Message format: OpenAI uses standard chat format; Gemini separates system/user
-- Structured output: OpenAI uses `response_format`; Gemini uses `response_schema`
-- Client initialization: Different SDK patterns
+- Message format: OpenAI uses standard chat format; Anthropic uses standard chat format; Gemini separates system/user
+- Structured output: OpenAI uses `text_format`; Anthropic uses `output_format` with betas; Gemini uses `response_schema`
+- Client initialization: Different SDK patterns and API endpoints
+- Resource cleanup: Different close methods across providers
 
 #### 2. Factory Pattern (`client/factory.py`)
 
@@ -130,23 +147,25 @@ class LLMClient(ABC):
 
 **Key Features**:
 
-1. **Provider-Model Mapping** (`factory.py:24-27`):
+1. **Provider-Model Mapping**:
 ```python
 PROVIDER_MODELS = {
     LLMProvider.OPENAI: OpenAIModel.list_str(),
     LLMProvider.GEMINI: GeminiModel.list_str(),
+    LLMProvider.ANTHROPIC: AnthropicModel.list_str(),
 }
 ```
 
-2. **Validation Before Creation** (`factory.py:54-64`):
+2. **Validation Before Creation**:
 - Checks if provider exists
 - Verifies model is supported for that provider
 - Raises descriptive `ValueError` with supported options
 
-3. **Client Instantiation** (`factory.py:68-77`):
+3. **Client Instantiation**:
 - Single source of truth for creating adapters
 - Hides concrete adapter classes from business logic
 - Enables easy addition of new providers
+- Returns appropriate adapter (OpenAI, Anthropic, or Gemini) based on provider parameter
 
 **Benefits**:
 - **Single Responsibility**: One place to manage client creation
@@ -158,17 +177,12 @@ PROVIDER_MODELS = {
 
 **Purpose**: Provide business logic abstraction over adapters.
 
-**Implementation** (`request_llm.py:17-54`):
+**Implementation** (`request_llm.py`):
 ```python
 async def request_llm(
-    provider: LLMProvider,
-    model: OpenAIModel | GeminiModel,
+    client: LLMClient,
+    model: str,
 ) -> CharacterResponse:
-    # Create client using factory
-    client: LLMClient = LLMClientFactory.create_client(
-        provider=provider, model=model
-    )
-
     # Get prompt
     prompt = make_prompt()
 
@@ -182,10 +196,11 @@ async def request_llm(
 ```
 
 **Key Points**:
-- **Provider-agnostic**: Same code works for any provider
-- **Type safety**: Uses union types for model parameter
+- **Provider-agnostic**: Same code works for any provider (OpenAI, Anthropic, Gemini)
+- **Dependency injection**: Client is injected, promoting testability
 - **Separation of concerns**: Prompt generation separate from API calls
 - **Error handling**: Propagates exceptions with context
+- **Clean interface**: Service layer doesn't need to know about factory or provider details
 
 ## Data Models
 
@@ -231,6 +246,7 @@ class CharacterResponse(BaseModel):
 class LLMProvider(StrEnum):
     OPENAI = "openai"
     GEMINI = "gemini"
+    ANTHROPIC = "anthropic"
 
 class OpenAIModel(StrEnum):
     GPT_5 = "gpt-5"
@@ -241,6 +257,14 @@ class OpenAIModel(StrEnum):
     @staticmethod
     def list_str() -> list[str]:
         return [model for model in OpenAIModel]
+
+class AnthropicModel(StrEnum):
+    CLAUDE_SONNET_4_5 = "claude-sonnet-4-5"
+    CLAUDE_OPUS_4_1 = "claude-opus-4-1"
+
+    @staticmethod
+    def list_str() -> list[str]:
+        return [model for model in AnthropicModel]
 ```
 
 **Benefits**:
@@ -258,6 +282,7 @@ from pydantic_settings import BaseSettings
 class Config(BaseSettings):
     openai_api_key: str
     gemini_api_key: str
+    anthropic_api_key: str
 
     class Config:
         env_file = ".env"
@@ -273,25 +298,26 @@ config = Config()
 
 ## Testing Strategy
 
-### Test Coverage (43 total tests)
+### Test Coverage
 
-#### Adapter Tests (`tests/test_adapters.py` - 17 tests)
+#### Adapter Tests (`tests/test_adapters.py`)
 
 **What to Test**:
 1. **Interface compliance**: Verify adapters implement `LLMClient`
-2. **Initialization**: Check correct client and model setup
-3. **Chat functionality**: Mock API calls and verify response parsing
+2. **Initialization**: Check correct client and model setup for OpenAI, Anthropic, and Gemini
+3. **Chat functionality**: Mock API calls and verify response parsing for all three providers
 4. **Error handling**: Test API failures, invalid responses
 5. **Provider/model metadata**: Verify `get_provider_name()`, `get_model_name()`
+6. **Resource cleanup**: Test `aclose()` method for proper resource release
 
 **Example Test Pattern**:
 ```python
 @pytest.mark.asyncio
-async def test_chat_success(self, mocker):
+async def test_openai_chat_success(self, mocker):
     # Mock the API client
     mock_client = mocker.patch('openai.AsyncOpenAI')
     mock_response = mocker.Mock()
-    mock_response.choices[0].message.parsed = CharacterResponse(...)
+    mock_response.output_parsed = CharacterResponse(...)
 
     # Test the adapter
     adapter = OpenAIAdapter(model="gpt-4o")
@@ -299,10 +325,25 @@ async def test_chat_success(self, mocker):
 
     # Verify
     assert isinstance(result, CharacterResponse)
-    mock_client.beta.chat.completions.parse.assert_called_once()
+    mock_client.responses.parse.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_anthropic_chat_success(self, mocker):
+    # Mock the API client
+    mock_client = mocker.patch('anthropic.AsyncAnthropic')
+    mock_response = mocker.Mock()
+    mock_response.parsed_output = CharacterResponse(...)
+
+    # Test the adapter
+    adapter = AnthropicAdapter(model="claude-sonnet-4-5")
+    result = await adapter.chat(messages, CharacterResponse)
+
+    # Verify
+    assert isinstance(result, CharacterResponse)
+    mock_client.beta.messages.parse.assert_called_once()
 ```
 
-#### Factory Tests (`tests/test_factory.py` - 26 tests)
+#### Factory Tests (`tests/test_factory.py`)
 
 **What to Test**:
 1. **Provider enumeration**: `get_supported_providers()`
@@ -328,6 +369,14 @@ def test_invalid_combination(self):
             provider=LLMProvider.OPENAI,
             model=GeminiModel.GEMINI_2_5_PRO  # Wrong!
         )
+
+def test_create_client_anthropic(self):
+    client = LLMClientFactory.create_client(
+        provider=LLMProvider.ANTHROPIC,
+        model=AnthropicModel.CLAUDE_SONNET_4_5
+    )
+    assert isinstance(client, AnthropicAdapter)
+    assert client.get_provider_name() == LLMProvider.ANTHROPIC
 ```
 
 ### Testing Best Practices
@@ -342,7 +391,9 @@ def test_invalid_combination(self):
 
 ### Adding a New Provider
 
-**Example: Adding Anthropic Claude**
+This project already includes three providers (OpenAI, Anthropic, Gemini). Here's how Anthropic was added as an example:
+
+**Example: How Anthropic Claude Was Added**
 
 1. **Define model enum** (`client/model.py`):
 ```python
@@ -368,28 +419,25 @@ class AnthropicAdapter(LLMClient):
         response_format: type,
         **kwargs: Any,
     ) -> BaseModel:
-        # Convert Pydantic model to Anthropic schema
-        schema = response_format.model_json_schema()
-
-        result = await self._client.messages.create(
+        # Use beta structured outputs API
+        result = await self._client.beta.messages.parse(
             model=self._model,
+            max_tokens=kwargs.get("max_tokens", 1024),
+            betas=["structured-outputs-2025-11-13"],
             messages=messages,
-            tools=[{
-                "name": "structured_output",
-                "input_schema": schema
-            }],
-            **kwargs
+            output_format=response_format,
+            **{k: v for k, v in kwargs.items() if k != "max_tokens"},
         )
-
-        # Parse and validate response
-        data = result.content[0].input
-        return response_format(**data)
+        return result.parsed_output
 
     def get_provider_name(self) -> str:
         return LLMProvider.ANTHROPIC
 
     def get_model_name(self) -> str:
         return self._model
+
+    async def aclose(self) -> None:
+        await self._client.close()
 ```
 
 3. **Update factory** (`client/factory.py`):
@@ -405,15 +453,23 @@ elif provider_lower == LLMProvider.ANTHROPIC:
     return AnthropicAdapter(model=model)
 ```
 
-4. **Write tests** (`tests/test_adapters.py`, `tests/test_factory.py`):
+4. **Update configuration** (`config.py`):
+```python
+class Config(BaseSettings):
+    openai_api_key: str
+    gemini_api_key: str
+    anthropic_api_key: str  # Add this
+```
+
+5. **Write tests** (`tests/test_adapters.py`, `tests/test_factory.py`):
 - Add `TestAnthropicAdapter` class
 - Test all interface methods
 - Add factory tests for Anthropic
 
-**That's it!** No changes needed to:
-- Service layer (`service/request_llm.py`)
-- CLI layer (`main.py`)
-- Data models (`model/model.py`)
+**That's it!** Minimal changes needed to:
+- Service layer (`service/request_llm.py`) - already uses dependency injection, no changes needed
+- CLI layer (`main.py`) - update to include Anthropic in choices
+- Data models (`model/model.py`) - no changes needed
 
 ### Adding a New Model to Existing Provider
 
@@ -524,7 +580,7 @@ except Exception as e:
 - **Dependency injection**: Factory provides clients
 - **Async support**: Full async/await for better performance
 - **Mocking**: All external dependencies mockable
-- **Comprehensive tests**: 43 tests covering critical paths
+- **Comprehensive tests**: Full test coverage for all three providers
 
 ### 5. Documentation
 
@@ -545,13 +601,34 @@ All LLM calls are async, enabling:
 Example concurrent usage:
 ```python
 async def compare_providers():
-    openai_task = request_llm(LLMProvider.OPENAI, OpenAIModel.GPT_4O)
-    gemini_task = request_llm(LLMProvider.GEMINI, GeminiModel.GEMINI_2_5_PRO)
-
-    openai_result, gemini_result = await asyncio.gather(
-        openai_task, gemini_task
+    # Create clients
+    openai_client = LLMClientFactory.create_client(
+        LLMProvider.OPENAI, OpenAIModel.GPT_4O
     )
-    return openai_result, gemini_result
+    anthropic_client = LLMClientFactory.create_client(
+        LLMProvider.ANTHROPIC, AnthropicModel.CLAUDE_SONNET_4_5
+    )
+    gemini_client = LLMClientFactory.create_client(
+        LLMProvider.GEMINI, GeminiModel.GEMINI_2_5_PRO
+    )
+
+    # Run requests concurrently
+    openai_task = request_llm(openai_client, "gpt-4o")
+    anthropic_task = request_llm(anthropic_client, "claude-sonnet-4-5")
+    gemini_task = request_llm(gemini_client, "gemini-2.5-pro")
+
+    results = await asyncio.gather(
+        openai_task, anthropic_task, gemini_task
+    )
+
+    # Clean up
+    await asyncio.gather(
+        openai_client.aclose(),
+        anthropic_client.aclose(),
+        gemini_client.aclose()
+    )
+
+    return results
 ```
 
 ### Caching Considerations
@@ -658,6 +735,7 @@ class Config(BaseSettings):
     env: str = "development"
     openai_api_key: str
     gemini_api_key: str
+    anthropic_api_key: str
     log_level: str = "INFO"
 
     class Config:
@@ -748,12 +826,28 @@ class LLMClient(ABC):
 
 Combine responses from multiple providers:
 ```python
-async def ensemble_request(prompt, providers):
-    tasks = [
-        request_llm(provider, default_model)
-        for provider in providers
+async def ensemble_request(prompt, provider_configs):
+    """
+    provider_configs: list of (provider, model) tuples
+    e.g., [(LLMProvider.OPENAI, "gpt-4o"),
+           (LLMProvider.ANTHROPIC, "claude-sonnet-4-5"),
+           (LLMProvider.GEMINI, "gemini-2.5-pro")]
+    """
+    clients = [
+        LLMClientFactory.create_client(provider, model)
+        for provider, model in provider_configs
     ]
+
+    tasks = [
+        request_llm(client, model)
+        for client, (_, model) in zip(clients, provider_configs)
+    ]
+
     results = await asyncio.gather(*tasks)
+
+    # Clean up clients
+    await asyncio.gather(*[client.aclose() for client in clients])
+
     return consensus(results)  # Voting or averaging logic
 ```
 
