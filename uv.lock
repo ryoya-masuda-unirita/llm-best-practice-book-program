@@ -8,6 +8,7 @@ members = [
     "chapter-2-section-10",
     "chapter-2-section-11",
     "chapter-2-section-12",
+    "chapter-2-section-13",
     "chapter-2-section-2",
     "chapter-2-section-3",
     "chapter-2-section-4",
@@ -23,6 +24,8 @@ members = [
     "chapter-3-section-13",
     "chapter-3-section-14",
     "chapter-3-section-15",
+    "chapter-3-section-16",
+    "chapter-3-section-17",
     "chapter-3-section-2",
     "chapter-3-section-3",
     "chapter-3-section-4",
@@ -30,8 +33,6 @@ members = [
     "chapter-3-section-6",
     "chapter-3-section-7",
     "chapter-3-section-9",
-    "chapter-4-section-5",
-    "chapter-4-section-6",
     "llm-best-practice-book-program",
 ]
 
@@ -151,7 +152,7 @@ wheels = [
 
 [[package]]
 name = "anthropic"
-version = "0.73.0"
+version = "0.74.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -163,9 +164,9 @@ dependencies = [
     { name = "sniffio" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f0/07/f550112c3f5299d02f06580577f602e8a112b1988ad7c98ac1a8f7292d7e/anthropic-0.73.0.tar.gz", hash = "sha256:30f0d7d86390165f86af6ca7c3041f8720bb2e1b0e12a44525c8edfdbd2c5239", size = 425168, upload-time = "2025-11-14T18:47:52.635Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d7/7b/609eea5c54ae69b1a4a94169d4b0c86dc5c41b43509989913f6cdc61b81d/anthropic-0.74.1.tar.gz", hash = "sha256:04c087b2751385c524f6d332d066a913870e4de8b3e335fb0a0c595f1f88dc6e", size = 428981, upload-time = "2025-11-19T22:17:31.533Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/15/b1/5d4d3f649e151e58dc938cf19c4d0cd19fca9a986879f30fea08a7b17138/anthropic-0.73.0-py3-none-any.whl", hash = "sha256:0d56cd8b3ca3fea9c9b5162868bdfd053fbc189b8b56d4290bd2d427b56db769", size = 367839, upload-time = "2025-11-14T18:47:51.195Z" },
+    { url = "https://files.pythonhosted.org/packages/dd/45/6b18d0692302b8cbc01a10c35b43953d3c4172fbd4f83337b8ed21a8eaa4/anthropic-0.74.1-py3-none-any.whl", hash = "sha256:b07b998d1cee7f41d9f02530597d7411672b362cc2417760a40c0167b81c6e65", size = 371473, upload-time = "2025-11-19T22:17:29.998Z" },
 ]
 
 [[package]]
@@ -430,6 +431,7 @@ name = "chapter-2-section-11"
 version = "0.1.0"
 source = { virtual = "chapter_2/section_11" }
 dependencies = [
+    { name = "anthropic" },
     { name = "click" },
     { name = "google-genai" },
     { name = "openai" },
@@ -446,6 +448,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", specifier = ">=0.74.1" },
     { name = "click", specifier = ">=8.3.0" },
     { name = "google-genai", specifier = ">=1.45.0" },
     { name = "openai", specifier = ">=2.4.0" },
@@ -497,6 +500,29 @@ dev = [
     { name = "pytest", specifier = ">=8.4.2" },
     { name = "pytest-asyncio", specifier = ">=1.2.0" },
     { name = "pytest-mock", specifier = ">=3.15.1" },
+]
+
+[[package]]
+name = "chapter-2-section-13"
+version = "0.1.0"
+source = { virtual = "chapter_2/section_13" }
+dependencies = [
+    { name = "click" },
+    { name = "jinja2" },
+    { name = "openai" },
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+    { name = "pyyaml" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "click", specifier = ">=8.1.8" },
+    { name = "jinja2", specifier = ">=3.1.5" },
+    { name = "openai", specifier = ">=1.59.8" },
+    { name = "pydantic", specifier = ">=2.10.6" },
+    { name = "python-dotenv", specifier = ">=1.0.1" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
 ]
 
 [[package]]
@@ -1047,6 +1073,76 @@ dev = [
 ]
 
 [[package]]
+name = "chapter-3-section-16"
+version = "0.1.0"
+source = { virtual = "chapter_3/section_16" }
+dependencies = [
+    { name = "click" },
+    { name = "google-genai" },
+    { name = "openai" },
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-mock" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "click", specifier = ">=8.3.0" },
+    { name = "google-genai", specifier = ">=1.45.0" },
+    { name = "openai", specifier = ">=2.4.0" },
+    { name = "pydantic", specifier = ">=2.12.2" },
+    { name = "python-dotenv", specifier = ">=1.1.1" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.4.2" },
+    { name = "pytest-asyncio", specifier = ">=1.2.0" },
+    { name = "pytest-mock", specifier = ">=3.15.1" },
+]
+
+[[package]]
+name = "chapter-3-section-17"
+version = "0.1.0"
+source = { virtual = "chapter_3/section_17" }
+dependencies = [
+    { name = "click" },
+    { name = "google-genai" },
+    { name = "openai" },
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-mock" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "click", specifier = ">=8.3.0" },
+    { name = "google-genai", specifier = ">=1.45.0" },
+    { name = "openai", specifier = ">=2.4.0" },
+    { name = "pydantic", specifier = ">=2.12.2" },
+    { name = "python-dotenv", specifier = ">=1.1.1" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.4.2" },
+    { name = "pytest-asyncio", specifier = ">=1.2.0" },
+    { name = "pytest-mock", specifier = ">=3.15.1" },
+]
+
+[[package]]
 name = "chapter-3-section-2"
 version = "0.1.0"
 source = { virtual = "chapter_3/section_2" }
@@ -1291,76 +1387,6 @@ requires-dist = [
     { name = "pytest-asyncio", specifier = ">=1.2.0" },
     { name = "pytest-mock", specifier = ">=3.15.1" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
-]
-
-[[package]]
-name = "chapter-4-section-5"
-version = "0.1.0"
-source = { virtual = "chapter_4/section_5" }
-dependencies = [
-    { name = "click" },
-    { name = "google-genai" },
-    { name = "openai" },
-    { name = "pydantic" },
-    { name = "python-dotenv" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-mock" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "click", specifier = ">=8.3.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
-    { name = "openai", specifier = ">=2.4.0" },
-    { name = "pydantic", specifier = ">=2.12.2" },
-    { name = "python-dotenv", specifier = ">=1.1.1" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=8.4.2" },
-    { name = "pytest-asyncio", specifier = ">=1.2.0" },
-    { name = "pytest-mock", specifier = ">=3.15.1" },
-]
-
-[[package]]
-name = "chapter-4-section-6"
-version = "0.1.0"
-source = { virtual = "chapter_4/section_6" }
-dependencies = [
-    { name = "click" },
-    { name = "google-genai" },
-    { name = "openai" },
-    { name = "pydantic" },
-    { name = "python-dotenv" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-mock" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "click", specifier = ">=8.3.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
-    { name = "openai", specifier = ">=2.4.0" },
-    { name = "pydantic", specifier = ">=2.12.2" },
-    { name = "python-dotenv", specifier = ">=1.1.1" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=8.4.2" },
-    { name = "pytest-asyncio", specifier = ">=1.2.0" },
-    { name = "pytest-mock", specifier = ">=3.15.1" },
 ]
 
 [[package]]

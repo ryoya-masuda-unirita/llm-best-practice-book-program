@@ -5,7 +5,6 @@ from pathlib import Path
 from uuid import uuid4
 
 import click
-
 from src.client.llm_client import OpenAIModel
 from src.logger import make_logger
 from src.service import request_openai

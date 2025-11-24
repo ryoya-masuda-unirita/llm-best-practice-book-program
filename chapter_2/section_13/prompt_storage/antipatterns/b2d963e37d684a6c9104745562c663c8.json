@@ -1,0 +1,24 @@
+{
+  "pattern_id": "b2d963e37d684a6c9104745562c663c8",
+  "name": "insufficient_data_pattern",
+  "description": "Anti-pattern identified from log b7422ee4cba84f628d941a231bffc3d9",
+  "category": "data_extraction",
+  "tags": [
+    "inventory",
+    "demand_forecasting",
+    "optimization",
+    "autonomous_agent"
+  ],
+  "prompt_pattern": "Analyze the demand pattern for product PROD-002 based on:\n        - Last 30 days sales: 1208\n        - Seasonal trend: increasing\n        - Market conditions: favorable\n\n        Provide:\n        1. Predicted demand for next 7 days\n        2. Recommended stock level\n        3. Reorder threshold\n        4. Confidence score (0-1)\n        ",
+  "failure_reason": "Attempting to make predictions without sufficient historical data leads to low-confidence or failed analyses",
+  "occurrence_count": 5,
+  "recommended_fix": "Ensure at least 60 days of historical data before requesting demand forecasts. If unavailable, use rule-based fallback or request more data collection.",
+  "related_template_id": null,
+  "created_at": "2025-11-24 10:44:14.339799",
+  "updated_at": "2025-11-24 10:44:14.345075",
+  "severity": "high",
+  "examples": [
+    "Analyze the demand pattern for product PROD-002 based on:\n        - Last 30 days sales: 1208\n        - Seasonal trend: increasing\n        - Market conditions: favorable\n\n        Provide:\n        1. Predicted demand for next 7 days\n        2. Recommended stock level\n        3. Reorder threshold\n        4. Confidence score (0-1)\n        "
+  ],
+  "notes": "Insufficient historical data for accurate prediction"
+}

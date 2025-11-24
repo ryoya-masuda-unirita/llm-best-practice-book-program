@@ -1,0 +1,38 @@
+{
+  "template_id": "83e4d0398a774042a5d825319f9cfd18",
+  "name": "inventory_demand_analysis_v3",
+  "version": "1.0.0",
+  "description": "Optimized template for demand forecasting and stock optimization (variant 3)",
+  "category": "data_extraction",
+  "tags": [
+    "inventory",
+    "demand_forecasting",
+    "optimization",
+    "autonomous_agent"
+  ],
+  "system_prompt": "You are an expert inventory optimization AI. Provide data-driven recommendations.",
+  "user_prompt": "Analyze the demand pattern for product PROD-003 based on:\n        - Last 30 days sales: 1510\n        - Seasonal trend: decreasing\n        - Market conditions: challenging\n\n        Provide:\n        1. Predicted demand for next 7 days\n        2. Recommended stock level\n        3. Reorder threshold\n        4. Confidence score (0-1)\n        ",
+  "required_variables": [
+    "product_id",
+    "sales_30d"
+  ],
+  "optional_variables": [
+    "seasonal_trend",
+    "market_conditions",
+    "promotional_events"
+  ],
+  "recommended_models": [
+    "gpt-4o-mini"
+  ],
+  "recommended_temperature": 0.3,
+  "success_count": 4,
+  "failure_count": 2,
+  "average_score": 0.7253965206317324,
+  "created_at": "2025-11-24 10:44:14.338178",
+  "updated_at": "2025-11-24 10:44:14.409900",
+  "created_by": "agent_inventory_optimizer",
+  "use_case_examples": [
+    "Inventory optimization for product PROD-003"
+  ],
+  "notes": "Created from log 8b0d3b6007e44ba3bd171343f4158bd3"
+}

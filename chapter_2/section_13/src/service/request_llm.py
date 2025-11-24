@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-
 from src.client.llm_client import OpenAIModel, openai_client
 from src.logger import make_logger
 from src.model.model import CharacterResponse
@@ -175,14 +174,14 @@ async def execute_llm_request(
 
     Returns:
         Parsed CharacterResponse
+
     """
-    result = await openai_client.beta.chat.completions.parse(
+    result = await openai_client.responses.parse(
         model=model,
-        messages=messages,
-        response_format=CharacterResponse,
-        temperature=1.0,
+        input=messages,
+        text_format=CharacterResponse,
     )
-    return result.choices[0].message.parsed
+    return result.output_parsed
 
 
 async def request_openai(
@@ -208,6 +207,7 @@ async def request_openai(
         variables_file: Variables file name (deprecated, use variables_path)
         template_path: Path to template file (absolute or relative to templates/)
         variables_path: Path to variables file (absolute or relative to variables/)
+        temperature: Temperature parameter for LLM (default: 1.0)
         template_dir: Directory containing templates (required)
         variables_dir: Directory containing variables files
         template_engine: TemplateEngine instance (optional, created if not provided)
@@ -221,6 +221,7 @@ async def request_openai(
     Note:
         If both template_name and template_path are provided, template_path takes precedence.
         Same for variables_file and variables_path.
+
     """
     if template_dir is None:
         raise ValueError("template_dir must be provided")
