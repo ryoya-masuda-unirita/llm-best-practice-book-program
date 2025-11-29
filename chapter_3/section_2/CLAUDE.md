@@ -4,13 +4,13 @@
 
 This project demonstrates a **Bridge Pattern-based architecture** that separates storage (caching) and execution (LLM API calls) layers in an LLM system. By decoupling cache/database access from LLM API invocation, we achieve high component independence, flexibility, testability, and maintainability.
 
-The implementation provides a FastAPI-based REST API server supporting multiple OpenAI models (GPT-4o, GPT-4.1, GPT-5 series) and Google Gemini models (2.5 Pro, Flash, Flash Lite). It offers flexible cache backend switching between in-memory and Redis storage based on environment configuration.
+The implementation provides a FastAPI-based REST API server supporting multiple OpenAI models (GPT-4o, GPT-4.1, GPT-5 series). It offers flexible cache backend switching between in-memory and Redis storage based on environment configuration.
 
 ## Features
 
 - **Storage-Execution Separation**: Clear separation of concerns using the Bridge Pattern
 - **Dual Cache Backends**: Support for both in-memory and Redis-based caching
-- **Multi-Provider Support**: Compatible with OpenAI and Google Gemini APIs
+- **OpenAI Support**: Compatible with OpenAI GPT models (GPT-5, GPT-4.1, GPT-4o series)
 - **Model Validation**: Automatic validation of model compatibility with providers
 - **Dependency Injection**: Flexible service instance management via Factory Pattern
 - **REST API Server**: High-performance FastAPI endpoints
@@ -112,10 +112,9 @@ class LLMServiceFactory:
      HIT → Return cached data (fast path)
      MISS → Proceed to execution
 6. ExecutionLLMService (Execution Layer)
-   ↓ Provider selection
+   ↓ OpenAI API call
 7. LLM API Invocation
-     OpenAI: beta.chat.completions.parse()
-     Gemini: aio.models.generate_content()
+     OpenAI: responses.parse()
 8. CachedLLMService
    ↓ Store result in cache with TTL
 9. FastAPI Endpoint
@@ -160,7 +159,7 @@ chapter_3/section_2/
 │   │   └── llm_server.py          # FastAPI server implementation
 │   ├── client/
 │   │   ├── __init__.py
-│   │   ├── llm_client.py          # LLM client initialization (OpenAI, Gemini)
+│   │   ├── llm_client.py          # LLM client initialization (OpenAI)
 │   │   └── cache_client.py        # Cache backends (InMemoryCache, RedisClient)
 │   ├── model/
 │   │   ├── __init__.py
@@ -173,8 +172,7 @@ chapter_3/section_2/
 │       ├── interface.py           # ILLMService interface (Bridge)
 │       ├── storage.py             # Storage layer (CachedLLMService)
 │       ├── execution.py           # Execution layer (ExecutionLLMService)
-│       ├── factory.py             # Factory pattern implementation
-│       └── request_llm.py         # Request processing utilities
+│       └── factory.py             # Factory pattern implementation
 ├── .env.example                    # Environment variables template
 ├── .envrc.example                  # direnv configuration template
 ├── docker-compose.yml              # Docker Compose configuration
@@ -225,19 +223,22 @@ class CachedLLMService(ILLMService):
 #### 3. Execution Layer (`src/service/execution.py`)
 
 **ExecutionLLMService Implementation**:
-- Direct LLM API invocation
-- Provider-specific implementations
-- OpenAI: Structured output with `beta.chat.completions.parse()`
-- Gemini: Structured output with `aio.models.generate_content()`
+- Direct OpenAI API invocation
+- Structured output with `responses.parse()`
 - No cache awareness (single responsibility)
 
-**Provider Support**:
+**Implementation**:
 ```python
 async def generate_character(...):
-    if provider == LLMProvider.OPENAI:
-        return await self._request_openai(model, prompt)
-    elif provider == LLMProvider.GEMINI:
-        return await self._request_gemini(model, prompt)
+    if provider != LLMProvider.OPENAI:
+        raise ValueError(f"Unsupported LLM provider: {provider}")
+
+    result = await openai_client.responses.parse(
+        model=model,
+        input=prompt,
+        text_format=CharacterResponse,
+    )
+    return result.output_parsed
 ```
 
 #### 4. Factory Pattern (`src/service/factory.py`)
@@ -277,18 +278,15 @@ redis_client = RedisClient()  # Singleton instance
 
 **Supported Models**:
 - **OpenAI**: GPT-5 series (gpt-5, gpt-5-mini, gpt-5-nano), GPT-4.1 series (gpt-4.1, gpt-4.1-mini, gpt-4.1-nano), GPT-4o series (gpt-4o, gpt-4o-mini)
-- **Gemini**: Gemini 2.5 series (gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite)
 
 **Client Initialization**:
 ```python
-google_genai_client = genai.Client(api_key=config.gemini_api_key)
 openai_client = AsyncOpenAI(api_key=config.openai_api_key)
 ```
 
 **Model Enums**:
-- `LLMProvider` - Enum for providers (openai, gemini)
+- `LLMProvider` - Enum for providers (openai)
 - `OpenAIModel` - Enum with `list_str()` method
-- `GeminiModel` - Enum with `list_str()` method
 
 #### 7. REST API Layer (`src/api/llm_server.py`)
 
@@ -371,7 +369,6 @@ openai_client = AsyncOpenAI(api_key=config.openai_api_key)
 #### 10. Configuration Management (`src/config.py`)
 
 **Config Class Fields**:
-- `gemini_api_key: Secret[str]` - Gemini API key
 - `openai_api_key: Secret[str]` - OpenAI API key
 - `cache_enabled: bool` - Enable/disable caching (default: true)
 - `cache_backend: CacheBackend` - memory or redis (default: memory)
@@ -548,7 +545,6 @@ CACHE_ENABLED=false  # Disable caching
 
 ### LLM SDKs
 - **OpenAI Python SDK**: 2.4.0+ - Async client with structured outputs
-- **Google Gemini SDK**: 1.45.0+ - Async genai client
 
 ### Caching
 - **redis-py**: 7.0.0+ - Async Redis client (`redis.asyncio`)
@@ -655,7 +651,6 @@ Example calculation for 500 tokens/request (300 input + 200 output):
 - Docker and Docker Compose (for containerized deployment)
 - Redis Server (for Redis cache backend)
 - OpenAI API key
-- Google Gemini API key
 
 ### Local Development
 
@@ -676,7 +671,6 @@ cp .env.example .env
 # Edit .env and add your API keys
 # Required:
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
 
 # Optional (defaults shown):
 CACHE_ENABLED=true
@@ -736,32 +730,17 @@ curl -X POST "http://localhost:8000/generate" \
   }'
 ```
 
-**2. Generate Character (Gemini)**
-```bash
-curl -X POST "http://localhost:8000/generate" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "provider": "gemini",
-    "model": "gemini-2.5-flash",
-    "character_request": {
-      "gender": "female",
-      "age": 22,
-      "additional_instructions": "SF世界の宇宙飛行士"
-    }
-  }'
-```
-
-**3. Health Check**
+**2. Health Check**
 ```bash
 curl http://localhost:8000/health
 ```
 
-**4. Cache Metrics**
+**3. Cache Metrics**
 ```bash
 curl http://localhost:8000/metrics
 ```
 
-**5. Invalidate Cache**
+**4. Invalidate Cache**
 ```bash
 curl -X DELETE "http://localhost:8000/cache/{cache_key}"
 ```
@@ -782,7 +761,7 @@ curl -X DELETE "http://localhost:8000/cache/{cache_key}"
 ```bash
 # Invalid model for OpenAI
 curl -X POST "http://localhost:8000/generate" \
-  -d '{"provider": "openai", "model": "gemini-2.5-flash", ...}'
+  -d '{"provider": "openai", "model": "invalid-model", ...}'
 # Expected: HTTP 400 Bad Request
 ```
 
@@ -817,7 +796,7 @@ docker exec -it <redis_container> redis-cli
 
 **Issue: Model Validation Errors**
 - Cause: Using incompatible model for provider
-- Solution: Check `OpenAIModel` and `GeminiModel` enums in `src/client/llm_client.py`
+- Solution: Check `OpenAIModel` enum in `src/client/llm_client.py`
 
 **Issue: Stale Cache Data**
 - Cause: Long TTL with updated requirements
@@ -837,7 +816,7 @@ This project demonstrates how to build a production-ready LLM system with proper
 2. **Flexibility**
    - Configuration-driven service instantiation
    - Easy cache backend switching (memory/Redis)
-   - Simple provider/model addition
+   - Simple model addition
 
 3. **Extensibility**
    - Clean interface-based design

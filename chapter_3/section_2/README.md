@@ -4,13 +4,13 @@
 
 このプロジェクトは、**ストレージ層と実行層を分離した設計パターン（Bridge Pattern）** を用いたLLMシステムの実装サンプルです。キャッシュやデータベースへのアクセス処理と、LLM APIの呼び出し処理を疎結合に保つことで、コンポーネントの独立性を高め、柔軟でテストしやすく、保守性の高いシステムを実現します。
 
-本実装では、FastAPIベースのREST APIサーバーを提供し、OpenAI GPT-4o-miniとGoogle Gemini 2.5 Flashの両方に対応しています。また、インメモリキャッシュとRedisキャッシュの両方をサポートし、環境に応じて柔軟に切り替えることができます。
+本実装では、FastAPIベースのREST APIサーバーを提供し、OpenAI GPTモデル（GPT-5、GPT-4.1、GPT-4oシリーズ）に対応しています。また、インメモリキャッシュとRedisキャッシュの両方をサポートし、環境に応じて柔軟に切り替えることができます。
 
 ## 機能
 
 - **ストレージと実行の分離**: Bridge Patternを用いた責務の明確な分離
 - **キャッシング機能**: インメモリとRedisベースの2種類のキャッシュバックエンドをサポート
-- **マルチプロバイダー対応**: OpenAIとGoogle Gemini APIの両方をサポート
+- **OpenAI対応**: OpenAI GPTモデル（GPT-5、GPT-4.1、GPT-4oシリーズ）をサポート
 - **依存性注入（DI）**: Factoryパターンによる柔軟なサービスインスタンス管理
 - **REST APIサーバー**: FastAPIによる高性能なAPIエンドポイント
 - **キャッシュメトリクス**: キャッシュヒット率、ミス数などの監視機能
@@ -48,8 +48,7 @@ chapter_3/section_2/
 │       ├── interface.py           # ILLMService インターフェース（Bridge）
 │       ├── storage.py             # ストレージ層実装（キャッシュ）
 │       ├── execution.py           # 実行層実装（LLM API呼び出し）
-│       ├── factory.py             # Factoryパターン実装
-│       └── request_llm.py         # リクエスト処理
+│       └── factory.py             # Factoryパターン実装
 ├── .env.example                    # 環境変数設定のサンプル
 ├── .envrc.example                  # direnv設定のサンプル
 ├── docker-compose.yml              # Docker Compose設定
@@ -85,8 +84,8 @@ chapter_3/section_2/
 │    ┌────────────▼──────┐  ┌▼──────────────────┐ │
 │    │ CachedLLMService  │  │ ExecutionLLMService│ │
 │    │ (Storage Layer)   │  │ (Execution Layer)  │ │
-│    │ - キャッシュ管理  │  │ - LLM API呼び出し │ │
-│    │ - メトリクス収集  │  │ - プロバイダー管理│ │
+│    │ - キャッシュ管理  │  │ - OpenAI API呼び出し│ │
+│    │ - メトリクス収集  │  │                    │ │
 │    └────────────┬──────┘  └────────────────────┘ │
 │                 │                                 │
 │    ┌────────────▼──────────────┐                 │
@@ -99,7 +98,7 @@ chapter_3/section_2/
 ┌──────────────────▼──────────────────────────────┐
 │      Infrastructure Layer                       │
 │  - Cache Backend (InMemory / Redis)             │
-│  - LLM Client (OpenAI / Gemini)                 │
+│  - LLM Client (OpenAI)                          │
 │  - Config (環境変数管理)                        │
 │  - Logger (ログ出力)                            │
 └─────────────────────────────────────────────────┘
@@ -121,7 +120,7 @@ class ILLMService(ABC):
         prompt: list[dict],
         model: str,
         provider: str,
-        cache_key: Optional[str] = None,
+        cache_key: str | None = None,
     ) -> CharacterResponse:
         """キャラクターを生成"""
         pass
@@ -195,29 +194,22 @@ class ExecutionLLMService(ILLMService):
     async def generate_character(
         self, prompt, model, provider, cache_key=None
     ) -> CharacterResponse:
-        logger.info(f"Executing LLM request: provider={provider}, model={model}")
-
-        if provider == LLMProvider.OPENAI:
-            return await self._request_openai(model, prompt)
-        elif provider == LLMProvider.GEMINI:
-            return await self._request_gemini(model, prompt)
-        else:
+        if provider != LLMProvider.OPENAI:
             raise ValueError(f"Unsupported LLM provider: {provider}")
 
-    async def _request_openai(self, model, prompt):
-        result = await openai_client.beta.chat.completions.parse(
+        logger.info(f"Executing LLM request: model={model}")
+        result = await openai_client.responses.parse(
             model=model,
-            messages=prompt,
-            response_format=CharacterResponse,
-            temperature=1.0,
+            input=prompt,
+            text_format=CharacterResponse,
         )
-        return result.choices[0].message.parsed
+        logger.info(f"OpenAI API call successful: {model}")
+        return result.output_parsed
 ```
 
 **ポイント**:
 - キャッシュの存在を一切知らない（単一責任原則）
-- プロバイダーごとの実装を内部メソッドで分離
-- 構造化出力を使用して型安全な応答を取得
+- OpenAI Responses APIの構造化出力を使用して型安全な応答を取得
 
 #### 4. Factoryパターン (`src/service/factory.py`)
 
@@ -348,7 +340,6 @@ class CacheBackend(StrEnum):
     REDIS = "redis"
 
 class Config(BaseModel):
-    gemini_api_key: Secret[str]
     openai_api_key: Secret[str]
 
     # キャッシュ設定
@@ -376,7 +367,6 @@ class Config(BaseModel):
 - **依存ライブラリ**:
   - fastapi>=0.119.0
   - uvicorn>=0.37.0
-  - google-genai>=1.45.0
   - openai>=2.4.0
   - pydantic>=2.12.2
   - python-dotenv>=1.1.1
@@ -398,7 +388,6 @@ cp .env.example .env
 # エディタで.envを開き、APIキーを設定
 # .env
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
 
 # キャッシュ設定（デフォルト）
 CACHE_ENABLED=true
@@ -481,35 +470,19 @@ curl -X POST "http://localhost:8000/generate" \
   }'
 ```
 
-**2. キャラクター生成（Gemini）**
-
-```bash
-curl -X POST "http://localhost:8000/generate" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "provider": "gemini",
-    "model": "gemini-2.5-flash",
-    "character_request": {
-      "gender": "female",
-      "age": 22,
-      "additional_instructions": "SF世界の宇宙飛行士"
-    }
-  }'
-```
-
-**3. ヘルスチェック**
+**2. ヘルスチェック**
 
 ```bash
 curl http://localhost:8000/health
 ```
 
-**4. キャッシュメトリクスの確認**
+**3. キャッシュメトリクスの確認**
 
 ```bash
 curl http://localhost:8000/metrics
 ```
 
-**5. キャッシュの無効化**
+**4. キャッシュの無効化**
 
 ```bash
 curl -X DELETE "http://localhost:8000/cache/{cache_key}"
@@ -548,8 +521,8 @@ curl -X DELETE "http://localhost:8000/cache/{cache_key}"
       }
     ]
   },
-  "provider": "gemini",
-  "model": "gemini-2.5-flash",
+  "provider": "openai",
+  "model": "gpt-4o-mini",
   "processing_time_ms": 1234.56
 }
 ```
@@ -574,137 +547,9 @@ curl -X DELETE "http://localhost:8000/cache/{cache_key}"
 [2025-10-25 15:30:45] [INFO] Cache enabled: True
 [2025-10-25 15:30:45] [INFO] Cache backend: redis
 [2025-10-25 15:30:45] [INFO] Redis connection initialized successfully
-[2025-10-25 15:30:47] [INFO] Cache miss for gemini/gemini-2.5-flash (hits: 0, misses: 1, hit_rate: 0.00%)
-[2025-10-25 15:30:47] [INFO] Executing LLM request: provider=gemini, model=gemini-2.5-flash
-[2025-10-25 15:30:49] [INFO] Gemini API call successful: gemini-2.5-flash
-[2025-10-25 15:30:49] [INFO] Successfully generated character using gemini/gemini-2.5-flash in 1234.56ms
-[2025-10-25 15:30:52] [INFO] Cache hit for gemini/gemini-2.5-flash (hits: 1, misses: 1, hit_rate: 50.00%)
-```
-
-### テスト方法
-
-現在、このセクションにはユニットテストは含まれていません。手動テストは以下の方法で行います：
-
-#### 1. インメモリキャッシュのテスト
-
-```bash
-# .envでインメモリキャッシュを有効化
-CACHE_ENABLED=true
-CACHE_BACKEND=memory
-
-# サーバーを起動
-make run-llm-server
-
-# 同じリクエストを2回実行（2回目はキャッシュヒット）
-curl -X POST "http://localhost:8000/generate" \
-  -H "Content-Type: application/json" \
-  -d '{"provider": "openai", "model": "gpt-4o-mini", "character_request": {"gender": "male", "age": 25, "additional_instructions": "test"}}'
-
-# メトリクスを確認（cache_hits=1, cache_misses=1が期待値）
-curl http://localhost:8000/metrics
-```
-
-期待される動作：
-- 1回目のリクエスト: `Cache miss` ログが出力され、LLM APIを呼び出し
-- 2回目のリクエスト: `Cache hit` ログが出力され、API呼び出しなし
-- `processing_time_ms` が2回目は大幅に短縮されている
-
-#### 2. Redisキャッシュのテスト
-
-```bash
-# Redisを起動
-docker run -d -p 6379:6379 redis:latest
-
-# .envでRedisキャッシュを有効化
-CACHE_ENABLED=true
-CACHE_BACKEND=redis
-
-# サーバーを起動
-make run-llm-server
-
-# 同じテストを実行
-curl -X POST "http://localhost:8000/generate" ...
-
-# Redisに直接アクセスしてキャッシュを確認
-docker exec -it <redis_container_id> redis-cli
-> KEYS *
-> GET <cache_key>
-```
-
-期待される動作：
-- サーバー起動時に `Redis connection initialized successfully` ログ
-- キャッシュがRedisに永続化されている
-- サーバーを再起動してもキャッシュが保持されている
-
-#### 3. キャッシュ無効化のテスト
-
-```bash
-# キャッシュキーを確認（サーバーログから取得）
-curl http://localhost:8000/metrics
-
-# キャッシュを無効化
-curl -X DELETE "http://localhost:8000/cache/a1b2c3d4e5f6..."
-
-# 同じリクエストを再実行（再度APIを呼び出し）
-curl -X POST "http://localhost:8000/generate" ...
-```
-
-期待される動作：
-- キャッシュ無効化後は `Cache miss` が発生
-- LLM APIが再度呼び出される
-
-#### 4. キャッシュ無効時のテスト
-
-```bash
-# .envでキャッシュを無効化
-CACHE_ENABLED=false
-
-# サーバーを起動
-make run-llm-server
-
-# リクエストを複数回実行
-curl -X POST "http://localhost:8000/generate" ...
-
-# メトリクスを確認
-curl http://localhost:8000/metrics
-```
-
-期待される動作：
-- すべてのリクエストでLLM APIを呼び出し
-- メトリクスエンドポイントが `{"cache_enabled": false}` を返す
-
-#### 5. プロバイダー切り替えのテスト
-
-```bash
-# OpenAIでリクエスト
-curl -X POST "http://localhost:8000/generate" \
-  -d '{"provider": "openai", "model": "gpt-4o-mini", ...}'
-
-# Geminiでリクエスト
-curl -X POST "http://localhost:8000/generate" \
-  -d '{"provider": "gemini", "model": "gemini-2.5-flash", ...}'
-```
-
-期待される動作：
-- 両方のプロバイダーで正常にキャラクターが生成される
-- キャッシュキーはプロバイダー + モデルで異なる
-- ログに適切なプロバイダー名とモデル名が出力される
-
-#### 6. バリデーションテスト
-
-```bash
-# 無効なプロバイダー
-curl -X POST "http://localhost:8000/generate" \
-  -d '{"provider": "invalid", "model": "test", ...}'
-# 期待: 400 Bad Request
-
-# 無効なモデル
-curl -X POST "http://localhost:8000/generate" \
-  -d '{"provider": "openai", "model": "invalid-model", ...}'
-# 期待: 400 Bad Request
-
-# 無効な年齢
-curl -X POST "http://localhost:8000/generate" \
-  -d '{"provider": "openai", "model": "gpt-4o-mini", "character_request": {"gender": "male", "age": 150, ...}}'
-# 期待: 422 Validation Error
+[2025-10-25 15:30:47] [INFO] Cache miss for openai/gpt-4o-mini (hits: 0, misses: 1, hit_rate: 0.00%)
+[2025-10-25 15:30:47] [INFO] Executing LLM request: model=gpt-4o-mini
+[2025-10-25 15:30:49] [INFO] OpenAI API call successful: gpt-4o-mini
+[2025-10-25 15:30:49] [INFO] Successfully generated character using openai/gpt-4o-mini in 1234.56ms
+[2025-10-25 15:30:52] [INFO] Cache hit for openai/gpt-4o-mini (hits: 1, misses: 1, hit_rate: 50.00%)
 ```

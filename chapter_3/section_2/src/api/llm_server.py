@@ -8,7 +8,7 @@ import time
 from fastapi import FastAPI, HTTPException, status
 
 from src.client.cache_client import redis_client
-from src.client.llm_client import GeminiModel, LLMProvider, OpenAIModel
+from src.client.llm_client import LLMProvider, OpenAIModel
 from src.config import CacheBackend, config
 from src.logger import make_logger
 from src.model.model import HealthResponse, LLMRequest, LLMResponse
@@ -75,11 +75,6 @@ async def generate_character(request: LLMRequest):
     try:
         # Validate model for provider
         if request.provider == LLMProvider.OPENAI and request.model not in OpenAIModel.list_str():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid model '{request.model}' for provider '{request.provider.value}'",
-            )
-        if request.provider == LLMProvider.GEMINI and request.model not in GeminiModel.list_str():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid model '{request.model}' for provider '{request.provider.value}'",

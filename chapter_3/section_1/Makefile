@@ -23,23 +23,6 @@ fix: lint fmt
 mypy:
 	uvx mypy $(SRC) --namespace-packages --explicit-package-bases
 
-############ SERVER COMMANDS ############
-
-.PHONY: run-llm-server
-run-llm-server:
-	uv run uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000 --reload
-
-.PHONY: run-proxy
-run-proxy:
-	uv run uvicorn src.proxy.proxy_server:app --host 0.0.0.0 --port 8080 --reload
-
-.PHONY: run-all
-run-all:
-	@echo "Starting LLM API Server on port 8000..."
-	@uv run uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000 &
-	@echo "Starting Proxy Server on port 8080..."
-	@uv run uvicorn src.proxy.proxy_server:app --host 0.0.0.0 --port 8080
-
 ############ DOCKER COMMANDS ############
 
 .PHONY: docker-build-web

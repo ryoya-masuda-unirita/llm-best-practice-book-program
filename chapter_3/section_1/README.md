@@ -15,7 +15,7 @@
 - **リクエストキューイング**: バーストトラフィックの吸収と順次処理
 - **自動リトライ**: 指数バックオフによる429エラーと5xxエラーの自動再試行
 - **メトリクス収集**: リアルタイムな稼働状況の可視化（キューサイズ、エラー率、処理時間など）
-- **マルチプロバイダー対応**: OpenAIとGoogle Gemini APIの両方をサポート
+- **Gemini API対応**: Google Gemini APIによるキャラクター生成
 - **FastAPI実装**: RESTful APIエンドポイントによる使いやすいインターフェース
 - **非同期処理**: async/awaitパターンによる高効率なリクエスト処理
 - **構造化ログ**: 詳細なログ出力による運用監視とトラブルシューティング
@@ -41,7 +41,7 @@ chapter_3/section_1/
 │   │   └── llm_server.py        # LLM APIサーバー（FastAPI）
 │   ├── client/
 │   │   ├── __init__.py
-│   │   └── llm_client.py        # LLMクライアント初期化
+│   │   └── llm_client.py        # Geminiクライアント初期化
 │   ├── model/
 │   │   ├── __init__.py
 │   │   └── model.py             # Pydanticデータモデル定義
@@ -51,7 +51,8 @@ chapter_3/section_1/
 │   └── service/
 │       ├── __init__.py
 │       └── request_llm.py       # LLMリクエスト処理
-├── .envrc.example               # 環境変数設定のサンプル
+├── .env.example                 # 環境変数設定のサンプル（ローカル用）
+├── .envrc.example               # 環境変数設定のサンプル（Docker/direnv用）
 ├── .dockerignore                # Docker ビルド除外ファイル
 ├── Dockerfile.web               # LLM APIサーバー用Dockerfile
 ├── Dockerfile.proxy             # プロキシサーバー用Dockerfile
@@ -105,8 +106,9 @@ chapter_3/section_1/
                     │ LLM API Calls
 ┌───────────────────▼───────────────────────────────┐
 │         External LLM APIs                         │
-│  - OpenAI API (GPT-4o-mini, GPT-4o)              │
-│  - Google Gemini API (gemini-2.5-flash)          │
+│  - Google Gemini API                              │
+│    (gemini-2.5-pro, gemini-2.5-flash,            │
+│     gemini-2.5-flash-lite)                        │
 └───────────────────────────────────────────────────┘
 ```
 
@@ -192,7 +194,7 @@ class CircuitBreaker:
 
 **状態遷移**:
 - **CLOSED → OPEN**: 連続5回失敗 または エラー率50%超
-- **OPEN → HALF_OPEN**: 30秒経過後に自動遷移
+- **OPEN → HALF_OPEN**: 60秒経過後に自動遷移
 - **HALF_OPEN → CLOSED**: 連続2回成功
 - **HALF_OPEN → OPEN**: 1回でも失敗
 
@@ -277,7 +279,7 @@ rate_limiter = TokenBucketRateLimiter(
     RateLimiterConfig(max_requests=10, window_seconds=1.0)
 )
 circuit_breaker = CircuitBreaker(
-    CircuitBreakerConfig(failure_threshold=5, timeout_seconds=30.0)
+    CircuitBreakerConfig(failure_threshold=5, timeout_seconds=60.0)
 )
 request_queue = RequestQueue(
     QueueConfig(max_queue_size=100, request_timeout=300.0)
@@ -347,7 +349,6 @@ async def get_metrics():
   - uvicorn>=0.37.0
   - httpx>=0.28.1
   - httpx-retries>=0.2.0
-  - openai>=2.4.0
   - google-genai>=1.45.0
   - pydantic>=2.12.2
   - python-dotenv>=1.0.0
@@ -360,7 +361,7 @@ async def get_metrics():
 | 実行方法 | 準備時間 | 用途 | コマンド |
 |---------|---------|------|---------|
 | **Docker Compose** | ⚡ 最速 | 本番・デモ | `make docker-build && make docker-up` |
-| **ローカル実行** | 🔧 中程度 | 開発・デバッグ | `uv sync && make run-all` |
+| **ローカル実行** | 🔧 中程度 | 開発・デバッグ | `uv sync && uvicorn ...` |
 | **Docker個別** | 🎛️ 時間かかる | 詳細制御 | 個別にdockerコマンド実行 |
 
 #### 共通セットアップ手順
@@ -368,12 +369,13 @@ async def get_metrics():
 **1. 環境変数ファイルの作成**
 
 ```bash
-# .envrc.exampleをコピーして.envrcを作成
+# ローカル実行の場合: .env.exampleをコピーして.envを作成
+cp .env.example .env
+
+# Docker実行の場合: .envrc.exampleをコピーして.envrcを作成
 cp .envrc.example .envrc
 
-# エディタで.envrcを開き、APIキーを設定
-# .envrc
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
+# エディタでファイルを開き、APIキーを設定
 GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
 ```
 
@@ -435,15 +437,11 @@ make docker-down
 uvを使用してローカルで直接実行します：
 
 ```bash
-# 両方のサーバーを同時起動
-make run-all
-
-# または個別に起動
 # ターミナル1: LLM APIサーバー
-make run-llm-server
+uv run uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000 --reload
 
 # ターミナル2: プロキシサーバー
-make run-proxy
+uv run uvicorn src.proxy.proxy_server:app --host 0.0.0.0 --port 8080 --reload
 ```
 
 **方法3: Docker個別起動（上級者向け）**
@@ -488,14 +486,13 @@ curl http://localhost:8080/proxy-health
 curl http://localhost:8080/health
 ```
 
-**2. キャラクター生成（OpenAI）**
+**2. キャラクター生成（Gemini）**
 
 ```bash
 curl -X POST http://localhost:8080/generate \
   -H "Content-Type: application/json" \
   -d '{
-    "provider": "openai",
-    "model": "gpt-4o-mini",
+    "model": "gemini-2.5-flash",
     "character_request": {
       "gender": "male",
       "age": 25,
@@ -504,30 +501,16 @@ curl -X POST http://localhost:8080/generate \
   }'
 ```
 
-**3. キャラクター生成（Gemini）**
+利用可能なモデル: `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`
 
-```bash
-curl -X POST http://localhost:8080/generate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "provider": "gemini",
-    "model": "gemini-2.5-flash",
-    "character_request": {
-      "gender": "female",
-      "age": 30,
-      "additional_instructions": "知的で落ち着いた性格にしてください"
-    }
-  }'
-```
-
-**4. メトリクス確認**
+**3. メトリクス確認**
 
 ```bash
 # プロキシの稼働状況を確認
 curl http://localhost:8080/metrics
 ```
 
-**5. サーキットブレーカーのリセット**
+**4. サーキットブレーカーのリセット**
 
 ```bash
 # 手動でCLOSED状態に戻す
@@ -567,8 +550,8 @@ FastAPIの自動生成ドキュメントを利用できます：
       }
     ]
   },
-  "provider": "openai",
-  "model": "gpt-4o-mini",
+  "provider": "gemini",
+  "model": "gemini-2.5-flash",
   "processing_time_ms": 1234.56,
   "_proxy_metadata": {
     "processing_time_ms": 1456.78,
@@ -611,7 +594,7 @@ FastAPIの自動生成ドキュメントを利用できます：
 
 ```
 [2025-10-25 10:30:45] [INFO] Rate limiter initialized: 10 requests per 1.0s (refill rate: 10.00 tokens/s)
-[2025-10-25 10:30:45] [INFO] Circuit breaker initialized: failure_threshold=5, timeout=30.0s
+[2025-10-25 10:30:45] [INFO] Circuit breaker initialized: failure_threshold=5, timeout=60.0s
 [2025-10-25 10:30:45] [INFO] Request queue initialized: max_size=100, timeout=300.0s
 [2025-10-25 10:30:50] [INFO] Proxying POST request to http://localhost:8000/generate (with access controls)
 [2025-10-25 10:30:50] [INFO] Request queued. Queue size: 1/100
@@ -703,123 +686,3 @@ services:
 | プロキシがバックエンドに接続できない | ネットワーク設定 | `docker network inspect llm-network` で確認 |
 
 詳細なDocker利用ガイドは `DOCKER.md` を参照してください。
-
-### テスト方法
-
-#### 1. 基本的な動作確認
-
-**ローカル実行の場合**:
-```bash
-# 両サーバー起動
-make run-all
-
-# 別ターミナルでヘルスチェック
-curl http://localhost:8080/health
-# 期待: {"status":"healthy","timestamp":...,"_proxy_metadata":{...}}
-```
-
-**Docker実行の場合**:
-```bash
-# Docker Composeで起動
-make docker-up
-
-# ヘルスチェック
-curl http://localhost:8080/health
-
-# ログ確認
-make docker-logs
-```
-
-#### 2. レート制限のテスト
-
-```bash
-# 短時間に20リクエスト送信（制限: 10 req/sec）
-for i in {1..20}; do
-  curl -X POST http://localhost:8080/generate \
-    -H "Content-Type: application/json" \
-    -d '{"provider":"gemini","model":"gemini-2.5-flash","character_request":{"gender":"male","age":25,"additional_instructions":""}}' &
-done
-
-# メトリクス確認（キューサイズが増加しているはず）
-curl http://localhost:8080/metrics | jq '.request_queue'
-```
-
-期待される動作：
-- 最初の10リクエストは即座に処理
-- 残り10リクエストはキューで待機
-- レート制限により順次処理（約2秒で完了）
-
-#### 3. サーキットブレーカーのテスト
-
-```bash
-# バックエンドサーバーを停止してエラーを発生させる
-# (LLM APIサーバーを停止)
-
-# 10回リクエスト送信
-for i in {1..10}; do
-  curl -X POST http://localhost:8080/generate \
-    -H "Content-Type: application/json" \
-    -d '{"provider":"gemini","model":"gemini-2.5-flash","character_request":{"gender":"male","age":25,"additional_instructions":""}}'
-done
-
-# サーキットブレーカーの状態確認
-curl http://localhost:8080/metrics | jq '.circuit_breaker'
-# 期待: "state": "open"
-```
-
-期待される動作：
-- 5回失敗後にサーキットブレーカーがOPEN状態へ遷移
-- 以降のリクエストは503エラーで即座に拒否
-- 30秒後にHALF_OPEN状態へ自動遷移
-
-#### 4. リトライ機能のテスト
-
-プロキシのログを監視しながら、一時的なエラーが発生する状況をシミュレートします：
-
-```bash
-# ログ監視（別ターミナル）
-# プロキシサーバーの標準出力を確認
-
-# バックエンドを一時停止・再開しながらリクエスト送信
-# → リトライログが出力されることを確認
-```
-
-期待されるログ：
-```
-[ERROR] Request error: Connection refused
-[INFO] Retrying request (attempt 1/3) after 1.0s...
-[INFO] Retrying request (attempt 2/3) after 2.0s...
-```
-
-#### 5. 統合テスト（推奨）
-
-pytest実装例（`tests/test_proxy.py`）:
-
-```python
-import pytest
-from httpx import AsyncClient
-
-@pytest.mark.asyncio
-async def test_rate_limiting():
-    """レート制限が正常に動作することを確認"""
-    async with AsyncClient(base_url="http://localhost:8080") as client:
-        # 20リクエスト送信
-        responses = []
-        for _ in range(20):
-            resp = await client.post("/generate", json={...})
-            responses.append(resp)
-
-        # すべて成功することを確認（キューイングにより）
-        assert all(r.status_code == 200 for r in responses)
-
-@pytest.mark.asyncio
-async def test_circuit_breaker():
-    """サーキットブレーカーが正常に動作することを確認"""
-    # テスト実装...
-```
-
-実行:
-```bash
-# テストの実行
-uv run pytest tests/ -v
-```

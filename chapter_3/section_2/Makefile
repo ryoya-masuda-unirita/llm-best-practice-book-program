@@ -23,12 +23,6 @@ fix: lint fmt
 mypy:
 	uvx mypy $(SRC) --namespace-packages --explicit-package-bases
 
-############ SERVER COMMANDS ############
-
-.PHONY: run-llm-server
-run-llm-server:
-	uv run uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000 --reload
-
 ############ DOCKER COMMANDS ############
 
 .PHONY: docker-build-web

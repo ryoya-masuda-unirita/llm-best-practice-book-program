@@ -7,6 +7,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from src.client.llm_client import LLMProvider
 
+# Shared configuration for all models
+_BASE_MODEL_CONFIG = ConfigDict(
+    validate_assignment=True,
+    frozen=True,
+    extra="ignore",
+)
+
 
 class Gender(StrEnum):
     FEMALE = "female"
@@ -14,12 +21,7 @@ class Gender(StrEnum):
 
 
 class CharacterRequest(BaseModel):
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-        arbitrary_types_allowed=True,
-    )
+    model_config = _BASE_MODEL_CONFIG
 
     gender: Gender = Field(..., description="The gender of the character.")
     age: int = Field(..., description="The age of the character.", ge=0, le=100)
@@ -27,24 +29,14 @@ class CharacterRequest(BaseModel):
 
 
 class CharacterPersonality(BaseModel):
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-        arbitrary_types_allowed=True,
-    )
+    model_config = _BASE_MODEL_CONFIG
 
     short_personality: str = Field(..., description="A short description of the character's personality.")
     description: str = Field(..., description="A description of the character's personality traits and behaviors.")
 
 
 class CharacterResponse(BaseModel):
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-        arbitrary_types_allowed=True,
-    )
+    model_config = _BASE_MODEL_CONFIG
 
     first_name: str = Field(..., description="The first name of the character.")
     last_name: str = Field(..., description="The last name of the character.")
@@ -85,7 +77,7 @@ class CharacterResponse(BaseModel):
 class LLMRequest(BaseModel):
     """Request model for LLM API."""
 
-    provider: LLMProvider = Field(..., description="The LLM provider to use (openai or gemini)")
+    provider: LLMProvider = Field(..., description="The LLM provider to use (openai)")
     model: str = Field(..., description="The model name to use for generation")
     character_request: CharacterRequest = Field(..., description="Character generation request parameters")
 

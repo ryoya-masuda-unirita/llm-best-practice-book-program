@@ -4,17 +4,17 @@ import time
 
 from fastapi import FastAPI, HTTPException, status
 
-from src.client.llm_client import GeminiModel, LLMProvider, OpenAIModel
+from src.client.llm_client import GeminiModel
 from src.logger import make_logger
 from src.model.model import HealthResponse, LLMRequest, LLMResponse
 from src.prompt.prompt import make_prompt
-from src.service import request_gemini, request_openai
+from src.service import request_gemini
 
 logger = make_logger(__name__)
 
 app = FastAPI(
     title="LLM API Server",
-    description="API server for generating character descriptions using LLM",
+    description="API server for generating character descriptions using Gemini",
     version="1.0.0",
 )
 
@@ -28,49 +28,32 @@ async def health_check():
 @app.post("/generate", response_model=LLMResponse, tags=["LLM"])
 async def generate_character(request: LLMRequest):
     """
-    Generate a character using the specified LLM provider and model.
+    Generate a character using Gemini models.
 
     This endpoint accepts requests to generate character descriptions using
-    either OpenAI or Gemini models.
+    Gemini models.
     """
     start_time = time.time()
 
     try:
-        # Validate model for provider
-        if request.provider == LLMProvider.OPENAI and request.model not in OpenAIModel.list_str():
+        # Validate model
+        if request.model not in GeminiModel.list_str():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid model '{request.model}' for provider '{request.provider.value}'",
-            )
-        if request.provider == LLMProvider.GEMINI and request.model not in GeminiModel.list_str():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid model '{request.model}' for provider '{request.provider.value}'",
+                detail=f"Invalid model '{request.model}'. Valid models: {GeminiModel.list_str()}",
             )
 
         prompt = make_prompt(character_request=request.character_request)
 
-        # Generate character
-        if request.provider == LLMProvider.OPENAI:
-            character = await request_openai(model=request.model, prompt=prompt)
-        elif request.provider == LLMProvider.GEMINI:
-            character = await request_gemini(model=request.model, prompt=prompt)
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unsupported LLM provider: {request.provider.value}",
-            )
+        character = await request_gemini(model=request.model, prompt=prompt)
 
         processing_time = (time.time() - start_time) * 1000
 
-        logger.info(
-            f"Successfully generated character using {request.provider.value}/{request.model} "
-            f"in {processing_time:.2f}ms"
-        )
+        logger.info(f"Successfully generated character using gemini/{request.model} in {processing_time:.2f}ms")
 
         return LLMResponse(
             character=character,
-            provider=request.provider.value,
+            provider="gemini",
             model=request.model,
             processing_time_ms=processing_time,
         )

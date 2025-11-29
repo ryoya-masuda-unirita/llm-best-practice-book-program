@@ -5,8 +5,6 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.client.llm_client import LLMProvider
-
 
 class Gender(StrEnum):
     FEMALE = "female"
@@ -85,8 +83,7 @@ class CharacterResponse(BaseModel):
 class LLMRequest(BaseModel):
     """Request model for LLM API."""
 
-    provider: LLMProvider = Field(..., description="The LLM provider to use (openai or gemini)")
-    model: str = Field(..., description="The model name to use for generation")
+    model: str = Field(..., description="The Gemini model name to use for generation")
     character_request: CharacterRequest = Field(..., description="Character generation request parameters")
 
 

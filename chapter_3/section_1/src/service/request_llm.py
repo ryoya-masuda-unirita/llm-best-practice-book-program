@@ -1,20 +1,10 @@
 from google.genai.types import GenerateContentConfig
 
-from src.client.llm_client import GeminiModel, OpenAIModel, google_genai_client, openai_client
+from src.client.llm_client import GeminiModel, google_genai_client
 from src.logger import make_logger
 from src.model.model import CharacterResponse
 
 logger = make_logger(__name__)
-
-
-async def request_openai(model: OpenAIModel, prompt: list[dict]) -> CharacterResponse:
-    result = await openai_client.beta.chat.completions.parse(
-        model=model,
-        messages=prompt,
-        response_format=CharacterResponse,
-        temperature=1.0,
-    )
-    return result.choices[0].message.parsed
 
 
 async def request_gemini(model: GeminiModel, prompt: list[dict]) -> CharacterResponse:

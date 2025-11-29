@@ -7,7 +7,7 @@ This project implements a **proxy server architecture for controlling LLM API re
 **Status**: ✅ Implementation Complete
 
 The project consists of two FastAPI-based servers:
-1. **LLM API Server** (Port 8000): Provides character generation endpoints using OpenAI and Gemini APIs
+1. **LLM API Server** (Port 8000): Provides character generation endpoints using Google Gemini API
 2. **Proxy Server** (Port 8080): Implements traffic control mechanisms including rate limiting, circuit breaker, request queuing, and automatic retry
 
 ## Problem Statement
@@ -33,7 +33,7 @@ Client Applications
     [Proxy Server - Port 8080]
         ├── Request Queue (max: 100, timeout: 300s)
         ├── Rate Limiter (Token Bucket: 10 req/sec)
-        ├── Circuit Breaker (failure threshold: 5, timeout: 30s)
+        ├── Circuit Breaker (failure threshold: 5, timeout: 60s)
         └── Retry Logic (max: 3, exponential backoff)
         ↓
     [LLM API Server - Port 8000]
@@ -41,8 +41,7 @@ Client Applications
         └── /health endpoint
         ↓
     External LLM APIs
-        ├── OpenAI (GPT-4o, GPT-4o-mini)
-        └── Google Gemini (gemini-2.5-flash)
+        └── Google Gemini (gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite)
 ```
 
 ### Component Overview
@@ -86,7 +85,7 @@ Client Applications
 - **CLOSED → OPEN**:
   - Consecutive failures reach threshold (5) OR
   - Error rate exceeds 50% (after minimum 10 requests)
-- **OPEN → HALF_OPEN**: Timeout period elapses (30 seconds)
+- **OPEN → HALF_OPEN**: Timeout period elapses (60 seconds)
 - **HALF_OPEN → CLOSED**: Consecutive successes reach threshold (2)
 - **HALF_OPEN → OPEN**: Any failure during half-open state
 
@@ -146,14 +145,12 @@ retry_policy = Retry(
 - `GET /health`: Health check endpoint
 
 **Supported Models**:
-- **OpenAI**: gpt-4o, gpt-4o-mini, gpt-4.1, gpt-4.1-mini, gpt-5, gpt-5-mini, gpt-5-nano
-- **Gemini**: gemini-2.5-flash, gemini-2.5-pro, gemini-2.5-flash-lite
+- **Gemini**: gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite
 
 **Request Model**:
 ```python
 {
-    "provider": "openai" | "gemini",
-    "model": "gpt-4o-mini" | "gemini-2.5-flash",
+    "model": "gemini-2.5-flash",
     "character_request": {
         "gender": "male" | "female",
         "age": 0-100,
@@ -248,8 +245,7 @@ Allows operators to manually reset circuit breaker to CLOSED state during mainte
 - **httpx-retries**: Automatic retry logic with exponential backoff
 
 ### LLM SDKs
-- **OpenAI Python SDK**: Structured outputs with `beta.chat.completions.parse()`
-- **Google GenAI SDK**: Native Pydantic schema support
+- **Google GenAI SDK**: Native Pydantic schema support for structured outputs
 
 ### Development Tools
 - **python-dotenv**: Environment variable management
@@ -263,8 +259,7 @@ Allows operators to manually reset circuit breaker to CLOSED state during mainte
 ```
 1. Client → POST http://localhost:8080/generate
    {
-       "provider": "openai",
-       "model": "gpt-4o-mini",
+       "model": "gemini-2.5-flash",
        "character_request": {...}
    }
 
@@ -289,8 +284,8 @@ Allows operators to manually reset circuit breaker to CLOSED state during mainte
    - Attempts request with exponential backoff on failure
    - Max 3 attempts for 429/5xx errors
 
-7. LLM API Server → request_openai() or request_gemini()
-   - Calls external LLM API with structured output
+7. LLM API Server → request_gemini()
+   - Calls Gemini API with structured output
    - Returns CharacterResponse model
 
 8. Response Path (reverse direction)
@@ -302,10 +297,15 @@ Allows operators to manually reset circuit breaker to CLOSED state during mainte
 
 ## Configuration
 
-### Environment Variables (`.envrc`)
+### Environment Variables
 
+For local execution, use `.env`:
 ```bash
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
+GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+```
+
+For Docker execution, use `.envrc`:
+```bash
 GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
 ```
 
@@ -319,7 +319,7 @@ window_seconds=1.0       # 1 second window
 # Circuit Breaker
 failure_threshold=5      # Open after 5 consecutive failures
 success_threshold=2      # Close after 2 consecutive successes in half-open
-timeout_seconds=30.0     # Wait 30s before half-open
+timeout_seconds=60.0     # Wait 60s before half-open
 error_rate_threshold=0.5 # Open if error rate > 50%
 min_requests=10          # Minimum requests before error rate check
 
@@ -355,7 +355,7 @@ done
 # - First 5 requests fail
 # - Circuit opens
 # - Remaining 5 get immediate 503 errors
-# - After 30s, circuit moves to half-open
+# - After 60s, circuit moves to half-open
 ```
 
 **3. Queue Overflow Test**:
@@ -431,12 +431,17 @@ Observe:
 # Install dependencies
 uv sync
 
-# Configure environment
-cp .envrc.example .envrc
-# Edit .envrc with your API keys
+# Configure environment (choose one)
+cp .env.example .env           # For local execution
+cp .envrc.example .envrc       # For Docker execution
+# Edit the file with your API key
 
-# Start both servers
-make run-all
+# Start servers locally (two terminals)
+uv run uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000 --reload
+uv run uvicorn src.proxy.proxy_server:app --host 0.0.0.0 --port 8080 --reload
+
+# Or use Docker Compose
+make docker-build && make docker-up
 ```
 
 ### API Usage
@@ -446,8 +451,7 @@ make run-all
 curl -X POST http://localhost:8080/generate \
   -H "Content-Type: application/json" \
   -d '{
-    "provider": "openai",
-    "model": "gpt-4o-mini",
+    "model": "gemini-2.5-flash",
     "character_request": {
       "gender": "male",
       "age": 25,

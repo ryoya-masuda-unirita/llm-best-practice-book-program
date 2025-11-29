@@ -12,7 +12,6 @@ class Config(BaseModel):
     )
 
     gemini_api_key: Secret[str] = Field(default=os.environ["GEMINI_API_KEY"], description="API key for Gemini")
-    openai_api_key: Secret[str] = Field(default=os.environ["OPENAI_API_KEY"], description="API key for OpenAI")
     backend_url: str = Field(default=os.environ.get("BACKEND_URL", "http://localhost:8000"), description="Backend URL")
     proxy_url: str = Field(default=os.environ.get("PROXY_URL", "http://localhost:8080"), description="Proxy URL")
     proxy_max_retries: int = Field(
