@@ -5,8 +5,6 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.client.llm_client import LLMProvider
-
 
 class UserPlan(StrEnum):
     """User subscription plan types."""
@@ -30,7 +28,9 @@ class CharacterRequest(BaseModel):
 
     gender: Gender = Field(..., description="The gender of the character.")
     age: int = Field(..., description="The age of the character.", ge=0, le=100)
-    additional_instructions: Optional[str] = Field(..., description="Additional instructions for character generation.")
+    additional_instructions: Optional[str] = Field(
+        None, description="Additional instructions for character generation."
+    )
 
 
 class CharacterPersonality(BaseModel):
@@ -72,37 +72,33 @@ class CharacterResponse(BaseModel):
             elif k == "age":
                 params[k] = f"number; {v.description}; 0-100"
             elif k == "personalities":
-                params[k] = []
-                for i in range(3):
-                    params[k].append(
-                        {
-                            "short_personality": f"string; {v.description} (personality {i + 1})",
-                            "description": f"string; {v.description} (detailed description for personality {i + 1})",
-                        }
-                    )
+                params[k] = [
+                    {
+                        "short_personality": f"string; {v.description} (personality {i + 1})",
+                        "description": f"string; {v.description} (detailed description for personality {i + 1})",
+                    }
+                    for i in range(3)
+                ]
         return params
 
     def save_as_json(self, file_path: str) -> None:
         """Save the character response as a JSON file."""
-
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(self.model_dump(), f, indent=4, ensure_ascii=False)
 
 
 class LLMRequest(BaseModel):
-    """Request model for LLM API."""
+    """Request model for character generation API."""
 
-    provider: LLMProvider = Field(..., description="The LLM provider to use (openai or gemini)")
     model: str = Field(..., description="The model name to use for generation")
     character_request: CharacterRequest = Field(..., description="Character generation request parameters")
-    user_plan: str = Field(default="free", description="User's subscription plan (free or standard)")
+    user_plan: UserPlan = Field(default=UserPlan.FREE, description="User's subscription plan")
 
 
 class LLMResponse(BaseModel):
-    """Response model for LLM API."""
+    """Response model for character generation API."""
 
     character: CharacterResponse = Field(..., description="Generated character information")
-    provider: str = Field(..., description="LLM provider used")
     model: str = Field(..., description="Model used")
     processing_time_ms: float = Field(..., description="Processing time in milliseconds")
 
@@ -126,9 +122,8 @@ class TextClassificationRequest(BaseModel):
 
     text: str = Field(..., description="The text to classify")
     categories: list[str] = Field(..., description="List of possible categories", min_length=2)
-    provider: LLMProvider = Field(..., description="The LLM provider to use")
     model: str = Field(..., description="The model to use for classification")
-    user_plan: str = Field(..., description="User's subscription plan (free or standard)")
+    user_plan: UserPlan = Field(default=UserPlan.FREE, description="User's subscription plan")
 
 
 class ClassificationResult(BaseModel):
@@ -141,7 +136,7 @@ class ClassificationResult(BaseModel):
         arbitrary_types_allowed=True,
     )
 
-    reasoning: Optional[str] = Field(None, description="Optional brief explanation for the classification")
+    reasoning: str = Field(None, description="Brief explanation for the classification")
     category: str = Field(..., description="The predicted category from the provided list")
     confidence: Optional[str] = Field(None, description="Optional confidence level: high, medium, or low")
 
@@ -150,7 +145,6 @@ class TextClassificationResponse(BaseModel):
     """Response model for text classification API."""
 
     category: str = Field(..., description="The predicted category")
-    provider: str = Field(..., description="LLM provider used")
     model: str = Field(..., description="Model used")
     processing_time_ms: float = Field(..., description="Processing time in milliseconds")
     classification_result: ClassificationResult = Field(..., description="Detailed classification result")

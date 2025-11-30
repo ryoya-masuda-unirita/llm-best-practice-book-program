@@ -1,5 +1,5 @@
 [project]
-name = "chapter-3-section-3"
+name = "chapter-4-section-3"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -7,13 +7,13 @@ requires-python = ">=3.13.2"
 dependencies = [
     "anthropic>=0.74.1",
     "click>=8.3.0",
-    "fastapi>=0.119.0",
     "google-genai>=1.45.0",
-    "httpx>=0.28.1",
+    "langchain-anthropic>=1.2.0",
+    "langgraph>=1.0.0",
     "openai>=2.4.0",
     "pydantic>=2.12.2",
     "python-dotenv>=1.1.1",
-    "uvicorn>=0.37.0",
+    "pyyaml>=6.0.3",
 ]
 
 [dependency-groups]

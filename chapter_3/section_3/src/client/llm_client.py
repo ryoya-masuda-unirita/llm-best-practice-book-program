@@ -1,72 +1,25 @@
 from enum import StrEnum
 
-from google import genai
-from openai import AsyncOpenAI
+from anthropic import AsyncAnthropic
 
 from src.config import config
 
 
-class LLMProvider(StrEnum):
-    """Enum for LLM providers."""
+class AnthropicModel(StrEnum):
+    CLAUDE_SONNET_4_5 = "claude-sonnet-4-5"
+    CLAUDE_OPUS_4 = "claude-opus-4"
 
-    OPENAI = "openai"
-    GEMINI = "gemini"
+    @classmethod
+    def all_models(cls) -> list[str]:
+        return list(cls)
 
+    @classmethod
+    def free_plan_models(cls) -> list[str]:
+        return [cls.CLAUDE_SONNET_4_5]
 
-class OpenAIModel(StrEnum):
-    GPT_5 = "gpt-5"
-    GPT_5_MINI = "gpt-5-mini"
-    GPT_5_NANO = "gpt-5-nano"
-    GPT_4_1 = "gpt-4.1"
-    GPT_4_1_MINI = "gpt-4.1-mini"
-    GPT_4_1_NANO = "gpt-4.1-nano"
-    GPT_4O = "gpt-4o"
-    GPT_4O_MINI = "gpt-4o-mini"
-
-    @staticmethod
-    def list_str() -> list[str]:
-        return [model for model in OpenAIModel]
-
-    @staticmethod
-    def free_plan_models() -> list[str]:
-        """Models available for free plan users."""
-        return [OpenAIModel.GPT_4_1_MINI]
-
-    @staticmethod
-    def standard_plan_models() -> list[str]:
-        """Models available for standard plan users (all models)."""
-        return OpenAIModel.list_str()
+    @classmethod
+    def standard_plan_models(cls) -> list[str]:
+        return cls.all_models()
 
 
-class GeminiModel(StrEnum):
-    GEMINI_2_5_PRO = "gemini-2.5-pro"
-    GEMINI_2_5_FLASH = "gemini-2.5-flash"
-    GEMINI_2_5_FLASH_LITE = "gemini-2.5-flash-lite"
-
-    @staticmethod
-    def list_str() -> list[str]:
-        return [model for model in GeminiModel]
-
-    @staticmethod
-    def free_plan_models() -> list[str]:
-        """Models available for free plan users."""
-        return [GeminiModel.GEMINI_2_5_FLASH_LITE]
-
-    @staticmethod
-    def standard_plan_models() -> list[str]:
-        """Models available for standard plan users (all models)."""
-        return GeminiModel.list_str()
-
-
-class LLMClient:
-    def __init__(self):
-        self.__google_genai_client = genai.Client(api_key=config.gemini_api_key)
-        self.__openai_client = AsyncOpenAI(api_key=config.openai_api_key)
-
-    @property
-    def google_genai_client(self) -> genai.Client:
-        return self.__google_genai_client
-
-    @property
-    def openai_client(self) -> AsyncOpenAI:
-        return self.__openai_client
+anthropic_client = AsyncAnthropic(api_key=config.anthropic_api_key)

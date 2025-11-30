@@ -10,7 +10,7 @@ def make_generation_prompt(
     param_dump = json.dumps(params, indent=2, ensure_ascii=False)
     return [
         {
-            "role": "system",
+            "role": "user",
             "content": f"""あなたは創造的なキャラクタージェネレーターです。
 あなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。
 以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：
@@ -24,11 +24,8 @@ def make_generation_prompt(
 4. 年齢は指定された値であること
 5. 正確に3つの性格特性が提供されていること
 6. JSON構造の外に説明や追加のテキストを含めないこと
-""",
-        },
-        {
-            "role": "user",
-            "content": f"""ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。
+
+ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。
 性別は「{character_request.gender.value}」、年齢は「{character_request.age}」歳です。
 {character_request.additional_instructions}
 """,
@@ -51,9 +48,9 @@ def make_classification_prompt(text: str, categories: list[str]) -> list:
     # Create schema description for structured output
     schema_description = json.dumps(
         {
+            "reasoning": "string; Brief explanation for why this category was chosen",
             "category": f"string; Must be exactly one of: {categories_str}",
             "confidence": "string; Optional confidence level: 'high', 'medium', or 'low'",
-            "reasoning": "string; Optional brief explanation for why this category was chosen",
         },
         indent=2,
         ensure_ascii=False,
@@ -61,7 +58,7 @@ def make_classification_prompt(text: str, categories: list[str]) -> list:
 
     return [
         {
-            "role": "system",
+            "role": "user",
             "content": f"""あなたはテキスト分類の専門家です。
 与えられたテキストを以下のカテゴリのいずれか一つに分類してください：{categories_str}
 
@@ -70,15 +67,13 @@ def make_classification_prompt(text: str, categories: list[str]) -> list:
 {schema_description}
 
 重要な注意事項：
+0. reasoningフィールドは必須で、なぜそのカテゴリが選ばれたのかを簡潔に説明すること
 1. categoryフィールドは必須で、提供されたカテゴリリストから正確に一つを選択すること
 2. カテゴリ名は大文字小文字を含めて完全に一致させること
-3. confidenceとreasoningは任意ですが、提供すると分類の質が向上します
+3. confidenceは任意ですが、提供すると分類の質が向上します
 4. JSON構造の外に説明や追加のテキストを含めないこと
-""",
-        },
-        {
-            "role": "user",
-            "content": f"""以下のテキストを分類してください：
+
+以下のテキストを分類してください：
 
 {text}
 
