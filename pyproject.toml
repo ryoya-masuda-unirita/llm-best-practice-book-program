@@ -100,10 +100,11 @@ members = [
     "chapter_3/section_13",
     "chapter_3/section_14",
     "chapter_3/section_15",
-    "chapter_3/section_16",
-    "chapter_3/section_17",
     "chapter_4/section_1",
     "chapter_4/section_2",
     "chapter_4/section_3",
     "chapter_4/section_4",
+    "chapter_4/section_5",
+    "chapter_4/section_11",
+    "chapter_4/section_12",
 ]

@@ -32,7 +32,6 @@ class GatewayClient:
         provider: str,
         model: str,
         prompt: list[dict],
-        temperature: float = 1.0,
         response_format: Optional[dict] = None,
         client_id: Optional[str] = None,
     ) -> tuple[Any, float, str]:
@@ -42,7 +41,6 @@ class GatewayClient:
             provider: LLM provider name (openai or gemini)
             model: Model name to use
             prompt: Prompt messages
-            temperature: Temperature for generation
             response_format: Response format schema
             client_id: Client identifier for tracking
 
@@ -57,7 +55,6 @@ class GatewayClient:
             "provider": provider,
             "model": model,
             "prompt": prompt,
-            "temperature": temperature,
             "response_format": response_format,
             "client_id": client_id,
         }

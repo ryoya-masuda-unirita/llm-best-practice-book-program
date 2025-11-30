@@ -26,7 +26,7 @@ def async_cmd(func):
     "-m",
     type=click.Choice(OpenAIModel.list_str()),
     required=False,
-    default=OpenAIModel.GPT_4O,
+    default=OpenAIModel.GPT_5_MINI,
     help="The model to use for the request.",
 )
 @click.option(
@@ -76,22 +76,25 @@ Output directory: {output_directory}
     os.makedirs(output_directory, exist_ok=True)
 
     # Run the dinner advisor ReAct agent
-    result = await run_dinner_advisor(
+    recommendation = await run_dinner_advisor(
         user_request=request,
         model=model,
     )
 
-    if result is None:
+    if recommendation is None:
         raise ValueError("Dinner advisor failed. Check logs for details.")
 
-    # Save the recommendation
+    # Save the recommendation as markdown
     base_name = f"dinner_recommendation_{uuid4().hex}"
     md_file_path = os.path.join(output_directory, f"{base_name}.md")
 
     with open(md_file_path, "w", encoding="utf-8") as f:
-        f.write(result)
+        f.write(recommendation.to_markdown())
 
     logger.info(f"Recommendation saved: {md_file_path}")
+    logger.info(f"Menu: {recommendation.menu_name}")
+    logger.info(f"Cooking time: {recommendation.cooking_time_minutes} minutes")
+    logger.info(f"Difficulty: {recommendation.difficulty}")
 
 
 if __name__ == "__main__":

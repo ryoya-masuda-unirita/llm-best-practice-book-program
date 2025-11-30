@@ -1,0 +1,16 @@
+{
+  "learner_id": "learner_demo_001",
+  "learning_goal": "3ヶ月でPythonプログラミングの基礎を習得し、データ分析ができるようになりたい",
+  "current_knowledge": [
+    "Excel基礎操作",
+    "基本的なPC操作",
+    "統計の基礎知識"
+  ],
+  "available_hours_per_week": 10,
+  "preferred_content_types": [
+    "article",
+    "exercise",
+    "interactive"
+  ],
+  "target_duration_weeks": 12
+}

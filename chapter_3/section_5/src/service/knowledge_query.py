@@ -4,8 +4,8 @@ import asyncio
 import json
 import time
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor
 
+from src import executor
 from src.client.chromadb_client import get_knowledge_collection
 from src.logger import make_logger
 from src.model.knowledge import (
@@ -18,9 +18,6 @@ from src.model.model import CharacterRequest, CharacterResponse
 from src.service.embedding_service import get_embedding
 
 logger = make_logger(__name__)
-
-# Thread pool for blocking operations
-executor = ThreadPoolExecutor(max_workers=4)
 
 
 def _search_chromadb(query_embedding: list[float], query: KnowledgeSearchQuery) -> dict:
@@ -89,7 +86,6 @@ def _parse_search_results(results: dict) -> list[KnowledgeItem]:
                 id=item_id,
                 character_request=character_request,
                 character_response=character_response,
-                provider=metadata.get("provider", ""),
                 model=metadata.get("model", ""),
                 processing_time_ms=metadata.get("processing_time_ms", 0.0),
                 similarity_score=similarity_score,
@@ -106,10 +102,10 @@ def _parse_search_results(results: dict) -> list[KnowledgeItem]:
 
 async def search_knowledge(query: KnowledgeSearchQuery) -> KnowledgeSearchResponse:
     """
-    Search knowledge base synchronously using custom embeddings.
+    Search knowledge base using Gemini embeddings.
 
     This is optimized for low-latency reads and returns results immediately.
-    It generates a query embedding using the specified provider's API and then
+    It generates a query embedding using Gemini API and then
     searches ChromaDB using vector similarity.
 
     Args:
@@ -120,12 +116,10 @@ async def search_knowledge(query: KnowledgeSearchQuery) -> KnowledgeSearchRespon
     """
     start_time = time.time()
 
-    logger.info(
-        f"Searching knowledge base with query: {query.query_text[:50]}... using {query.embedding_provider} embeddings"
-    )
+    logger.info(f"Searching knowledge base with query: {query.query_text[:50]}...")
 
-    # Generate embedding for the query text
-    query_embedding = await get_embedding(query.query_text, query.embedding_provider)
+    # Generate embedding for the query text using Gemini
+    query_embedding = await get_embedding(query.query_text)
     logger.debug(f"Generated query embedding with dimension: {len(query_embedding)}")
 
     # Execute the blocking ChromaDB operation in a thread pool
@@ -172,7 +166,7 @@ async def get_knowledge_stats() -> KnowledgeStatsResponse:
     Returns aggregate information about stored knowledge items.
 
     Returns:
-        Statistics including total count and distribution by provider/model
+        Statistics including total count and distribution by model
     """
     logger.info("Retrieving knowledge base statistics")
 
@@ -184,16 +178,12 @@ async def get_knowledge_stats() -> KnowledgeStatsResponse:
     total_items = len(results.get("ids", []))
     metadatas = results.get("metadatas", [])
 
-    providers = [m.get("provider", "unknown") for m in metadatas]
     models = [m.get("model", "unknown") for m in metadatas]
-
-    providers_distribution = dict(Counter(providers))
     models_distribution = dict(Counter(models))
 
     logger.info(f"Retrieved stats: {total_items} total items")
 
     return KnowledgeStatsResponse(
         total_items=total_items,
-        providers_distribution=providers_distribution,
         models_distribution=models_distribution,
     )

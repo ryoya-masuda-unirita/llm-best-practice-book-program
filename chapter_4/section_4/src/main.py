@@ -1,7 +1,15 @@
+"""
+CLI entry point for the Personalized Learning Platform.
+
+This module provides a command-line interface for generating personalized
+learning plans using a hierarchical AI agent architecture.
+"""
+
 import asyncio
 import json
 import os
 from functools import wraps
+from pathlib import Path
 from uuid import uuid4
 
 import click
@@ -14,12 +22,93 @@ from src.service.llm_pipeline_service import run_personalized_learning
 logger = make_logger(__name__)
 
 
+# =============================================================================
+# Decorators
+# =============================================================================
+
+
 def async_cmd(func):
+    """Decorator to run async click commands."""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         return asyncio.run(func(*args, **kwargs))
 
     return wrapper
+
+
+# =============================================================================
+# Profile Loading Helpers
+# =============================================================================
+
+
+def _generate_learner_id() -> str:
+    """Generate a unique learner ID."""
+    return f"learner_{uuid4().hex[:8]}"
+
+
+def _parse_content_types(content_types: list[str]) -> list[ContentType]:
+    """Parse content type strings to ContentType enum values."""
+    return [ContentType(ct) for ct in content_types]
+
+
+def _load_profile_from_file(profile_file: str) -> LearnerProfile:
+    """Load learner profile from a JSON file."""
+    logger.info(f"Loading learner profile from: {profile_file}")
+    with open(profile_file, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    preferred_types = _parse_content_types(data.get("preferred_content_types", []))
+
+    return LearnerProfile(
+        learner_id=data.get("learner_id", _generate_learner_id()),
+        learning_goal=data["learning_goal"],
+        current_knowledge=data.get("current_knowledge", []),
+        available_hours_per_week=data.get("available_hours_per_week", 10),
+        preferred_content_types=preferred_types,
+        target_duration_weeks=data.get("target_duration_weeks", 12),
+    )
+
+
+def _create_profile_from_options(
+    goal: str,
+    hours_per_week: int,
+    duration_weeks: int,
+    current_knowledge: str,
+) -> LearnerProfile:
+    """Create learner profile from command-line options."""
+    logger.info("Creating learner profile from command-line options")
+    knowledge_list = [k.strip() for k in current_knowledge.split(",") if k.strip()]
+
+    return LearnerProfile(
+        learner_id=_generate_learner_id(),
+        learning_goal=goal,
+        current_knowledge=knowledge_list,
+        available_hours_per_week=hours_per_week,
+        preferred_content_types=[],
+        target_duration_weeks=duration_weeks,
+    )
+
+
+def _log_startup_info(
+    model: str,
+    learner_profile: LearnerProfile,
+    output_directory: str,
+) -> None:
+    """Log startup information."""
+    logger.info(
+        f"Personalized Learning Platform\n"
+        f"Model: {model}\n"
+        f"Learning Goal: {learner_profile.learning_goal}\n"
+        f"Hours/Week: {learner_profile.available_hours_per_week}\n"
+        f"Duration: {learner_profile.target_duration_weeks} weeks\n"
+        f"Output directory: {output_directory}"
+    )
+
+
+# =============================================================================
+# CLI Command
+# =============================================================================
 
 
 @click.command()
@@ -28,7 +117,7 @@ def async_cmd(func):
     "-m",
     type=click.Choice(OpenAIModel.list_str()),
     required=False,
-    default=OpenAIModel.GPT_4O,
+    default=OpenAIModel.GPT_5_MINI,
     help="The model to use for the request.",
 )
 @click.option(
@@ -116,46 +205,18 @@ async def main(
     """
     # Load or create learner profile
     if profile_file:
-        logger.info(f"Loading learner profile from: {profile_file}")
-        with open(profile_file, "r", encoding="utf-8") as f:
-            profile_data = json.load(f)
-
-        # Parse content types if present
-        preferred_types = []
-        if "preferred_content_types" in profile_data:
-            for ct in profile_data["preferred_content_types"]:
-                preferred_types.append(ContentType(ct))
-
-        learner_profile = LearnerProfile(
-            learner_id=profile_data.get("learner_id", f"learner_{uuid4().hex[:8]}"),
-            learning_goal=profile_data["learning_goal"],
-            current_knowledge=profile_data.get("current_knowledge", []),
-            available_hours_per_week=profile_data.get("available_hours_per_week", 10),
-            preferred_content_types=preferred_types,
-            target_duration_weeks=profile_data.get("target_duration_weeks", 12),
-        )
+        learner_profile = _load_profile_from_file(profile_file)
     elif goal:
-        logger.info("Creating learner profile from command-line options")
-        knowledge_list = [k.strip() for k in current_knowledge.split(",") if k.strip()]
-
-        learner_profile = LearnerProfile(
-            learner_id=f"learner_{uuid4().hex[:8]}",
-            learning_goal=goal,
-            current_knowledge=knowledge_list,
-            available_hours_per_week=hours_per_week,
-            preferred_content_types=[],
-            target_duration_weeks=duration_weeks,
+        learner_profile = _create_profile_from_options(
+            goal=goal,
+            hours_per_week=hours_per_week,
+            duration_weeks=duration_weeks,
+            current_knowledge=current_knowledge,
         )
     else:
         raise click.UsageError("Either --profile-file or --goal must be provided.")
 
-    logger.info(f"""Personalized Learning Platform
-Model: {model}
-Learning Goal: {learner_profile.learning_goal}
-Hours/Week: {learner_profile.available_hours_per_week}
-Duration: {learner_profile.target_duration_weeks} weeks
-Output directory: {output_directory}
-""")
+    _log_startup_info(model, learner_profile, output_directory)
 
     os.makedirs(output_directory, exist_ok=True)
 
@@ -169,26 +230,9 @@ Output directory: {output_directory}
         raise ValueError("Learning platform failed. Check logs for details.")
 
     # Save the plan
-    base_name = f"learning_plan_{uuid4().hex}"
-    md_file_path = os.path.join(output_directory, f"{base_name}.md")
-
-    with open(md_file_path, "w", encoding="utf-8") as f:
-        f.write(plan.to_markdown())
-
-    logger.info(f"Plan saved: {md_file_path}")
-
-    # Print summary to console
-    click.echo("\n" + "=" * 60)
-    click.echo("PERSONALIZED LEARNING PLAN CREATED")
-    click.echo("=" * 60)
-    click.echo(f"\nLearning Domain: {plan.strategy.learning_domain}")
-    click.echo(f"Current Level: {plan.strategy.roadmap.current_level.value}")
-    click.echo(f"Target Level: {plan.strategy.roadmap.target_level.value}")
-    click.echo(f"Duration: {plan.strategy.roadmap.total_duration_weeks} weeks")
-    click.echo(f"Modules: {len(plan.strategy.roadmap.modules)}")
-    click.echo(f"First Week Sessions: {len(plan.first_week_sessions)}")
-    click.echo(f"\nPlan saved to: {md_file_path}")
-    click.echo("\n" + "=" * 60)
+    output_path = Path(output_directory) / f"learning_plan_{uuid4().hex}.md"
+    output_path.write_text(plan.to_markdown(), encoding="utf-8")
+    logger.info(f"Plan saved: {output_path}")
 
 
 if __name__ == "__main__":

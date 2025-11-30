@@ -12,7 +12,6 @@ class Config(BaseModel):
     )
 
     gemini_api_key: Secret[str] = Field(default=os.environ["GEMINI_API_KEY"], description="API key for Gemini")
-    openai_api_key: Secret[str] = Field(default=os.environ["OPENAI_API_KEY"], description="API key for OpenAI")
 
 
 config = Config()

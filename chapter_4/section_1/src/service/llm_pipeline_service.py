@@ -10,16 +10,26 @@ from langgraph.graph import END, StateGraph
 
 from src.client.llm_client import OpenAIModel
 from src.logger import make_logger
-from src.model.llm_pipeline_model import AgentState
+from src.model.llm_pipeline_model import (
+    BASE_COOKING_TIMES,
+    DEFAULT_COOKING_TIMES,
+    DEFAULT_NUTRITION,
+    MAX_ITERATIONS,
+    MONTH_TO_SEASON,
+    NUTRITION_DATABASE,
+    RECIPES_DATABASE,
+    SEASON_TO_JAPANESE,
+    SEASONAL_INGREDIENTS,
+    SKILL_LEVEL_MULTIPLIERS,
+    AgentState,
+    DinnerRecommendation,
+)
 from src.prompt.llm_pipeline_prompt import (
     make_dinner_advisor_system_prompt,
     make_user_request_prompt,
 )
 
 logger = make_logger(__name__)
-
-# Maximum number of agent iterations to prevent infinite loops
-MAX_ITERATIONS = 10
 
 
 # =============================================================================
@@ -41,46 +51,18 @@ def search_recipes(query: str, cuisine_type: str | None = None) -> str:
     """
     logger.info(f"Tool: search_recipes called with query='{query}', cuisine_type='{cuisine_type}'")
 
-    # Simulated recipe database
-    recipes = {
-        "Japanese": [
-            {"name": "鶏の照り焼き", "ingredients": ["鶏もも肉", "醤油", "みりん", "砂糖"], "time": 25},
-            {"name": "豚の生姜焼き", "ingredients": ["豚ロース", "生姜", "醤油", "みりん"], "time": 20},
-            {"name": "肉じゃが", "ingredients": ["牛肉", "じゃがいも", "玉ねぎ", "にんじん"], "time": 40},
-            {"name": "親子丼", "ingredients": ["鶏肉", "卵", "玉ねぎ", "だし"], "time": 20},
-            {"name": "サバの味噌煮", "ingredients": ["サバ", "味噌", "生姜", "砂糖"], "time": 30},
-        ],
-        "Italian": [
-            {"name": "カルボナーラ", "ingredients": ["パスタ", "ベーコン", "卵", "チーズ"], "time": 25},
-            {"name": "ペペロンチーノ", "ingredients": ["パスタ", "にんにく", "唐辛子", "オリーブオイル"], "time": 15},
-            {"name": "トマトソースパスタ", "ingredients": ["パスタ", "トマト缶", "にんにく", "バジル"], "time": 20},
-            {"name": "リゾット", "ingredients": ["米", "玉ねぎ", "チーズ", "白ワイン"], "time": 35},
-        ],
-        "Chinese": [
-            {"name": "麻婆豆腐", "ingredients": ["豆腐", "ひき肉", "豆板醤", "花椒"], "time": 20},
-            {"name": "回鍋肉", "ingredients": ["豚バラ", "キャベツ", "甜麺醤", "豆板醤"], "time": 25},
-            {"name": "青椒肉絲", "ingredients": ["牛肉", "ピーマン", "たけのこ", "オイスターソース"], "time": 20},
-            {"name": "餃子", "ingredients": ["ひき肉", "キャベツ", "ニラ", "餃子の皮"], "time": 45},
-        ],
-        "Quick": [
-            {"name": "オムライス", "ingredients": ["卵", "ご飯", "ケチャップ", "鶏肉"], "time": 20},
-            {"name": "チャーハン", "ingredients": ["ご飯", "卵", "ネギ", "ハム"], "time": 15},
-            {"name": "焼きそば", "ingredients": ["中華麺", "キャベツ", "豚肉", "ソース"], "time": 15},
-        ],
-    }
-
     query_lower = query.lower()
 
     # Determine which cuisines to search
-    if cuisine_type and cuisine_type in recipes:
+    if cuisine_type and cuisine_type in RECIPES_DATABASE:
         cuisines_to_search = [cuisine_type]
     else:
-        cuisines_to_search = list(recipes.keys())
+        cuisines_to_search = list(RECIPES_DATABASE.keys())
 
     # Search for matching recipes
     results = []
     for cuisine in cuisines_to_search:
-        for recipe in recipes.get(cuisine, []):
+        for recipe in RECIPES_DATABASE.get(cuisine, []):
             name_matches = query_lower in recipe["name"].lower()
             ingredient_matches = any(query_lower in ing.lower() for ing in recipe["ingredients"])
             cuisine_matches = query_lower in cuisine.lower()
@@ -90,10 +72,10 @@ def search_recipes(query: str, cuisine_type: str | None = None) -> str:
 
     # Fallback: return default recipes if no matches found
     if not results:
-        if cuisine_type and cuisine_type in recipes:
-            results = [{**r, "cuisine": cuisine_type} for r in recipes[cuisine_type][:3]]
+        if cuisine_type and cuisine_type in RECIPES_DATABASE:
+            results = [{**r, "cuisine": cuisine_type} for r in RECIPES_DATABASE[cuisine_type][:3]]
         else:
-            results = [{**r, "cuisine": "Quick"} for r in recipes["Quick"]]
+            results = [{**r, "cuisine": "Quick"} for r in RECIPES_DATABASE["Quick"]]
 
     return json.dumps(results[:5], ensure_ascii=False)
 
@@ -111,27 +93,16 @@ def check_nutrition(dish_name: str) -> str:
     """
     logger.info(f"Tool: check_nutrition called with dish_name='{dish_name}'")
 
-    # Simulated nutrition database (per serving)
-    nutrition_data = {
-        "鶏の照り焼き": {"calories": 350, "protein": 28, "carbs": 15, "fat": 18, "fiber": 1},
-        "豚の生姜焼き": {"calories": 380, "protein": 25, "carbs": 12, "fat": 22, "fiber": 1},
-        "肉じゃが": {"calories": 320, "protein": 18, "carbs": 35, "fat": 12, "fiber": 4},
-        "親子丼": {"calories": 480, "protein": 28, "carbs": 55, "fat": 15, "fiber": 2},
-        "カルボナーラ": {"calories": 550, "protein": 22, "carbs": 60, "fat": 25, "fiber": 2},
-        "麻婆豆腐": {"calories": 280, "protein": 18, "carbs": 12, "fat": 18, "fiber": 2},
-        "オムライス": {"calories": 520, "protein": 20, "carbs": 65, "fat": 18, "fiber": 2},
-    }
-
-    if dish_name in nutrition_data:
+    if dish_name in NUTRITION_DATABASE:
         result = {
             "dish": dish_name,
-            "nutrition": nutrition_data[dish_name],
+            "nutrition": NUTRITION_DATABASE[dish_name],
             "unit": "per serving",
         }
     else:
         result = {
             "dish": dish_name,
-            "nutrition": {"calories": 400, "protein": 20, "carbs": 40, "fat": 15, "fiber": 3},
+            "nutrition": DEFAULT_NUTRITION,
             "note": "推定値（データベースにない料理のため）",
             "unit": "per serving",
         }
@@ -156,51 +127,12 @@ def get_seasonal_ingredients(season: str | None = None) -> str:
     # Determine current season if not provided
     if not season:
         month = datetime.now().month
-        month_to_season = {
-            3: "spring",
-            4: "spring",
-            5: "spring",
-            6: "summer",
-            7: "summer",
-            8: "summer",
-            9: "fall",
-            10: "fall",
-            11: "fall",
-            12: "winter",
-            1: "winter",
-            2: "winter",
-        }
-        season = month_to_season[month]
-
-    seasonal_ingredients = {
-        "spring": {
-            "vegetables": ["たけのこ", "菜の花", "アスパラガス", "新玉ねぎ", "春キャベツ"],
-            "fish": ["鯛", "初鰹", "さわら", "しらす"],
-            "fruits": ["いちご", "びわ"],
-        },
-        "summer": {
-            "vegetables": ["トマト", "きゅうり", "なす", "ピーマン", "オクラ", "とうもろこし"],
-            "fish": ["鰻", "あじ", "いわし"],
-            "fruits": ["スイカ", "メロン", "桃", "ぶどう"],
-        },
-        "fall": {
-            "vegetables": ["さつまいも", "かぼちゃ", "きのこ類", "れんこん", "ごぼう"],
-            "fish": ["さんま", "鮭", "さば"],
-            "fruits": ["柿", "梨", "りんご", "栗"],
-        },
-        "winter": {
-            "vegetables": ["大根", "白菜", "ほうれん草", "ねぎ", "ブロッコリー"],
-            "fish": ["ぶり", "たら", "牡蠣", "ふぐ"],
-            "fruits": ["みかん", "りんご", "いちご"],
-        },
-    }
-
-    season_to_japanese = {"spring": "春", "summer": "夏", "fall": "秋", "winter": "冬"}
+        season = MONTH_TO_SEASON[month]
 
     result = {
         "season": season,
-        "season_japanese": season_to_japanese.get(season, season),
-        "ingredients": seasonal_ingredients.get(season, seasonal_ingredients["fall"]),
+        "season_japanese": SEASON_TO_JAPANESE.get(season, season),
+        "ingredients": SEASONAL_INGREDIENTS.get(season, SEASONAL_INGREDIENTS["fall"]),
     }
 
     return json.dumps(result, ensure_ascii=False)
@@ -220,24 +152,10 @@ def estimate_cooking_time(dish_name: str, skill_level: str = "intermediate") -> 
     """
     logger.info(f"Tool: estimate_cooking_time called with dish_name='{dish_name}', skill_level='{skill_level}'")
 
-    # Base cooking times (for intermediate level)
-    base_times = {
-        "鶏の照り焼き": {"prep": 10, "cook": 15},
-        "豚の生姜焼き": {"prep": 10, "cook": 10},
-        "肉じゃが": {"prep": 15, "cook": 25},
-        "親子丼": {"prep": 10, "cook": 10},
-        "カルボナーラ": {"prep": 10, "cook": 15},
-        "麻婆豆腐": {"prep": 10, "cook": 10},
-        "オムライス": {"prep": 10, "cook": 10},
-        "餃子": {"prep": 30, "cook": 15},
-    }
-
-    # Skill level multipliers
-    multipliers = {"beginner": 1.5, "intermediate": 1.0, "advanced": 0.8}
-    multiplier = multipliers.get(skill_level, 1.0)
+    multiplier = SKILL_LEVEL_MULTIPLIERS.get(skill_level, 1.0)
 
     # Get base times or use defaults
-    times = base_times.get(dish_name, {"prep": 15, "cook": 20})
+    times = BASE_COOKING_TIMES.get(dish_name, DEFAULT_COOKING_TIMES)
     prep_time = int(times["prep"] * multiplier)
     cook_time = times["cook"]
 
@@ -256,9 +174,15 @@ def estimate_cooking_time(dish_name: str, skill_level: str = "intermediate") -> 
 # ReAct Agent Implementation
 # =============================================================================
 
-# Define available tools
+# Define available tools (excluding DinnerRecommendation which is the response tool)
 tools = [search_recipes, check_nutrition, get_seasonal_ingredients, estimate_cooking_time]
 tools_by_name = {tool.name: tool for tool in tools}
+
+# Response tool name for structured output
+RESPONSE_TOOL_NAME = "DinnerRecommendation"
+
+# All tools including the response tool for binding to model
+all_tools = tools + [DinnerRecommendation]
 
 
 def call_model(state: AgentState, config: RunnableConfig) -> dict:
@@ -266,7 +190,7 @@ def call_model(state: AgentState, config: RunnableConfig) -> dict:
     Call the LLM model with the current state.
 
     This is the "Thought" and "Action" part of the ReAct loop.
-    The model decides whether to use a tool or provide a final answer.
+    The model decides whether to use a tool or provide a final answer using structured output.
 
     Args:
         state: Current agent state
@@ -278,11 +202,12 @@ def call_model(state: AgentState, config: RunnableConfig) -> dict:
     logger.info("Agent: Calling model for reasoning...")
 
     # Get model from config or use default
-    model_name = config.get("configurable", {}).get("model", OpenAIModel.GPT_4O)
+    model_name = config.get("configurable", {}).get("model", OpenAIModel.GPT_5_MINI)
 
-    # Initialize the model with tools
-    model = ChatOpenAI(model=model_name, temperature=0.7)
-    model_with_tools = model.bind_tools(tools)
+    # Initialize the model with all tools (including DinnerRecommendation for structured output)
+    # Use tool_choice="any" to force the model to always use a tool
+    model = ChatOpenAI(model=model_name)
+    model_with_tools = model.bind_tools(all_tools, tool_choice="any")
 
     # Build messages
     system_message = SystemMessage(content=make_dinner_advisor_system_prompt())
@@ -338,18 +263,18 @@ def tool_node(state: AgentState) -> dict:
     return {"messages": outputs}
 
 
-def should_continue(state: AgentState) -> Literal["tools", "end"]:
+def should_continue(state: AgentState) -> Literal["tools", "respond"]:
     """
-    Determine whether to continue the ReAct loop or end.
+    Determine whether to continue the ReAct loop or respond with structured output.
 
-    If the last message has tool calls, continue to execute tools.
-    Otherwise, end the loop (the model has provided a final answer).
+    If the last message calls the DinnerRecommendation tool, go to respond node.
+    If the last message has other tool calls, continue to execute tools.
 
     Args:
         state: Current agent state
 
     Returns:
-        "tools" to continue or "end" to finish
+        "tools" to continue with tool execution or "respond" to return structured output
     """
     messages = state["messages"]
     last_message = messages[-1]
@@ -357,51 +282,71 @@ def should_continue(state: AgentState) -> Literal["tools", "end"]:
     # Check iteration count to prevent infinite loops
     tool_message_count = sum(1 for m in messages if isinstance(m, ToolMessage))
     if tool_message_count >= MAX_ITERATIONS:
-        logger.warning(f"Agent: Max iterations ({MAX_ITERATIONS}) reached, ending loop")
-        return "end"
+        logger.warning(f"Agent: Max iterations ({MAX_ITERATIONS}) reached, forcing response")
+        return "respond"
 
-    # If the last message has tool calls, continue to tools
+    # Check if the model is calling the response tool (DinnerRecommendation)
     if isinstance(last_message, AIMessage) and last_message.tool_calls:
+        for tool_call in last_message.tool_calls:
+            if tool_call["name"] == RESPONSE_TOOL_NAME:
+                logger.info("Agent: DinnerRecommendation tool called, proceeding to respond")
+                return "respond"
+
         logger.info("Agent: Tool calls detected, continuing to tool execution")
         return "tools"
 
-    logger.info("Agent: No tool calls, ending loop with final answer")
-    return "end"
+    # Fallback: if no tool calls (shouldn't happen with tool_choice="any"), go to respond
+    logger.warning("Agent: No tool calls detected, proceeding to respond")
+    return "respond"
 
 
-def extract_final_recommendation(state: AgentState) -> dict:
+def respond(state: AgentState) -> dict:
     """
-    Extract the final recommendation from the agent's response.
+    Extract the structured dinner recommendation from the agent's response.
+
+    This function finds the DinnerRecommendation tool call and constructs
+    a validated Pydantic model from its arguments.
 
     Args:
         state: Current agent state
 
     Returns:
-        Updated state with final recommendation
+        Updated state with final_response as DinnerRecommendation
     """
     messages = state["messages"]
 
-    # Find the last AI message without tool calls (the final answer)
+    # Find the last AI message with DinnerRecommendation tool call
     for message in reversed(messages):
-        if isinstance(message, AIMessage) and not message.tool_calls:
-            return {"final_recommendation": message.content}
+        if isinstance(message, AIMessage) and message.tool_calls:
+            for tool_call in message.tool_calls:
+                if tool_call["name"] == RESPONSE_TOOL_NAME:
+                    logger.info("Agent: Extracting structured DinnerRecommendation from tool call")
+                    try:
+                        recommendation = DinnerRecommendation(**tool_call["args"])
+                        logger.info(f"Agent: Successfully created DinnerRecommendation: {recommendation.menu_name}")
+                        return {"final_response": recommendation}
+                    except Exception as e:
+                        logger.error(f"Agent: Failed to parse DinnerRecommendation: {e}")
+                        return {"final_response": None}
 
-    return {"final_recommendation": None}
+    logger.warning("Agent: No DinnerRecommendation tool call found")
+    return {"final_response": None}
 
 
 def create_dinner_advisor_graph() -> StateGraph:
     """
-    Create the ReAct agent graph for dinner menu advice.
+    Create the ReAct agent graph for dinner menu advice with structured output.
 
-    The graph follows the ReAct pattern:
+    The graph follows the ReAct pattern with structured output:
     1. Agent (Thought + Action): LLM reasons about the request and decides on actions
     2. Tools (Observation): Execute tools and observe results
-    3. Loop back to Agent until the task is complete
+    3. Loop back to Agent until ready to respond
+    4. Respond: Extract structured DinnerRecommendation from the final tool call
 
     Returns:
         Compiled StateGraph for the dinner advisor agent
     """
-    logger.info("Creating dinner advisor ReAct agent graph...")
+    logger.info("Creating dinner advisor ReAct agent graph with structured output...")
 
     # Create the graph
     graph = StateGraph(AgentState)
@@ -409,26 +354,27 @@ def create_dinner_advisor_graph() -> StateGraph:
     # Add nodes
     graph.add_node("agent", call_model)
     graph.add_node("tools", tool_node)
-    graph.add_node("finalize", extract_final_recommendation)
+    graph.add_node("respond", respond)
 
     # Set entry point
     graph.set_entry_point("agent")
 
     # Add conditional edges from agent
+    # The agent either continues with tools or responds with structured output
     graph.add_conditional_edges(
         "agent",
         should_continue,
         {
             "tools": "tools",
-            "end": "finalize",
+            "respond": "respond",
         },
     )
 
     # Tools always go back to agent
     graph.add_edge("tools", "agent")
 
-    # Finalize goes to END
-    graph.add_edge("finalize", END)
+    # Respond goes to END
+    graph.add_edge("respond", END)
 
     logger.info("Dinner advisor graph created successfully")
     return graph.compile()
@@ -436,8 +382,8 @@ def create_dinner_advisor_graph() -> StateGraph:
 
 async def run_dinner_advisor(
     user_request: str,
-    model: str = OpenAIModel.GPT_4O,
-) -> str | None:
+    model: str = OpenAIModel.GPT_5_MINI,
+) -> DinnerRecommendation | None:
     """
     Run the dinner advisor agent with a user's request.
 
@@ -446,7 +392,7 @@ async def run_dinner_advisor(
         model: The OpenAI model to use
 
     Returns:
-        The agent's dinner recommendation or None if failed
+        The agent's structured DinnerRecommendation or None if failed
     """
     logger.info(f"Starting dinner advisor for request: {user_request}")
     logger.info(f"Using model: {model}")
@@ -455,7 +401,7 @@ async def run_dinner_advisor(
     initial_state: AgentState = {
         "messages": [("user", make_user_request_prompt(user_request))],
         "user_request": user_request,
-        "final_recommendation": None,
+        "final_response": None,
     }
 
     # Create and run the graph
@@ -465,9 +411,9 @@ async def run_dinner_advisor(
     try:
         final_state = await graph.ainvoke(initial_state, config)
 
-        recommendation = final_state.get("final_recommendation")
+        recommendation = final_state.get("final_response")
         if recommendation:
-            logger.info("Dinner advisor completed successfully")
+            logger.info(f"Dinner advisor completed successfully: {recommendation.menu_name}")
             return recommendation
         else:
             logger.warning("Dinner advisor completed but no recommendation was generated")

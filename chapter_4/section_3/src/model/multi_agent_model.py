@@ -82,9 +82,7 @@ class AmendmentProposal(BaseModel):
     original_text: str = Field(..., description="Original problematic text")
     proposed_text: str = Field(..., description="Proposed amended text")
     rationale: str = Field(..., description="Rationale for the proposed change")
-    negotiation_points: list[str] = Field(
-        ..., description="Key negotiation points to discuss with counterparty"
-    )
+    negotiation_points: list[str] = Field(..., description="Key negotiation points to discuss with counterparty")
 
 
 class ContractReviewReport(BaseModel):
@@ -97,16 +95,10 @@ class ContractReviewReport(BaseModel):
     )
 
     overall_risk_level: str = Field(..., description="Overall risk level: 高, 中, 低")
-    overall_risk_score: float = Field(
-        ..., ge=1.0, le=10.0, description="Overall risk score from 1.0 to 10.0"
-    )
-    executive_summary: str = Field(
-        ..., description="Executive summary for non-legal stakeholders"
-    )
+    overall_risk_score: float = Field(..., ge=1.0, le=10.0, description="Overall risk score from 1.0 to 10.0")
+    executive_summary: str = Field(..., description="Executive summary for non-legal stakeholders")
     key_issues: list[str] = Field(..., description="List of key issues identified")
-    recommended_actions: list[str] = Field(
-        ..., description="List of recommended actions"
-    )
+    recommended_actions: list[str] = Field(..., description="List of recommended actions")
     clauses: list[ContractClause] = Field(default_factory=list)
     categories: list[ClauseCategory] = Field(default_factory=list)
     risk_assessments: list[RiskAssessment] = Field(default_factory=list)
@@ -140,7 +132,7 @@ class ContractReviewReport(BaseModel):
                 for risk in high_risk:
                     md_parts.append(f"\n#### {risk.clause_number}\n")
                     md_parts.append(f"- **リスクスコア**: {risk.risk_score}/10\n")
-                    md_parts.append(f"- **リスク要因**:\n")
+                    md_parts.append("- **リスク要因**:\n")
                     for factor in risk.risk_factors:
                         md_parts.append(f"  - {factor}\n")
                     md_parts.append(f"- **詳細説明**: {risk.explanation}\n")

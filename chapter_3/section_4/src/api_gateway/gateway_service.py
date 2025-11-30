@@ -71,12 +71,12 @@ class GatewayService:
         client = self._get_openai_client()
 
         # Structured output mode
-        result = await client.beta.chat.completions.parse(
+        result = await client.responses.parse(
             model=model,
-            messages=prompt,
-            response_format=response_format,
+            input=prompt,
+            text_format=response_format,
         )
-        return result.choices[0].message.parsed
+        return result.output_parsed
 
     async def _call_gemini(
         self,

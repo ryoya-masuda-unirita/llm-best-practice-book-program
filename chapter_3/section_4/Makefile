@@ -22,21 +22,6 @@ fix: lint fmt
 mypy:
 	uvx mypy $(SRC) --namespace-packages --explicit-package-bases
 
-############ SERVER COMMANDS ############
-
-.PHONY: run-llm-server
-run-llm-server:
-	uv run uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000 --reload
-
-.PHONY: run-api-gateway
-run-api-gateway:
-	uv run uvicorn src.api_gateway.gateway_server:app --host 0.0.0.0 --port 8080 --reload
-
-.PHONY: run-gateway-client
-run-gateway-client:
-	uv run python -m src.api_gateway.example_client
-
-
 ############ DOCKER COMMANDS ############
 
 .PHONY: docker-build-backend

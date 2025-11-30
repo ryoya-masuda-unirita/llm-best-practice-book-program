@@ -14,7 +14,6 @@ class KnowledgeRegisterCommand(BaseModel):
 
     character_request: CharacterRequest = Field(..., description="Original character request")
     character_response: CharacterResponse = Field(..., description="Generated character response")
-    provider: str = Field(..., description="LLM provider used")
     model: str = Field(..., description="Model used")
     prompt: list[dict] = Field(..., description="Prompt used for generation")
     processing_time_ms: float = Field(..., description="Processing time in milliseconds")
@@ -36,10 +35,6 @@ class KnowledgeSearchQuery(BaseModel):
     query_text: str = Field(..., description="Search query text")
     limit: int = Field(default=10, ge=1, le=100, description="Maximum number of results")
     filter_metadata: Optional[dict] = Field(default=None, description="Metadata filters")
-    embedding_provider: str = Field(
-        default="openai",
-        description="Provider to use for query embedding (openai or gemini). Should match the stored embeddings for best results.",
-    )
 
 
 class KnowledgeItem(BaseModel):
@@ -48,7 +43,6 @@ class KnowledgeItem(BaseModel):
     id: str = Field(..., description="Unique identifier")
     character_request: CharacterRequest = Field(..., description="Original character request")
     character_response: CharacterResponse = Field(..., description="Generated character response")
-    provider: str = Field(..., description="LLM provider used")
     model: str = Field(..., description="Model used")
     processing_time_ms: float = Field(..., description="Processing time in milliseconds")
     similarity_score: float = Field(..., description="Similarity score (0-1)")
@@ -73,6 +67,5 @@ class KnowledgeStatsResponse(BaseModel):
     """Response for knowledge statistics query."""
 
     total_items: int = Field(..., description="Total number of knowledge items")
-    providers_distribution: dict[str, int] = Field(..., description="Distribution by provider")
     models_distribution: dict[str, int] = Field(..., description="Distribution by model")
     timestamp: float = Field(default_factory=time.time, description="Stats generation timestamp")

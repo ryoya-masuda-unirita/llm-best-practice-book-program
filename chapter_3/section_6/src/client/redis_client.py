@@ -1,7 +1,8 @@
 """Redis client for managing task queues and job status."""
 
 import json
-from typing import Any, Optional
+from functools import wraps
+from typing import Any, Callable, Optional, TypeVar
 
 import redis.asyncio as redis
 
@@ -9,6 +10,22 @@ from src.config import config
 from src.logger import make_logger
 
 logger = make_logger(__name__)
+
+T = TypeVar("T")
+
+DEFAULT_TTL = 86400  # 24 hours
+
+
+def ensure_connected(func: Callable[..., T]) -> Callable[..., T]:
+    """Decorator to ensure Redis connection before executing method."""
+
+    @wraps(func)
+    async def wrapper(self: "RedisClient", *args: Any, **kwargs: Any) -> T:
+        if not self.redis:
+            await self.connect()
+        return await func(self, *args, **kwargs)
+
+    return wrapper
 
 
 class RedisClient:
@@ -36,39 +53,29 @@ class RedisClient:
         """Disconnect from Redis."""
         if self.redis:
             await self.redis.close()
+            self.redis = None
             logger.info("Disconnected from Redis")
 
+    @staticmethod
+    def _status_key(job_id: str) -> str:
+        """Generate Redis key for job status."""
+        return f"job:{job_id}:status"
+
+    @staticmethod
+    def _result_key(job_id: str) -> str:
+        """Generate Redis key for job result."""
+        return f"job:{job_id}:result"
+
+    @ensure_connected
     async def enqueue_job(self, queue_name: str, job_data: dict[str, Any]) -> None:
-        """
-        Add a job to the queue.
-
-        Args:
-            queue_name: Name of the queue
-            job_data: Job data to enqueue
-        """
-        if not self.redis:
-            await self.connect()
-        assert self.redis is not None
-
+        """Add a job to the queue."""
         job_json = json.dumps(job_data)
         await self.redis.rpush(queue_name, job_json)
         logger.info(f"Enqueued job to {queue_name}: {job_data.get('job_id', 'unknown')}")
 
+    @ensure_connected
     async def dequeue_job(self, queue_name: str, timeout: int = 0) -> Optional[dict[str, Any]]:
-        """
-        Remove and return a job from the queue.
-
-        Args:
-            queue_name: Name of the queue
-            timeout: Block timeout in seconds (0 = wait forever)
-
-        Returns:
-            Job data or None if timeout
-        """
-        if not self.redis:
-            await self.connect()
-        assert self.redis is not None
-
+        """Remove and return a job from the queue."""
         result = await self.redis.blpop(queue_name, timeout=timeout)
         if result:
             _, job_json = result
@@ -77,98 +84,50 @@ class RedisClient:
             return job_data
         return None
 
-    async def set_job_status(self, job_id: str, status_data: dict[str, Any], ttl: int = 86400) -> None:
-        """
-        Set job status in Redis.
-
-        Args:
-            job_id: Job ID
-            status_data: Status data to store
-            ttl: Time to live in seconds (default: 24 hours)
-        """
-        if not self.redis:
-            await self.connect()
-        assert self.redis is not None
-
-        key = f"job:{job_id}:status"
+    @ensure_connected
+    async def set_job_status(self, job_id: str, status_data: dict[str, Any], ttl: int = DEFAULT_TTL) -> None:
+        """Set job status in Redis."""
+        key = self._status_key(job_id)
         status_json = json.dumps(status_data)
         await self.redis.setex(key, ttl, status_json)
         logger.info(f"Set status for job {job_id}: {status_data.get('status', 'unknown')}")
 
+    @ensure_connected
     async def get_job_status(self, job_id: str) -> Optional[dict[str, Any]]:
-        """
-        Get job status from Redis.
-
-        Args:
-            job_id: Job ID
-
-        Returns:
-            Status data or None if not found
-        """
-        if not self.redis:
-            await self.connect()
-        assert self.redis is not None
-
-        key = f"job:{job_id}:status"
+        """Get job status from Redis."""
+        key = self._status_key(job_id)
         status_json = await self.redis.get(key)
         if status_json:
             return json.loads(status_json)
         return None
 
-    async def set_job_result(self, job_id: str, result_data: dict[str, Any], ttl: int = 86400) -> None:
-        """
-        Set job result in Redis.
-
-        Args:
-            job_id: Job ID
-            result_data: Result data to store
-            ttl: Time to live in seconds (default: 24 hours)
-        """
-        if not self.redis:
-            await self.connect()
-        assert self.redis is not None
-
-        key = f"job:{job_id}:result"
+    @ensure_connected
+    async def set_job_result(self, job_id: str, result_data: dict[str, Any], ttl: int = DEFAULT_TTL) -> None:
+        """Set job result in Redis."""
+        key = self._result_key(job_id)
         result_json = json.dumps(result_data)
         await self.redis.setex(key, ttl, result_json)
         logger.info(f"Set result for job {job_id}")
 
+    @ensure_connected
     async def get_job_result(self, job_id: str) -> Optional[dict[str, Any]]:
-        """
-        Get job result from Redis.
-
-        Args:
-            job_id: Job ID
-
-        Returns:
-            Result data or None if not found
-        """
-        if not self.redis:
-            await self.connect()
-        assert self.redis is not None
-
-        key = f"job:{job_id}:result"
+        """Get job result from Redis."""
+        key = self._result_key(job_id)
         result_json = await self.redis.get(key)
         if result_json:
             return json.loads(result_json)
         return None
 
+    @ensure_connected
     async def get_queue_length(self, queue_name: str) -> int:
-        """
-        Get the length of a queue.
-
-        Args:
-            queue_name: Name of the queue
-
-        Returns:
-            Queue length
-        """
-        if not self.redis:
-            await self.connect()
-        assert self.redis is not None
-
+        """Get the length of a queue."""
         return await self.redis.llen(queue_name)
 
+    @ensure_connected
+    async def list_job_ids(self) -> list[str]:
+        """List all job IDs with status keys."""
+        keys = await self.redis.keys("job:*:status")
+        return [key.split(":")[1] for key in keys]
 
-# Global Redis client instance
+
 redis_client = RedisClient()

@@ -155,11 +155,7 @@ def risk_assessment_node(state: AgentState, config: RunnableConfig) -> dict:
 
     messages = [
         SystemMessage(content=RISK_ASSESSMENT_SYSTEM_PROMPT),
-        HumanMessage(
-            content=make_risk_assessment_prompt(
-                state["parsed_clauses"], state["clause_categories"]
-            )
-        ),
+        HumanMessage(content=make_risk_assessment_prompt(state["parsed_clauses"], state["clause_categories"])),
     ]
 
     response = model.invoke(messages)
@@ -200,11 +196,7 @@ def diff_checker_node(state: AgentState, config: RunnableConfig) -> dict:
 
     messages = [
         SystemMessage(content=DIFF_CHECKER_SYSTEM_PROMPT),
-        HumanMessage(
-            content=make_diff_checker_prompt(
-                state["parsed_clauses"], state["standard_template"]
-            )
-        ),
+        HumanMessage(content=make_diff_checker_prompt(state["parsed_clauses"], state["standard_template"])),
     ]
 
     response = model.invoke(messages)
@@ -246,11 +238,7 @@ def amendment_proposer_node(state: AgentState, config: RunnableConfig) -> dict:
 
     messages = [
         SystemMessage(content=AMENDMENT_PROPOSER_SYSTEM_PROMPT),
-        HumanMessage(
-            content=make_amendment_proposer_prompt(
-                state["parsed_clauses"], state["risk_assessments"]
-            )
-        ),
+        HumanMessage(content=make_amendment_proposer_prompt(state["parsed_clauses"], state["risk_assessments"])),
     ]
 
     response = model.invoke(messages)
@@ -300,15 +288,9 @@ def report_generator_node(state: AgentState, config: RunnableConfig) -> dict:
     try:
         result = extract_json_from_response(response.content)
 
-        clauses = [
-            ContractClause(**c) for c in state["parsed_clauses"] if c
-        ]
-        categories = [
-            ClauseCategory(**c) for c in state["clause_categories"] if c
-        ]
-        risk_assessments = [
-            RiskAssessment(**r) for r in state["risk_assessments"] if r
-        ]
+        clauses = [ContractClause(**c) for c in state["parsed_clauses"] if c]
+        categories = [ClauseCategory(**c) for c in state["clause_categories"] if c]
+        risk_assessments = [RiskAssessment(**r) for r in state["risk_assessments"] if r]
         diffs = [ClauseDiff(**d) for d in state["diffs"] if d]
         amendments = [AmendmentProposal(**a) for a in state["amendments"] if a]
 

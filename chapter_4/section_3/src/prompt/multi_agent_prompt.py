@@ -62,9 +62,7 @@ CLAUSE_CLASSIFIER_SYSTEM_PROMPT = """あなたは契約条項を分類する専�
 
 def make_clause_classifier_prompt(clauses: list[dict]) -> str:
     """Create prompt for clause classifier agent."""
-    clauses_text = "\n\n".join(
-        f"### {c['clause_number']} {c['title']}\n{c['content']}" for c in clauses
-    )
+    clauses_text = "\n\n".join(f"### {c['clause_number']} {c['title']}\n{c['content']}" for c in clauses)
     return f"""以下の契約条項をカテゴリ分類してください。
 
 ## 条項一覧
@@ -153,13 +151,9 @@ DIFF_CHECKER_SYSTEM_PROMPT = """あなたは契約書の差分を検出する専
 """
 
 
-def make_diff_checker_prompt(
-    clauses: list[dict], standard_template: str
-) -> str:
+def make_diff_checker_prompt(clauses: list[dict], standard_template: str) -> str:
     """Create prompt for diff checker agent."""
-    clauses_text = "\n\n".join(
-        f"### {c['clause_number']} {c['title']}\n{c['content']}" for c in clauses
-    )
+    clauses_text = "\n\n".join(f"### {c['clause_number']} {c['title']}\n{c['content']}" for c in clauses)
 
     return f"""以下のレビュー対象契約と自社標準テンプレートを比較し、差分を検出してください。
 
@@ -198,9 +192,7 @@ AMENDMENT_PROPOSER_SYSTEM_PROMPT = """あなたは契約修正案を提案する
 """
 
 
-def make_amendment_proposer_prompt(
-    clauses: list[dict], risk_assessments: list[dict]
-) -> str:
+def make_amendment_proposer_prompt(clauses: list[dict], risk_assessments: list[dict]) -> str:
     """Create prompt for amendment proposer agent."""
     high_risk_clauses = [r for r in risk_assessments if r["risk_level"] == "高"]
 
@@ -214,11 +206,11 @@ def make_amendment_proposer_prompt(
         clause = clause_map.get(risk["clause_number"])
         if clause:
             high_risk_text.append(
-                f"""### {risk['clause_number']} {clause['title']}
-**リスクスコア**: {risk['risk_score']}/10
-**リスク要因**: {', '.join(risk['risk_factors'])}
+                f"""### {risk["clause_number"]} {clause["title"]}
+**リスクスコア**: {risk["risk_score"]}/10
+**リスク要因**: {", ".join(risk["risk_factors"])}
 **現行文言**:
-{clause['content']}
+{clause["content"]}
 """
             )
 

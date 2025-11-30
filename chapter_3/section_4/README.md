@@ -38,8 +38,7 @@ chapter_3/section_4/
 │   │   ├── gateway_service.py         # ゲートウェイコアサービス
 │   │   ├── api_key_manager.py         # APIキー管理
 │   │   ├── monitoring.py              # 監視・ロギング
-│   │   ├── models.py                  # ゲートウェイ用Pydanticモデル
-│   │   └── example_client.py          # ゲートウェイ利用例クライアント
+│   │   └── models.py                  # ゲートウェイ用Pydanticモデル
 │   ├── client/
 │   │   ├── __init__.py
 │   │   ├── llm_client.py              # LLMプロバイダー定義
@@ -337,38 +336,6 @@ class GatewayClient:
 - バックエンドサービスはAPIキーを一切必要としない
 - httpxによる堅牢なHTTP通信
 
-#### 6. JSON SchemaからPydanticモデルへの変換 (`src/api_gateway/gateway_server.py`)
-
-クライアントから送信されたJSON SchemaをPydanticモデルに動的変換します：
-
-```python
-def json_schema_to_pydantic(json_schema: dict[str, Any]) -> type[BaseModel]:
-    """JSON SchemaをPydanticモデルに変換"""
-
-    model_name = json_schema.get("title", "DynamicModel")
-    properties = json_schema.get("properties", {})
-    required_fields = set(json_schema.get("required", []))
-    definitions = json_schema.get("$defs", {})
-
-    field_definitions = {}
-    for field_name, field_schema in properties.items():
-        field_type = _get_field_type(field_schema, definitions)
-        is_required = field_name in required_fields
-
-        if is_required:
-            field_definitions[field_name] = (field_type, ...)
-        else:
-            default_value = field_schema.get("default", None)
-            field_definitions[field_name] = (field_type, default_value)
-
-    return create_model(model_name, **field_definitions)
-```
-
-**ポイント**:
-- `pydantic.create_model`で動的にモデルを生成
-- ネストされたモデル、配列、列挙型をサポート
-- OpenAI・Gemini両方のStructured Outputs APIに対応
-
 ## 使い方
 
 ### 環境構成
@@ -414,22 +381,6 @@ pip install -e .
 
 ### 使用方法、実行方法
 
-#### パターン1: ローカル開発（ホストマシン上で直接実行）
-
-```bash
-# ターミナル1: ゲートウェイサーバーを起動
-make run-api-gateway
-# または
-uv run uvicorn src.api_gateway.gateway_server:app --host 0.0.0.0 --port 8080 --reload
-
-# ターミナル2: バックエンドサーバーを起動
-make run-llm-server
-# または
-uv run uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000 --reload
-```
-
-#### パターン2: Docker Compose（コンテナ環境で実行）
-
 ```bash
 # Dockerイメージをビルド
 make docker-build
@@ -442,15 +393,6 @@ make docker-logs
 
 # サービスを停止
 make docker-down
-```
-
-#### パターン3: ゲートウェイクライアントの使用例
-
-```bash
-# サンプルクライアントを実行
-make run-gateway-client
-# または
-uv run python -m src.api_gateway.example_client
 ```
 
 #### API利用例
@@ -578,127 +520,3 @@ curl -X POST http://localhost:8000/generate \
 [2025-10-26 10:30:47] [INFO] [src.api_gateway.gateway_service] Gemini client initialized
 [2025-10-26 10:30:48] [INFO] [src.api_gateway.monitoring] [RESPONSE] id=a1b2c3d4-e5f6-7890-abcd-ef1234567890 | status=SUCCESS | provider=gemini | model=gemini-2.5-flash | time=1234.56ms
 ```
-
-### テスト方法
-
-現在、このセクションには自動化されたユニットテストは含まれていません。手動テストは以下の方法で行います：
-
-#### 1. ゲートウェイサーバーの基本動作テスト
-
-```bash
-# ゲートウェイを起動
-make run-api-gateway
-
-# 別ターミナルでヘルスチェック
-curl http://localhost:8080/health
-
-# 期待される結果: {"status": "healthy", ...}
-```
-
-#### 2. OpenAI経由のテスト
-
-```bash
-# バックエンドサーバーを起動
-make run-llm-server
-
-# OpenAIを使用してキャラクター生成
-curl -X POST http://localhost:8000/generate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "provider": "openai",
-    "model": "gpt-4o-mini",
-    "character_request": {
-      "gender": "female",
-      "age": 25,
-      "additional_instructions": "Create a cheerful character"
-    }
-  }'
-
-# 期待される結果: CharacterResponseスキーマに準拠したJSONレスポンス
-```
-
-#### 3. Gemini経由のテスト
-
-```bash
-curl -X POST http://localhost:8000/generate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "provider": "gemini",
-    "model": "gemini-2.5-flash",
-    "character_request": {
-      "gender": "male",
-      "age": 30,
-      "additional_instructions": null
-    }
-  }'
-
-# 期待される結果: CharacterResponseスキーマに準拠したJSONレスポンス
-```
-
-#### 4. エラーハンドリングのテスト
-
-```bash
-# サポートされていないプロバイダ
-curl -X POST http://localhost:8000/generate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "provider": "invalid_provider",
-    "model": "some-model",
-    "character_request": {
-      "gender": "male",
-      "age": 25,
-      "additional_instructions": null
-    }
-  }'
-
-# 期待される結果: 400 Bad Request エラー
-```
-
-#### 5. Docker環境のテスト
-
-```bash
-# Docker Composeでサービスを起動
-make docker-up
-
-# ログを確認
-make docker-logs
-
-# ヘルスチェック
-curl http://localhost:8080/health
-curl http://localhost:8000/health
-
-# キャラクター生成をテスト
-curl -X POST http://localhost:8000/generate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "provider": "gemini",
-    "model": "gemini-2.5-flash",
-    "character_request": {
-      "gender": "female",
-      "age": 22,
-      "additional_instructions": "Create a brave character"
-    }
-  }'
-
-# サービスを停止
-make docker-down
-```
-
-#### 6. ゲートウェイのログとモニタリングの確認
-
-```bash
-# ゲートウェイのログを確認
-# 以下の情報が記録されていることを確認:
-# - [REQUEST] リクエストID、プロバイダ、モデル、クライアントID
-# - [RESPONSE] レスポンスステータス、処理時間
-# - [ERROR] エラー発生時の詳細情報
-
-docker-compose logs -f gateway
-```
-
-**確認ポイント**:
-- リクエストIDが一意に生成されている
-- 処理時間が記録されている
-- エラー時に詳細なスタックトレースが出力される
-- プロバイダとモデルの情報が正しく記録される
-

@@ -4,17 +4,14 @@ import asyncio
 import json
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor
 
+from src import executor
 from src.client.chromadb_client import get_knowledge_collection
 from src.logger import make_logger
 from src.model.knowledge import KnowledgeRegisterCommand
 from src.service.embedding_service import get_embedding
 
 logger = make_logger(__name__)
-
-# Thread pool for async operations
-executor = ThreadPoolExecutor(max_workers=4)
 
 
 def _generate_embedding_text(command: KnowledgeRegisterCommand) -> str:
@@ -44,9 +41,9 @@ def _generate_embedding_text(command: KnowledgeRegisterCommand) -> str:
 
 async def _store_in_chromadb_async(command: KnowledgeRegisterCommand, job_id: str) -> None:
     """
-    Store knowledge in ChromaDB with custom embeddings.
+    Store knowledge in ChromaDB with Gemini embeddings.
 
-    This is an async operation that generates embeddings using OpenAI/Gemini APIs.
+    This is an async operation that generates embeddings using Gemini API.
     """
     try:
         collection = get_knowledge_collection()
@@ -54,14 +51,13 @@ async def _store_in_chromadb_async(command: KnowledgeRegisterCommand, job_id: st
         # Generate embedding text
         document_text = _generate_embedding_text(command)
 
-        # Generate embedding using the same provider as the character generation
-        logger.info(f"Generating embedding using {command.provider} API for job_id: {job_id}")
-        embedding_vector = await get_embedding(document_text, command.provider)
+        # Generate embedding using Gemini
+        logger.info(f"Generating Gemini embedding for job_id: {job_id}")
+        embedding_vector = await get_embedding(document_text)
 
         # Prepare metadata
         metadata = {
             "job_id": job_id,
-            "provider": command.provider,
             "model": command.model,
             "processing_time_ms": command.processing_time_ms,
             "gender": command.character_request.gender.value,
@@ -79,7 +75,6 @@ async def _store_in_chromadb_async(command: KnowledgeRegisterCommand, job_id: st
         full_data = {
             "character_request": command.character_request.model_dump(),
             "character_response": command.character_response.model_dump(),
-            "provider": command.provider,
             "model": command.model,
             "prompt": command.prompt,
             "processing_time_ms": command.processing_time_ms,
@@ -97,14 +92,11 @@ async def _store_in_chromadb_async(command: KnowledgeRegisterCommand, job_id: st
                 ids=[job_id],
                 documents=[document_text],
                 metadatas=[metadata],
-                embeddings=[embedding_vector],  # Use custom embedding from OpenAI/Gemini
+                embeddings=[embedding_vector],
             ),
         )
 
-        logger.info(
-            f"Successfully stored knowledge with job_id: {job_id} "
-            f"using {command.provider} embedding (dim: {len(embedding_vector)})"
-        )
+        logger.info(f"Successfully stored knowledge with job_id: {job_id} (embedding dim: {len(embedding_vector)})")
 
     except Exception as e:
         logger.error(f"Error storing knowledge with job_id {job_id}: {e}")

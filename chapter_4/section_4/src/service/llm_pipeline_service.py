@@ -1,5 +1,16 @@
+"""
+Hierarchical Personalized Learning Platform Service.
+
+This module implements a hierarchical multi-agent system for creating
+personalized learning plans using LangGraph.
+
+Architecture:
+    Strategy Layer -> Tactics Layer -> Execution Layer -> Progress Monitoring
+"""
+
 import json
 import re
+import time
 from typing import Literal
 from uuid import uuid4
 
@@ -9,6 +20,7 @@ from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
 
 from src.client.llm_client import OpenAIModel
+from src.config import config as global_config
 from src.logger import make_logger
 from src.model.llm_pipeline_model import (
     ContentType,
@@ -23,8 +35,8 @@ from src.model.llm_pipeline_model import (
     PersonalizedLearningPlan,
     ProgressMetrics,
     ProgressReport,
-    Quiz,
     QuestionType,
+    Quiz,
     QuizQuestion,
     SkillLevel,
     StrategyOutput,
@@ -46,8 +58,51 @@ from src.prompt.llm_pipeline_prompt import (
 
 logger = make_logger(__name__)
 
-# Maximum number of sessions to generate in the first week
+# =============================================================================
+# Constants
+# =============================================================================
+
 MAX_SESSIONS_FIRST_WEEK = 5
+MAX_RETRIES = 3
+RETRY_DELAY_SECONDS = 2
+
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+
+
+def _get_model_from_config(config: RunnableConfig) -> str:
+    """Extract model name from config with default fallback."""
+    return config.get("configurable", {}).get("model", OpenAIModel.GPT_5_MINI)
+
+
+def _create_chat_model(config: RunnableConfig) -> ChatOpenAI:
+    """Create a ChatOpenAI model instance from config."""
+    return ChatOpenAI(model=_get_model_from_config(config), openai_api_key=global_config.openai_api_key)
+
+
+def _build_messages(system_prompt: str, user_prompt: str) -> list:
+    """Build message list for LLM invocation."""
+    return [
+        SystemMessage(content=system_prompt),
+        HumanMessage(content=user_prompt),
+    ]
+
+
+def _log_layer_start(layer_name: str, description: str) -> None:
+    """Log the start of a layer's execution."""
+    logger.info("=" * 60)
+    logger.info(f"{layer_name}: {description}")
+    logger.info("=" * 60)
+
+
+def _safe_enum_parse(enum_class, value: str, default):
+    """Safely parse an enum value with fallback to default."""
+    try:
+        return enum_class(value)
+    except ValueError:
+        return default
 
 
 # =============================================================================
@@ -55,53 +110,155 @@ MAX_SESSIONS_FIRST_WEEK = 5
 # =============================================================================
 
 
-def extract_json_from_response(response: str) -> dict:
-    """
-    Extract JSON from LLM response that may contain markdown code blocks.
+def _try_fix_truncated_json(json_str: str) -> str:
+    """Try to fix truncated JSON by adding missing closing brackets/braces."""
+    open_braces = json_str.count("{")
+    close_braces = json_str.count("}")
+    open_brackets = json_str.count("[")
+    close_brackets = json_str.count("]")
 
-    Args:
-        response: Raw LLM response text
+    # Check for unterminated strings
+    in_string = False
+    escape_next = False
 
-    Returns:
-        Parsed JSON dictionary
-    """
-    json_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", response)
+    for char in json_str:
+        if escape_next:
+            escape_next = False
+            continue
+        if char == "\\":
+            escape_next = True
+            continue
+        if char == '"':
+            in_string = not in_string
+
+    # Close unterminated string and add missing brackets/braces
+    if in_string:
+        json_str += '"'
+    json_str += "]" * (open_brackets - close_brackets)
+    json_str += "}" * (open_braces - close_braces)
+
+    return json_str
+
+
+def _extract_json_string(response: str) -> str:
+    """Extract JSON string from LLM response using multiple strategies."""
+    stripped = response.strip()
+
+    # Strategy 1: Response starts with '{'
+    if stripped.startswith("{"):
+        return stripped
+
+    # Strategy 2: Find ```json code block
+    json_match = re.search(r"```json\s*([\s\S]*?)```", response)
     if json_match:
-        json_str = json_match.group(1).strip()
-    else:
-        json_str = response.strip()
+        return json_match.group(1).strip()
 
-    return json.loads(json_str)
+    # Strategy 3: Find first { and last }
+    first_brace = response.find("{")
+    last_brace = response.rfind("}")
+    if first_brace != -1 and last_brace > first_brace:
+        return response[first_brace : last_brace + 1]
+
+    # Strategy 4: Use the whole response
+    return stripped
+
+
+def extract_json_from_response(response: str) -> dict:
+    """Extract and parse JSON from LLM response."""
+    if not response or not response.strip():
+        raise ValueError("Empty response from LLM")
+
+    json_str = _extract_json_string(response)
+    if not json_str:
+        raise ValueError(f"No JSON content found in response: {response[:200]}...")
+
+    try:
+        return json.loads(json_str)
+    except json.JSONDecodeError:
+        logger.warning("JSON parsing failed, attempting to fix truncated JSON...")
+        fixed_json = _try_fix_truncated_json(json_str)
+        try:
+            return json.loads(fixed_json)
+        except json.JSONDecodeError as e:
+            logger.error(f"Original JSON (first 500 chars): {json_str[:500]}...")
+            logger.error(f"Fixed JSON (last 200 chars): ...{fixed_json[-200:]}")
+            raise e
+
+
+def invoke_with_retry(
+    model: ChatOpenAI,
+    messages: list,
+    config: RunnableConfig,
+    agent_name: str,
+) -> str:
+    """Invoke LLM with retry logic for transient failures."""
+    last_error = None
+
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = model.invoke(messages, config)
+            if response.content and response.content.strip():
+                return response.content
+            logger.warning(f"{agent_name}: Empty response on attempt {attempt + 1}")
+        except Exception as e:
+            last_error = e
+            logger.warning(f"{agent_name}: Error on attempt {attempt + 1}: {e}")
+
+        if attempt < MAX_RETRIES - 1:
+            logger.info(f"{agent_name}: Retrying in {RETRY_DELAY_SECONDS} seconds...")
+            time.sleep(RETRY_DELAY_SECONDS)
+
+    raise ValueError(f"{agent_name} failed after {MAX_RETRIES} attempts: {last_error}")
 
 
 # =============================================================================
-# Strategy Layer Agent - Learning Strategy Agent
+# Strategy Layer Agent
 # =============================================================================
+
+
+def _parse_learning_module(data: dict) -> LearningModule:
+    """Parse a learning module from JSON data."""
+    return LearningModule(
+        module_id=data["module_id"],
+        name=data["name"],
+        category=LearningModuleCategory(data["category"]),
+        description=data["description"],
+        prerequisites=data.get("prerequisites", []),
+        estimated_hours=data["estimated_hours"],
+        target_competencies=data["target_competencies"],
+    )
+
+
+def _parse_strategy_output(result: dict) -> StrategyOutput:
+    """Parse strategy output from JSON result."""
+    roadmap_data = result["roadmap"]
+    modules = [_parse_learning_module(m) for m in roadmap_data["modules"]]
+
+    roadmap = LearningRoadmap(
+        goal_summary=roadmap_data["goal_summary"],
+        target_level=SkillLevel(roadmap_data["target_level"]),
+        current_level=SkillLevel(roadmap_data["current_level"]),
+        total_duration_weeks=roadmap_data["total_duration_weeks"],
+        modules=modules,
+        milestones=roadmap_data["milestones"],
+        success_criteria=roadmap_data["success_criteria"],
+    )
+
+    return StrategyOutput(
+        learning_domain=result["learning_domain"],
+        roadmap=roadmap,
+        recommended_study_hours_per_week=result["recommended_study_hours_per_week"],
+        learning_style_notes=result["learning_style_notes"],
+    )
 
 
 def strategy_agent(state: HierarchicalAgentState, config: RunnableConfig) -> dict:
-    """
-    Strategy layer agent that creates the learning roadmap.
-
-    This is the top-level agent that analyzes the learner's goal and
-    creates a comprehensive learning strategy.
-
-    Args:
-        state: Current hierarchical agent state
-        config: Runtime configuration
-
-    Returns:
-        Updated state with strategy output
-    """
-    logger.info("=" * 60)
-    logger.info("STRATEGY LAYER: Creating learning roadmap")
-    logger.info("=" * 60)
+    """Strategy layer agent that creates the learning roadmap."""
+    _log_layer_start("STRATEGY LAYER", "Creating learning roadmap")
 
     learner = state["learner_profile"]
-    model_name = config.get("configurable", {}).get("model", OpenAIModel.GPT_4O)
-    model = ChatOpenAI(model=model_name, temperature=0.7)
+    model = _create_chat_model(config)
 
-    system_prompt = make_strategy_system_prompt()
     user_prompt = make_strategy_user_prompt(
         learning_goal=learner.learning_goal,
         current_knowledge=learner.current_knowledge,
@@ -109,97 +266,87 @@ def strategy_agent(state: HierarchicalAgentState, config: RunnableConfig) -> dic
         target_duration_weeks=learner.target_duration_weeks,
         preferred_content_types=[ct.value for ct in learner.preferred_content_types],
     )
+    messages = _build_messages(make_strategy_system_prompt(), user_prompt)
 
-    messages = [
-        SystemMessage(content=system_prompt),
-        HumanMessage(content=user_prompt),
-    ]
-
-    response = model.invoke(messages, config)
+    response_content = invoke_with_retry(model, messages, config, "Strategy Agent")
     logger.info("Strategy agent received response from LLM")
 
     try:
-        result = extract_json_from_response(response.content)
-
-        roadmap_data = result["roadmap"]
-        modules = [
-            LearningModule(
-                module_id=m["module_id"],
-                name=m["name"],
-                category=LearningModuleCategory(m["category"]),
-                description=m["description"],
-                prerequisites=m.get("prerequisites", []),
-                estimated_hours=m["estimated_hours"],
-                target_competencies=m["target_competencies"],
-            )
-            for m in roadmap_data["modules"]
-        ]
-
-        roadmap = LearningRoadmap(
-            goal_summary=roadmap_data["goal_summary"],
-            target_level=SkillLevel(roadmap_data["target_level"]),
-            current_level=SkillLevel(roadmap_data["current_level"]),
-            total_duration_weeks=roadmap_data["total_duration_weeks"],
-            modules=modules,
-            milestones=roadmap_data["milestones"],
-            success_criteria=roadmap_data["success_criteria"],
-        )
-
-        strategy_output = StrategyOutput(
-            learning_domain=result["learning_domain"],
-            roadmap=roadmap,
-            recommended_study_hours_per_week=result["recommended_study_hours_per_week"],
-            learning_style_notes=result["learning_style_notes"],
-        )
+        result = extract_json_from_response(response_content)
+        strategy_output = _parse_strategy_output(result)
 
         logger.info(f"Strategy output: domain={strategy_output.learning_domain}")
-        logger.info(f"Strategy output: {len(modules)} modules created")
-        logger.info(f"Strategy output: {roadmap.current_level} -> {roadmap.target_level}")
+        logger.info(f"Strategy output: {len(strategy_output.roadmap.modules)} modules created")
+        logger.info(
+            f"Strategy output: {strategy_output.roadmap.current_level} -> {strategy_output.roadmap.target_level}"
+        )
 
         return {"strategy_output": strategy_output}
 
     except (json.JSONDecodeError, KeyError, ValueError) as e:
         logger.error(f"Failed to parse strategy response: {e}")
-        logger.error(f"Raw response: {response.content}")
+        logger.error(f"Raw response: {response_content[:500] if response_content else 'None'}...")
         raise ValueError(f"Strategy agent failed to produce valid output: {e}")
 
 
 # =============================================================================
-# Tactics Layer Agent - Curriculum Design Agent
+# Tactics Layer Agent
 # =============================================================================
 
 
+def _parse_daily_task(data: dict) -> DailyTask:
+    """Parse a daily task from JSON data."""
+    return DailyTask(
+        task_id=data["task_id"],
+        title=data["title"],
+        description=data["description"],
+        content_type=ContentType(data["content_type"]),
+        estimated_minutes=data["estimated_minutes"],
+        learning_objectives=data["learning_objectives"],
+    )
+
+
+def _parse_weekly_plan(data: dict) -> WeeklyPlan:
+    """Parse a weekly plan from JSON data."""
+    daily_tasks = {day_key: [_parse_daily_task(t) for t in tasks] for day_key, tasks in data["daily_tasks"].items()}
+
+    return WeeklyPlan(
+        week_number=data["week_number"],
+        module_id=data["module_id"],
+        theme=data["theme"],
+        learning_goals=data["learning_goals"],
+        daily_tasks=daily_tasks,
+        weekly_assessment=data["weekly_assessment"],
+    )
+
+
+def _parse_tactics_output(result: dict) -> TacticsOutput:
+    """Parse tactics output from JSON result."""
+    weekly_plans = [_parse_weekly_plan(wp) for wp in result["weekly_plans"]]
+
+    return TacticsOutput(
+        curriculum_summary=result["curriculum_summary"],
+        weekly_plans=weekly_plans,
+        assessment_strategy=result["assessment_strategy"],
+        adaptation_notes=result["adaptation_notes"],
+    )
+
+
 def tactics_agent(state: HierarchicalAgentState, config: RunnableConfig) -> dict:
-    """
-    Tactics layer agent that creates the detailed curriculum.
-
-    This agent breaks down the learning roadmap into weekly and daily plans.
-
-    Args:
-        state: Current hierarchical agent state
-        config: Runtime configuration
-
-    Returns:
-        Updated state with tactics output
-    """
-    logger.info("=" * 60)
-    logger.info("TACTICS LAYER: Designing curriculum")
-    logger.info("=" * 60)
+    """Tactics layer agent that creates the detailed curriculum."""
+    _log_layer_start("TACTICS LAYER", "Designing curriculum")
 
     strategy = state["strategy_output"]
     if strategy is None:
         raise ValueError("Tactics agent requires strategy output")
 
-    model_name = config.get("configurable", {}).get("model", OpenAIModel.GPT_4O)
-    model = ChatOpenAI(model=model_name, temperature=0.5)
+    model = _create_chat_model(config)
 
     modules_str = "\n".join(
-        f"- {m.module_id}: {m.name} ({m.category.value}) - {m.estimated_hours}時間"
-        for m in strategy.roadmap.modules
+        f"- {m.module_id}: {m.name} ({m.category.value}) - {m.estimated_hours}時間" for m in strategy.roadmap.modules
     )
     milestones_str = "\n".join(f"- {ms}" for ms in strategy.roadmap.milestones)
 
-    system_prompt = make_tactics_system_prompt()
     user_prompt = make_tactics_user_prompt(
         learning_domain=strategy.learning_domain,
         goal_summary=strategy.roadmap.goal_summary,
@@ -211,53 +358,16 @@ def tactics_agent(state: HierarchicalAgentState, config: RunnableConfig) -> dict
         recommended_study_hours_per_week=strategy.recommended_study_hours_per_week,
         learning_style_notes=strategy.learning_style_notes,
     )
+    messages = _build_messages(make_tactics_system_prompt(), user_prompt)
 
-    messages = [
-        SystemMessage(content=system_prompt),
-        HumanMessage(content=user_prompt),
-    ]
-
-    response = model.invoke(messages, config)
+    response_content = invoke_with_retry(model, messages, config, "Tactics Agent")
     logger.info("Tactics agent received response from LLM")
 
     try:
-        result = extract_json_from_response(response.content)
+        result = extract_json_from_response(response_content)
+        tactics_output = _parse_tactics_output(result)
 
-        weekly_plans = []
-        for wp in result["weekly_plans"]:
-            daily_tasks_dict = {}
-            for day_key, tasks in wp["daily_tasks"].items():
-                daily_tasks_dict[day_key] = [
-                    DailyTask(
-                        task_id=t["task_id"],
-                        title=t["title"],
-                        description=t["description"],
-                        content_type=ContentType(t["content_type"]),
-                        estimated_minutes=t["estimated_minutes"],
-                        learning_objectives=t["learning_objectives"],
-                    )
-                    for t in tasks
-                ]
-
-            weekly_plans.append(
-                WeeklyPlan(
-                    week_number=wp["week_number"],
-                    module_id=wp["module_id"],
-                    theme=wp["theme"],
-                    learning_goals=wp["learning_goals"],
-                    daily_tasks=daily_tasks_dict,
-                    weekly_assessment=wp["weekly_assessment"],
-                )
-            )
-
-        tactics_output = TacticsOutput(
-            curriculum_summary=result["curriculum_summary"],
-            weekly_plans=weekly_plans,
-            assessment_strategy=result["assessment_strategy"],
-            adaptation_notes=result["adaptation_notes"],
-        )
-
-        logger.info(f"Tactics output: {len(weekly_plans)} weekly plans created")
+        logger.info(f"Tactics output: {len(tactics_output.weekly_plans)} weekly plans created")
 
         return {
             "tactics_output": tactics_output,
@@ -269,7 +379,7 @@ def tactics_agent(state: HierarchicalAgentState, config: RunnableConfig) -> dict
 
     except (json.JSONDecodeError, KeyError, ValueError) as e:
         logger.error(f"Failed to parse tactics response: {e}")
-        logger.error(f"Raw response: {response.content}")
+        logger.error(f"Raw response: {response_content[:500] if response_content else 'None'}...")
         raise ValueError(f"Tactics agent failed to produce valid output: {e}")
 
 
@@ -278,40 +388,51 @@ def tactics_agent(state: HierarchicalAgentState, config: RunnableConfig) -> dict
 # =============================================================================
 
 
-def content_agent(state: HierarchicalAgentState, config: RunnableConfig) -> LearningContent:
-    """
-    Content generation agent that creates learning content for a task.
-
-    Args:
-        state: Current hierarchical agent state
-        config: Runtime configuration
-
-    Returns:
-        LearningContent for the current task
-    """
+def _get_current_task(state: HierarchicalAgentState) -> DailyTask:
+    """Get the current task from state."""
     tactics = state["tactics_output"]
-    strategy = state["strategy_output"]
-    if tactics is None or strategy is None:
-        raise ValueError("Content agent requires strategy and tactics output")
+    if tactics is None:
+        raise ValueError("No tactics output in state")
 
-    # Get current task
-    current_week = state["current_week"]
-    current_day = state["current_day"]
-    week_plan = tactics.weekly_plans[current_week - 1]
+    week_plan = tactics.weekly_plans[state["current_week"] - 1]
+    day_tasks = week_plan.daily_tasks.get(state["current_day"], [])
     task_index = state["current_task_index"]
 
-    day_tasks = week_plan.daily_tasks.get(current_day, [])
     if task_index >= len(day_tasks):
-        raise ValueError(f"No task at index {task_index} for {current_day}")
+        raise ValueError(f"No task at index {task_index} for {state['current_day']}")
 
-    task = day_tasks[task_index]
+    return day_tasks[task_index]
 
+
+def _parse_learning_content(result: dict, task: DailyTask) -> LearningContent:
+    """Parse learning content from JSON result with safe defaults."""
+    content_type = _safe_enum_parse(
+        ContentType,
+        result.get("content_type", "article"),
+        ContentType.ARTICLE,
+    )
+
+    return LearningContent(
+        content_id=result.get("content_id", f"content_{task.task_id}"),
+        task_id=result.get("task_id", task.task_id),
+        title=result.get("title", task.title),
+        content_type=content_type,
+        content_body=result.get("content_body", ""),
+        key_concepts=result.get("key_concepts", task.learning_objectives or []),
+        resources=result.get("resources", []),
+    )
+
+
+def content_agent(state: HierarchicalAgentState, config: RunnableConfig) -> LearningContent:
+    """Content generation agent that creates learning content for a task."""
+    strategy = state["strategy_output"]
+    if strategy is None:
+        raise ValueError("Content agent requires strategy output")
+
+    task = _get_current_task(state)
     logger.info(f"Content Agent: Creating content for task {task.task_id}")
 
-    model_name = config.get("configurable", {}).get("model", OpenAIModel.GPT_4O)
-    model = ChatOpenAI(model=model_name, temperature=0.7)
-
-    system_prompt = make_content_system_prompt()
+    model = _create_chat_model(config)
     user_prompt = make_content_user_prompt(
         task_id=task.task_id,
         title=task.title,
@@ -320,33 +441,59 @@ def content_agent(state: HierarchicalAgentState, config: RunnableConfig) -> Lear
         learning_objectives=task.learning_objectives,
         learner_level=strategy.roadmap.current_level.value,
     )
+    messages = _build_messages(make_content_system_prompt(), user_prompt)
 
-    messages = [
-        SystemMessage(content=system_prompt),
-        HumanMessage(content=user_prompt),
-    ]
-
-    response = model.invoke(messages, config)
+    response_content = invoke_with_retry(model, messages, config, "Content Agent")
 
     try:
-        result = extract_json_from_response(response.content)
-
-        content = LearningContent(
-            content_id=result["content_id"],
-            task_id=result["task_id"],
-            title=result["title"],
-            content_type=ContentType(result["content_type"]),
-            content_body=result["content_body"],
-            key_concepts=result["key_concepts"],
-            resources=result.get("resources", []),
-        )
-
+        result = extract_json_from_response(response_content)
+        content = _parse_learning_content(result, task)
         logger.info(f"Content created: {content.title}")
         return content
 
     except (json.JSONDecodeError, KeyError, ValueError) as e:
         logger.error(f"Failed to parse content response: {e}")
+        logger.error(f"Raw response: {response_content[:500] if response_content else 'None'}...")
         raise ValueError(f"Content agent failed: {e}")
+
+
+def _parse_quiz_question(data: dict, index: int, key_concepts: list[str]) -> QuizQuestion:
+    """Parse a quiz question from JSON data with safe defaults."""
+    question_type = _safe_enum_parse(
+        QuestionType,
+        data.get("question_type", "multiple_choice"),
+        QuestionType.MULTIPLE_CHOICE,
+    )
+    difficulty = _safe_enum_parse(
+        SkillLevel,
+        data.get("difficulty", "beginner"),
+        SkillLevel.BEGINNER,
+    )
+
+    return QuizQuestion(
+        question_id=data.get("question_id", f"q_{index + 1:03d}"),
+        question_type=question_type,
+        question_text=data.get("question_text", ""),
+        options=data.get("options", []),
+        correct_answer=data.get("correct_answer", ""),
+        explanation=data.get("explanation", ""),
+        difficulty=difficulty,
+        related_concepts=data.get("related_concepts", key_concepts or []),
+    )
+
+
+def _parse_quiz(result: dict, task_id: str, title: str, key_concepts: list[str]) -> Quiz:
+    """Parse quiz from JSON result with safe defaults."""
+    questions = [_parse_quiz_question(q, i, key_concepts) for i, q in enumerate(result.get("questions", []))]
+
+    return Quiz(
+        quiz_id=result.get("quiz_id", f"quiz_{task_id}"),
+        task_id=result.get("task_id", task_id),
+        title=result.get("title", f"Quiz: {title}"),
+        questions=questions,
+        passing_score=result.get("passing_score", 70),
+        time_limit_minutes=result.get("time_limit_minutes", 0),
+    )
 
 
 def quiz_agent(
@@ -356,87 +503,67 @@ def quiz_agent(
     learner_level: str,
     config: RunnableConfig,
 ) -> Quiz:
-    """
-    Quiz generation agent that creates quizzes for learning content.
-
-    Args:
-        task_id: ID of the task
-        title: Title of the content
-        key_concepts: Key concepts to test
-        learner_level: Current learner level
-        config: Runtime configuration
-
-    Returns:
-        Quiz for the content
-    """
+    """Quiz generation agent that creates quizzes for learning content."""
     logger.info(f"Quiz Agent: Creating quiz for task {task_id}")
 
-    model_name = config.get("configurable", {}).get("model", OpenAIModel.GPT_4O)
-    model = ChatOpenAI(model=model_name, temperature=0.5)
-
-    system_prompt = make_quiz_system_prompt()
+    model = _create_chat_model(config)
     user_prompt = make_quiz_user_prompt(
         task_id=task_id,
         title=title,
         key_concepts=key_concepts,
         learner_level=learner_level,
     )
+    messages = _build_messages(make_quiz_system_prompt(), user_prompt)
 
-    messages = [
-        SystemMessage(content=system_prompt),
-        HumanMessage(content=user_prompt),
-    ]
-
-    response = model.invoke(messages, config)
+    response_content = invoke_with_retry(model, messages, config, "Quiz Agent")
 
     try:
-        result = extract_json_from_response(response.content)
-
-        questions = [
-            QuizQuestion(
-                question_id=q["question_id"],
-                question_type=QuestionType(q["question_type"]),
-                question_text=q["question_text"],
-                options=q.get("options", []),
-                correct_answer=q["correct_answer"],
-                explanation=q["explanation"],
-                difficulty=SkillLevel(q["difficulty"]),
-                related_concepts=q["related_concepts"],
-            )
-            for q in result["questions"]
-        ]
-
-        quiz = Quiz(
-            quiz_id=result["quiz_id"],
-            task_id=result["task_id"],
-            title=result["title"],
-            questions=questions,
-            passing_score=result["passing_score"],
-            time_limit_minutes=result.get("time_limit_minutes", 0),
-        )
-
-        logger.info(f"Quiz created: {quiz.title} ({len(questions)} questions)")
+        result = extract_json_from_response(response_content)
+        quiz = _parse_quiz(result, task_id, title, key_concepts)
+        logger.info(f"Quiz created: {quiz.title} ({len(quiz.questions)} questions)")
         return quiz
 
     except (json.JSONDecodeError, KeyError, ValueError) as e:
         logger.error(f"Failed to parse quiz response: {e}")
+        logger.error(f"Raw response: {response_content[:500] if response_content else 'None'}...")
         raise ValueError(f"Quiz agent failed: {e}")
 
 
+def _calculate_next_task_position(
+    state: HierarchicalAgentState,
+    tactics: TacticsOutput,
+) -> tuple[int, str, int]:
+    """Calculate the next task position (week, day, index) after current task."""
+    current_week = state["current_week"]
+    current_day = state["current_day"]
+    task_index = state["current_task_index"] + 1
+
+    week_plan = tactics.weekly_plans[current_week - 1]
+    day_tasks = week_plan.daily_tasks.get(current_day, [])
+
+    # Check if more tasks in current day
+    if task_index < len(day_tasks):
+        return current_week, current_day, task_index
+
+    # Move to next day
+    day_keys = list(week_plan.daily_tasks.keys())
+    current_day_idx = day_keys.index(current_day) if current_day in day_keys else 0
+
+    if current_day_idx + 1 < len(day_keys):
+        return current_week, day_keys[current_day_idx + 1], 0
+
+    # Move to next week
+    if current_week < len(tactics.weekly_plans):
+        next_week = current_week + 1
+        next_day = list(tactics.weekly_plans[next_week - 1].daily_tasks.keys())[0]
+        return next_week, next_day, 0
+
+    # No more tasks
+    return current_week, current_day, task_index
+
+
 def execution_agent(state: HierarchicalAgentState, config: RunnableConfig) -> dict:
-    """
-    Execution layer agent that orchestrates content and quiz generation.
-
-    This agent creates learning sessions by coordinating the content
-    and quiz agents for each task.
-
-    Args:
-        state: Current hierarchical agent state
-        config: Runtime configuration
-
-    Returns:
-        Updated state with new learning session
-    """
+    """Execution layer agent that orchestrates content and quiz generation."""
     tactics = state["tactics_output"]
     strategy = state["strategy_output"]
     if tactics is None or strategy is None:
@@ -444,34 +571,24 @@ def execution_agent(state: HierarchicalAgentState, config: RunnableConfig) -> di
 
     current_sessions = list(state["learning_sessions"])
 
-    # Check if we've reached the limit
     if len(current_sessions) >= MAX_SESSIONS_FIRST_WEEK:
         logger.info(f"Reached maximum sessions ({MAX_SESSIONS_FIRST_WEEK})")
         return {"learning_sessions": current_sessions}
 
-    # Get current task
-    current_week = state["current_week"]
-    current_day = state["current_day"]
-    task_index = state["current_task_index"]
-
-    week_plan = tactics.weekly_plans[current_week - 1]
-    day_tasks = week_plan.daily_tasks.get(current_day, [])
-
-    if task_index >= len(day_tasks):
-        logger.info(f"No more tasks for {current_day}")
+    try:
+        task = _get_current_task(state)
+    except ValueError:
+        logger.info(f"No more tasks for {state['current_day']}")
         return {"learning_sessions": current_sessions}
 
-    task = day_tasks[task_index]
+    _log_layer_start(
+        "EXECUTION LAYER",
+        f"Session {len(current_sessions) + 1}/{MAX_SESSIONS_FIRST_WEEK}",
+    )
+    logger.info(f"Week {state['current_week']}, {state['current_day']}, Task: {task.task_id}")
 
-    logger.info("=" * 60)
-    logger.info(f"EXECUTION LAYER: Session {len(current_sessions) + 1}/{MAX_SESSIONS_FIRST_WEEK}")
-    logger.info(f"Week {current_week}, {current_day}, Task: {task.task_id}")
-    logger.info("=" * 60)
-
-    # Generate content
+    # Generate content and quiz
     content = content_agent(state, config)
-
-    # Generate quiz
     quiz = quiz_agent(
         task_id=task.task_id,
         title=content.title,
@@ -488,29 +605,11 @@ def execution_agent(state: HierarchicalAgentState, config: RunnableConfig) -> di
         quiz=quiz,
         feedback=None,
     )
-
     current_sessions.append(session)
     logger.info(f"Session created: {session.session_id}")
 
-    # Update task index for next iteration
-    new_task_index = task_index + 1
-    new_day = current_day
-    new_week = current_week
-
-    # Move to next day if all tasks for current day are done
-    if new_task_index >= len(day_tasks):
-        day_keys = list(week_plan.daily_tasks.keys())
-        current_day_idx = day_keys.index(current_day) if current_day in day_keys else 0
-
-        if current_day_idx + 1 < len(day_keys):
-            new_day = day_keys[current_day_idx + 1]
-            new_task_index = 0
-        else:
-            # Move to next week if all days are done
-            if current_week < len(tactics.weekly_plans):
-                new_week = current_week + 1
-                new_day = list(tactics.weekly_plans[new_week - 1].daily_tasks.keys())[0]
-                new_task_index = 0
+    # Calculate next position
+    new_week, new_day, new_task_index = _calculate_next_task_position(state, tactics)
 
     return {
         "learning_sessions": current_sessions,
@@ -520,32 +619,28 @@ def execution_agent(state: HierarchicalAgentState, config: RunnableConfig) -> di
     }
 
 
+def _has_more_tasks(state: HierarchicalAgentState) -> bool:
+    """Check if there are more tasks to execute."""
+    tactics = state["tactics_output"]
+    if not tactics:
+        return False
+
+    current_week = state["current_week"]
+    if current_week > len(tactics.weekly_plans):
+        return False
+
+    week_plan = tactics.weekly_plans[current_week - 1]
+    day_tasks = week_plan.daily_tasks.get(state["current_day"], [])
+    return state["current_task_index"] < len(day_tasks)
+
+
 def should_continue_execution(state: HierarchicalAgentState) -> Literal["execute", "progress"]:
-    """
-    Determine whether to continue executing or move to progress reporting.
-
-    Args:
-        state: Current hierarchical agent state
-
-    Returns:
-        "execute" to continue or "progress" to create progress report
-    """
+    """Determine whether to continue executing or move to progress reporting."""
     sessions = state["learning_sessions"]
 
-    if len(sessions) < MAX_SESSIONS_FIRST_WEEK:
-        tactics = state["tactics_output"]
-        if tactics:
-            current_week = state["current_week"]
-            current_day = state["current_day"]
-            task_index = state["current_task_index"]
-
-            if current_week <= len(tactics.weekly_plans):
-                week_plan = tactics.weekly_plans[current_week - 1]
-                day_tasks = week_plan.daily_tasks.get(current_day, [])
-
-                if task_index < len(day_tasks):
-                    logger.info(f"Continuing execution: {len(sessions)}/{MAX_SESSIONS_FIRST_WEEK} sessions")
-                    return "execute"
+    if len(sessions) < MAX_SESSIONS_FIRST_WEEK and _has_more_tasks(state):
+        logger.info(f"Continuing execution: {len(sessions)}/{MAX_SESSIONS_FIRST_WEEK} sessions")
+        return "execute"
 
     logger.info("Moving to progress reporting")
     return "progress"
@@ -556,20 +651,38 @@ def should_continue_execution(state: HierarchicalAgentState) -> Literal["execute
 # =============================================================================
 
 
+def _parse_progress_metrics(data: dict) -> ProgressMetrics:
+    """Parse progress metrics from JSON data with safe defaults."""
+    return ProgressMetrics(
+        modules_completed=data.get("modules_completed", 0),
+        total_modules=data.get("total_modules", 0),
+        current_week=data.get("current_week", 1),
+        tasks_completed_this_week=data.get("tasks_completed_this_week", 0),
+        total_tasks_this_week=data.get("total_tasks_this_week", 0),
+        average_quiz_score=data.get("average_quiz_score") or 0.0,
+        study_hours_logged=data.get("study_hours_logged") or 0.0,
+        streak_days=data.get("streak_days") or 0,
+        competencies_acquired=data.get("competencies_acquired", []),
+        on_track=data.get("on_track", True),
+    )
+
+
+def _parse_progress_report(result: dict) -> ProgressReport:
+    """Parse progress report from JSON result."""
+    return ProgressReport(
+        report_id=result["report_id"],
+        metrics=_parse_progress_metrics(result.get("metrics", {})),
+        progress_summary=result["progress_summary"],
+        achievements=result["achievements"],
+        recommendations=result["recommendations"],
+        curriculum_adjustment_needed=result["curriculum_adjustment_needed"],
+        adjustment_reason=result.get("adjustment_reason", ""),
+    )
+
+
 def progress_agent(state: HierarchicalAgentState, config: RunnableConfig) -> dict:
-    """
-    Progress monitoring agent that creates a progress report.
-
-    Args:
-        state: Current hierarchical agent state
-        config: Runtime configuration
-
-    Returns:
-        Updated state with progress report
-    """
-    logger.info("=" * 60)
-    logger.info("PROGRESS MONITORING: Creating progress report")
-    logger.info("=" * 60)
+    """Progress monitoring agent that creates a progress report."""
+    _log_layer_start("PROGRESS MONITORING", "Creating progress report")
 
     strategy = state["strategy_output"]
     tactics = state["tactics_output"]
@@ -578,22 +691,10 @@ def progress_agent(state: HierarchicalAgentState, config: RunnableConfig) -> dic
     if strategy is None or tactics is None:
         raise ValueError("Progress agent requires strategy and tactics output")
 
-    model_name = config.get("configurable", {}).get("model", OpenAIModel.GPT_4O)
-    model = ChatOpenAI(model=model_name, temperature=0.3)
+    model = _create_chat_model(config)
 
-    # Calculate sessions this week
-    week_plan = tactics.weekly_plans[0] if tactics.weekly_plans else None
-    total_tasks_week = 0
-    if week_plan:
-        for tasks in week_plan.daily_tasks.values():
-            total_tasks_week += len(tasks)
+    sessions_info = "\n".join(f"- {s.content.title}: クイズ {len(s.quiz.questions)}問" for s in sessions)
 
-    sessions_info = "\n".join(
-        f"- {s.content.title}: クイズ {len(s.quiz.questions)}問"
-        for s in sessions
-    )
-
-    system_prompt = make_progress_system_prompt()
     user_prompt = make_progress_user_prompt(
         learning_domain=strategy.learning_domain,
         target_level=strategy.roadmap.target_level.value,
@@ -601,49 +702,24 @@ def progress_agent(state: HierarchicalAgentState, config: RunnableConfig) -> dic
         total_modules=len(strategy.roadmap.modules),
         current_week=1,
         sessions_completed=len(sessions),
-        sessions_this_week=sessions_info if sessions_info else "まだセッションなし",
+        sessions_this_week=sessions_info or "まだセッションなし",
     )
+    messages = _build_messages(make_progress_system_prompt(), user_prompt)
 
-    messages = [
-        SystemMessage(content=system_prompt),
-        HumanMessage(content=user_prompt),
-    ]
-
-    response = model.invoke(messages, config)
+    response_content = invoke_with_retry(model, messages, config, "Progress Agent")
 
     try:
-        result = extract_json_from_response(response.content)
-
-        metrics = ProgressMetrics(
-            modules_completed=result["metrics"]["modules_completed"],
-            total_modules=result["metrics"]["total_modules"],
-            current_week=result["metrics"]["current_week"],
-            tasks_completed_this_week=result["metrics"]["tasks_completed_this_week"],
-            total_tasks_this_week=result["metrics"]["total_tasks_this_week"],
-            average_quiz_score=result["metrics"]["average_quiz_score"],
-            study_hours_logged=result["metrics"]["study_hours_logged"],
-            streak_days=result["metrics"]["streak_days"],
-            competencies_acquired=result["metrics"]["competencies_acquired"],
-            on_track=result["metrics"]["on_track"],
-        )
-
-        progress_report = ProgressReport(
-            report_id=result["report_id"],
-            metrics=metrics,
-            progress_summary=result["progress_summary"],
-            achievements=result["achievements"],
-            recommendations=result["recommendations"],
-            curriculum_adjustment_needed=result["curriculum_adjustment_needed"],
-            adjustment_reason=result.get("adjustment_reason", ""),
-        )
+        result = extract_json_from_response(response_content)
+        progress_report = _parse_progress_report(result)
 
         logger.info(f"Progress report created: {progress_report.report_id}")
-        logger.info(f"On track: {metrics.on_track}")
+        logger.info(f"On track: {progress_report.metrics.on_track}")
 
         return {"progress_report": progress_report}
 
     except (json.JSONDecodeError, KeyError, ValueError) as e:
         logger.error(f"Failed to parse progress response: {e}")
+        logger.error(f"Raw response: {response_content[:500] if response_content else 'None'}...")
         raise ValueError(f"Progress agent failed: {e}")
 
 
@@ -653,48 +729,26 @@ def progress_agent(state: HierarchicalAgentState, config: RunnableConfig) -> dic
 
 
 def create_learning_platform_graph() -> StateGraph:
-    """
-    Create the hierarchical personalized learning platform graph.
-
-    The graph follows the hierarchical pattern:
-    1. Strategy Agent: Creates learning roadmap
-    2. Tactics Agent: Designs curriculum with daily tasks
-    3. Execution Agents: Generate content and quizzes (loop)
-    4. Progress Agent: Creates progress report
-
-    Returns:
-        Compiled StateGraph for the learning platform
-    """
+    """Create the hierarchical personalized learning platform graph."""
     logger.info("Creating hierarchical learning platform graph...")
 
     graph = StateGraph(HierarchicalAgentState)
 
-    # Add nodes for each layer
+    # Add nodes: Strategy -> Tactics -> Execution (loop) -> Progress
     graph.add_node("strategy", strategy_agent)
     graph.add_node("tactics", tactics_agent)
     graph.add_node("execution", execution_agent)
     graph.add_node("progress", progress_agent)
 
-    # Set entry point
+    # Define flow
     graph.set_entry_point("strategy")
-
-    # Strategy -> Tactics
     graph.add_edge("strategy", "tactics")
-
-    # Tactics -> Execution (first session)
     graph.add_edge("tactics", "execution")
-
-    # Execution loop or progress
     graph.add_conditional_edges(
         "execution",
         should_continue_execution,
-        {
-            "execute": "execution",
-            "progress": "progress",
-        },
+        {"execute": "execution", "progress": "progress"},
     )
-
-    # Progress -> END
     graph.add_edge("progress", END)
 
     logger.info("Learning platform graph created successfully")
@@ -706,32 +760,9 @@ def create_learning_platform_graph() -> StateGraph:
 # =============================================================================
 
 
-async def run_personalized_learning(
-    learner_profile: LearnerProfile,
-    model: str = OpenAIModel.GPT_4O,
-) -> PersonalizedLearningPlan | None:
-    """
-    Run the hierarchical personalized learning agent system.
-
-    This function orchestrates the entire learning platform using
-    a hierarchical multi-agent system.
-
-    Args:
-        learner_profile: Profile of the learner
-        model: The OpenAI model to use
-
-    Returns:
-        PersonalizedLearningPlan if successful, None otherwise
-    """
-    logger.info("=" * 80)
-    logger.info("HIERARCHICAL PERSONALIZED LEARNING PLATFORM")
-    logger.info("=" * 80)
-    logger.info(f"Learner goal: {learner_profile.learning_goal}")
-    logger.info(f"Available hours/week: {learner_profile.available_hours_per_week}")
-    logger.info(f"Target duration: {learner_profile.target_duration_weeks} weeks")
-    logger.info(f"Model: {model}")
-
-    initial_state: HierarchicalAgentState = {
+def _create_initial_state(learner_profile: LearnerProfile) -> HierarchicalAgentState:
+    """Create initial state for the learning platform."""
+    return {
         "learner_profile": learner_profile,
         "strategy_output": None,
         "tactics_output": None,
@@ -743,34 +774,57 @@ async def run_personalized_learning(
         "messages": [],
     }
 
+
+def _create_plan_from_state(
+    final_state: dict,
+    learner_profile: LearnerProfile,
+) -> PersonalizedLearningPlan | None:
+    """Create a PersonalizedLearningPlan from final graph state."""
+    strategy = final_state.get("strategy_output")
+    tactics = final_state.get("tactics_output")
+    sessions = final_state.get("learning_sessions", [])
+    progress = final_state.get("progress_report")
+
+    if not (strategy and tactics and progress):
+        logger.warning("Learning plan incomplete")
+        return None
+
+    return PersonalizedLearningPlan(
+        plan_id=f"plan_{uuid4().hex[:8]}",
+        learner_profile=learner_profile,
+        strategy=strategy,
+        curriculum=tactics,
+        first_week_sessions=sessions,
+        progress_report=progress,
+    )
+
+
+async def run_personalized_learning(
+    learner_profile: LearnerProfile,
+    model: str = OpenAIModel.GPT_4O,
+) -> PersonalizedLearningPlan | None:
+    """Run the hierarchical personalized learning agent system."""
+    logger.info("=" * 80)
+    logger.info("HIERARCHICAL PERSONALIZED LEARNING PLATFORM")
+    logger.info("=" * 80)
+    logger.info(f"Learner goal: {learner_profile.learning_goal}")
+    logger.info(f"Available hours/week: {learner_profile.available_hours_per_week}")
+    logger.info(f"Target duration: {learner_profile.target_duration_weeks} weeks")
+    logger.info(f"Model: {model}")
+
     graph = create_learning_platform_graph()
     config = RunnableConfig(configurable={"model": model})
 
     try:
-        final_state = await graph.ainvoke(initial_state, config)
+        final_state = await graph.ainvoke(_create_initial_state(learner_profile), config)
+        plan = _create_plan_from_state(final_state, learner_profile)
 
-        strategy = final_state.get("strategy_output")
-        tactics = final_state.get("tactics_output")
-        sessions = final_state.get("learning_sessions", [])
-        progress = final_state.get("progress_report")
-
-        if strategy and tactics and progress:
-            plan = PersonalizedLearningPlan(
-                plan_id=f"plan_{uuid4().hex[:8]}",
-                learner_profile=learner_profile,
-                strategy=strategy,
-                curriculum=tactics,
-                first_week_sessions=sessions,
-                progress_report=progress,
-            )
-
+        if plan:
             logger.info("=" * 80)
             logger.info("LEARNING PLAN CREATED SUCCESSFULLY")
             logger.info("=" * 80)
-            return plan
-        else:
-            logger.warning("Learning plan incomplete")
-            return None
+
+        return plan
 
     except Exception as e:
         logger.error(f"Learning platform failed: {str(e)}")

@@ -1,3 +1,16 @@
+"""
+Pydantic models for the Hierarchical Personalized Learning Platform.
+
+This module defines all data models used across the hierarchical AI agent system:
+- Enums for type-safe categorization (SkillLevel, ContentType, etc.)
+- Strategy Layer: LearningModule, LearningRoadmap, StrategyOutput
+- Tactics Layer: DailyTask, WeeklyPlan, TacticsOutput
+- Execution Layer: LearningContent, Quiz, QuizQuestion, Feedback models
+- Session Models: LearnerProfile, LearningSession
+- Final Output: PersonalizedLearningPlan
+- Agent State: HierarchicalAgentState (TypedDict for LangGraph)
+"""
+
 from enum import StrEnum
 from typing import Annotated, Sequence
 
@@ -5,6 +18,27 @@ from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import TypedDict
+
+# =============================================================================
+# Base Model Configuration
+# =============================================================================
+
+
+class FrozenModel(BaseModel):
+    """
+    Base model with common configuration for all learning platform models.
+
+    Configuration:
+    - validate_assignment: Validates data on attribute assignment
+    - frozen: Makes instances immutable after creation
+    - extra: Ignores extra fields not defined in the model
+    """
+
+    model_config = ConfigDict(
+        validate_assignment=True,
+        frozen=True,
+        extra="ignore",
+    )
 
 
 # =============================================================================
@@ -56,14 +90,8 @@ class LearningModuleCategory(StrEnum):
 # =============================================================================
 
 
-class LearningModule(BaseModel):
+class LearningModule(FrozenModel):
     """A learning module in the roadmap."""
-
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-    )
 
     module_id: str = Field(..., description="Unique identifier for the module")
     name: str = Field(..., description="Name of the learning module")
@@ -74,14 +102,8 @@ class LearningModule(BaseModel):
     target_competencies: list[str] = Field(..., description="Skills/competencies to be acquired")
 
 
-class LearningRoadmap(BaseModel):
+class LearningRoadmap(FrozenModel):
     """Strategic learning roadmap."""
-
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-    )
 
     goal_summary: str = Field(..., description="Summary of the learning goal")
     target_level: SkillLevel = Field(..., description="Target skill level to achieve")
@@ -92,14 +114,8 @@ class LearningRoadmap(BaseModel):
     success_criteria: list[str] = Field(..., description="Criteria to determine goal achievement")
 
 
-class StrategyOutput(BaseModel):
+class StrategyOutput(FrozenModel):
     """Output from the Strategy Agent."""
-
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-    )
 
     learning_domain: str = Field(..., description="The domain of learning (e.g., Data Analysis, Programming)")
     roadmap: LearningRoadmap = Field(..., description="The complete learning roadmap")
@@ -112,14 +128,8 @@ class StrategyOutput(BaseModel):
 # =============================================================================
 
 
-class DailyTask(BaseModel):
+class DailyTask(FrozenModel):
     """A daily learning task."""
-
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-    )
 
     task_id: str = Field(..., description="Unique identifier for the task")
     title: str = Field(..., description="Title of the task")
@@ -129,33 +139,19 @@ class DailyTask(BaseModel):
     learning_objectives: list[str] = Field(..., description="What the learner will achieve")
 
 
-class WeeklyPlan(BaseModel):
+class WeeklyPlan(FrozenModel):
     """A weekly learning plan."""
-
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-    )
 
     week_number: int = Field(..., description="Week number in the curriculum")
     module_id: str = Field(..., description="Associated module ID")
     theme: str = Field(..., description="Theme for the week")
     learning_goals: list[str] = Field(..., description="Goals for this week")
-    daily_tasks: dict[str, list[DailyTask]] = Field(
-        ..., description="Tasks organized by day (day1, day2, etc.)"
-    )
+    daily_tasks: dict[str, list[DailyTask]] = Field(..., description="Tasks organized by day (day1, day2, etc.)")
     weekly_assessment: str = Field(..., description="Description of weekly assessment")
 
 
-class TacticsOutput(BaseModel):
+class TacticsOutput(FrozenModel):
     """Output from the Tactics Agent."""
-
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-    )
 
     curriculum_summary: str = Field(..., description="Summary of the curriculum")
     weekly_plans: list[WeeklyPlan] = Field(..., description="Detailed weekly plans")
@@ -168,14 +164,8 @@ class TacticsOutput(BaseModel):
 # =============================================================================
 
 
-class LearningContent(BaseModel):
+class LearningContent(FrozenModel):
     """Learning content provided by the content agent."""
-
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-    )
 
     content_id: str = Field(..., description="Unique identifier for the content")
     task_id: str = Field(..., description="Associated task ID")
@@ -186,14 +176,8 @@ class LearningContent(BaseModel):
     resources: list[str] = Field(default_factory=list, description="Additional resources/links")
 
 
-class QuizQuestion(BaseModel):
+class QuizQuestion(FrozenModel):
     """A quiz question for assessment."""
-
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-    )
 
     question_id: str = Field(..., description="Unique identifier for the question")
     question_type: QuestionType = Field(..., description="Type of question")
@@ -205,14 +189,8 @@ class QuizQuestion(BaseModel):
     related_concepts: list[str] = Field(..., description="Concepts this question tests")
 
 
-class Quiz(BaseModel):
+class Quiz(FrozenModel):
     """A quiz generated by the quiz agent."""
-
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-    )
 
     quiz_id: str = Field(..., description="Unique identifier for the quiz")
     task_id: str = Field(..., description="Associated task ID")
@@ -222,14 +200,8 @@ class Quiz(BaseModel):
     time_limit_minutes: int = Field(default=0, description="Time limit in minutes (0 = no limit)")
 
 
-class FeedbackItem(BaseModel):
+class FeedbackItem(FrozenModel):
     """Feedback on learner's answer."""
-
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-    )
 
     question_id: str = Field(..., description="Question being addressed")
     is_correct: bool = Field(..., description="Whether the answer was correct")
@@ -239,14 +211,8 @@ class FeedbackItem(BaseModel):
     related_content: list[str] = Field(default_factory=list, description="Content to review")
 
 
-class LearnerFeedback(BaseModel):
+class LearnerFeedback(FrozenModel):
     """Complete feedback from the feedback agent."""
-
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-    )
 
     feedback_id: str = Field(..., description="Unique identifier for the feedback")
     quiz_id: str = Field(..., description="Associated quiz ID")
@@ -259,14 +225,8 @@ class LearnerFeedback(BaseModel):
     recommended_next_steps: list[str] = Field(..., description="Recommended next steps")
 
 
-class ProgressMetrics(BaseModel):
+class ProgressMetrics(FrozenModel):
     """Progress metrics from the progress monitoring agent."""
-
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-    )
 
     modules_completed: int = Field(..., description="Number of modules completed")
     total_modules: int = Field(..., description="Total number of modules")
@@ -280,14 +240,8 @@ class ProgressMetrics(BaseModel):
     on_track: bool = Field(..., description="Whether learner is on track with the plan")
 
 
-class ProgressReport(BaseModel):
+class ProgressReport(FrozenModel):
     """Progress report from the progress monitoring agent."""
-
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-    )
 
     report_id: str = Field(..., description="Unique identifier for the report")
     metrics: ProgressMetrics = Field(..., description="Current progress metrics")
@@ -303,33 +257,19 @@ class ProgressReport(BaseModel):
 # =============================================================================
 
 
-class LearnerProfile(BaseModel):
+class LearnerProfile(FrozenModel):
     """Profile of the learner."""
-
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-    )
 
     learner_id: str = Field(..., description="Unique identifier for the learner")
     learning_goal: str = Field(..., description="The learner's stated goal")
     current_knowledge: list[str] = Field(default_factory=list, description="Current knowledge areas")
     available_hours_per_week: int = Field(..., description="Available study hours per week")
-    preferred_content_types: list[ContentType] = Field(
-        default_factory=list, description="Preferred content types"
-    )
+    preferred_content_types: list[ContentType] = Field(default_factory=list, description="Preferred content types")
     target_duration_weeks: int = Field(default=12, description="Target duration in weeks")
 
 
-class LearningSession(BaseModel):
+class LearningSession(FrozenModel):
     """A learning session containing content, quiz, and feedback."""
-
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-    )
 
     session_id: str = Field(..., description="Unique identifier for the session")
     task_id: str = Field(..., description="Associated task ID")
@@ -343,14 +283,8 @@ class LearningSession(BaseModel):
 # =============================================================================
 
 
-class PersonalizedLearningPlan(BaseModel):
+class PersonalizedLearningPlan(FrozenModel):
     """Complete personalized learning plan."""
-
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-    )
 
     plan_id: str = Field(..., description="Unique identifier for the plan")
     learner_profile: LearnerProfile = Field(..., description="Learner profile")
@@ -371,8 +305,7 @@ class PersonalizedLearningPlan(BaseModel):
         )
 
         milestones_md = "\n".join(
-            f"{i + 1}. {milestone}"
-            for i, milestone in enumerate(self.strategy.roadmap.milestones)
+            f"{i + 1}. {milestone}" for i, milestone in enumerate(self.strategy.roadmap.milestones)
         )
 
         weekly_plans_md = ""
@@ -385,7 +318,7 @@ class PersonalizedLearningPlan(BaseModel):
             weekly_plans_md += f"""
 ### 第{week.week_number}週: {week.theme}
 **学習目標**:
-{chr(10).join(f'- {g}' for g in week.learning_goals)}
+{chr(10).join(f"- {g}" for g in week.learning_goals)}
 
 **日別タスク**:
 {tasks_md}
@@ -399,7 +332,7 @@ class PersonalizedLearningPlan(BaseModel):
             sessions_md += f"""
 ### {session.content.title}
 - **コンテンツタイプ**: {session.content.content_type.value}
-- **キーコンセプト**: {', '.join(session.content.key_concepts)}
+- **キーコンセプト**: {", ".join(session.content.key_concepts)}
 
 **クイズ**: {session.quiz.title} ({len(session.quiz.questions)}問)
 
@@ -444,10 +377,10 @@ class PersonalizedLearningPlan(BaseModel):
 
 ## 進捗レポート
 - **進捗状況**: {self.progress_report.progress_summary}
-- **トラック状況**: {'順調' if self.progress_report.metrics.on_track else '調整が必要'}
+- **トラック状況**: {"順調" if self.progress_report.metrics.on_track else "調整が必要"}
 
 ### 推奨事項
-{chr(10).join(f'- {r}' for r in self.progress_report.recommendations)}
+{chr(10).join(f"- {r}" for r in self.progress_report.recommendations)}
 """
 
 

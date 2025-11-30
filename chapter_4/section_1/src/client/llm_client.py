@@ -26,4 +26,4 @@ class OpenAIModel(StrEnum):
         return list(OpenAIModel)
 
 
-openai_client = AsyncOpenAI(api_key=config.openai_api_key.get_secret_value())
+openai_client = AsyncOpenAI(api_key=config.openai_api_key)

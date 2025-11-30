@@ -1,634 +1,246 @@
-# Project Status Report - CQRS Knowledge Base Implementation
+# CQRS Knowledge Base Implementation
 
-**Project:** Chapter 3 Section 5 - State Change and Read Responsibility Segregation (CQRS for LLM Systems)
+## Overview
 
-**Last Updated:** 2025-10-29
+This project implements the **CQRS (Command Query Responsibility Segregation)** pattern for LLM-based knowledge management systems. It separates write operations (Commands) from read operations (Queries), achieving high throughput for writes and low latency for reads.
 
-**Status:** Complete and Production-Ready
+The system uses Google Gemini for both character generation and embedding creation, with ChromaDB as the vector database for semantic search.
 
----
-
-## Executive Summary
-
-This project successfully implements a **CQRS (Command Query Responsibility Segregation)** pattern for LLM-based knowledge management systems. The implementation separates write operations (Commands) from read operations (Queries), achieving both high throughput for writes and low latency for reads.
-
-### Key Achievements
-
-**Complete CQRS Implementation**
-- Separate Command and Query services
-- Asynchronous knowledge registration
-- Synchronous knowledge retrieval
-- Independent scaling capabilities
-
-**Custom Embedding Integration**
-- OpenAI text-embedding-3-small (1536 dimensions)
-- Google Gemini gemini-embedding-001 (768 dimensions)
-- Provider-consistent embedding generation
-
-**Docker Compose Deployment**
-- Multi-service orchestration
-- ChromaDB vector database integration
-- Health checks and dependency management
-- Persistent data storage
-
-**Comprehensive Documentation**
-- Japanese README.md for end users
-- English technical documentation
-- Docker deployment guides
-- Troubleshooting resources
-
----
-
-## Architecture Overview
-
-### System Components
+## Architecture
 
 ```
 +-------------------------------------------------------------+
-|                   Docker Network (llm-network)              |
-|                                                             |
-|  +------------------+    +------------------+               |
-|  |   LLM Server     |    | Knowledge Server |               |
-|  |   Port 8000      |    |   Port 8001      |               |
-|  |                  |    |                  |               |
-|  | - Character Gen  |    | - Command/Query  |               |
-|  | - Auto Storage   |    | - CQRS Endpoints |               |
-|  +--------+---------+    +--------+---------+               |
-|           |                       |                         |
-|           +-----------+-----------+                         |
-|                       |                                     |
-|              +-----------------+                            |
-|              |   ChromaDB      |                            |
-|              |   Port 8002     |                            |
-|              | (Internal 8000) |                            |
-|              |                 |                            |
-|              | - Vector Store  |                            |
-|              | - Persistent    |                            |
-|              +-----------------+                            |
-|                       |                                     |
-|              +-----------------+                            |
-|              |  Volume Mount   |                            |
-|              |  chromadb-data  |                            |
-|              +-----------------+                            |
+|                      User Requests                          |
 +-------------------------------------------------------------+
+              |                           |
+              v                           v
++---------------------------+   +---------------------------+
+|      LLM Server           |   |   Knowledge Server        |
+|      Port 8000            |   |   Port 8001               |
+|                           |   |                           |
+|  POST /generate           |   |  POST /command/register   |
+|   - Character generation  |   |   - Async write (Command) |
+|   - Auto-store knowledge  |   |                           |
+|                           |   |  POST /query/search       |
+|                           |   |   - Sync read (Query)     |
+|                           |   |                           |
+|                           |   |  GET /query/stats         |
+|                           |   |   - Statistics (Query)    |
++-------------+-------------+   +-------------+-------------+
+              |                               |
+              +---------------+---------------+
+                              |
+                              v
+              +-------------------------------+
+              |          ChromaDB             |
+              |       Vector Database         |
+              |                               |
+              |  - Cosine similarity search   |
+              |  - Custom Gemini embeddings   |
+              |  - Metadata filtering         |
+              +---------------+---------------+
+                              |
+                              v
+              +-------------------------------+
+              |        Gemini API             |
+              |  - gemini-2.5-pro/flash/lite  |
+              |  - gemini-embedding-001       |
+              +-------------------------------+
 ```
 
-### Service Details
-
-| Service | Port | Purpose | Technology |
-|---------|------|---------|------------|
-| **chromadb** | 8002 | Vector database | ChromaDB 1.3.0-amd64 |
-| **llm-server** | 8000 | Character generation | FastAPI + OpenAI/Gemini |
-| **knowledge-server** | 8001 | CQRS endpoints | FastAPI + ChromaDB client |
-
----
-
-## Implementation Details
-
-### 1. CQRS Pattern
-
-**Command Side (Write Operations)**
-- File: `src/service/knowledge_command.py`
-- Characteristics:
-  - Asynchronous processing
-  - Returns immediately with job ID
-  - Background embedding generation
-  - High throughput optimization
-  - Eventual consistency
-
-**Query Side (Read Operations)**
-- File: `src/service/knowledge_query.py`
-- Characteristics:
-  - Synchronous processing
-  - Low latency responses
-  - Real-time embedding generation
-  - Optimized for search performance
-  - Immediate consistency
-
-### 2. Embedding Integration
-
-**OpenAI Embeddings**
-- Model: `text-embedding-3-small`
-- Dimensions: 1536
-- Use case: General-purpose, high quality
-- Cost: ~$0.02 per 1M tokens
-
-**Gemini Embeddings**
-- Model: `gemini-embedding-001`
-- Dimensions: 768
-- Use case: Multilingual (including Japanese)
-- Integration: Google GenAI SDK
-
-**Implementation**: `src/service/embedding_service.py`
-
-### 3. ChromaDB Integration
-
-**Dual-Mode Client** (`src/client/chromadb_client.py`):
-- **Docker Mode**: HTTP client connecting to remote ChromaDB
-- **Local Mode**: Persistent client with local storage
-- **Automatic Detection**: Based on `CHROMA_HOST` environment variable
-
-**Collection Configuration**:
-- Name: `character_knowledge`
-- Embedding Function: `None` (custom embeddings)
-- Distance Metric: Cosine similarity
-- Custom metadata for filtering
-
-### 4. Data Models
-
-**Command Models** (`src/model/knowledge.py`):
-- `KnowledgeRegisterCommand`: Write operation model
-- `KnowledgeRegisterResponse`: Command acknowledgment
-
-**Query Models**:
-- `KnowledgeSearchQuery`: Search request model
-- `KnowledgeSearchResponse`: Search results with scores
-- `KnowledgeStatsResponse`: Aggregate statistics
-- `KnowledgeItem`: Individual result item
-
----
-
-## File Structure
+### Directory Structure
 
 ```
 src/
-├── api/
-│   ├── llm_server.py              # LLM API (character generation)
-│   └── knowledge_server.py        # CQRS knowledge base API
-├── client/
-│   ├── chromadb_client.py         # ChromaDB client (dual-mode)
-│   └── llm_client.py              # OpenAI/Gemini clients
-├── model/
-│   ├── model.py                   # LLM data models
-│   └── knowledge.py               # CQRS models (Command/Query)
-├── service/
-│   ├── request_llm.py             # LLM request handlers
-│   ├── embedding_service.py       # Embedding generation
-│   ├── knowledge_command.py       # Command service (async writes)
-│   └── knowledge_query.py         # Query service (sync reads)
-└── prompt/
-    └── prompt.py                  # Prompt generation
-
-docker-compose.yml                 # Multi-service orchestration
-README.md                          # Japanese documentation
-IMPLEMENTATION.md                  # CQRS implementation guide
-EMBEDDING_INTEGRATION.md           # Embedding integration guide
-DOCKER_DEPLOYMENT.md               # Docker deployment guide
-QUICKSTART_DOCKER.md               # Quick start reference
+|-- __init__.py              # Package init, shared ThreadPoolExecutor
+|-- config.py                # Configuration (GEMINI_API_KEY)
+|-- logger.py                # Logging utility
+|-- api/
+|   |-- __init__.py
+|   |-- llm_server.py        # LLM API server (Port 8000)
+|   +-- knowledge_server.py  # CQRS API server (Port 8001)
+|-- client/
+|   |-- __init__.py
+|   |-- llm_client.py        # Gemini API client
+|   +-- chromadb_client.py   # ChromaDB client (local/remote)
+|-- model/
+|   |-- __init__.py
+|   |-- model.py             # LLM data models (FrozenModel base)
+|   +-- knowledge.py         # CQRS models (Command/Query)
+|-- service/
+|   |-- __init__.py
+|   |-- request_llm.py       # Gemini LLM request handler
+|   |-- embedding_service.py # Gemini embedding service
+|   |-- knowledge_command.py # Command service (async writes)
+|   +-- knowledge_query.py   # Query service (sync reads)
++-- prompt/
+    |-- __init__.py
+    +-- prompt.py            # Prompt generation
 ```
 
----
-
-## API Endpoints
-
-### LLM Server (Port 8000)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | Health check |
-| POST | `/generate` | Generate character (auto-stores in knowledge base) |
-
-**Parameters**:
-- `provider`: "openai" or "gemini"
-- `model`: Model identifier
-- `character_request`: Character parameters
-- `store_knowledge`: Boolean (default: true)
-
-### Knowledge Server (Port 8001)
-
-**Command Endpoints**:
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/command/register` | Register knowledge (async) |
-
-**Query Endpoints**:
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/query/search` | Search knowledge base (sync) |
-| GET | `/query/stats` | Get statistics |
-
----
-
-## Data Flow
-
-### Character Generation Flow
-
-```
-1. User Request
-   |
-   v
-2. LLM Server (/generate)
-   |-> Generate Character (OpenAI/Gemini)
-   |-> Return Response to User (immediate)
-   |-> Queue Background Task
-       |
-       v
-3. Background Task (Command)
-   |-> Generate Text Representation
-   |-> Create Embedding (same provider)
-   |-> Store in ChromaDB
-   |-> Log Completion
-
-Time: ~1-2 seconds (user response)
-Background: +2-5 seconds (storage)
-```
-
-### Knowledge Search Flow
-
-```
-1. User Search Query
-   |
-   v
-2. Knowledge Server (/query/search)
-   |-> Generate Query Embedding
-   |-> Search ChromaDB (vector similarity)
-   |-> Parse Results
-   |-> Return with Similarity Scores
-
-Time: ~100-300 ms (total)
-```
-
----
-
-## Configuration
-
-### Environment Variables
-
-**Required**:
-- `OPENAI_API_KEY`: OpenAI API key
-- `GEMINI_API_KEY`: Google Gemini API key
-
-**Auto-configured by Docker Compose**:
-- `CHROMA_HOST`: ChromaDB hostname (default: "chromadb")
-- `CHROMA_PORT`: ChromaDB port (default: "8000")
-
-### Docker Compose Configuration
-
-**Services**:
-1. **chromadb**: Vector database (chromadb/chroma:1.3.0-amd64)
-2. **llm-server**: Character generation API
-3. **knowledge-server**: CQRS knowledge base API
-
-**Volumes**:
-- `chromadb-data`: Persistent storage for vector database
-
-**Networks**:
-- `llm-network`: Bridge network connecting all services
-
-**Health Checks**:
-- ChromaDB: Heartbeat endpoint monitoring
-- Dependency: Services wait for ChromaDB to be healthy
-
----
-
-## Key Features
-
-### 1. CQRS Benefits
-
-**Command Side**:
-- [x] Non-blocking operations
-- [x] High throughput
-- [x] Eventual consistency
-- [x] Background processing
-
-**Query Side**:
-- [x] Low latency
-- [x] Optimized reads
-- [x] Immediate results
-- [x] No write interference
-
-### 2. Embedding Strategy
-
-**Provider Consistency**:
-- Same provider for generation and embedding
-- OpenAI -> OpenAI embeddings
-- Gemini -> Gemini embeddings
-- Improved search accuracy
-
-**Quality**:
-- State-of-the-art embedding models
-- Custom control over embedding generation
-- Flexible provider selection
-
-### 3. Docker Integration
-
-**Benefits**:
-- One-command deployment
-- Service orchestration
-- Data persistence
-- Development/production parity
-- Easy scaling
-
-**Features**:
-- Health checks
-- Automatic dependency management
-- Volume management
-- Network isolation
-
----
-
-## Testing Coverage
-
-### 1. End-to-End Testing
-
-- [x] Character generation
-- [x] Automatic knowledge storage
-- [x] Knowledge search
-- [x] Statistics retrieval
-
-### 2. CQRS Validation
-
-- [x] Command async behavior
-- [x] Query sync behavior
-- [x] Response time differences
-- [x] Background processing
-
-### 3. Embedding Consistency
-
-- [x] Provider matching
-- [x] Dimension validation
-- [x] Search accuracy
-- [x] Metadata filtering
-
-### 4. Docker Operations
-
-- [x] Service startup
-- [x] Health checks
-- [x] Volume persistence
-- [x] Service communication
-
----
-
-## Performance Characteristics
-
-### Command Side (Write)
-
-| Metric | Value |
-|--------|-------|
-| Response Time | 1-2 seconds |
-| Background Processing | +2-5 seconds |
-| Throughput | High (non-blocking) |
-| Consistency | Eventual |
-
-### Query Side (Read)
-
-| Metric | Value |
-|--------|-------|
-| Response Time | 100-300 ms |
-| Embedding Generation | 50-200 ms (OpenAI), 100-300 ms (Gemini) |
-| Search Time | 20-50 ms |
-| Consistency | Immediate |
-
-### Embedding Models
-
-| Provider | Dimensions | Generation Time | Quality |
-|----------|------------|-----------------|---------|
-| OpenAI | 1536 | 50-200 ms | High |
-| Gemini | 768 | 100-300 ms | High (multilingual) |
-
----
-
-## Documentation
-
-### User Documentation (Japanese)
-
-**README.md**
-- Complete usage guide in Japanese
-- Setup instructions (Docker + Local)
-- API examples with curl
-- Troubleshooting guide
-- Best practices
-
-### Technical Documentation (English)
-
-**IMPLEMENTATION.md**
-- Complete CQRS architecture guide
-- Component descriptions
-- API usage examples
-- Trade-offs and benefits
-
-**EMBEDDING_INTEGRATION.md**
-- Embedding strategy details
-- OpenAI/Gemini integration
-- Performance considerations
-- Best practices
-
-**DOCKER_DEPLOYMENT.md**
-- Comprehensive deployment guide
-- Service configuration
-- Scaling strategies
-- Security best practices
-
-**QUICKSTART_DOCKER.md**
-- 5-minute setup guide
-- Quick reference
-- Common commands
-
----
+## Key Components
+
+### CQRS Services
+
+| Component | File | Purpose |
+|-----------|------|---------|
+| Command Service | `src/service/knowledge_command.py` | Async knowledge registration |
+| Query Service | `src/service/knowledge_query.py` | Sync knowledge search |
+| Embedding Service | `src/service/embedding_service.py` | Gemini embedding generation |
+
+### Data Models
+
+| Model | File | Purpose |
+|-------|------|---------|
+| `FrozenModel` | `src/model/model.py` | Base Pydantic model with frozen config |
+| `KnowledgeRegisterCommand` | `src/model/knowledge.py` | Command input model |
+| `KnowledgeSearchQuery` | `src/model/knowledge.py` | Query input model |
+| `KnowledgeSearchResponse` | `src/model/knowledge.py` | Query response with results |
+
+### API Servers
+
+| Server | Port | Endpoints |
+|--------|------|-----------|
+| LLM Server | 8000 | `GET /health`, `POST /generate` |
+| Knowledge Server | 8001 | `GET /health`, `POST /command/register`, `POST /query/search`, `GET /query/stats` |
 
 ## Dependencies
 
-### Python Libraries
-
 ```toml
 [dependencies]
-fastapi = ">=0.115.0"
-uvicorn = ">=0.32.0"
-chromadb = ">=0.5.0"
-openai = ">=2.4.0"
+chromadb = ">=1.3.0"
+fastapi = ">=0.119.0"
 google-genai = ">=1.45.0"
 pydantic = ">=2.12.2"
-python-dotenv = ">=1.1.1"
+uvicorn = ">=0.37.0"
 ```
 
-### Docker Images
+## Usage
 
-- `chromadb/chroma:1.3.0-amd64`
-- `shibui/llm-best-practice:chapter3_section5`
+### Setup
 
----
+1. Set environment variable:
+```bash
+export GEMINI_API_KEY="your-api-key"
+```
 
-## Known Limitations
+2. Install dependencies:
+```bash
+uv sync
+```
 
-### 1. Eventual Consistency
+### Run
 
-**Issue**: Small delay between write and read availability
-**Mitigation**:
-- Documented behavior
-- User expectations managed
-- Typical delay: 2-5 seconds
+**Local Development:**
+```bash
+# Terminal 1: LLM Server
+uv run python -m src.api.llm_server
 
-### 2. Provider Dimension Mismatch
+# Terminal 2: Knowledge Server
+uv run python -m src.api.knowledge_server
+```
 
-**Issue**: Different embedding dimensions for different providers
-**Mitigation**:
-- Document provider consistency best practice
-- Metadata filtering by provider
-- Separate searches per provider
+**Docker Compose:**
+```bash
+docker-compose up -d
+```
 
-### 3. Single ChromaDB Instance
+### API Examples
 
-**Issue**: No built-in replication
-**Mitigation**:
-- Volume backups recommended
-- External replication for production
-- Regular data snapshots
+**Generate Character:**
+```bash
+curl -X POST http://localhost:8000/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gemini-2.5-flash",
+    "character_request": {
+      "gender": "female",
+      "age": 25,
+      "additional_instructions": "brave warrior"
+    }
+  }'
+```
 
----
+**Search Knowledge:**
+```bash
+curl -X POST http://localhost:8001/query/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query_text": "brave warrior",
+    "limit": 5
+  }'
+```
 
-## Future Enhancements
+**Get Statistics:**
+```bash
+curl http://localhost:8001/query/stats
+```
 
-### High Priority
+### Available Gemini Models
 
-1. **Job Status Tracking**
-   - Endpoint to check Command processing status
-   - WebSocket notifications for completion
+| Model | Use Case |
+|-------|----------|
+| `gemini-2.5-pro` | High quality generation |
+| `gemini-2.5-flash` | Balanced speed/quality |
+| `gemini-2.5-flash-lite` | Fastest generation |
 
-2. **Query Result Caching**
-   - Cache frequent searches
-   - Reduce embedding API calls
-   - Improve query performance
+## Development Commands
 
-3. **Batch Operations**
-   - Bulk character generation
-   - Batch embedding generation
-   - Improved throughput
+```bash
+# Install dependencies
+uv sync
 
-### Medium Priority
+# Run LLM server
+uv run python -m src.api.llm_server
 
-4. **Metrics and Monitoring**
-   - Prometheus integration
-   - Grafana dashboards
-   - Performance tracking
+# Run Knowledge server
+uv run python -m src.api.knowledge_server
 
-5. **Advanced Search**
-   - Hybrid search (vector + keyword)
-   - Filtering by multiple criteria
-   - Faceted search
+# Syntax check all files
+python -m py_compile src/**/*.py
 
-6. **Authentication**
-   - API key management
-   - Rate limiting
-   - Access control
+# Docker operations
+docker-compose up -d      # Start all services
+docker-compose ps         # Check status
+docker-compose logs -f    # View logs
+docker-compose down       # Stop all services
+```
 
-### Low Priority
+## Implementation Notes
 
-7. **Read Replicas**
-   - Multiple Query instances
-   - Load balancing
-   - Horizontal scaling
+### CQRS Pattern
 
-8. **Message Queue**
-   - Replace background tasks with queue
-   - Better reliability
-   - Retry mechanisms
+- **Command (Write)**: Async processing via `asyncio.create_task()`, returns job ID immediately
+- **Query (Read)**: Sync processing, optimized for low latency (<300ms)
+- **Eventual Consistency**: 2-5 second delay between write and read availability
 
----
+### Embedding Configuration
 
-## Deployment Checklist
+- Model: `gemini-embedding-001`
+- Dimensions: 768
+- Distance Metric: Cosine similarity
 
-### Local Development
+### ChromaDB Modes
 
-- [x] Python 3.13.2+ installed
-- [x] Dependencies installed (uv sync)
-- [x] Environment variables set
-- [x] ChromaDB local storage created
+- **Local Mode**: Uses `./data/chromadb` when `CHROMA_HOST` is not set
+- **Remote Mode**: Connects via HTTP when `CHROMA_HOST` and `CHROMA_PORT` are set
 
-### Docker Deployment
+### Shared Resources
 
-- [x] Docker and Docker Compose installed
-- [x] ChromaDB image pulled
-- [x] Environment variables configured
-- [x] Services started and healthy
-- [x] Health checks passing
+- `src/__init__.py` contains shared `ThreadPoolExecutor(max_workers=4)`
+- Used by both Command and Query services for blocking ChromaDB operations
 
-### Production Readiness
+### Error Handling
 
-- [ ] SSL/TLS certificates configured
-- [ ] Authentication implemented
-- [ ] Rate limiting configured
-- [ ] Monitoring setup (Prometheus/Grafana)
-- [ ] Backup strategy implemented
-- [ ] Logging aggregation configured
-- [ ] Load balancer configured
-- [ ] Auto-scaling policies defined
+- All API endpoints return appropriate HTTP status codes
+- Background tasks log errors without crashing the main server
+- ChromaDB operations wrapped in try-except blocks
 
----
+### Performance Characteristics
 
-## Success Metrics
-
-### Implementation
-
-- [x] Complete CQRS separation
-- [x] Custom embedding integration
-- [x] Docker Compose orchestration
-- [x] Dual-mode ChromaDB client
-- [x] Comprehensive documentation
-
-### Quality
-
-- [x] Type-safe data models (Pydantic)
-- [x] Async/await patterns
-- [x] Error handling
-- [x] Logging throughout
-- [x] Health checks
-
-### Documentation
-
-- [x] Japanese README (comprehensive)
-- [x] English technical docs (4 files)
-- [x] Code examples and samples
-- [x] Troubleshooting guides
-- [x] Architecture diagrams
-
----
-
-## Troubleshooting Resources
-
-### Common Issues
-
-1. **ChromaDB unhealthy**
-   - Check logs: `docker-compose logs chromadb`
-   - Wait for health check (~30 seconds)
-   - Restart if needed
-
-2. **Search returns no results**
-   - Wait for async processing (5 seconds)
-   - Verify provider consistency
-   - Check stats endpoint
-
-3. **Port conflicts**
-   - Check port usage: `lsof -i :8000`
-   - Modify docker-compose.yml ports
-   - Stop conflicting services
-
-4. **API key errors**
-   - Verify .envrc file
-   - Check environment variables
-   - Restart services
-
----
-
-## Conclusion
-
-This project successfully demonstrates a production-ready CQRS implementation for LLM-based knowledge management systems. The separation of Command and Query responsibilities, combined with custom embedding integration and Docker orchestration, provides a robust foundation for scalable LLM applications.
-
-### Key Takeaways
-
-1. **CQRS enables optimization** for different access patterns
-2. **Custom embeddings provide control** over search quality
-3. **Docker Compose simplifies** multi-service deployment
-4. **Comprehensive documentation** ensures maintainability
-
-### Project Status: Complete
-
-All planned features have been implemented, tested, and documented. The system is ready for:
-- Development use
-- Educational purposes
-- Production deployment (with additional security measures)
-
----
-
-**Project Completion Date:** 2025-10-29
-**Maintained By:** Claude Code Assistant
-**Documentation Language:** Japanese (README.md) + English (Technical Docs)
+| Operation | Latency |
+|-----------|---------|
+| Character Generation | 1-2 seconds |
+| Background Storage | +2-5 seconds |
+| Query Search | 100-300 ms |
+| Stats Retrieval | 50-100 ms |

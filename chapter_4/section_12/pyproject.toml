@@ -1,5 +1,5 @@
 [project]
-name = "chapter-3-section-17"
+name = "chapter-4-section-12"
 version = "0.1.0"
 description = "Parallel World Pattern for Article Generation - Multiple LLM sessions with human-in-the-loop decision making"
 readme = "README.md"

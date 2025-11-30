@@ -1,0 +1,177 @@
+{
+  "store_id": "store_demo_001",
+  "experiences": [
+    {
+      "experience_id": "exp_001",
+      "learner_id": "learner_prev_001",
+      "agent_type": "content",
+      "input_context": {
+        "task_id": "task_w1d1_01",
+        "title": "Python環境のセットアップ",
+        "content_type": "article"
+      },
+      "output_generated": {
+        "content_id": "content_001",
+        "title": "Python環境構築ガイド",
+        "content_body": "Pythonの環境を構築する手順を説明します..."
+      },
+      "user_feedback": {
+        "feedback_id": "fb_001",
+        "session_id": "session_001",
+        "content_type": "content",
+        "rating": "very_helpful",
+        "helpful_aspects": [
+          "手順が明確で分かりやすかった",
+          "スクリーンショットがあれば更によかった"
+        ],
+        "improvement_suggestions": [
+          "Windowsだけでなく、Macの手順も追加してほしい"
+        ],
+        "user_corrections": "",
+        "timestamp": "2024-01-15T10:30:00"
+      },
+      "timestamp": "2024-01-15T10:00:00",
+      "learning_domain": "Python プログラミング"
+    },
+    {
+      "experience_id": "exp_002",
+      "learner_id": "learner_prev_001",
+      "agent_type": "content",
+      "input_context": {
+        "task_id": "task_w1d2_01",
+        "title": "変数とデータ型",
+        "content_type": "article"
+      },
+      "output_generated": {
+        "content_id": "content_002",
+        "title": "Python変数とデータ型の基礎",
+        "content_body": "変数の宣言方法と主要なデータ型について..."
+      },
+      "user_feedback": {
+        "feedback_id": "fb_002",
+        "session_id": "session_002",
+        "content_type": "content",
+        "rating": "helpful",
+        "helpful_aspects": [
+          "基本概念の説明が丁寧だった"
+        ],
+        "improvement_suggestions": [
+          "実践的なコード例をもっと増やしてほしい"
+        ],
+        "user_corrections": "",
+        "timestamp": "2024-01-16T11:00:00"
+      },
+      "timestamp": "2024-01-16T10:30:00",
+      "learning_domain": "Python プログラミング"
+    },
+    {
+      "experience_id": "exp_003",
+      "learner_id": "learner_prev_002",
+      "agent_type": "quiz",
+      "input_context": {
+        "task_id": "task_w1d1_01",
+        "title": "Python基礎確認クイズ",
+        "key_concepts": ["変数", "データ型", "演算子"]
+      },
+      "output_generated": {
+        "quiz_id": "quiz_001",
+        "title": "Python基礎クイズ",
+        "questions": [
+          {
+            "question_id": "q_001",
+            "question_text": "Pythonで整数型を表すデータ型は？"
+          }
+        ]
+      },
+      "user_feedback": {
+        "feedback_id": "fb_003",
+        "session_id": "session_003",
+        "content_type": "quiz",
+        "rating": "not_helpful",
+        "helpful_aspects": [],
+        "improvement_suggestions": [
+          "問題が簡単すぎた",
+          "もっと実践的な問題を出してほしい",
+          "コーディング問題があると良い"
+        ],
+        "user_corrections": "",
+        "timestamp": "2024-01-17T14:00:00"
+      },
+      "timestamp": "2024-01-17T13:30:00",
+      "learning_domain": "Python プログラミング"
+    },
+    {
+      "experience_id": "exp_004",
+      "learner_id": "learner_prev_003",
+      "agent_type": "strategy",
+      "input_context": {
+        "learning_goal": "データサイエンスを学びたい",
+        "available_hours_per_week": 15
+      },
+      "output_generated": {
+        "learning_domain": "データサイエンス",
+        "roadmap": {
+          "goal_summary": "データサイエンスの基礎を習得"
+        }
+      },
+      "user_feedback": {
+        "feedback_id": "fb_004",
+        "session_id": "session_004",
+        "content_type": "strategy",
+        "rating": "very_helpful",
+        "helpful_aspects": [
+          "ロードマップが明確で見通しが立てやすい",
+          "マイルストーンが適切に設定されている"
+        ],
+        "improvement_suggestions": [],
+        "user_corrections": "",
+        "timestamp": "2024-01-18T09:30:00"
+      },
+      "timestamp": "2024-01-18T09:00:00",
+      "learning_domain": "データサイエンス"
+    }
+  ],
+  "learned_patterns": [
+    {
+      "pattern_id": "pattern_001",
+      "agent_type": "content",
+      "pattern_description": "コンテンツには具体的なコード例を多く含めると学習者の理解が深まる",
+      "positive_examples": [
+        "実行可能なサンプルコードを含める",
+        "コードの各行にコメントで説明を追加する"
+      ],
+      "negative_examples": [
+        "抽象的な説明のみで具体例がない",
+        "コードなしの理論だけの説明"
+      ],
+      "applicable_contexts": [
+        "プログラミング学習",
+        "技術的なトピック"
+      ],
+      "confidence_score": 0.8,
+      "source_experience_count": 2
+    },
+    {
+      "pattern_id": "pattern_002",
+      "agent_type": "quiz",
+      "pattern_description": "クイズには実践的なコーディング問題を含めることで学習効果が高まる",
+      "positive_examples": [
+        "実際にコードを書く問題を出題する",
+        "難易度を段階的に上げる"
+      ],
+      "negative_examples": [
+        "選択問題だけの簡単なクイズ",
+        "暗記だけで解ける問題"
+      ],
+      "applicable_contexts": [
+        "プログラミング学習",
+        "技術スキル評価"
+      ],
+      "confidence_score": 0.75,
+      "source_experience_count": 1
+    }
+  ],
+  "last_learning_run": "2024-01-18T10:00:00",
+  "total_positive_feedback": 3,
+  "total_negative_feedback": 1
+}

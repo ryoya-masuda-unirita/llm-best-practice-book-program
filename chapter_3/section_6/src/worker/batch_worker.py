@@ -4,217 +4,318 @@ import asyncio
 import signal
 import sys
 import time
+from dataclasses import dataclass
 from typing import Any
 
 from src.client.llm_client import LLMProvider
 from src.client.redis_client import redis_client
 from src.logger import make_logger
-from src.model.batch_model import InternalJobData, JobStatus, TaskStatus
+from src.model.batch_model import (
+    BatchJobResultResponse,
+    BatchJobStatusResponse,
+    InternalJobData,
+    JobStatus,
+    TaskStatus,
+)
 from src.model.model import CharacterRequest, CharacterResponse
 from src.prompt.prompt import make_prompt
-from src.service import request_gemini, request_openai
+from src.service import get_gemini_batch_results, get_gemini_batch_status, submit_gemini_batch
 
 logger = make_logger(__name__)
 
 QUEUE_NAME = "llm_batch_jobs"
-POLL_TIMEOUT = 5  # seconds
+POLL_TIMEOUT = 1
+BATCH_POLL_INTERVAL = 5
+
+GEMINI_FAILED_STATES = ("JOB_STATE_FAILED", "JOB_STATE_CANCELLED", "JOB_STATE_EXPIRED")
+
+
+@dataclass
+class ActiveJob:
+    """Represents an active job being processed."""
+
+    job_id: str
+    gemini_batch_name: str
+    job_data: InternalJobData
+    status_data: BatchJobStatusResponse
+    start_time: float
+    num_tasks: int
+
+
+def build_status_response(
+    job_id: str,
+    status: JobStatus,
+    total_tasks: int,
+    completed_tasks: int,
+    failed_tasks: int,
+    pending_tasks: int,
+    submitted_at: float,
+    started_at: float | None = None,
+    completed_at: float | None = None,
+) -> BatchJobStatusResponse:
+    """Build a BatchJobStatusResponse with the given parameters."""
+    return BatchJobStatusResponse(
+        job_id=job_id,
+        status=status,
+        total_tasks=total_tasks,
+        completed_tasks=completed_tasks,
+        failed_tasks=failed_tasks,
+        pending_tasks=pending_tasks,
+        submitted_at=submitted_at,
+        started_at=started_at,
+        completed_at=completed_at,
+    )
+
+
+def build_task_results(
+    batch_results: list[CharacterResponse | None],
+    processing_time_ms: float,
+) -> tuple[list[TaskStatus], int, int]:
+    """
+    Build task results from batch results.
+
+    Returns:
+        Tuple of (task_results, completed_count, failed_count)
+    """
+    task_results: list[TaskStatus] = []
+    completed_count = 0
+    failed_count = 0
+    time_per_task = processing_time_ms / len(batch_results) if batch_results else 0
+
+    for idx, result in enumerate(batch_results):
+        if result is not None:
+            task_results.append(
+                TaskStatus(
+                    task_index=idx,
+                    status=JobStatus.COMPLETED,
+                    character=result,
+                    processing_time_ms=time_per_task,
+                )
+            )
+            completed_count += 1
+        else:
+            task_results.append(
+                TaskStatus(
+                    task_index=idx,
+                    status=JobStatus.FAILED,
+                    error="No response from batch API",
+                    processing_time_ms=time_per_task,
+                )
+            )
+            failed_count += 1
+
+    return task_results, completed_count, failed_count
+
+
+def prepare_prompts(character_requests: list[dict[str, Any]]) -> list[tuple[str, str]]:
+    """Prepare prompts from character request dicts."""
+    prompts: list[tuple[str, str]] = []
+    for char_req_dict in character_requests:
+        character_request = CharacterRequest(**char_req_dict)
+        prompt = make_prompt(character_request=character_request)
+        system_prompt = prompt[0]["content"]
+        user_prompt = prompt[-1]["content"]
+        prompts.append((system_prompt, user_prompt))
+    return prompts
 
 
 class BatchWorker:
-    """Worker that processes batch jobs from Redis queue."""
+    """Worker that processes batch jobs from Redis queue with concurrent polling."""
 
     def __init__(self) -> None:
         """Initialize the batch worker."""
         self.running = False
         self.processed_jobs = 0
+        self.active_jobs: dict[str, ActiveJob] = {}
 
     async def start(self) -> None:
         """Start the worker and begin processing jobs."""
         self.running = True
         logger.info("Batch worker started, waiting for jobs...")
 
-        # Connect to Redis
         await redis_client.connect()
 
-        # Process jobs until stopped
-        while self.running:
-            try:
-                # Try to dequeue a job (blocks for POLL_TIMEOUT seconds)
-                job_data = await redis_client.dequeue_job(QUEUE_NAME, timeout=POLL_TIMEOUT)
+        pickup_task = asyncio.create_task(self._job_pickup_loop())
+        poll_task = asyncio.create_task(self._poll_active_jobs_loop())
 
-                if job_data:
-                    await self._process_job(job_data)
-                    self.processed_jobs += 1
-                else:
-                    # No jobs available, continue waiting
-                    logger.debug("No jobs in queue, waiting...")
+        try:
+            await asyncio.gather(pickup_task, poll_task)
+        except asyncio.CancelledError:
+            pass
 
-            except Exception as e:
-                logger.error(f"Error in worker main loop: {e}")
-                # Continue processing even if one job fails
-                await asyncio.sleep(1)
-
-        # Cleanup
         await redis_client.disconnect()
         logger.info(f"Batch worker stopped. Processed {self.processed_jobs} jobs total.")
-
-    async def _process_job(self, job_data: dict[str, Any]) -> None:
-        """
-        Process a single batch job.
-
-        Args:
-            job_data: Job data from the queue
-        """
-        try:
-            # Parse job data
-            job = InternalJobData(**job_data)
-            job_id = job.job_id
-            logger.info(f"Processing job {job_id} with {len(job.character_requests)} tasks")
-
-            # Update job status to processing
-            status_data = await redis_client.get_job_status(job_id)
-            if not status_data:
-                logger.error(f"Job status not found for {job_id}")
-                return
-
-            status_data["status"] = JobStatus.PROCESSING
-            status_data["started_at"] = time.time()
-            await redis_client.set_job_status(job_id, status_data)
-
-            # Process each task in the batch
-            task_results: list[TaskStatus] = []
-            completed_count = 0
-            failed_count = 0
-
-            for idx, char_req_dict in enumerate(job.character_requests):
-                task_result = await self._process_task(
-                    job_id=job_id,
-                    task_index=idx,
-                    provider=job.provider,
-                    model=job.model,
-                    character_request_dict=char_req_dict,
-                )
-                task_results.append(task_result)
-
-                if task_result.status == JobStatus.COMPLETED:
-                    completed_count += 1
-                elif task_result.status == JobStatus.FAILED:
-                    failed_count += 1
-
-                # Update progress in status
-                status_data["completed_tasks"] = completed_count
-                status_data["failed_tasks"] = failed_count
-                status_data["pending_tasks"] = len(job.character_requests) - completed_count - failed_count
-                await redis_client.set_job_status(job_id, status_data)
-
-            # Determine final job status
-            final_status = JobStatus.COMPLETED if failed_count == 0 else JobStatus.FAILED
-            completion_time = time.time()
-
-            # Update final job status
-            status_data["status"] = final_status
-            status_data["completed_at"] = completion_time
-            await redis_client.set_job_status(job_id, status_data)
-
-            # Store job results
-            result_data = {
-                "job_id": job_id,
-                "status": final_status,
-                "provider": job.provider,
-                "model": job.model,
-                "tasks": [task.model_dump() for task in task_results],
-                "submitted_at": job.submitted_at,
-                "completed_at": completion_time,
-            }
-            await redis_client.set_job_result(job_id, result_data)
-
-            logger.info(
-                f"Job {job_id} completed with status {final_status}. "
-                f"Completed: {completed_count}, Failed: {failed_count}"
-            )
-
-        except Exception as e:
-            logger.error(f"Error processing job: {e}")
-            # Try to mark job as failed
-            try:
-                job_id = job_data.get("job_id", "unknown")
-                status_data = await redis_client.get_job_status(job_id)
-                if status_data:
-                    status_data["status"] = JobStatus.FAILED
-                    status_data["completed_at"] = time.time()
-                    await redis_client.set_job_status(job_id, status_data)
-            except Exception as inner_e:
-                logger.error(f"Error updating failed job status: {inner_e}")
-
-    async def _process_task(
-        self,
-        job_id: str,
-        task_index: int,
-        provider: str,
-        model: str,
-        character_request_dict: dict[str, Any],
-    ) -> TaskStatus:
-        """
-        Process a single task within a batch job.
-
-        Args:
-            job_id: Job ID
-            task_index: Index of the task
-            provider: LLM provider
-            model: Model name
-            character_request_dict: Character request data
-
-        Returns:
-            TaskStatus with the result
-        """
-        start_time = time.time()
-
-        try:
-            # Parse character request
-            character_request = CharacterRequest(**character_request_dict)
-
-            # Generate prompt
-            prompt = make_prompt(character_request=character_request)
-
-            # Call LLM
-            character: CharacterResponse
-            if provider == LLMProvider.OPENAI:
-                character = await request_openai(model=model, prompt=prompt)
-            elif provider == LLMProvider.GEMINI:
-                character = await request_gemini(model=model, prompt=prompt)
-            else:
-                raise ValueError(f"Unsupported provider: {provider}")
-
-            processing_time = (time.time() - start_time) * 1000
-
-            logger.info(f"Task {task_index} of job {job_id} completed successfully in {processing_time:.2f}ms")
-
-            return TaskStatus(
-                task_index=task_index,
-                status=JobStatus.COMPLETED,
-                character=character,
-                processing_time_ms=processing_time,
-            )
-
-        except Exception as e:
-            processing_time = (time.time() - start_time) * 1000
-            error_msg = str(e)
-            logger.error(f"Task {task_index} of job {job_id} failed: {error_msg}")
-
-            return TaskStatus(
-                task_index=task_index,
-                status=JobStatus.FAILED,
-                error=error_msg,
-                processing_time_ms=processing_time,
-            )
 
     def stop(self) -> None:
         """Stop the worker gracefully."""
         logger.info("Stopping batch worker...")
         self.running = False
 
+    async def _job_pickup_loop(self) -> None:
+        """Loop that picks up new jobs from the queue and submits them to Gemini."""
+        while self.running:
+            try:
+                job_data = await redis_client.dequeue_job(QUEUE_NAME, timeout=POLL_TIMEOUT)
+                if job_data:
+                    await self._submit_job_to_gemini(job_data)
+                else:
+                    logger.debug("No jobs in queue, waiting...")
+            except Exception as e:
+                logger.error(f"Error in job pickup loop: {e}")
+                await asyncio.sleep(1)
 
-# Global worker instance
+    async def _poll_active_jobs_loop(self) -> None:
+        """Loop that polls all active jobs for completion."""
+        while self.running:
+            if not self.active_jobs:
+                await asyncio.sleep(BATCH_POLL_INTERVAL)
+                continue
+
+            jobs_to_check = list(self.active_jobs.values())
+            await asyncio.gather(*[self._check_job_status(job) for job in jobs_to_check])
+            await asyncio.sleep(BATCH_POLL_INTERVAL)
+
+    async def _submit_job_to_gemini(self, job_data: dict[str, Any]) -> None:
+        """Submit a job to Gemini batch API immediately."""
+        try:
+            job = InternalJobData(**job_data)
+            job_id = job.job_id
+            logger.info(f"Submitting job {job_id} with {len(job.character_requests)} tasks to Gemini")
+
+            status_dict = await redis_client.get_job_status(job_id)
+            if not status_dict:
+                logger.error(f"Job status not found for {job_id}")
+                return
+
+            if job.provider != LLMProvider.GEMINI:
+                raise ValueError(f"Unsupported provider: {job.provider}")
+
+            status_data = build_status_response(
+                job_id=status_dict["job_id"],
+                status=JobStatus.PROCESSING,
+                total_tasks=status_dict["total_tasks"],
+                completed_tasks=status_dict.get("completed_tasks", 0),
+                failed_tasks=status_dict.get("failed_tasks", 0),
+                pending_tasks=status_dict.get("pending_tasks", status_dict["total_tasks"]),
+                submitted_at=status_dict["submitted_at"],
+                started_at=time.time(),
+            )
+            await redis_client.set_job_status(job_id, status_data.model_dump())
+
+            prompts = prepare_prompts(job.character_requests)
+
+            start_time = time.time()
+            batch_job_name = submit_gemini_batch(model=job.model, prompts=prompts)
+            logger.info(f"Job {job_id} submitted to Gemini as {batch_job_name}")
+
+            self.active_jobs[job_id] = ActiveJob(
+                job_id=job_id,
+                gemini_batch_name=batch_job_name,
+                job_data=job,
+                status_data=status_data,
+                start_time=start_time,
+                num_tasks=len(prompts),
+            )
+
+        except Exception as e:
+            logger.error(f"Error submitting job to Gemini: {e}")
+            await self._mark_job_failed(job_data.get("job_id", "unknown"), str(e))
+
+    async def _check_job_status(self, active_job: ActiveJob) -> None:
+        """Check the status of an active Gemini batch job."""
+        try:
+            batch_status = get_gemini_batch_status(active_job.gemini_batch_name)
+
+            if batch_status == "JOB_STATE_SUCCEEDED":
+                logger.info(f"Gemini batch job succeeded: {active_job.gemini_batch_name}")
+                await self._process_completed_job(active_job)
+                self._finalize_job(active_job.job_id)
+
+            elif batch_status in GEMINI_FAILED_STATES:
+                logger.error(f"Gemini batch job failed: {active_job.gemini_batch_name} with state {batch_status}")
+                await self._mark_job_failed(active_job.job_id, f"Gemini batch job failed with state: {batch_status}")
+                self._finalize_job(active_job.job_id)
+
+            else:
+                logger.debug(f"Job {active_job.job_id} status: {batch_status}")
+
+        except Exception as e:
+            logger.error(f"Error checking job {active_job.job_id}: {e}")
+
+    def _finalize_job(self, job_id: str) -> None:
+        """Remove job from active jobs and increment counter."""
+        del self.active_jobs[job_id]
+        self.processed_jobs += 1
+
+    async def _process_completed_job(self, active_job: ActiveJob) -> None:
+        """Process a completed Gemini batch job and store results."""
+        try:
+            batch_results = get_gemini_batch_results(active_job.gemini_batch_name)
+            processing_time_ms = (time.time() - active_job.start_time) * 1000
+
+            logger.info(f"Batch API completed in {processing_time_ms:.2f}ms for {active_job.num_tasks} tasks")
+
+            task_results, completed_count, failed_count = build_task_results(batch_results, processing_time_ms)
+
+            final_status = JobStatus.COMPLETED if failed_count == 0 else JobStatus.FAILED
+            completion_time = time.time()
+
+            final_status_data = build_status_response(
+                job_id=active_job.job_id,
+                status=final_status,
+                total_tasks=active_job.status_data.total_tasks,
+                completed_tasks=completed_count,
+                failed_tasks=failed_count,
+                pending_tasks=0,
+                submitted_at=active_job.status_data.submitted_at,
+                started_at=active_job.status_data.started_at,
+                completed_at=completion_time,
+            )
+            await redis_client.set_job_status(active_job.job_id, final_status_data.model_dump())
+
+            result_data = BatchJobResultResponse(
+                job_id=active_job.job_id,
+                status=final_status,
+                provider=active_job.job_data.provider,
+                model=active_job.job_data.model,
+                tasks=task_results,
+                submitted_at=active_job.job_data.submitted_at,
+                completed_at=completion_time,
+            )
+            await redis_client.set_job_result(active_job.job_id, result_data.model_dump())
+
+            logger.info(f"Job {active_job.job_id} completed: {completed_count} succeeded, {failed_count} failed")
+
+        except Exception as e:
+            logger.error(f"Error processing completed job {active_job.job_id}: {e}")
+            await self._mark_job_failed(active_job.job_id, str(e))
+
+    async def _mark_job_failed(self, job_id: str, error_msg: str) -> None:
+        """Mark a job as failed in Redis."""
+        try:
+            status_dict = await redis_client.get_job_status(job_id)
+            if not status_dict:
+                logger.warning(f"Cannot mark job {job_id} as failed: status not found")
+                return
+
+            failed_status_data = build_status_response(
+                job_id=status_dict["job_id"],
+                status=JobStatus.FAILED,
+                total_tasks=status_dict["total_tasks"],
+                completed_tasks=status_dict.get("completed_tasks", 0),
+                failed_tasks=status_dict.get("failed_tasks", 0),
+                pending_tasks=status_dict.get("pending_tasks", 0),
+                submitted_at=status_dict["submitted_at"],
+                started_at=status_dict.get("started_at"),
+                completed_at=time.time(),
+            )
+            await redis_client.set_job_status(job_id, failed_status_data.model_dump())
+            logger.info(f"Job {job_id} marked as failed: {error_msg}")
+
+        except Exception as e:
+            logger.error(f"Error updating failed job status: {e}")
+
+
 worker = BatchWorker()
 
 
@@ -226,11 +327,8 @@ def signal_handler(signum: int, frame: Any) -> None:
 
 async def main() -> None:
     """Main entry point for the worker."""
-    # Register signal handlers
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
-
-    # Start worker
     await worker.start()
 
 

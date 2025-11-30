@@ -4,7 +4,7 @@
 
 このプロジェクトは、**CQRS（Command Query Responsibility Segregation）パターン**を用いたLLMシステムの実装サンプルです。状態を変更する処理（Command）とデータを読み取る処理（Query）を明確に分離することで、高スループットと低レイテンシを両立させるアーキテクチャを実現します。
 
-キャラクター生成システムを通じて、大規模なLLMアプリケーションにおける知識ベースの管理手法を学ぶことができます。生成されたキャラクター情報は、OpenAIまたはGeminiのEmbedding APIを使用してベクトル化され、ChromaDBに非同期で保存されます。ユーザーは保存された知識ベースに対して、セマンティック検索を用いて高速に情報を取得できます。
+キャラクター生成システムを通じて、大規模なLLMアプリケーションにおける知識ベースの管理手法を学ぶことができます。生成されたキャラクター情報は、Gemini Embedding APIを使用してベクトル化され、ChromaDBに非同期で保存されます。ユーザーは保存された知識ベースに対して、セマンティック検索を用いて高速に情報を取得できます。
 
 ## 機能
 
@@ -12,11 +12,11 @@
 - **CQRS実装**: Command（書き込み）とQuery（読み取り）の完全な責任分離
 - **非同期知識登録**: バックグラウンドでの高スループット書き込み処理
 - **同期知識検索**: 低レイテンシの検索API
-- **カスタムEmbedding**: OpenAIとGemini APIによる高品質なベクトル生成
+- **カスタムEmbedding**: Gemini APIによる高品質なベクトル生成（768次元）
 - **ベクトルデータベース**: ChromaDBを使用したセマンティック検索
 
 ### LLM統合
-- **マルチプロバイダー対応**: OpenAI（GPT-4o-mini等）とGoogle Gemini（2.5 Flash等）の両方をサポート
+- **Gemini対応**: Google Gemini（2.5 Pro, 2.5 Flash, 2.5 Flash Lite）をサポート
 - **構造化出力**: Pydanticモデルによる型安全なLLM応答
 - **自動知識保存**: キャラクター生成時に自動的に知識ベースへ保存
 
@@ -33,39 +33,35 @@
 ```
 chapter_3/section_5/
 ├── src/
-│   ├── __init__.py
-│   ├── config.py                    # 設定管理（API キー読み込み）
-│   ├── logger.py                    # ロギング設定
+│   ├── __init__.py                 # パッケージ初期化、共有ThreadPoolExecutor
+│   ├── config.py                   # 設定管理（APIキー読み込み）
+│   ├── logger.py                   # ロギング設定
 │   ├── api/
 │   │   ├── __init__.py
-│   │   ├── llm_server.py            # LLM API サーバー（キャラクター生成）
-│   │   └── knowledge_server.py      # 知識ベース API サーバー（CQRS）
+│   │   ├── llm_server.py           # LLM APIサーバー（Port 8000）
+│   │   └── knowledge_server.py     # 知識ベースAPIサーバー（Port 8001）
 │   ├── client/
 │   │   ├── __init__.py
-│   │   ├── llm_client.py            # LLM クライアント初期化
-│   │   └── chromadb_client.py       # ChromaDB クライアント（ローカル/リモート対応）
+│   │   ├── llm_client.py           # Gemini APIクライアント初期化
+│   │   └── chromadb_client.py      # ChromaDBクライアント（ローカル/リモート対応）
 │   ├── model/
 │   │   ├── __init__.py
-│   │   ├── model.py                 # LLM データモデル定義
-│   │   └── knowledge.py             # 知識ベース用データモデル（Command/Query）
+│   │   ├── model.py                # LLMデータモデル定義
+│   │   └── knowledge.py            # 知識ベース用データモデル（Command/Query）
 │   ├── service/
 │   │   ├── __init__.py
-│   │   ├── request_llm.py           # LLM リクエストハンドラ
-│   │   ├── embedding_service.py     # Embedding 生成サービス
-│   │   ├── knowledge_command.py     # Command サイド（非同期書き込み）
-│   │   └── knowledge_query.py       # Query サイド（同期読み取り）
+│   │   ├── request_llm.py          # LLMリクエストハンドラ
+│   │   ├── embedding_service.py    # Gemini Embedding生成サービス
+│   │   ├── knowledge_command.py    # Commandサイド（非同期書き込み）
+│   │   └── knowledge_query.py      # Queryサイド（同期読み取り）
 │   └── prompt/
 │       ├── __init__.py
-│       └── prompt.py                # プロンプト生成ロジック
+│       └── prompt.py               # プロンプト生成ロジック
 ├── data/
-│   └── chromadb/                    # ローカル開発時のChromaDBデータ（自動作成）
-├── docker-compose.yml               # Docker Compose設定
-├── Dockerfile.web                   # アプリケーション用Dockerfile
-├── Makefile                         # ビルド・実行タスク
-├── .envrc.example                   # 環境変数設定のサンプル
-├── pyproject.toml                   # プロジェクト依存関係
-├── README.md                        # このファイル
-└── CLAUDE.md                        # プロジェクト状態レポート
+│   └── chromadb/                   # ローカル開発時のChromaDBデータ（自動作成）
+├── docker-compose.yml              # Docker Compose設定
+├── pyproject.toml                  # プロジェクト依存関係
+└── README.md                       # このファイル
 ```
 
 ### アーキテクチャ
@@ -86,7 +82,7 @@ chapter_3/section_5/
 │             │        │                 │
 │キャラクター  │        │  ┌───────────┐  │
 │    生成     │        │  │ Command   │  │
-│             │        │  │  (書込)   │  │
+│  (Gemini)   │        │  │  (書込)   │  │
 │             │        │  │  非同期   │  │
 └──────┬──────┘        │  └─────┬─────┘  │
        │               │        │        │
@@ -109,8 +105,8 @@ chapter_3/section_5/
                        │
                        ▼
               ┌─────────────────┐
-              │  Embedding API  │
-              │  OpenAI/Gemini  │
+              │  Gemini API     │
+              │  Embedding/LLM  │
               └─────────────────┘
 ```
 
@@ -118,19 +114,19 @@ chapter_3/section_5/
 
 1. **キャラクター生成（LLMサーバー）**
    - ユーザーがキャラクター生成をリクエスト
-   - OpenAI または Gemini を使用してキャラクター情報を生成
+   - Gemini を使用してキャラクター情報を生成
    - レスポンスを即座にユーザーに返却
    - バックグラウンドでCommand処理を実行
 
 2. **Command処理（非同期書き込み）**
    - キャラクター情報からテキスト表現を生成
-   - 同じプロバイダー（OpenAI/Gemini）でEmbeddingを生成
+   - Gemini Embedding APIでベクトル化（768次元）
    - ChromaDBにベクトルとメタデータを保存
    - 高スループット、結果整合性
 
 3. **Query処理（同期読み取り）**
    - ユーザーが検索クエリを送信
-   - 指定されたプロバイダーでクエリのEmbeddingを生成
+   - Gemini Embedding APIでクエリをベクトル化
    - ChromaDBでベクトル類似度検索を実行
    - 類似度スコア付きで結果を返却
    - 低レイテンシ、即座に応答
@@ -167,46 +163,42 @@ async def search_knowledge(query: KnowledgeSearchQuery) -> KnowledgeSearchRespon
     低レイテンシで結果を返却。
     クエリのEmbeddingを生成し、ベクトル類似度検索を実行。
     """
-    # クエリのEmbedding生成
-    query_embedding = await get_embedding(query.query_text, query.embedding_provider)
+    start_time = time.time()
+
+    # Gemini Embedding APIでクエリをベクトル化
+    query_embedding = await get_embedding(query.query_text)
 
     # ChromaDBで検索
-    results = await search_chromadb(query_embedding, query)
+    results = await loop.run_in_executor(executor, _search_chromadb, query_embedding, query)
 
-    return results
+    query_time = (time.time() - start_time) * 1000
+    return KnowledgeSearchResponse(results=items, total_count=len(items), query_time_ms=query_time)
 ```
 
-#### 2. カスタム Embedding 統合
+#### 2. Gemini Embedding 統合
 
-**OpenAI Embeddings** - `src/service/embedding_service.py`:
-
-```python
-async def get_openai_embedding(text: str) -> list[float]:
-    """OpenAI の text-embedding-3-small を使用（1536次元）"""
-    response = await openai_client.embeddings.create(
-        model="text-embedding-3-small",
-        input=text,
-    )
-    return response.data[0].embedding
-```
-
-**Gemini Embeddings**:
+**Embedding生成** - `src/service/embedding_service.py`:
 
 ```python
-def get_gemini_embedding(text: str) -> list[float]:
-    """Gemini の gemini-embedding-001 を使用（768次元）"""
+GEMINI_EMBEDDING_MODEL = "gemini-embedding-001"
+GEMINI_EMBEDDING_DIMENSION = 768
+
+async def get_embedding(text: str) -> list[float]:
+    """Gemini APIを使用して埋め込みベクトルを生成"""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, _get_gemini_embedding_sync, text)
+
+def _get_gemini_embedding_sync(text: str) -> list[float]:
     result = google_genai_client.models.embed_content(
-        model="gemini-embedding-001",
+        model=GEMINI_EMBEDDING_MODEL,
         contents=text,
     )
     return result.embeddings[0].values
 ```
 
 **ポイント**:
-- キャラクター生成と同じプロバイダーでEmbeddingを生成
-- OpenAI: 1536次元、汎用的で高品質
-- Gemini: 768次元、多言語（日本語含む）に最適化
-- プロバイダー一致で検索精度が向上
+- Gemini Embedding: 768次元、多言語（日本語含む）に最適化
+- キャラクター生成と検索で同じEmbeddingモデルを使用
 
 #### 3. ChromaDB クライアント
 
@@ -243,7 +235,6 @@ class KnowledgeRegisterCommand(BaseModel):
     """知識登録のためのCommandモデル"""
     character_request: CharacterRequest
     character_response: CharacterResponse
-    provider: str
     model: str
     prompt: list[dict]
     processing_time_ms: float
@@ -258,7 +249,6 @@ class KnowledgeSearchQuery(BaseModel):
     query_text: str
     limit: int = Field(default=10, ge=1, le=100)
     filter_metadata: Optional[dict] = None
-    embedding_provider: str = Field(default="openai")  # 検索用プロバイダー
 ```
 
 ## 使い方
@@ -266,67 +256,17 @@ class KnowledgeSearchQuery(BaseModel):
 ### 環境構成
 
 - **Python**: 3.13.2以上
-- **Docker**: 20.10以上
-- **Docker Compose**: 2.0以上
+- **Docker**: 20.10以上（Docker Compose使用時）
 - **依存ライブラリ**:
-  - fastapi>=0.115.0
-  - uvicorn>=0.32.0
-  - chromadb>=0.5.0
-  - openai>=2.4.0
-  - google-genai>=1.45.0
-  - pydantic>=2.12.2
+  - chromadb >= 1.3.0
+  - fastapi >= 0.119.0
+  - google-genai >= 1.45.0
+  - pydantic >= 2.12.2
+  - uvicorn >= 0.37.0
 
 ### セットアップ
 
-#### 方法1: Docker Compose（推奨）
-
-1. **環境変数の設定**
-
-```bash
-# .envrc.exampleをコピーして.envrcを作成
-cp .envrc.example .envrc
-
-# エディタで.envrcを開き、APIキーを設定
-# .envrc
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
-```
-
-2. **ChromaDBイメージの取得**
-
-```bash
-docker pull chromadb/chroma:1.3.0-amd64
-```
-
-3. **サービスの起動**
-
-```bash
-# すべてのサービスを起動
-docker-compose up -d
-
-# サービスの状態確認
-docker-compose ps
-
-# 期待される出力:
-# chromadb-server        Up (healthy)
-# llm-api-server         Up
-# knowledge-api-server   Up
-```
-
-4. **ヘルスチェック**
-
-```bash
-# LLMサーバー
-curl http://localhost:8000/health
-
-# 知識ベースサーバー
-curl http://localhost:8001/health
-
-# ChromaDB
-curl http://localhost:8002/api/v1/heartbeat
-```
-
-#### 方法2: ローカル開発
+#### 方法1: ローカル開発
 
 1. **依存関係のインストール**
 
@@ -341,7 +281,6 @@ pip install -e .
 2. **環境変数の設定**
 
 ```bash
-export OPENAI_API_KEY="sk-..."
 export GEMINI_API_KEY="AIza..."
 ```
 
@@ -349,10 +288,43 @@ export GEMINI_API_KEY="AIza..."
 
 ```bash
 # ターミナル1: LLMサーバー
-python -m src.api.llm_server
+uv run python -m src.api.llm_server
 
 # ターミナル2: 知識ベースサーバー
-python -m src.api.knowledge_server
+uv run python -m src.api.knowledge_server
+```
+
+#### 方法2: Docker Compose
+
+1. **環境変数の設定**
+
+```bash
+# .envrc.exampleをコピーして.envrcを作成
+cp .envrc.example .envrc
+
+# エディタで.envrcを開き、APIキーを設定
+# .envrc
+export GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+```
+
+2. **サービスの起動**
+
+```bash
+# すべてのサービスを起動
+docker-compose up -d
+
+# サービスの状態確認
+docker-compose ps
+```
+
+3. **ヘルスチェック**
+
+```bash
+# LLMサーバー
+curl http://localhost:8000/health
+
+# 知識ベースサーバー
+curl http://localhost:8001/health
 ```
 
 ### 使用方法、実行方法
@@ -363,8 +335,7 @@ python -m src.api.knowledge_server
 curl -X POST "http://localhost:8000/generate" \
   -H "Content-Type: application/json" \
   -d '{
-    "provider": "openai",
-    "model": "gpt-4o-mini",
+    "model": "gemini-2.5-flash",
     "character_request": {
       "gender": "female",
       "age": 25,
@@ -385,19 +356,17 @@ curl -X POST "http://localhost:8000/generate" \
       {
         "short_personality": "勇敢な戦士",
         "description": "どんな困難にも立ち向かう不屈の精神を持つ..."
-      },
-      ...
+      }
     ]
   },
-  "provider": "openai",
-  "model": "gpt-4o-mini",
+  "model": "gemini-2.5-flash",
   "processing_time_ms": 1250.5
 }
 ```
 
 **処理フロー**:
 1. キャラクターが即座に生成され、レスポンスが返却される
-2. バックグラウンドでEmbeddingが生成される（OpenAI text-embedding-3-small）
+2. バックグラウンドでGemini Embedding APIでベクトル化（768次元）
 3. ChromaDBにベクトルとメタデータが保存される
 
 #### 2. 知識ベースの検索
@@ -410,7 +379,6 @@ curl -X POST "http://localhost:8001/query/search" \
   -H "Content-Type: application/json" \
   -d '{
     "query_text": "勇敢な戦士",
-    "embedding_provider": "openai",
     "limit": 5
   }'
 ```
@@ -423,8 +391,7 @@ curl -X POST "http://localhost:8001/query/search" \
       "id": "uuid-here",
       "character_request": {...},
       "character_response": {...},
-      "provider": "openai",
-      "model": "gpt-4o-mini",
+      "model": "gemini-2.5-flash",
       "processing_time_ms": 1250.5,
       "similarity_score": 0.95,
       "created_at": 1234567890.0
@@ -445,41 +412,49 @@ curl http://localhost:8001/query/stats
 ```json
 {
   "total_items": 100,
-  "providers_distribution": {
-    "openai": 60,
-    "gemini": 40
-  },
   "models_distribution": {
-    "gpt-4o-mini": 50,
-    "gpt-4o": 10,
-    "gemini-2.5-flash": 40
+    "gemini-2.5-flash": 80,
+    "gemini-2.5-pro": 20
   },
   "timestamp": 1234567890.0
 }
 ```
 
-#### 4. プロバイダーごとの検索
+#### 4. 直接知識を登録（Command API）
 
-**OpenAI で生成 → OpenAI で検索（推奨）**:
 ```bash
-# 生成
-curl -X POST "http://localhost:8000/generate" \
-  -d '{"provider": "openai", "model": "gpt-4o-mini", ...}'
-
-# 検索（同じプロバイダー）
-curl -X POST "http://localhost:8001/query/search" \
-  -d '{"query_text": "...", "embedding_provider": "openai"}'
+curl -X POST "http://localhost:8001/command/register" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "character_request": {
+      "gender": "male",
+      "age": 30,
+      "additional_instructions": "冷静沈着"
+    },
+    "character_response": {
+      "first_name": "太郎",
+      "last_name": "山田",
+      "gender": "male",
+      "age": 30,
+      "personalities": [
+        {"short_personality": "冷静", "description": "どんな状況でも冷静さを保つ"},
+        {"short_personality": "論理的", "description": "論理的思考を重視する"},
+        {"short_personality": "誠実", "description": "約束を必ず守る"}
+      ]
+    },
+    "model": "gemini-2.5-flash",
+    "prompt": [],
+    "processing_time_ms": 1000.0
+  }'
 ```
 
-**Gemini で生成 → Gemini で検索（推奨）**:
-```bash
-# 生成
-curl -X POST "http://localhost:8000/generate" \
-  -d '{"provider": "gemini", "model": "gemini-2.5-flash", ...}'
-
-# 検索（同じプロバイダー）
-curl -X POST "http://localhost:8001/query/search" \
-  -d '{"query_text": "...", "embedding_provider": "gemini"}'
+**レスポンス例**:
+```json
+{
+  "job_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "status": "accepted",
+  "message": "Knowledge registration queued for processing"
+}
 ```
 
 ### 出力例
@@ -487,7 +462,7 @@ curl -X POST "http://localhost:8001/query/search" \
 #### キャラクター生成のログ
 
 ```
-[2025-10-29 10:30:45] [INFO] [llm_server] Generating character with openai/gpt-4o-mini
+[2025-10-29 10:30:45] [INFO] [llm_server] Generating character with gemini/gemini-2.5-flash
 [2025-10-29 10:30:47] [INFO] [llm_server] Successfully generated character in 1250.50ms
 [2025-10-29 10:30:47] [INFO] [llm_server] Queued knowledge registration for background processing
 ```
@@ -496,98 +471,38 @@ curl -X POST "http://localhost:8001/query/search" \
 
 ```
 [2025-10-29 10:30:47] [INFO] [knowledge_command] Accepting knowledge registration command with job_id: a1b2c3d4-...
-[2025-10-29 10:30:47] [INFO] [embedding_service] Generating embedding using openai API
-[2025-10-29 10:30:48] [INFO] [knowledge_command] Successfully stored knowledge with job_id: a1b2c3d4-... using openai embedding (dim: 1536)
+[2025-10-29 10:30:47] [INFO] [knowledge_command] Generating Gemini embedding for job_id: a1b2c3d4-...
+[2025-10-29 10:30:48] [INFO] [knowledge_command] Successfully stored knowledge with job_id: a1b2c3d4-... (embedding dim: 768)
 ```
 
 #### Query処理（同期）のログ
 
 ```
-[2025-10-29 10:31:00] [INFO] [knowledge_query] Searching knowledge base with query: 勇敢な戦士... using openai embeddings
+[2025-10-29 10:31:00] [INFO] [knowledge_query] Searching knowledge base with query: 勇敢な戦士...
 [2025-10-29 10:31:00] [INFO] [knowledge_query] Search completed in 45.20ms, found 3 results
 ```
 
-### テスト方法
+## 注意点
 
-#### 1. エンドツーエンドテスト
+### 結果整合性（Eventual Consistency）
 
-```bash
-# サービスの起動
-docker-compose up -d && sleep 30
+Command処理は非同期で実行されるため、データが書き込まれてからQuery処理で参照可能になるまでに若干の遅延（2-5秒程度）が発生します。この特性を理解した上でシステムを設計してください。
 
-# OpenAIでキャラクター生成
-curl -X POST "http://localhost:8000/generate" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "provider": "openai",
-    "model": "gpt-4o-mini",
-    "character_request": {
-      "gender": "male",
-      "age": 30,
-      "additional_instructions": "魔法使い"
-    }
-  }'
+### ChromaDBの動作モード
 
-# 非同期処理の完了を待つ
-sleep 5
-
-# 統計を確認
-curl http://localhost:8001/query/stats | jq
-
-# 検索テスト
-curl -X POST "http://localhost:8001/query/search" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query_text": "魔法使い",
-    "embedding_provider": "openai",
-    "limit": 5
-  }' | jq
-```
-
-#### 2. CQRS動作の確認
-
-**Commandの非同期性を確認**:
-```bash
-# 時間測定
-time curl -X POST "http://localhost:8000/generate" \
-  -H "Content-Type: application/json" \
-  -d '{"provider": "openai", ...}'
-
-# レスポンスタイムは短い（~1-2秒）
-# 実際のEmbedding生成と保存はバックグラウンドで実行
-```
-
-**Queryの同期性を確認**:
-```bash
-# 時間測定
-time curl -X POST "http://localhost:8001/query/search" \
-  -H "Content-Type: application/json" \
-  -d '{"query_text": "...", "embedding_provider": "openai"}'
-
-# レスポンスタイムにEmbedding生成時間が含まれる（~100-300ms）
-```
-
-#### 3. Embeddingの一貫性テスト
+- **ローカルモード**: `CHROMA_HOST`環境変数が未設定の場合、`./data/chromadb`にデータを永続化
+- **リモートモード**: `CHROMA_HOST`と`CHROMA_PORT`を設定することで、外部のChromaDBサーバーに接続
 
 ```bash
-# 同じプロバイダーで生成と検索
-./test_consistency.sh openai
-
-# 異なるプロバイダーで比較
-./test_consistency.sh gemini
+# リモートChromaDBを使用する場合
+export CHROMA_HOST="chromadb-server"
+export CHROMA_PORT="8000"
 ```
 
-#### 4. スケーリングテスト
+### 利用可能なGeminiモデル
 
-```bash
-# 複数のキャラクターを並行生成
-for i in {1..10}; do
-  curl -X POST "http://localhost:8000/generate" \
-    -H "Content-Type: application/json" \
-    -d '{"provider": "openai", ...}' &
-done
-wait
-
-# 統計で確認
-curl http://localhost:8001/query/stats
-```
+| モデル | 用途 |
+|--------|------|
+| `gemini-2.5-pro` | 高精度なキャラクター生成 |
+| `gemini-2.5-flash` | バランスの取れた高速生成 |
+| `gemini-2.5-flash-lite` | 軽量で最速の生成 |

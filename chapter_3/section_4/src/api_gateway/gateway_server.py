@@ -216,40 +216,36 @@ async def generate(request: GatewayRequest):
         )
 
     except ValueError as e:
-        # Invalid provider or configuration
-        gateway_monitor.log_error(
-            request_id,
-            "ValidationError",
-            str(e),
-            request.provider,
-            request.model,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=GatewayErrorResponse(
-                error=str(e),
-                error_type="ValidationError",
-                request_id=request_id,
-            ).model_dump(),
-        )
+        _handle_gateway_error(request_id, request, e, status.HTTP_400_BAD_REQUEST, "ValidationError")
 
     except Exception as e:
-        # Other errors (network issues, API errors, etc.)
-        gateway_monitor.log_error(
-            request_id,
-            type(e).__name__,
-            str(e),
-            request.provider,
-            request.model,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=GatewayErrorResponse(
-                error=str(e),
-                error_type=type(e).__name__,
-                request_id=request_id,
-            ).model_dump(),
-        )
+        _handle_gateway_error(request_id, request, e, status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _handle_gateway_error(
+    request_id: str,
+    request: GatewayRequest,
+    error: Exception,
+    status_code: int,
+    error_type: str | None = None,
+) -> None:
+    """Handle gateway errors by logging and raising HTTPException."""
+    resolved_error_type = error_type or type(error).__name__
+    gateway_monitor.log_error(
+        request_id,
+        resolved_error_type,
+        str(error),
+        request.provider,
+        request.model,
+    )
+    raise HTTPException(
+        status_code=status_code,
+        detail=GatewayErrorResponse(
+            error=str(error),
+            error_type=resolved_error_type,
+            request_id=request_id,
+        ).model_dump(),
+    )
 
 
 if __name__ == "__main__":
