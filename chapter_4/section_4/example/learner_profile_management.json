@@ -1,0 +1,15 @@
+{
+  "learner_id": "learner_003",
+  "learning_goal": "新任マネージャーとしてマネジメントスキルを身につけたい。1on1の進め方、目標設定、フィードバックの方法を学び、チームメンバー5人を効果的にマネジメントできるようになりたい。",
+  "current_knowledge": [
+    "エンジニアとしての実務経験5年",
+    "技術的なメンタリング経験あり",
+    "マネジメント経験なし"
+  ],
+  "available_hours_per_week": 5,
+  "preferred_content_types": [
+    "article",
+    "video"
+  ],
+  "target_duration_weeks": 8
+}

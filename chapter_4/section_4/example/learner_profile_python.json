@@ -1,0 +1,15 @@
+{
+  "learner_id": "learner_002",
+  "learning_goal": "Pythonプログラミングを習得して、業務自動化ができるようになりたい。ファイル操作、Webスクレイピング、簡単なGUIアプリが作れるレベルを目指す。",
+  "current_knowledge": [
+    "プログラミング未経験",
+    "PCの基本操作はできる"
+  ],
+  "available_hours_per_week": 8,
+  "preferred_content_types": [
+    "video",
+    "exercise",
+    "project"
+  ],
+  "target_duration_weeks": 16
+}

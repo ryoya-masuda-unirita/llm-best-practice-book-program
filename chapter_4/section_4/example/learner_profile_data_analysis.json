@@ -1,0 +1,15 @@
+{
+  "learner_id": "learner_001",
+  "learning_goal": "3ヶ月でデータ分析ができるようになりたい。SQLでデータを抽出し、Pythonで分析・可視化ができるレベルを目指す。",
+  "current_knowledge": [
+    "Excelでの基本的な表計算",
+    "基礎的な統計知識（平均、標準偏差など）"
+  ],
+  "available_hours_per_week": 10,
+  "preferred_content_types": [
+    "article",
+    "exercise",
+    "interactive"
+  ],
+  "target_duration_weeks": 12
+}
