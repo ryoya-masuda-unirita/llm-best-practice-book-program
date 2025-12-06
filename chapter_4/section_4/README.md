@@ -1,26 +1,24 @@
-# Chapter 4 Section 4: 階層型AIエージェント - パーソナライズ学習プラットフォーム
+# Chapter 4 Section 4: 多層型（階層型）AIエージェント - パーソナライズ学習プラットフォーム
 
 ## 概要
 
-本プロジェクトは、階層型AIエージェントアーキテクチャを用いたパーソナライズ学習プラットフォームの実装です。階層型AIエージェントは、複数のAIエージェントを階層構造に配置する設計パターンで、人間の組織におけるマネジメント層と実行部隊の関係を模しています。
+本プロジェクトは、**多層型（階層型）AIエージェント**パターンを用いたパーソナライズ学習プラットフォームを実装しています。複雑なタスクを自律的に遂行するために、エージェントの機能を抽象度の異なる4つの「層（レイヤー）」に分割して配置するアーキテクチャを採用しています。
 
-このシステムでは、「3ヶ月でデータ分析ができるようになりたい」「新任マネージャーがマネジメントスキルを身につけたい」といった漠然とした学習ゴールを入力すると、以下のプロセスを自律的に実行します：
+このアーキテクチャは、人間の組織における「経営層（戦略）・管理職（戦術）・現場（実行）・監査役（評価）」の役割分担を模倣しています。上位レイヤーが大局的な戦略や計画を立案し、下位レイヤーが具体的なタスクを実行し、独立したレイヤーが結果を客観的に評価・修正します。
 
-1. **学習ゴールの明確化・レベル定義**
-2. **カリキュラム設計（どの分野をどの順番で学ぶか）**
-3. **日々の学習プランと教材提示**
-4. **テスト・フィードバック・進捗レポートの生成**
-
-LangGraphを用いたステートマシンにより、戦略→戦術→実行の3層構造でエージェントを連携させ、一貫性のある学習プランを生成します。
+学習者の目標（例：「3ヶ月でデータ分析ができるようになりたい」）を入力すると、システムは以下を自動生成します：
+- 学習ロードマップ（戦略層）
+- 週次・日次カリキュラム（戦術層）
+- 学習コンテンツとクイズ（実行層）
+- 進捗レポートと改善提案（自己評価層）
 
 ## 機能
 
-- **学習戦略の自動生成**: 学習者の目標と現在レベルから最適な学習ロードマップを設計
-- **カリキュラムの自動設計**: 週単位・日単位の具体的な学習タスクを自動生成
-- **学習コンテンツの生成**: 各タスクに対応した学習教材を動的に生成
-- **クイズの自動生成**: 理解度確認用のクイズを自動作成
-- **進捗レポートの作成**: 学習進捗を分析し、推奨事項を提示
-- **Markdown形式での出力**: 生成された学習プランをMarkdownファイルとして保存
+- **戦略的学習計画生成**: 学習者の目標と制約から最適な学習ロードマップを自動設計
+- **詳細カリキュラム作成**: 週次テーマと日次タスクへの分解
+- **コンテンツ・クイズ自動生成**: 各タスクに対応した学習教材と評価問題を作成
+- **品質評価・改善提案**: 生成物の品質チェックと目標整合性の確認
+- **マークダウン出力**: 学習プラン全体を見やすいマークダウン形式で出力
 
 ## プロジェクト構成
 
@@ -29,291 +27,260 @@ LangGraphを用いたステートマシンにより、戦略→戦術→実行�
 ```
 chapter_4/section_4/
 ├── src/
-│   ├── __init__.py
-│   ├── main.py                    # CLIエントリーポイント
-│   ├── config.py                  # 設定管理
-│   ├── logger.py                  # ロギング設定
+│   ├── __init__.py              # パッケージ初期化
+│   ├── config.py                # 設定（APIキー）
+│   ├── logger.py                # ログユーティリティ
+│   ├── main.py                  # CLIエントリーポイント
 │   ├── client/
 │   │   ├── __init__.py
-│   │   └── llm_client.py          # OpenAI クライアント設定
+│   │   └── llm_client.py        # OpenAIクライアント設定
+│   ├── layer/                   # 4層エージェント実装
+│   │   ├── __init__.py          # レイヤーパッケージエクスポート
+│   │   ├── base.py              # BaseAgent抽象クラス
+│   │   ├── strategy.py          # 戦略層（戦略・プランニング層）
+│   │   ├── tactics.py           # 戦術層（戦術・マネジメント層）
+│   │   ├── execution.py         # 実行層
+│   │   └── reflection.py        # 自己評価層（自己評価・省察層）
 │   ├── model/
 │   │   ├── __init__.py
 │   │   └── llm_pipeline_model.py  # Pydanticデータモデル
 │   ├── prompt/
 │   │   ├── __init__.py
-│   │   └── llm_pipeline_prompt.py # 各エージェント用プロンプト
+│   │   └── llm_pipeline_prompt.py # 各層のプロンプト定義
 │   └── service/
 │       ├── __init__.py
-│       └── llm_pipeline_service.py # 階層型エージェントサービス
-├── example/
-│   ├── learner_profile_data_analysis.json
-│   ├── learner_profile_python.json
-│   └── learner_profile_management.json
-├── outputs/                        # 生成された学習プランの出力先
-├── pyproject.toml
-├── .envrc.example
-├── CLAUDE.md
-└── README.md
+│       └── llm_pipeline_service.py  # LangGraphオーケストレーション
+├── example/                     # サンプルプロファイル
+├── outputs/                     # 生成された学習プラン
+├── .envrc.example               # 環境変数テンプレート
+├── pyproject.toml               # プロジェクト依存関係
+├── Makefile                     # 開発コマンド
+├── REFERENCE.md                 # アーキテクチャ原則リファレンス
+└── CLAUDE.md                    # プロジェクトガイド
 ```
 
 ### アーキテクチャ
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                     Hierarchical Agent System                        │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │                    Strategy Layer（戦略層）                    │  │
-│  │  ┌─────────────────────────────────────────────────────────┐  │  │
-│  │  │            Learning Strategy Agent                       │  │  │
-│  │  │  • 学習ドメインの特定                                     │  │  │
-│  │  │  • 現在/目標スキルレベルの評価                            │  │  │
-│  │  │  • 学習モジュールの設計                                   │  │  │
-│  │  │  • マイルストーンの定義                                   │  │  │
-│  │  └─────────────────────────────────────────────────────────┘  │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│                              │                                       │
-│                              ▼                                       │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │                    Tactics Layer（戦術層）                     │  │
-│  │  ┌─────────────────────────────────────────────────────────┐  │  │
-│  │  │           Curriculum Design Agent                        │  │  │
-│  │  │  • 週次計画の作成                                         │  │  │
-│  │  │  • 日次タスクの設計                                       │  │  │
-│  │  │  • 評価戦略の設計                                         │  │  │
-│  │  └─────────────────────────────────────────────────────────┘  │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│                              │                                       │
-│                              ▼                                       │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │                   Execution Layer（実行層）                    │  │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │  │
-│  │  │   Content   │  │    Quiz     │  │      Progress       │  │  │
-│  │  │    Agent    │  │    Agent    │  │       Agent         │  │  │
-│  │  │  • 教材生成  │  │  • クイズ   │  │  • 進捗メトリクス   │  │  │
-│  │  │  • キー     │  │    生成     │  │  • 達成事項記録     │  │  │
-│  │  │    概念抽出 │  │  • 正解解説 │  │  • 推奨事項提供     │  │  │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────┘  │  │
-│  └───────────────────────────────────────────────────────────────┘  │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-### LangGraphによる処理フロー
-
-```
-                    ┌─────────┐
-                    │  START  │
-                    └────┬────┘
-                         │
-                         ▼
-                ┌────────────────┐
-                │ Strategy Agent │
-                │  (戦略策定)    │
-                └────────┬───────┘
-                         │
-                         ▼
-                ┌────────────────┐
-                │ Tactics Agent  │
-                │ (カリキュラム)  │
-                └────────┬───────┘
-                         │
-                         ▼
-             ┌───────────────────────┐
-             │   Execution Agent     │◄──────┐
-             │ (Content + Quiz生成)  │       │
-             └───────────┬───────────┘       │
-                         │                   │
-                         ▼                   │
-            ┌────────────────────────┐       │
-            │ should_continue_exec?  │───────┘
-            │  (セッション < 5?)     │  yes
-            └────────────┬───────────┘
-                         │ no
-                         ▼
-                ┌────────────────┐
-                │ Progress Agent │
-                │  (進捗報告)    │
-                └────────┬───────┘
-                         │
-                         ▼
-                    ┌─────────┐
-                    │   END   │
-                    └─────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                     CLI Layer (main.py)                      │
+│                - コマンドライン引数解析                        │
+│                - プロファイル読み込みと検証                     │
+└─────────────────────────┬────────────────────────────────────┘
+                          │
+                          ▼
+┌─────────────────────────┴────────────────────────────────────┐
+│               LangGraph State Machine                        │
+│                  (llm_pipeline_service.py)                   │
+└─────────────────────────┬────────────────────────────────────┘
+                          │
+                          ▼
+          ┌───────────────────────────────────┐
+          │     1. STRATEGY LAYER             │
+          │     (戦略・プランニング層)           │
+          │     - 目標解釈                      │
+          │     - ロードマップ作成               │
+          │     - 下位層へのブループリント提供     │
+          └───────────────┬───────────────────┘
+                          │
+                          ▼
+          ┌───────────────────────────────────┐
+          │     2. TACTICS LAYER              │
+          │     (戦術・マネジメント層)           │
+          │     - タスク分解                    │
+          │     - 週次/日次計画                 │
+          │     - タスク割り当て                │
+          └───────────────┬───────────────────┘
+                          │
+                          ▼
+          ┌───────────────────────────────────┐
+          │     3. EXECUTION LAYER            │◄────┐
+          │     (実行層)                        │     │
+          │     - コンテンツ生成                 │     │ ループ
+          │     - クイズ作成                    │     │
+          └───────────────┬───────────────────┘     │
+                          │                         │
+                          ▼                         │
+                   ┌──────┴──────┐                  │
+                   │ タスク残り?  │─────────────────┘
+                   └──────┬──────┘
+                          │ No
+                          ▼
+          ┌───────────────────────────────────┐
+          │     4. REFLECTION LAYER           │
+          │     (自己評価・省察層)              │
+          │     - 品質評価                     │
+          │     - 目標整合性チェック             │
+          │     - 改善提案                     │
+          └───────────────┬───────────────────┘
+                          │
+                          ▼
+                       [END]
 ```
 
 ### 実装の詳細
 
-#### 1. データモデル (`src/model/llm_pipeline_model.py`)
+#### 1. BaseAgent (`src/layer/base.py`)
 
-階層型エージェントの状態管理と出力を定義するPydanticモデル群です。
-
-**主要なモデル:**
+全レイヤーエージェントの基底クラス。LLM呼び出し、JSON解析、リトライロジックを共通化しています。
 
 ```python
-class HierarchicalAgentState(TypedDict):
-    """階層型エージェントシステムの状態"""
-    learner_profile: LearnerProfile       # 学習者プロフィール
-    strategy_output: StrategyOutput | None # 戦略層の出力
-    tactics_output: TacticsOutput | None   # 戦術層の出力
-    learning_sessions: list[LearningSession] # 実行層の出力
-    progress_report: ProgressReport | None # 進捗レポート
-    current_week: int                      # 現在の週
-    current_day: str                       # 現在の日
-    current_task_index: int                # 現在のタスクインデックス
-    messages: Annotated[Sequence[BaseMessage], add_messages]
+class BaseAgent(ABC):
+    """
+    全階層エージェントの抽象基底クラス。
+    LLM呼び出し、ログ出力、JSON解析、エラーハンドリングの共通機能を提供。
+    """
+
+    def __init__(self, layer_name: str, agent_name: str):
+        self.layer_name = layer_name
+        self.agent_name = agent_name
+        self.logger = make_logger(f"{layer_name}.{agent_name}")
+
+    def _invoke_and_parse(
+        self,
+        config: RunnableConfig,
+        system_prompt: str,
+        user_prompt: str,
+    ) -> dict:
+        """
+        共通ワークフロー: メッセージ構築 → LLM呼び出し（リトライ付き） → JSON解析
+        """
+        model = self._create_chat_model(config)
+        messages = self._build_messages(system_prompt, user_prompt)
+        response_content = self._invoke_with_retry(model, messages, config)
+        return extract_json_from_response(response_content)
+
+    @abstractmethod
+    def execute(self, state: dict, config: RunnableConfig) -> dict:
+        """レイヤー固有のロジックを実装"""
+        pass
 ```
 
-**スキルレベルの定義:**
+**ポイント**: テンプレートメソッドパターンにより、各レイヤーのエージェントは`execute`メソッドのみを実装すれば良く、重複コードを排除しています。
+
+#### 2. Strategy Layer (`src/layer/strategy.py`)
+
+最上位層として、学習者の曖昧な目標を解釈し、学習ロードマップを作成します。
 
 ```python
-class SkillLevel(StrEnum):
-    BEGINNER = "beginner"           # 全くの初心者
-    ELEMENTARY = "elementary"       # 基礎的な概念は理解
-    INTERMEDIATE = "intermediate"   # 基本的な作業を独力で行える
-    UPPER_INTERMEDIATE = "upper_intermediate" # 複雑な作業も対応可能
-    ADVANCED = "advanced"           # 専門家レベル
+class StrategyAgent(BaseAgent):
+    """
+    戦略層エージェント（戦略エージェント）
+    学習者の目標を分析し、下位層へのブループリントとなる
+    包括的な学習ロードマップを作成。
+    """
+
+    def __init__(self):
+        super().__init__(layer_name="STRATEGY", agent_name="StrategyAgent")
+
+    def execute(self, state: HierarchicalAgentState, config: RunnableConfig) -> dict:
+        """戦略層を実行して学習ロードマップを作成"""
+        self._log_layer_start("Creating learning roadmap (blueprint)")
+
+        learner = state["learner_profile"]
+        user_prompt = make_strategy_user_prompt(
+            learning_goal=learner.learning_goal,
+            current_knowledge=learner.current_knowledge,
+            # ...
+        )
+
+        result = self._invoke_and_parse(config, make_strategy_system_prompt(), user_prompt)
+        strategy_output = self._parse_strategy_output(result)
+
+        return {"strategy_output": strategy_output}
 ```
 
-> **ポイント**: TypedDictを使用することで、LangGraphの状態管理と型安全性を両立しています。
+**ポイント**: 戦略層は細部の実装には関与せず、全体ゴールの設定とアーキテクチャの決定に専念します。
 
-#### 2. プロンプト定義 (`src/prompt/llm_pipeline_prompt.py`)
+#### 3. LangGraph State Machine (`src/service/llm_pipeline_service.py`)
 
-各エージェント用のシステムプロンプトとユーザープロンプトを定義しています。
-
-**戦略エージェントのプロンプト例:**
-
-```python
-STRATEGY_AGENT_SYSTEM_PROMPT = """あなたは学習戦略エージェントです。
-あなたの役割は、学習者の目標と現在のレベルを分析し、
-最終到達像を定義して、学習ロードマップを作成することです。
-
-## あなたの責任
-1. **学習ドメインの特定**: 学習者の目標から学習領域を特定します
-2. **現在レベルの評価**: 学習者の既存知識から現在のスキルレベルを評価します
-3. **目標レベルの設定**: 達成すべきスキルレベルを設定します
-4. **学習モジュールの設計**: 必要な学習モジュールを順序立てて設計します
-5. **マイルストーンの定義**: 進捗を確認するためのマイルストーンを設定します
-...
-"""
-```
-
-> **ポイント**: 各エージェントに明確な責任と出力形式（JSON）を指定することで、構造化された応答を得られます。
-
-#### 3. 階層型エージェントサービス (`src/service/llm_pipeline_service.py`)
-
-LangGraphを用いた階層型エージェントシステムの中核実装です。
-
-**グラフの構築:**
+4層の階層的フローをLangGraphで実装しています。
 
 ```python
 def create_learning_platform_graph() -> StateGraph:
     """階層型学習プラットフォームグラフを作成"""
     graph = StateGraph(HierarchicalAgentState)
 
-    # ノードの追加（各層のエージェント）
-    graph.add_node("strategy", strategy_agent)
-    graph.add_node("tactics", tactics_agent)
-    graph.add_node("execution", execution_agent)
-    graph.add_node("progress", progress_agent)
+    # レイヤーノードを追加
+    graph.add_node("strategy", strategy_agent_node)    # 層1: 戦略
+    graph.add_node("tactics", tactics_agent_node)      # 層2: 戦術
+    graph.add_node("execution", execution_agent_node)  # 層3: 実行
+    graph.add_node("reflection", reflection_agent_node)# 層4: 自己評価
 
-    # エントリーポイントの設定
+    # 階層的フローを定義
     graph.set_entry_point("strategy")
-
-    # エッジの定義（処理フロー）
     graph.add_edge("strategy", "tactics")
     graph.add_edge("tactics", "execution")
 
-    # 条件付きエッジ（実行ループ）
+    # 実行ループと自己評価層への遷移
     graph.add_conditional_edges(
         "execution",
         should_continue_execution,
-        {"execute": "execution", "progress": "progress"},
+        {"execute": "execution", "reflect": "reflection"},
     )
-    graph.add_edge("progress", END)
+    graph.add_edge("reflection", END)
 
     return graph.compile()
 ```
 
-**戦略エージェントの実装:**
+**ポイント**: `add_conditional_edges`により、実行層はタスクが残っている間ループし、完了後に自己評価層へ遷移します。
+
+#### 4. データモデル (`src/model/llm_pipeline_model.py`)
+
+各層の入出力を型安全なPydanticモデルで定義しています。
 
 ```python
-def strategy_agent(state: HierarchicalAgentState, config: RunnableConfig) -> dict:
-    """戦略層エージェント - 学習ロードマップを作成"""
-    learner = state["learner_profile"]
-    model = ChatOpenAI(model=model_name, temperature=0.7)
+# 戦略層モデル
+class StrategyOutput(FrozenModel):
+    learning_domain: str
+    roadmap: LearningRoadmap
+    recommended_study_hours_per_week: int
+    learning_style_notes: str
 
-    # プロンプトの構築
-    system_prompt = make_strategy_system_prompt()
-    user_prompt = make_strategy_user_prompt(
-        learning_goal=learner.learning_goal,
-        current_knowledge=learner.current_knowledge,
-        available_hours_per_week=learner.available_hours_per_week,
-        target_duration_weeks=learner.target_duration_weeks,
-    )
+# 戦術層モデル
+class TacticsOutput(FrozenModel):
+    curriculum_summary: str
+    weekly_plans: list[WeeklyPlan]
+    assessment_strategy: str
+    adaptation_notes: str
 
-    # LLM呼び出しとJSON解析
-    response_content = invoke_with_retry(model, messages, config, "Strategy Agent")
-    result = extract_json_from_response(response_content)
-
-    # StrategyOutputの構築
-    strategy_output = StrategyOutput(...)
-    return {"strategy_output": strategy_output}
+# 自己評価層モデル
+class ProgressReport(FrozenModel):
+    metrics: ProgressMetrics
+    progress_summary: str
+    recommendations: list[str]
+    curriculum_adjustment_needed: bool  # 上位層への修正要求フラグ
 ```
 
-> **ポイント**: `invoke_with_retry`関数により、LLMのレート制限や一時的な障害に対してリトライ機能を実装しています。
-
-#### 4. CLIインターフェース (`src/main.py`)
-
-Clickを使用したコマンドラインインターフェースです。
-
-```python
-@click.command()
-@click.option("--model", "-m", type=click.Choice(OpenAIModel.list_str()), default=OpenAIModel.GPT_4O)
-@click.option("--output-directory", "-od", type=click.Path(), default="outputs")
-@click.option("--profile-file", "-p", type=click.Path(exists=True))
-@click.option("--goal", "-g", type=str, help="Learning goal")
-@click.option("--hours-per-week", "-h", type=int, default=10)
-@click.option("--duration-weeks", "-d", type=int, default=12)
-@click.option("--current-knowledge", "-k", type=str)
-@async_cmd
-async def main(...):
-    """Personalized Learning Platform - A Hierarchical AI Agent System"""
-    # 学習者プロファイルの読み込みまたは作成
-    # 階層型エージェントシステムの実行
-    # 結果の保存と出力
-```
+**ポイント**: `curriculum_adjustment_needed`フラグにより、自己評価層は上位層に計画修正を要求できます。
 
 ## 使い方
 
 ### 環境構成
 
-- **Python**: 3.13.2以上
-- **依存ライブラリ**:
-  - `langchain-anthropic>=1.2.0`
-  - `langgraph>=1.0.0`
-  - `langchain-openai` (内部で使用)
-  - `openai>=2.4.0`
-  - `pydantic>=2.12.2`
-  - `click>=8.3.0`
-  - `python-dotenv>=1.1.1`
+- Python: 3.13.2以上
+- 主要依存ライブラリ:
+  - `langchain-openai`: OpenAI連携
+  - `langgraph`: エージェントワークフロー
+  - `pydantic`: データ検証
+  - `click`: CLIフレームワーク
 
 ### セットアップ
 
-1. **環境変数の設定**
+1. 環境変数ファイルを作成:
 
 ```bash
 cp .envrc.example .envrc
-# .envrcを編集してAPIキーを設定
 ```
 
-`.envrc`の内容:
-```
-OPENAI_API_KEY=<your_openai_api_key_here>
+2. APIキーを設定:
+
+```bash
+# .envrc を編集
+OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
 ```
 
-2. **依存関係のインストール**
+3. 依存関係をインストール:
 
 ```bash
 uv sync
@@ -321,200 +288,127 @@ uv sync
 
 ### 使用方法、実行方法
 
-#### CLIオプション
-
-```
-Usage: python -m src.main [OPTIONS]
-
-Options:
-  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI]
-                                  使用するモデル（デフォルト: GPT_4O）
-  -od, --output-directory PATH    出力ディレクトリ（デフォルト: outputs）
-  -p, --profile-file PATH         学習者プロファイルJSONファイルのパス
-  -g, --goal TEXT                 学習目標
-  -h, --hours-per-week INTEGER    週あたりの学習可能時間（デフォルト: 10）
-  -d, --duration-weeks INTEGER    目標期間（週）（デフォルト: 12）
-  -k, --current-knowledge TEXT    現在の知識・スキル（カンマ区切り）
-  --help                          ヘルプを表示
-```
-
-#### 実行例
-
-**1. コマンドラインオプションを使用:**
+#### コマンドラインオプションで実行
 
 ```bash
-python -m src.main \
-  -g "3ヶ月でPythonプログラミングを習得したい" \
-  -h 10 \
-  -d 12 \
-  -k "PCの基本操作はできる"
+# 基本的な使用法
+uv run python -m src.main -g "3ヶ月でPythonプログラミングを習得したい" -h 10 -d 12
+
+# 現在の知識を指定
+uv run python -m src.main -g "データ分析を学びたい" -k "Excel基礎,統計基礎"
+
+# モデルを指定
+uv run python -m src.main -g "SQLを学びたい" -m gpt-4o-mini
 ```
 
-**2. プロファイルファイルを使用:**
+#### プロファイルJSONで実行
 
 ```bash
-python -m src.main -p example/learner_profile_data_analysis.json
+uv run python -m src.main -p example/learner_profile_data_analysis.json
 ```
 
-**3. 詳細なオプション指定:**
+#### CLIオプション一覧
 
-```bash
-python -m src.main \
-  -m GPT_4_1_MINI \
-  -od outputs/ \
-  -p example/learner_profile_management.json
-```
+| オプション | 短縮形 | 説明 | デフォルト |
+|-----------|--------|------|-----------|
+| `--model` | `-m` | 使用するOpenAIモデル | gpt-4o-mini |
+| `--output-directory` | `-od` | 出力ディレクトリ | outputs |
+| `--profile-file` | `-p` | 学習者プロファイルJSONファイル | None |
+| `--goal` | `-g` | 学習目標 | None |
+| `--hours-per-week` | `-h` | 週あたり学習時間 | 10 |
+| `--duration-weeks` | `-d` | 目標期間（週） | 12 |
+| `--current-knowledge` | `-k` | 現在のスキル（カンマ区切り） | "" |
 
-#### 学習者プロファイルJSONの形式
+#### プロファイルJSONの例
 
 ```json
 {
   "learner_id": "learner_001",
   "learning_goal": "3ヶ月でデータ分析ができるようになりたい。SQLでデータを抽出し、Pythonで分析・可視化ができるレベルを目指す。",
   "current_knowledge": [
-    "Excel基礎",
-    "簡単な数式は使える"
+    "Excelでの基本的な表計算",
+    "基礎的な統計知識（平均、標準偏差など）"
   ],
   "available_hours_per_week": 10,
-  "preferred_content_types": [
-    "video",
-    "article",
-    "exercise"
-  ],
+  "preferred_content_types": ["article", "exercise", "interactive"],
   "target_duration_weeks": 12
 }
 ```
 
 ### 出力例
 
-実行後、`outputs/`ディレクトリに以下のようなMarkdownファイルが生成されます:
-
-```
-============================================================
-PERSONALIZED LEARNING PLAN CREATED
-============================================================
-
-Learning Domain: 新任マネージャーのピープルマネジメント
-Current Level: elementary
-Target Level: intermediate
-Duration: 8 weeks
-Modules: 8
-First Week Sessions: 5
-
-Plan saved to: outputs/learning_plan_f92b525fa1c34a23a1d4060f441926c9.md
-
-============================================================
-```
-
-**生成されるMarkdownの例:**
+実行すると`outputs/`ディレクトリにマークダウンファイルが生成されます：
 
 ```markdown
 # パーソナライズ学習プラン
 
 ## 学習者プロフィール
-- **学習目標**: 新任マネージャーとしてマネジメントスキルを身につけたい...
-- **週あたり学習時間**: 5時間
-- **目標期間**: 8週間
+- **学習目標**: 3ヶ月でデータ分析ができるようになりたい。SQLでデータを抽出し、Pythonで分析・可視化ができるレベルを目指す。
+- **週あたり学習時間**: 10時間
+- **目標期間**: 12週間
 
 ## 戦略概要
-- **学習ドメイン**: 新任マネージャーのピープルマネジメント
+- **学習ドメイン**: データ分析（SQL + Python）
 - **現在レベル**: elementary
 - **目標レベル**: intermediate
-- **推奨学習時間**: 週5時間
+- **推奨学習時間**: 週10時間
 
 ## 学習ロードマップ
 
 ### ゴールサマリー
-新任マネージャーとして、週次1on1を効果的に実施し...
+12週間でSQLを用いてデータを抽出し、Python（pandas, matplotlib/seabornなど）で分析・可視化できるレベルになる。
 
 ### マイルストーン
-1. Week 2: mod_001 と mod_002 を完了し、模擬1on1を実施
-2. Week 4: mod_003 を完了し、5名分のSMART目標を作成
-...
+1. Week 3: 基礎の習得完了（mod_001完了）
+2. Week 6: SQLとPython基礎の習得（mod_002, mod_003完了）
+3. Week 9: データ整形と可視化の実務力（mod_004, mod_005, mod_006完了）
+4. Week 12: 実務レベルの統合（mod_007, mod_008完了）
 
 ## 学習モジュール
-### mod_001: マネージャーの役割と移行（IC→Manager）
+### mod_001: データ分析の基本と統計リフレッシュ
 - **カテゴリ**: fundamentals
-- **説明**: マネージャーの基本的責務、権限と責任の違い...
-- **推定時間**: 4時間
-- **習得スキル**: マネージャーとしての役割理解, 期待値と優先順位設定
-...
+- **説明**: データ分析のワークフロー、基本的な統計の復習
+- **推定時間**: 8時間
+- **習得スキル**: データ分析プロセスの理解, 基礎統計指標の計算と解釈
 
-## カリキュラム詳細
-
-### 第1週: マネージャーへの移行：役割理解と基礎
-**学習目標**:
-- マネージャーとしての主要な責務と期待を理解する
-...
-
-**日別タスク**:
-  - **day1**: 記事：マネージャーの役割, 動画：役割移行の心理的側面
-  - **day2**: 記事：権限委譲と意思決定, 演習：委任ケースワーク
-...
-
-## 今週の学習セッション
-
-### 記事：マネージャーの役割（概要）
-- **コンテンツタイプ**: article
-- **キーコンセプト**: マネージャーの役割, 期待値設定...
-
-**クイズ**: マネージャーの役割理解チェック (4問)
 ...
 
 ## 進捗レポート
-- **進捗状況**: 学習開始週として、予定されていた5つのセッションを完了...
+- **進捗状況**: 第1週目として予定された5セッションがすべて完了
 - **トラック状況**: 順調
 
 ### 推奨事項
-- 今後のモジュールに向けて、学習時間の記録を開始しましょう
-- クイズのスコアを記録し、理解度の定期的な評価を行うことを推奨します
+- クイズの個別スコアを毎回記録し、週次で平均スコアを算出
+- 第2週に短いSQL入門セッションを組み込むこと推奨
 ```
 
-## 設計のポイント
+## 開発コマンド
 
-### 階層間のインターフェース
-
-上位から下位への指示、下位から上位への報告は、すべてJSON形式の構造化データで行われます。これにより：
-- 各エージェントの入出力が明確
-- パース可能で検証しやすい
-- システム全体の安定性が向上
-
-### エラーハンドリング
-
-```python
-def extract_json_from_response(response: str) -> dict:
-    """LLM応答からJSONを抽出（複数の戦略を試行）"""
-    # Strategy 1: 応答が'{' で始まる場合、そのままJSON
-    # Strategy 2: ```json コードブロックから抽出
-    # Strategy 3: 最初の'{' から最後の'}' を抽出
-    # Strategy 4: 切り詰められたJSONの修復を試行
+```bash
+make lint    # ruffでリント（自動修正）
+make fmt     # ruffでフォーマット
+make fix     # lint + fmt
+make mypy    # 型チェック
 ```
 
-### リトライ機能
+## 設計原則（REFERENCE.mdより）
 
-```python
-MAX_RETRIES = 3
-RETRY_DELAY_SECONDS = 2
+### 関心の分離
+各層は明確に異なる抽象度と責任を持ちます：
+- **戦略層**: 何を達成するか（What）
+- **戦術層**: どう分解するか（How to break down）
+- **実行層**: 具体的に実行（Do）
+- **自己評価層**: 品質を監査（Audit）
 
-def invoke_with_retry(model, messages, config, agent_name) -> str:
-    """LLM呼び出しにリトライロジックを適用"""
-    for attempt in range(MAX_RETRIES):
-        try:
-            response = model.invoke(messages, config)
-            if response.content and response.content.strip():
-                return response.content
-        except Exception as e:
-            logger.warning(f"{agent_name}: Error on attempt {attempt + 1}: {e}")
-        time.sleep(RETRY_DELAY_SECONDS)
-    raise ValueError(f"{agent_name} failed after {MAX_RETRIES} attempts")
-```
+### 明確なインターフェース
+層間のやり取りは自然言語ではなく、構造化されたJSONデータで定義しています。これにより各層がコンテキストを共有し、整合性を保てます。
 
-## 注意点とトレードオフ
+### 独立した監査
+自己評価層は実行層から独立して動作し、客観的な品質評価を行います。`curriculum_adjustment_needed`フラグにより、上位層への計画修正要求が可能です。
 
-1. **応答速度**: 階層が深くなるほど、処理に時間がかかります（1回の実行で5-10分程度）
-2. **コスト**: 複数のLLM呼び出しが発生するため、APIコストに注意が必要です
-3. **柔軟性**: 上位エージェントの判断が固定的な場合、下位エージェントの柔軟な対応が制限される可能性があります
+## トレードオフと考慮事項
 
-## ライセンス
-
-このプロジェクトはLLMベストプラクティスブックのサンプルコードとして提供されています。
+- **レイテンシ**: 多層処理により応答時間が増加します
+- **複雑性**: 層間インターフェースと状態管理により設計が複雑化します
+- **硬直性リスク**: 上位層の決定が実行層の有益な洞察を無視する可能性があります
+- **エラー伝播**: 戦略層のミスは全ての下流層に影響します

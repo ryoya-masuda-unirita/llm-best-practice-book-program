@@ -1,14 +1,20 @@
 """
 Pydantic models for the Hierarchical Personalized Learning Platform.
 
-This module defines all data models used across the hierarchical AI agent system:
-- Enums for type-safe categorization (SkillLevel, ContentType, etc.)
-- Strategy Layer: LearningModule, LearningRoadmap, StrategyOutput
-- Tactics Layer: DailyTask, WeeklyPlan, TacticsOutput
-- Execution Layer: LearningContent, Quiz, QuizQuestion, Feedback models
-- Session Models: LearnerProfile, LearningSession
-- Final Output: PersonalizedLearningPlan
-- Agent State: HierarchicalAgentState (TypedDict for LangGraph)
+This module defines all data models used across the 4-layer hierarchical AI agent system.
+
+Architecture Reference (REFERENCE.md):
+    1. Strategy Layer (戦略・プランニング層): LearningModule, LearningRoadmap, StrategyOutput
+    2. Tactics Layer (戦術・マネジメント層): DailyTask, WeeklyPlan, TacticsOutput
+    3. Execution Layer (実行層): LearningContent, Quiz, QuizQuestion, LearningSession
+    4. Reflection Layer (自己評価・省察層): ProgressMetrics, ProgressReport
+
+Model Categories:
+    - Enums: Type-safe categorization (SkillLevel, ContentType, QuestionType, etc.)
+    - Layer Inputs/Outputs: Structured data flowing between layers
+    - Session Models: LearnerProfile, LearningSession
+    - Final Output: PersonalizedLearningPlan
+    - Agent State: HierarchicalAgentState (TypedDict for LangGraph state machine)
 """
 
 from enum import StrEnum
@@ -86,7 +92,8 @@ class LearningModuleCategory(StrEnum):
 
 
 # =============================================================================
-# Strategy Layer Models
+# Strategy Layer Models (戦略・プランニング層)
+# Models for the top layer that creates high-level learning roadmaps
 # =============================================================================
 
 
@@ -124,7 +131,8 @@ class StrategyOutput(FrozenModel):
 
 
 # =============================================================================
-# Tactics Layer Models
+# Tactics Layer Models (戦術・マネジメント層)
+# Models for the middle layer that transforms strategy into actionable tasks
 # =============================================================================
 
 
@@ -160,7 +168,8 @@ class TacticsOutput(FrozenModel):
 
 
 # =============================================================================
-# Execution Layer Models
+# Execution Layer Models (実行層)
+# Models for the layer that performs concrete tasks (content/quiz generation)
 # =============================================================================
 
 
@@ -225,8 +234,14 @@ class LearnerFeedback(FrozenModel):
     recommended_next_steps: list[str] = Field(..., description="Recommended next steps")
 
 
+# =============================================================================
+# Reflection Layer Models (自己評価・省察層)
+# Models for the layer that evaluates quality and goal alignment
+# =============================================================================
+
+
 class ProgressMetrics(FrozenModel):
-    """Progress metrics from the progress monitoring agent."""
+    """Progress metrics from the reflection agent for quality evaluation."""
 
     modules_completed: int = Field(..., description="Number of modules completed")
     total_modules: int = Field(..., description="Total number of modules")
@@ -241,7 +256,14 @@ class ProgressMetrics(FrozenModel):
 
 
 class ProgressReport(FrozenModel):
-    """Progress report from the progress monitoring agent."""
+    """
+    Progress report from the Reflection Layer agent.
+
+    This model captures the evaluation output from the reflection layer,
+    including quality assessment and recommendations for plan adjustments.
+    When curriculum_adjustment_needed is True, the reflection layer is
+    signaling that upper layers (strategy/tactics) should revise their plans.
+    """
 
     report_id: str = Field(..., description="Unique identifier for the report")
     metrics: ProgressMetrics = Field(..., description="Current progress metrics")
@@ -295,93 +317,115 @@ class PersonalizedLearningPlan(FrozenModel):
 
     def to_markdown(self) -> str:
         """Convert the learning plan to markdown format."""
-        modules_md = "\n".join(
-            f"### {m.module_id}: {m.name}\n"
-            f"- **カテゴリ**: {m.category.value}\n"
-            f"- **説明**: {m.description}\n"
-            f"- **推定時間**: {m.estimated_hours}時間\n"
-            f"- **習得スキル**: {', '.join(m.target_competencies)}\n"
-            for m in self.strategy.roadmap.modules
+        lines = [
+            "# パーソナライズ学習プラン",
+            "",
+            "## 学習者プロフィール",
+            f"- **学習目標**: {self.learner_profile.learning_goal}",
+            f"- **週あたり学習時間**: {self.learner_profile.available_hours_per_week}時間",
+            f"- **目標期間**: {self.learner_profile.target_duration_weeks}週間",
+            "",
+            "## 戦略概要",
+            f"- **学習ドメイン**: {self.strategy.learning_domain}",
+            f"- **現在レベル**: {self.strategy.roadmap.current_level.value}",
+            f"- **目標レベル**: {self.strategy.roadmap.target_level.value}",
+            f"- **推奨学習時間**: 週{self.strategy.recommended_study_hours_per_week}時間",
+            "",
+            "## 学習ロードマップ",
+            "",
+            "### ゴールサマリー",
+            self.strategy.roadmap.goal_summary,
+            "",
+            "### マイルストーン",
+        ]
+
+        # Add milestones
+        for i, milestone in enumerate(self.strategy.roadmap.milestones, 1):
+            lines.append(f"{i}. {milestone}")
+
+        # Add modules
+        lines.extend(["", "## 学習モジュール"])
+        for m in self.strategy.roadmap.modules:
+            lines.extend(
+                [
+                    f"### {m.module_id}: {m.name}",
+                    f"- **カテゴリ**: {m.category.value}",
+                    f"- **説明**: {m.description}",
+                    f"- **推定時間**: {m.estimated_hours}時間",
+                    f"- **習得スキル**: {', '.join(m.target_competencies)}",
+                    "",
+                ]
+            )
+
+        # Add curriculum details
+        lines.extend(
+            [
+                "## カリキュラム詳細",
+                "",
+                "### カリキュラム概要",
+                self.curriculum.curriculum_summary,
+                "",
+                "### 評価戦略",
+                self.curriculum.assessment_strategy,
+                "",
+            ]
         )
 
-        milestones_md = "\n".join(
-            f"{i + 1}. {milestone}" for i, milestone in enumerate(self.strategy.roadmap.milestones)
-        )
+        # Add weekly plans (first 2 weeks)
+        for week in self.curriculum.weekly_plans[:2]:
+            lines.extend(
+                [
+                    f"### 第{week.week_number}週: {week.theme}",
+                    "**学習目標**:",
+                ]
+            )
+            for goal in week.learning_goals:
+                lines.append(f"- {goal}")
 
-        weekly_plans_md = ""
-        for week in self.curriculum.weekly_plans[:2]:  # Show first 2 weeks
-            tasks_summary = []
+            lines.append("")
+            lines.append("**日別タスク**:")
             for day, tasks in week.daily_tasks.items():
-                task_names = [t.title for t in tasks]
-                tasks_summary.append(f"  - **{day}**: {', '.join(task_names)}")
-            tasks_md = "\n".join(tasks_summary)
-            weekly_plans_md += f"""
-### 第{week.week_number}週: {week.theme}
-**学習目標**:
-{chr(10).join(f"- {g}" for g in week.learning_goals)}
+                task_names = ", ".join(t.title for t in tasks)
+                lines.append(f"  - **{day}**: {task_names}")
 
-**日別タスク**:
-{tasks_md}
+            lines.extend(
+                [
+                    "",
+                    f"**週次評価**: {week.weekly_assessment}",
+                    "",
+                ]
+            )
 
-**週次評価**: {week.weekly_assessment}
+        # Add learning sessions (first 3)
+        lines.append("## 今週の学習セッション")
+        for session in self.first_week_sessions[:3]:
+            lines.extend(
+                [
+                    "",
+                    f"### {session.content.title}",
+                    f"- **コンテンツタイプ**: {session.content.content_type.value}",
+                    f"- **キーコンセプト**: {', '.join(session.content.key_concepts)}",
+                    "",
+                    f"**クイズ**: {session.quiz.title} ({len(session.quiz.questions)}問)",
+                    "",
+                ]
+            )
 
-"""
+        # Add progress report
+        track_status = "順調" if self.progress_report.metrics.on_track else "調整が必要"
+        lines.extend(
+            [
+                "## 進捗レポート",
+                f"- **進捗状況**: {self.progress_report.progress_summary}",
+                f"- **トラック状況**: {track_status}",
+                "",
+                "### 推奨事項",
+            ]
+        )
+        for rec in self.progress_report.recommendations:
+            lines.append(f"- {rec}")
 
-        sessions_md = ""
-        for session in self.first_week_sessions[:3]:  # Show first 3 sessions
-            sessions_md += f"""
-### {session.content.title}
-- **コンテンツタイプ**: {session.content.content_type.value}
-- **キーコンセプト**: {", ".join(session.content.key_concepts)}
-
-**クイズ**: {session.quiz.title} ({len(session.quiz.questions)}問)
-
-"""
-
-        return f"""# パーソナライズ学習プラン
-
-## 学習者プロフィール
-- **学習目標**: {self.learner_profile.learning_goal}
-- **週あたり学習時間**: {self.learner_profile.available_hours_per_week}時間
-- **目標期間**: {self.learner_profile.target_duration_weeks}週間
-
-## 戦略概要
-- **学習ドメイン**: {self.strategy.learning_domain}
-- **現在レベル**: {self.strategy.roadmap.current_level.value}
-- **目標レベル**: {self.strategy.roadmap.target_level.value}
-- **推奨学習時間**: 週{self.strategy.recommended_study_hours_per_week}時間
-
-## 学習ロードマップ
-
-### ゴールサマリー
-{self.strategy.roadmap.goal_summary}
-
-### マイルストーン
-{milestones_md}
-
-## 学習モジュール
-{modules_md}
-
-## カリキュラム詳細
-
-### カリキュラム概要
-{self.curriculum.curriculum_summary}
-
-### 評価戦略
-{self.curriculum.assessment_strategy}
-
-{weekly_plans_md}
-
-## 今週の学習セッション
-{sessions_md}
-
-## 進捗レポート
-- **進捗状況**: {self.progress_report.progress_summary}
-- **トラック状況**: {"順調" if self.progress_report.metrics.on_track else "調整が必要"}
-
-### 推奨事項
-{chr(10).join(f"- {r}" for r in self.progress_report.recommendations)}
-"""
+        return "\n".join(lines)
 
 
 # =============================================================================
