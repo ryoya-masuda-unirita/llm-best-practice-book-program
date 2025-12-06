@@ -18,7 +18,3 @@ fix: lint fmt
 .PHONY: mypy
 mypy:
 	uvx mypy $(SRC) --namespace-packages --explicit-package-bases
-
-.PHONY: run_weather_mcp
-run_weather_mcp:
-	uv run python tool_server/weather_server.py

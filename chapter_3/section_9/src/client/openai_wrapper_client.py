@@ -3,7 +3,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from google import genai
 from openai import AsyncOpenAI, OpenAI
 
 from src.config import config
@@ -18,13 +17,8 @@ class ChatCompletionsWrapper:
         self._log_dir.mkdir(exist_ok=True)
 
     def create(self, *args, **kwargs):
-        """Wrap create method to log request and response."""
         start_time = datetime.now()
-
-        # Call the original method
         response = self._chat_completions.create(*args, **kwargs)
-
-        # Log the request and response
         self._log_usage(
             method="chat.completions.create",
             args=args,
@@ -32,11 +26,9 @@ class ChatCompletionsWrapper:
             response=response,
             start_time=start_time,
         )
-
         return response
 
     def _log_usage(self, method: str, args: tuple, kwargs: dict, response: Any, start_time: datetime):
-        """Log usage information to JSON file."""
         end_time = datetime.now()
         duration_ms = (end_time - start_time).total_seconds() * 1000
 
@@ -85,13 +77,11 @@ class ChatCompletionsWrapper:
             },
         }
 
-        # Write to log file
         log_filename = self._log_dir / f"openai_{start_time.strftime('%Y%m%d_%H%M%S_%f')}.json"
         with open(log_filename, "w") as f:
             json.dump(log_data, f, indent=2, ensure_ascii=False)
 
     def __getattr__(self, name):
-        """Delegate other attributes to the original object."""
         return getattr(self._chat_completions, name)
 
 
@@ -104,13 +94,8 @@ class AsyncChatCompletionsWrapper:
         self._log_dir.mkdir(exist_ok=True)
 
     async def create(self, *args, **kwargs):
-        """Wrap create method to log request and response."""
         start_time = datetime.now()
-
-        # Call the original method
         response = await self._chat_completions.create(*args, **kwargs)
-
-        # Log the request and response
         self._log_usage(
             method="chat.completions.create",
             args=args,
@@ -118,11 +103,9 @@ class AsyncChatCompletionsWrapper:
             response=response,
             start_time=start_time,
         )
-
         return response
 
     def _log_usage(self, method: str, args: tuple, kwargs: dict, response: Any, start_time: datetime):
-        """Log usage information to JSON file."""
         end_time = datetime.now()
         duration_ms = (end_time - start_time).total_seconds() * 1000
 
@@ -171,13 +154,11 @@ class AsyncChatCompletionsWrapper:
             },
         }
 
-        # Write to log file
         log_filename = self._log_dir / f"async_openai_{start_time.strftime('%Y%m%d_%H%M%S_%f')}.json"
         with open(log_filename, "w") as f:
             json.dump(log_data, f, indent=2, ensure_ascii=False)
 
     def __getattr__(self, name):
-        """Delegate other attributes to the original object."""
         return getattr(self._chat_completions, name)
 
 
@@ -190,13 +171,8 @@ class ResponsesWrapper:
         self._log_dir.mkdir(exist_ok=True)
 
     def create(self, *args, **kwargs):
-        """Wrap create method to log request and response."""
         start_time = datetime.now()
-
-        # Call the original method
         response = self._responses.create(*args, **kwargs)
-
-        # Log the request and response
         self._log_usage(
             method="responses.create",
             args=args,
@@ -204,17 +180,11 @@ class ResponsesWrapper:
             response=response,
             start_time=start_time,
         )
-
         return response
 
     def parse(self, *args, **kwargs):
-        """Wrap parse method to log request and response."""
         start_time = datetime.now()
-
-        # Call the original method
         response = self._responses.parse(*args, **kwargs)
-
-        # Log the request and response
         self._log_usage(
             method="responses.parse",
             args=args,
@@ -222,20 +192,16 @@ class ResponsesWrapper:
             response=response,
             start_time=start_time,
         )
-
         return response
 
     def _log_usage(self, method: str, args: tuple, kwargs: dict, response: Any, start_time: datetime):
-        """Log usage information to JSON file."""
         end_time = datetime.now()
         duration_ms = (end_time - start_time).total_seconds() * 1000
 
-        # Extract usage information - handle both CompletionUsage and ResponseUsage
+        # Handle both CompletionUsage and ResponseUsage field naming
         usage_info = {}
         if hasattr(response, "usage") and response.usage:
             usage = response.usage
-            # ResponseUsage uses input_tokens, output_tokens, total_tokens
-            # CompletionUsage uses prompt_tokens, completion_tokens, total_tokens
             usage_info = {
                 "prompt_tokens": getattr(usage, "prompt_tokens", None) or getattr(usage, "input_tokens", None),
                 "completion_tokens": getattr(usage, "completion_tokens", None) or getattr(usage, "output_tokens", None),
@@ -269,13 +235,11 @@ class ResponsesWrapper:
             },
         }
 
-        # Write to log file
         log_filename = self._log_dir / f"openai_responses_{start_time.strftime('%Y%m%d_%H%M%S_%f')}.json"
         with open(log_filename, "w") as f:
             json.dump(log_data, f, indent=2, ensure_ascii=False)
 
     def __getattr__(self, name):
-        """Delegate other attributes to the original object."""
         return getattr(self._responses, name)
 
 
@@ -288,13 +252,8 @@ class AsyncResponsesWrapper:
         self._log_dir.mkdir(exist_ok=True)
 
     async def create(self, *args, **kwargs):
-        """Wrap create method to log request and response."""
         start_time = datetime.now()
-
-        # Call the original method
         response = await self._responses.create(*args, **kwargs)
-
-        # Log the request and response
         self._log_usage(
             method="responses.create",
             args=args,
@@ -302,17 +261,11 @@ class AsyncResponsesWrapper:
             response=response,
             start_time=start_time,
         )
-
         return response
 
     async def parse(self, *args, **kwargs):
-        """Wrap parse method to log request and response."""
         start_time = datetime.now()
-
-        # Call the original method
         response = await self._responses.parse(*args, **kwargs)
-
-        # Log the request and response
         self._log_usage(
             method="responses.parse",
             args=args,
@@ -320,20 +273,16 @@ class AsyncResponsesWrapper:
             response=response,
             start_time=start_time,
         )
-
         return response
 
     def _log_usage(self, method: str, args: tuple, kwargs: dict, response: Any, start_time: datetime):
-        """Log usage information to JSON file."""
         end_time = datetime.now()
         duration_ms = (end_time - start_time).total_seconds() * 1000
 
-        # Extract usage information - handle both CompletionUsage and ResponseUsage
+        # Handle both CompletionUsage and ResponseUsage field naming
         usage_info = {}
         if hasattr(response, "usage") and response.usage:
             usage = response.usage
-            # ResponseUsage uses input_tokens, output_tokens, total_tokens
-            # CompletionUsage uses prompt_tokens, completion_tokens, total_tokens
             usage_info = {
                 "prompt_tokens": getattr(usage, "prompt_tokens", None) or getattr(usage, "input_tokens", None),
                 "completion_tokens": getattr(usage, "completion_tokens", None) or getattr(usage, "output_tokens", None),
@@ -367,13 +316,11 @@ class AsyncResponsesWrapper:
             },
         }
 
-        # Write to log file
         log_filename = self._log_dir / f"async_openai_responses_{start_time.strftime('%Y%m%d_%H%M%S_%f')}.json"
         with open(log_filename, "w") as f:
             json.dump(log_data, f, indent=2, ensure_ascii=False)
 
     def __getattr__(self, name):
-        """Delegate other attributes to the original object."""
         return getattr(self._responses, name)
 
 
@@ -388,7 +335,6 @@ class ChatWrapper:
 
     @property
     def completions(self):
-        """Wrap completions with logging."""
         if self._completions is None:
             if self._is_async:
                 self._completions = AsyncChatCompletionsWrapper(self._chat.completions, self._log_dir)
@@ -397,7 +343,6 @@ class ChatWrapper:
         return self._completions
 
     def __getattr__(self, name):
-        """Delegate other attributes to the original object."""
         return getattr(self._chat, name)
 
 
@@ -412,20 +357,17 @@ class OpenAIWrapperClient(OpenAI):
 
     @property
     def chat(self):
-        """Wrap chat object to add logging."""
         if self._chat_wrapper is None:
             self._chat_wrapper = ChatWrapper(super().chat, self._log_dir, is_async=False)
         return self._chat_wrapper
 
     @property
     def responses(self):
-        """Wrap responses object to add logging."""
         if self._responses_wrapper is None:
             self._responses_wrapper = ResponsesWrapper(super().responses, self._log_dir)
         return self._responses_wrapper
 
     def __getattr__(self, name):
-        """Delegate other attributes to the parent class."""
         return super().__getattribute__(name)
 
 
@@ -440,250 +382,15 @@ class AsyncOpenAIWrapperClient(AsyncOpenAI):
 
     @property
     def chat(self):
-        """Wrap chat object to add logging."""
         if self._chat_wrapper is None:
             self._chat_wrapper = ChatWrapper(super().chat, self._log_dir, is_async=True)
         return self._chat_wrapper
 
     @property
     def responses(self):
-        """Wrap responses object to add logging."""
         if self._responses_wrapper is None:
             self._responses_wrapper = AsyncResponsesWrapper(super().responses, self._log_dir)
         return self._responses_wrapper
 
     def __getattr__(self, name):
-        """Delegate other attributes to the parent class."""
-        return super().__getattribute__(name)
-
-
-class ModelsWrapper:
-    """Wrapper for genai models to add logging."""
-
-    def __init__(self, models, log_dir: str = config.usage_log_directory):
-        self._models = models
-        self._log_dir = Path(log_dir)
-        self._log_dir.mkdir(exist_ok=True)
-
-    def generate_content(self, *args, **kwargs):
-        """Wrap generate_content method to log request and response."""
-        start_time = datetime.now()
-
-        # Call the original method
-        response = self._models.generate_content(*args, **kwargs)
-
-        # Log the request and response
-        self._log_usage(
-            method="models.generate_content",
-            args=args,
-            kwargs=kwargs,
-            response=response,
-            start_time=start_time,
-        )
-
-        return response
-
-    def _log_usage(self, method: str, args: tuple, kwargs: dict, response: Any, start_time: datetime):
-        """Log usage information to JSON file."""
-        end_time = datetime.now()
-        duration_ms = (end_time - start_time).total_seconds() * 1000
-
-        # Extract model from args or kwargs
-        model = args[0] if len(args) > 0 else kwargs.get("model")
-        contents = args[1] if len(args) > 1 else kwargs.get("contents")
-
-        log_data = {
-            "timestamp": start_time.isoformat(),
-            "method": method,
-            "duration_ms": duration_ms,
-            "request": {
-                "model": model,
-                "contents": contents,
-                "config": str(kwargs.get("config")) if kwargs.get("config") else None,
-                "parameters": {k: v for k, v in kwargs.items() if k not in ["model", "contents", "config"]},
-            },
-            "response": {
-                "text": getattr(response, "text", None),
-                "candidates": [
-                    {
-                        "content": {
-                            "parts": [{"text": part.text} for part in candidate.content.parts]
-                            if hasattr(candidate, "content") and hasattr(candidate.content, "parts")
-                            else None,
-                            "role": candidate.content.role if hasattr(candidate, "content") else None,
-                        },
-                        "finish_reason": getattr(candidate, "finish_reason", None),
-                        "safety_ratings": [
-                            {
-                                "category": rating.category,
-                                "probability": rating.probability,
-                            }
-                            for rating in getattr(candidate, "safety_ratings", [])
-                        ]
-                        if hasattr(candidate, "safety_ratings") and getattr(candidate, "safety_ratings")
-                        else None,
-                    }
-                    for candidate in getattr(response, "candidates", [])
-                ],
-                "usage_metadata": {
-                    "prompt_token_count": response.usage_metadata.prompt_token_count
-                    if hasattr(response, "usage_metadata")
-                    else None,
-                    "candidates_token_count": response.usage_metadata.candidates_token_count
-                    if hasattr(response, "usage_metadata")
-                    else None,
-                    "total_token_count": response.usage_metadata.total_token_count
-                    if hasattr(response, "usage_metadata")
-                    else None,
-                },
-            },
-        }
-
-        # Write to log file
-        log_filename = self._log_dir / f"genai_{start_time.strftime('%Y%m%d_%H%M%S_%f')}.json"
-        with open(log_filename, "w") as f:
-            json.dump(log_data, f, indent=2, ensure_ascii=False)
-
-    def __getattr__(self, name):
-        """Delegate other attributes to the original object."""
-        return getattr(self._models, name)
-
-
-class AsyncModelsWrapper:
-    """Wrapper for genai async models to add logging."""
-
-    def __init__(self, models, log_dir: str = config.usage_log_directory):
-        self._models = models
-        self._log_dir = Path(log_dir)
-        self._log_dir.mkdir(exist_ok=True)
-
-    async def generate_content(self, *args, **kwargs):
-        """Wrap async generate_content method to log request and response."""
-        start_time = datetime.now()
-
-        # Call the original method
-        response = await self._models.generate_content(*args, **kwargs)
-
-        # Log the request and response
-        self._log_usage(
-            method="aio.models.generate_content",
-            args=args,
-            kwargs=kwargs,
-            response=response,
-            start_time=start_time,
-        )
-
-        return response
-
-    def _log_usage(self, method: str, args: tuple, kwargs: dict, response: Any, start_time: datetime):
-        """Log usage information to JSON file."""
-        end_time = datetime.now()
-        duration_ms = (end_time - start_time).total_seconds() * 1000
-
-        # Extract model from args or kwargs
-        model = args[0] if len(args) > 0 else kwargs.get("model")
-        contents = args[1] if len(args) > 1 else kwargs.get("contents")
-
-        log_data = {
-            "timestamp": start_time.isoformat(),
-            "method": method,
-            "duration_ms": duration_ms,
-            "request": {
-                "model": model,
-                "contents": contents,
-                "config": str(kwargs.get("config")) if kwargs.get("config") else None,
-                "parameters": {k: v for k, v in kwargs.items() if k not in ["model", "contents", "config"]},
-            },
-            "response": {
-                "text": getattr(response, "text", None),
-                "candidates": [
-                    {
-                        "content": {
-                            "parts": [{"text": part.text} for part in candidate.content.parts]
-                            if hasattr(candidate, "content") and hasattr(candidate.content, "parts")
-                            else None,
-                            "role": candidate.content.role if hasattr(candidate, "content") else None,
-                        },
-                        "finish_reason": getattr(candidate, "finish_reason", None),
-                        "safety_ratings": [
-                            {
-                                "category": rating.category,
-                                "probability": rating.probability,
-                            }
-                            for rating in getattr(candidate, "safety_ratings", [])
-                        ]
-                        if hasattr(candidate, "safety_ratings") and getattr(candidate, "safety_ratings")
-                        else None,
-                    }
-                    for candidate in getattr(response, "candidates", [])
-                ],
-                "usage_metadata": {
-                    "prompt_token_count": response.usage_metadata.prompt_token_count
-                    if hasattr(response, "usage_metadata")
-                    else None,
-                    "candidates_token_count": response.usage_metadata.candidates_token_count
-                    if hasattr(response, "usage_metadata")
-                    else None,
-                    "total_token_count": response.usage_metadata.total_token_count
-                    if hasattr(response, "usage_metadata")
-                    else None,
-                },
-            },
-        }
-
-        # Write to log file
-        log_filename = self._log_dir / f"async_genai_{start_time.strftime('%Y%m%d_%H%M%S_%f')}.json"
-        with open(log_filename, "w") as f:
-            json.dump(log_data, f, indent=2, ensure_ascii=False)
-
-    def __getattr__(self, name):
-        """Delegate other attributes to the original object."""
-        return getattr(self._models, name)
-
-
-class AioWrapper:
-    """Wrapper for genai aio object to inject async models wrapper."""
-
-    def __init__(self, aio, log_dir: str = config.usage_log_directory):
-        self._aio = aio
-        self._log_dir = log_dir
-        self._models = None
-
-    @property
-    def models(self):
-        """Wrap models with logging."""
-        if self._models is None:
-            self._models = AsyncModelsWrapper(self._aio.models, self._log_dir)
-        return self._models
-
-    def __getattr__(self, name):
-        """Delegate other attributes to the original object."""
-        return getattr(self._aio, name)
-
-
-class GenAIWrapperClient(genai.Client):
-    """Thin wrapper for genai.Client with usage logging."""
-
-    def __init__(self, *args, log_dir: str = config.usage_log_directory, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._log_dir = log_dir
-        self._models_wrapper = None
-        self._aio_wrapper = None
-
-    @property
-    def models(self):
-        """Wrap models object to add logging."""
-        if self._models_wrapper is None:
-            self._models_wrapper = ModelsWrapper(super().models, self._log_dir)
-        return self._models_wrapper
-
-    @property
-    def aio(self):
-        """Wrap aio object to add logging for async methods."""
-        if self._aio_wrapper is None:
-            self._aio_wrapper = AioWrapper(super().aio, self._log_dir)
-        return self._aio_wrapper
-
-    def __getattr__(self, name):
-        """Delegate other attributes to the parent class."""
         return super().__getattribute__(name)

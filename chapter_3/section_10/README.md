@@ -4,16 +4,16 @@
 
 このプロジェクトは、**外部サービス活用（External Service Integration）** を用いたLLMの実装を示すサンプルコードです。LLMの卓越した自然言語処理能力を司令塔として活かしつつ、リアルタイム情報の取得といった専門的なタスクを外部のAPIやツールに委譲する設計パターンを実践します。
 
-具体的には、**MCP (Model Context Protocol)** を使用して、米国国立気象局（NWS）の天気予報APIから気象データを取得し、LLMがそのデータを解釈して適切な服装を提案するアプリケーションを構築します。OpenAI GPTシリーズとGoogle Gemini 2.5の両方に対応し、それぞれ異なるMCP統合パターンを示します。
+具体的には、**MCP (Model Context Protocol)** を使用して、米国国立気象局（NWS）の天気予報APIから気象データを取得し、LLMがそのデータを解釈して適切な服装を提案するアプリケーションを構築します。OpenAI、Google Gemini、Anthropic Claudeの3つのプロバイダーに対応し、それぞれ異なるMCP統合パターンを示します。
 
 ## 機能
 
 - **外部サービス連携**: MCP経由で米国国立気象局（NWS）の天気予報APIを呼び出し
 - **構造化出力**: Pydanticモデルを活用した型安全な服装提案レスポンス
-- **マルチプロバイダー対応**: OpenAIとGoogle Gemini APIの両方をサポート
+- **マルチプロバイダー対応**: OpenAI、Google Gemini、Anthropic Claudeの3つをサポート
 - **2つのMCP統合パターン**:
-  - **OpenAI方式**: MCPツールを手動で呼び出し、結果をプロンプトに含める
-  - **Gemini方式**: MCPセッションをネイティブにツールとして渡す
+  - **手動方式（OpenAI/Anthropic）**: MCPツールを手動で呼び出し、結果をプロンプトに含める
+  - **ネイティブ方式（Gemini）**: MCPセッションをネイティブにツールとして渡す
 - **非同期処理**: async/awaitパターンによる効率的なAPI呼び出し
 - **型安全性**: Pydanticによる厳密な型検証とバリデーション
 - **CLIインターフェース**: Clickライブラリを使用した使いやすいコマンドラインツール
@@ -320,6 +320,7 @@ if "天気予報データの取得に失敗" in weather_data or "Unable to fetch
 
 - **Python**: 3.13.2以上
 - **依存ライブラリ**:
+  - anthropic>=0.74.1
   - click>=8.3.0
   - fastapi>=0.119.0
   - google-genai>=1.45.0
@@ -343,6 +344,7 @@ cp .envrc.example .envrc
 # .envrc
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
 GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
 ```
 
 2. **依存関係のインストール**
@@ -506,109 +508,4 @@ Output directory: outputs
      理由: 首元、手先、耳元は特に冷えやすいので、マフラー、手袋、ニット帽で徹底的に防寒対策をすることで、より快適に過ごせます。
 
 追加アドバイス: 日中は晴れ間が広がりそうですが、気温は非常に低く、風も冷たく感じられるでしょう。外出時は最大限の防寒対策を心がけ、重ね着で調整できるように準備してください。暖かい飲み物を持ち歩くのも良いでしょう。
-```
-
-### テスト方法
-
-現在、このセクションにはユニットテストは含まれていません。手動テストは以下の方法で行います：
-
-#### 1. Gemini APIのテスト（ネイティブMCP統合）
-
-```bash
-uv run python -m src.main -lp GEMINI -m gemini-2.5-flash -lat 39.7456 -lon -97.0892 -od test_outputs
-```
-
-期待される動作：
-- `test_outputs`ディレクトリが作成される
-- `outfit_gemini_XXXXXXXX.json`形式のファイルが生成される
-- JSONファイルが`OutfitResponse`スキーマに準拠している
-- ログに「MCP session initialized for Gemini」が表示される
-- LLMが自動的に`get_forecast`ツールを呼び出す
-
-#### 2. OpenAI APIのテスト（手動MCPツール呼び出し）
-
-```bash
-uv run python -m src.main -lp OPENAI -m gpt-4o-mini -lat 39.7456 -lon -97.0892 -od test_outputs
-```
-
-期待される動作：
-- `test_outputs`ディレクトリが作成される
-- `outfit_openai_XXXXXXXX.json`形式のファイルが生成される
-- JSONファイルが`OutfitResponse`スキーマに準拠している
-- ログに「Calling get_forecast」が表示される
-- 天気データがプロンプトに埋め込まれる
-
-#### 3. MCPサーバーの単独テスト
-
-MCPサーバーが正しく動作するか、別プロセスで確認：
-
-```bash
-# MCPサーバーを起動（別ターミナル）
-make run_weather_mcp
-
-# または
-uv run python tool_server/weather_server.py
-```
-
-期待される動作：
-- 「Starting Weather MCP Server...」が表示される
-- stdioでの通信待機状態になる
-
-#### 4. バリデーションの確認
-
-生成されたJSONファイルが正しい構造を持っているか確認：
-
-```bash
-# jqを使用してJSONを検証
-cat test_outputs/outfit_gemini_*.json | jq .
-
-# outfit_recommendationsの個数を確認（最低3つ必要）
-cat test_outputs/outfit_gemini_*.json | jq '.outfit_recommendations | length'
-
-# Pythonで読み込みテスト
-python -c "
-from src.model.model import OutfitResponse
-import json
-import glob
-
-files = glob.glob('test_outputs/outfit_*.json')
-for file in files:
-    with open(file) as f:
-        data = json.load(f)
-        outfit = OutfitResponse(**data)
-        print(f'✓ Valid: {file}')
-        print(f'  Location: {outfit.location}')
-        print(f'  Temperature: {outfit.current_weather.temperature}°{outfit.current_weather.temperature_unit}')
-        print(f'  Recommendations: {len(outfit.outfit_recommendations)} items')
-"
-```
-
-#### 5. エラーハンドリングのテスト
-
-米国外の座標で実行し、適切なエラーメッセージが表示されることを確認：
-
-```bash
-# 日本（東京）の座標でテスト - エラーが期待される
-uv run python -m src.main -lp GEMINI -m gemini-2.5-flash -lat 35.6762 -lon 139.6503
-```
-
-期待される動作：
-- 「天気予報データの取得に失敗しました」エラーメッセージが表示される
-- 「米国内の座標のみ対応しています」という説明が表示される
-- 例の座標（Kansas, USA）が提示される
-
-#### 6. 異なるモデルの比較テスト
-
-複数のモデルで同じ座標を試して、出力の違いを比較：
-
-```bash
-# 各モデルで実行
-uv run python -m src.main -lp OPENAI -m GPT_5_MINI -lat 39.7456 -lon -97.0892 -od comparison
-uv run python -m src.main -lp OPENAI -m GPT_5 -lat 39.7456 -lon -97.0892 -od comparison
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.7456 -lon -97.0892 -od comparison
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_PRO -lat 39.7456 -lon -97.0892 -od comparison
-
-# 結果を比較
-ls -lh comparison/
-cat comparison/outfit_*.json | jq '.outfit_recommendations[0]'
 ```

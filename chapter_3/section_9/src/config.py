@@ -19,6 +19,7 @@ class Config(BaseModel):
         default=os.environ.get("GOOGLE_API_KEY", ""), description="API key for Google GenAI"
     )
     openai_api_key: Secret[str] = Field(default=os.environ.get("OPENAI_API_KEY", ""), description="API key for OpenAI")
+    anthropic_api_key: Secret[str] = Field(default=os.environ["ANTHROPIC_API_KEY"], description="API key for Anthropic")
 
     usage_log_directory: str = Field(
         default=os.environ.get("USAGE_LOG_DIRECTORY", "usage_logs"), description="Directory for logs"

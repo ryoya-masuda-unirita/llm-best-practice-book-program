@@ -2,7 +2,7 @@
 
 ## 概要
 
-このプロジェクトは、**LLM SDKの薄いラッパーライブラリ**の実装例を示すサンプルコードです。OpenAI APIとGoogle Gemini APIの公式SDKをラップし、透過的なログ記録、トークン使用量の追跡、処理時間の計測といった横断的関心事を一元化します。
+このプロジェクトは、**LLM SDKの薄いラッパーライブラリ**の実装例を示すサンプルコードです。OpenAI、Google Gemini、Anthropicの公式SDKをラップし、透過的なログ記録、トークン使用量の追跡、処理時間の計測といった横断的関心事を一元化します。
 
 公式SDKのインターフェースを可能な限り維持しながら、全てのAPI呼び出しを自動的にロギングする仕組みを実装しています。これにより、アプリケーションコードはビジネスロジックに集中でき、LLM連携部分の保守性、拡張性、観測可能性を飛躍的に向上させることができます。
 
@@ -12,7 +12,7 @@
 - **自動ログ記録**: 全てのAPI呼び出しのリクエスト/レスポンスをJSON形式で保存
 - **トークン使用量追跡**: プロンプトトークン数、補完トークン数、合計トークン数を記録
 - **処理時間計測**: 各API呼び出しの実行時間をミリ秒単位で記録
-- **マルチプロバイダー対応**: OpenAIとGoogle Gemini APIの両方をサポート
+- **マルチプロバイダー対応**: OpenAI、Google Gemini、Anthropic APIをサポート
 - **非同期処理対応**: 同期/非同期の両方のクライアントをラップ
 - **`__getattr__`による委譲**: ラップしていないメソッドは自動的に元のSDKに委譲
 - **構造化出力**: Pydanticモデルを使用した型安全なLLM応答
@@ -30,8 +30,10 @@ chapter_3/section_9/
 │   ├── main.py                  # メインエントリーポイント
 │   ├── client/
 │   │   ├── __init__.py
-│   │   ├── llm_client.py        # ラッパークライアントの初期化
-│   │   └── wrapper_client.py    # ラッパークラスの実装
+│   │   ├── llm_client.py            # ラッパークライアントの初期化
+│   │   ├── openai_wrapper_client.py     # OpenAIラッパー実装
+│   │   ├── gemini_wrapper_client.py     # Geminiラッパー実装
+│   │   └── anthropic_wrapper_client.py  # Anthropicラッパー実装
 │   ├── model/
 │   │   ├── __init__.py
 │   │   └── model.py             # Pydanticデータモデル定義
@@ -47,7 +49,6 @@ chapter_3/section_9/
 ├── outputs/                      # 生成結果の保存先（自動作成）
 ├── usage_logs/                   # 使用ログの保存先（自動作成）
 ├── .envrc.example                # 環境変数設定のサンプル
-├── .gitignore                    # Git除外設定
 ├── Makefile                      # 開発用コマンド
 ├── pyproject.toml                # プロジェクト依存関係
 ├── README.md                     # このファイル
@@ -74,16 +75,16 @@ chapter_3/section_9/
 └─────────────────┬───────────────────────────────┘
                   │
 ┌─────────────────▼───────────────────────────────┐
-│      Wrapper Layer (wrapper_client.py)          │
+│      Wrapper Layer                              │
 │  - OpenAIWrapperClient                          │
-│  - AsyncOpenAIWrapperClient                     │
 │  - GenAIWrapperClient                           │
+│  - AnthropicWrapperClient                       │
 │  - 自動ログ記録とトークン追跡                   │
 └─────────────────┬───────────────────────────────┘
                   │
 ┌─────────────────▼───────────────────────────────┐
 │      Infrastructure Layer                       │
-│  - 公式SDK (OpenAI, Google Gemini)              │
+│  - 公式SDK (OpenAI, Google Gemini, Anthropic)   │
 │  - 設定管理 (config.py)                         │
 │  - ログ管理 (logger.py)                         │
 └─────────────────────────────────────────────────┘
@@ -91,7 +92,7 @@ chapter_3/section_9/
 
 ### 実装の詳細
 
-#### 1. ラッパークライアントの設計原則 (`src/client/wrapper_client.py`)
+#### 1. ラッパークライアントの設計原則
 
 このプロジェクトの中核となるラッパーライブラリは、以下の設計原則に従っています：
 
@@ -103,53 +104,16 @@ chapter_3/section_9/
 
 ```python
 def __getattr__(self, name):
-    """Delegate other attributes to the original object."""
     return getattr(self._chat_completions, name)
 ```
 
 **原則3: 横断的関心事の集約**
 ログ記録、トークン追跡、処理時間計測といった共通処理をラッパーに集約します。
 
-#### 2. OpenAIラッパーの実装
-
-##### 同期版ラッパー (`OpenAIWrapperClient`)
-
-```python
-class OpenAIWrapperClient(OpenAI):
-    """Thin wrapper for OpenAI client with usage logging."""
-
-    def __init__(self, *args, log_dir: str = config.usage_log_directory, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._log_dir = log_dir
-        self._chat_wrapper = None
-        self._responses_wrapper = None
-
-    @property
-    def chat(self):
-        """Wrap chat object to add logging."""
-        if self._chat_wrapper is None:
-            self._chat_wrapper = ChatWrapper(super().chat, self._log_dir, is_async=False)
-        return self._chat_wrapper
-
-    @property
-    def responses(self):
-        """Wrap responses object to add logging."""
-        if self._responses_wrapper is None:
-            self._responses_wrapper = ResponsesWrapper(super().responses, self._log_dir)
-        return self._responses_wrapper
-```
-
-**ポイント**:
-- `OpenAI`クラスを継承し、公式SDKのすべての機能を保持
-- `chat`と`responses`プロパティのみをオーバーライドしてログ機能を追加
-- 遅延初期化により、使用されない機能のオーバーヘッドを削減
-
-##### 非同期版ラッパー (`AsyncOpenAIWrapperClient`)
+#### 2. OpenAIラッパーの実装 (`src/client/openai_wrapper_client.py`)
 
 ```python
 class AsyncOpenAIWrapperClient(AsyncOpenAI):
-    """Thin wrapper for AsyncOpenAI client with usage logging."""
-
     def __init__(self, *args, log_dir: str = config.usage_log_directory, **kwargs):
         super().__init__(*args, **kwargs)
         self._log_dir = log_dir
@@ -158,26 +122,55 @@ class AsyncOpenAIWrapperClient(AsyncOpenAI):
 
     @property
     def chat(self):
-        """Wrap chat object to add logging."""
         if self._chat_wrapper is None:
             self._chat_wrapper = ChatWrapper(super().chat, self._log_dir, is_async=True)
         return self._chat_wrapper
 
     @property
     def responses(self):
-        """Wrap responses object to add logging."""
         if self._responses_wrapper is None:
             self._responses_wrapper = AsyncResponsesWrapper(super().responses, self._log_dir)
         return self._responses_wrapper
 ```
 
-#### 3. ログ記録の実装
+**ポイント**:
+- `AsyncOpenAI`クラスを継承し、公式SDKのすべての機能を保持
+- `chat`と`responses`プロパティのみをオーバーライドしてログ機能を追加
+- 遅延初期化により、使用されない機能のオーバーヘッドを削減
+
+#### 3. Anthropicラッパーの実装 (`src/client/anthropic_wrapper_client.py`)
+
+```python
+class AsyncAnthropicWrapperClient(AsyncAnthropic):
+    def __init__(self, *args, log_dir: str = config.usage_log_directory, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._log_dir = log_dir
+        self._messages_wrapper = None
+        self._beta_wrapper = None
+
+    @property
+    def messages(self):
+        if self._messages_wrapper is None:
+            self._messages_wrapper = AsyncMessagesWrapper(super().messages, self._log_dir)
+        return self._messages_wrapper
+
+    @property
+    def beta(self):
+        if self._beta_wrapper is None:
+            self._beta_wrapper = BetaWrapper(super().beta, self._log_dir, is_async=True)
+        return self._beta_wrapper
+```
+
+**ポイント**:
+- `messages`と`beta.messages`の両方をラップ
+- 構造化出力（`beta.messages.parse`）にも対応
+
+#### 4. ログ記録の実装
 
 各メソッドラッパーは、API呼び出しの前後で処理時間を計測し、詳細な情報をJSON形式でファイルに保存します：
 
 ```python
 def _log_usage(self, method: str, args: tuple, kwargs: dict, response: Any, start_time: datetime):
-    """Log usage information to JSON file."""
     end_time = datetime.now()
     duration_ms = (end_time - start_time).total_seconds() * 1000
 
@@ -189,11 +182,9 @@ def _log_usage(self, method: str, args: tuple, kwargs: dict, response: Any, star
             "model": kwargs.get("model"),
             "messages": kwargs.get("messages"),
             "temperature": kwargs.get("temperature"),
-            # ... その他のパラメータ
         },
         "response": {
             "id": getattr(response, "id", None),
-            "model": getattr(response, "model", None),
             "usage": {
                 "prompt_tokens": response.usage.prompt_tokens,
                 "completion_tokens": response.usage.completion_tokens,
@@ -207,59 +198,18 @@ def _log_usage(self, method: str, args: tuple, kwargs: dict, response: Any, star
         json.dump(log_data, f, indent=2, ensure_ascii=False)
 ```
 
-**ログの内容**:
-- タイムスタンプ
-- 呼び出されたメソッド名
-- 処理時間（ミリ秒）
-- リクエストパラメータ（モデル、プロンプト、温度など）
-- レスポンス情報（ID、生成テキスト、トークン使用量）
-
-#### 4. Google Geminiラッパーの実装
-
-```python
-class GenAIWrapperClient(genai.Client):
-    """Thin wrapper for genai.Client with usage logging."""
-
-    def __init__(self, *args, log_dir: str = config.usage_log_directory, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._log_dir = log_dir
-        self._models_wrapper = None
-        self._aio_wrapper = None
-
-    @property
-    def models(self):
-        """Wrap models object to add logging."""
-        if self._models_wrapper is None:
-            self._models_wrapper = ModelsWrapper(super().models, self._log_dir)
-        return self._models_wrapper
-
-    @property
-    def aio(self):
-        """Wrap aio object to add logging for async methods."""
-        if self._aio_wrapper is None:
-            self._aio_wrapper = AioWrapper(super().aio, self._log_dir)
-        return self._aio_wrapper
-```
-
-**特徴**:
-- `genai.Client`を継承し、OpenAIと同様のパターンでラップ
-- 同期版（`models`）と非同期版（`aio.models`）の両方に対応
-- プロバイダー固有のレスポンス構造（`usage_metadata`など）を適切に処理
-
 #### 5. クライアントの初期化 (`src/client/llm_client.py`)
 
 ```python
-from src.client.wrapper_client import AsyncOpenAIWrapperClient, GenAIWrapperClient
+from src.client.openai_wrapper_client import AsyncOpenAIWrapperClient
+from src.client.gemini_wrapper_client import GenAIWrapperClient
+from src.client.anthropic_wrapper_client import AsyncAnthropicWrapperClient
 from src.config import config
 
 openai_client = AsyncOpenAIWrapperClient(api_key=config.openai_api_key)
 google_genai_client = GenAIWrapperClient(api_key=config.google_api_key)
+anthropic_client = AsyncAnthropicWrapperClient(api_key=config.anthropic_api_key)
 ```
-
-**ポイント**:
-- ラッパークライアントを公式SDKと同じ方法で初期化
-- アプリケーションコードからは、公式SDKを直接使用する場合と同じインターフェースで利用可能
-- APIキーは設定ファイルから安全に取得
 
 #### 6. 設定管理 (`src/config.py`)
 
@@ -272,27 +222,15 @@ class Config(BaseModel):
         arbitrary_types_allowed=True,
     )
 
-    if os.path.exists(".envrc"):
-        load_dotenv(".envrc")
-
-    google_api_key: Secret[str] = Field(
-        default=os.environ.get("GOOGLE_API_KEY", ""),
-        description="API key for Google GenAI"
-    )
-    openai_api_key: Secret[str] = Field(
-        default=os.environ.get("OPENAI_API_KEY", ""),
-        description="API key for OpenAI"
-    )
-    usage_log_directory: str = Field(
-        default=os.environ.get("USAGE_LOG_DIRECTORY", "usage_logs"),
-        description="Directory for logs"
-    )
+    google_api_key: Secret[str] = Field(default=os.environ.get("GOOGLE_API_KEY", ""))
+    openai_api_key: Secret[str] = Field(default=os.environ.get("OPENAI_API_KEY", ""))
+    anthropic_api_key: Secret[str] = Field(default=os.environ["ANTHROPIC_API_KEY"])
+    usage_log_directory: str = Field(default=os.environ.get("USAGE_LOG_DIRECTORY", "usage_logs"))
 ```
 
 **ポイント**:
 - `Secret[str]`型でAPIキーを保護（ログ出力時に自動マスキング）
 - ログディレクトリを環境変数で設定可能
-- Pydanticの検証機能で設定の健全性を確保
 
 ## 使い方
 
@@ -300,6 +238,7 @@ class Config(BaseModel):
 
 - **Python**: 3.13.2以上
 - **依存ライブラリ**:
+  - anthropic>=0.74.1
   - click>=8.3.0
   - google-genai>=1.45.0
   - openai>=2.4.0
@@ -314,13 +253,12 @@ class Config(BaseModel):
 1. **環境変数ファイルの作成**
 
 ```bash
-# .envrc.exampleをコピーして.envrcを作成
 cp .envrc.example .envrc
 
-# エディタで.envrcを開き、APIキーを設定
-# .envrc
+# .envrcを編集してAPIキーを設定
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
 GOOGLE_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
 ```
 
 2. **依存関係のインストール**
@@ -338,11 +276,14 @@ pip install -e .
 #### 基本的な使い方
 
 ```bash
-# Gemini APIを使用（デフォルト）
+# Gemini APIを使用
 uv run python -m src.main --llm-provider gemini --model gemini-2.5-flash
 
 # OpenAI APIを使用
 uv run python -m src.main --llm-provider openai --model gpt-4o-mini
+
+# Anthropic APIを使用
+uv run python -m src.main --llm-provider anthropic --model claude-sonnet-4-5
 
 # 短縮オプション
 uv run python -m src.main -lp openai -m gpt-4o
@@ -353,27 +294,23 @@ uv run python -m src.main -lp openai -m gpt-4o
 ```bash
 # カスタム出力ディレクトリを指定
 uv run python -m src.main -lp gemini -m gemini-2.5-flash --output-directory ./custom_output
-
-# 短縮オプション
-uv run python -m src.main -lp openai -m gpt-4o-mini -od ./my_characters
 ```
 
 #### 利用可能なモデル
 
 **OpenAI**:
-- gpt-5
-- gpt-5-mini
-- gpt-5-nano
-- gpt-4.1
-- gpt-4.1-mini
-- gpt-4.1-nano
-- gpt-4o
-- gpt-4o-mini
+- gpt-5, gpt-5-mini, gpt-5-nano
+- gpt-4.1, gpt-4.1-mini, gpt-4.1-nano
+- gpt-4o, gpt-4o-mini
 
 **Google Gemini**:
 - gemini-2.5-pro
 - gemini-2.5-flash
 - gemini-2.5-flash-lite
+
+**Anthropic**:
+- claude-sonnet-4-5
+- claude-opus-4-1
 
 #### ヘルプの表示
 
@@ -386,7 +323,7 @@ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
 Options:
-  -lp, --llm-provider [openai|gemini]
+  -lp, --llm-provider [openai|gemini|anthropic]
                                   The LLM provider to use.  [required]
   -m, --model TEXT                The model to use for the request.  [required]
   -od, --output-directory PATH    The directory to save output files.
@@ -454,102 +391,3 @@ Options:
 - **パフォーマンス分析**: 処理時間の統計情報
 - **デバッグ**: エラー発生時の詳細な情報
 - **監査**: API使用履歴の完全な記録
-
-#### 実行ログ例
-
-```
-[2025-11-01 10:17:39] [INFO] [__main__] [main.py:53] [main] LLM provider: gemini
-Model: gemini-2.5-flash
-Output directory: outputs
-[2025-11-01 10:17:44] [INFO] [__main__] [main.py:74] [main] File saved to outputs/gemini_a1b2c3d4e5f6.json
-```
-
-### テスト方法
-
-#### 1. ユニットテストの実行
-
-```bash
-# 全てのテストを実行
-pytest
-
-# 特定のテストファイルを実行
-pytest tests/test_wrapper_client.py
-
-# 詳細な出力を表示
-pytest -v
-
-# カバレッジレポートを生成
-pytest --cov=src --cov-report=html
-```
-
-#### 2. OpenAI APIのテスト
-
-```bash
-uv run python -m src.main -lp openai -m gpt-4o-mini -od test_outputs
-```
-
-**期待される動作**:
-- `test_outputs`ディレクトリが作成される
-- `openai_XXXXXXXX.json`形式のファイルが生成される
-- `usage_logs`ディレクトリに`async_openai_responses_XXXXXXXX.json`が生成される
-- JSONファイルが`CharacterResponse`スキーマに準拠している
-
-#### 3. Gemini APIのテスト
-
-```bash
-uv run python -m src.main -lp gemini -m gemini-2.5-flash -od test_outputs
-```
-
-**期待される動作**:
-- `test_outputs`ディレクトリが作成される
-- `gemini_XXXXXXXX.json`形式のファイルが生成される
-- `usage_logs`ディレクトリに`async_genai_XXXXXXXX.json`が生成される
-- JSONファイルが`CharacterResponse`スキーマに準拠している
-
-#### 4. ログファイルの検証
-
-```bash
-# 最新のログファイルを確認
-ls -lt usage_logs/ | head -5
-
-# ログファイルの内容を確認（jq使用）
-cat usage_logs/async_genai_*.json | jq .
-
-# トークン使用量の集計（jq使用）
-cat usage_logs/*.json | jq -s 'map(.response.usage_metadata.total_token_count // .response.usage.total_tokens) | add'
-```
-
-#### 5. コード品質チェック
-
-```bash
-# リンターの実行
-make lint
-
-# フォーマッターの実行
-make fmt
-
-# 型チェックの実行
-make mypy
-
-# 全てのチェックを実行
-make fix && make mypy
-```
-
-#### 6. バリデーションの確認
-
-生成されたJSONファイルが正しい構造を持っているか確認：
-
-```bash
-# Pythonで読み込みテスト
-python -c "
-from src.model.model import CharacterResponse
-import json
-import glob
-
-for file in glob.glob('test_outputs/*.json'):
-    with open(file) as f:
-        data = json.load(f)
-        character = CharacterResponse(**data)
-        print(f'Valid! {character.first_name} {character.last_name}')
-"
-```

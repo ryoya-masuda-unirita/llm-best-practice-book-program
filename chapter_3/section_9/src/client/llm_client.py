@@ -1,6 +1,8 @@
 from enum import StrEnum
 
-from src.client.wrapper_client import AsyncOpenAIWrapperClient, GenAIWrapperClient
+from src.client.anthropic_wrapper_client import AsyncAnthropicWrapperClient
+from src.client.gemini_wrapper_client import GenAIWrapperClient
+from src.client.openai_wrapper_client import AsyncOpenAIWrapperClient
 from src.config import config
 
 
@@ -9,6 +11,7 @@ class LLMProvider(StrEnum):
 
     OPENAI = "openai"
     GEMINI = "gemini"
+    ANTHROPIC = "anthropic"
 
 
 class OpenAIModel(StrEnum):
@@ -36,5 +39,15 @@ class GeminiModel(StrEnum):
         return [model for model in GeminiModel]
 
 
+class AnthropicModel(StrEnum):
+    CLAUDE_SONNET_4_5 = "claude-sonnet-4-5"
+    CLAUDE_OPUS_4_1 = "claude-opus-4-1"
+
+    @staticmethod
+    def list_str() -> list[str]:
+        return [model for model in AnthropicModel]
+
+
 openai_client = AsyncOpenAIWrapperClient(api_key=config.openai_api_key)
 google_genai_client = GenAIWrapperClient(api_key=config.google_api_key)
+anthropic_client = AsyncAnthropicWrapperClient(api_key=config.anthropic_api_key)
