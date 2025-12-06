@@ -55,7 +55,6 @@ class TestPromptData:
         )
 
         assert prompt_data.created_at is not None
-        # Verify it's a valid ISO timestamp
         parsed_time = datetime.fromisoformat(prompt_data.created_at)
         assert isinstance(parsed_time, datetime)
 
@@ -79,19 +78,16 @@ class TestPromptData:
 
         prompt_data.mask_sensitive_data()
 
-        # Verify SSN is masked
         if "SSN" in pattern_name or "multiple" in pattern_name:
             assert "***-**-****" in prompt_data.prompt_content
             assert "123-45-6789" not in prompt_data.prompt_content
             assert "987-65-4321" not in prompt_data.prompt_content
 
-        # Verify email is masked
         if "email" in pattern_name or "multiple" in pattern_name:
             assert "***@***.***" in prompt_data.prompt_content
             assert "@example.com" not in prompt_data.prompt_content
             assert "@domain.org" not in prompt_data.prompt_content
 
-        # Verify credit card is masked
         if "credit card" in pattern_name:
             assert "****-****-****-****" in prompt_data.prompt_content
             assert "1234-5678-9012-3456" not in prompt_data.prompt_content
@@ -194,7 +190,6 @@ class TestLocalFilePromptStorage:
         """Create temporary storage directory for tests."""
         temp_dir = tempfile.mkdtemp()
         yield temp_dir
-        # Cleanup
         shutil.rmtree(temp_dir, ignore_errors=True)
 
     @pytest.fixture
@@ -226,12 +221,9 @@ class TestLocalFilePromptStorage:
 
         storage_path = await storage.save_prompt(prompt_data, mask_sensitive=False)
 
-        # Verify date-based directory structure exists
-        # Structure is: base_dir/YYYY/MM/DD/file.json
         path = Path(storage_path)
         assert path.parent.parent.parent.parent == Path(temp_storage_dir)
 
-        # Verify directories match current date
         now = datetime.utcnow()
         expected_structure = f"{now.year}/{now.month:02d}/{now.day:02d}"
         assert expected_structure in storage_path
@@ -267,7 +259,6 @@ class TestLocalFilePromptStorage:
 
         storage_path = await storage.save_prompt(prompt_data, mask_sensitive=True)
 
-        # Read back and verify masking was applied
         with open(storage_path, "r", encoding="utf-8") as f:
             saved_data = json.load(f)
 
@@ -285,7 +276,6 @@ class TestLocalFilePromptStorage:
 
         storage_path = await storage.save_prompt(prompt_data, mask_sensitive=False)
 
-        # Read back and verify no masking
         with open(storage_path, "r", encoding="utf-8") as f:
             saved_data = json.load(f)
 
@@ -306,7 +296,6 @@ class TestLocalFilePromptStorage:
 
         storage_path = await storage.save_prompt(prompt_data, mask_sensitive=False)
 
-        # Verify content was saved correctly
         with open(storage_path, "r", encoding="utf-8") as f:
             saved_data = json.load(f)
 
@@ -315,7 +304,6 @@ class TestLocalFilePromptStorage:
 
     async def test_retrieve_prompt_basic(self, storage):
         """Test basic prompt retrieval."""
-        # Save a prompt first
         original_data = PromptData(
             prompt_id="test-retrieve-001",
             prompt_content="Test content",
@@ -323,7 +311,6 @@ class TestLocalFilePromptStorage:
         )
         await storage.save_prompt(original_data, mask_sensitive=False)
 
-        # Retrieve it
         retrieved_data = await storage.retrieve_prompt("test-retrieve-001")
 
         assert retrieved_data is not None
@@ -395,7 +382,6 @@ class TestPromptStorageFactory:
 
     def test_get_local_storage(self):
         """Test getting local file storage."""
-        # Use tempfile to avoid creating directories in the working directory
         temp_dir = tempfile.mkdtemp(prefix="test_prompt_storage_")
         try:
             storage = get_prompt_storage("local", base_dir=temp_dir)
@@ -403,13 +389,11 @@ class TestPromptStorageFactory:
             assert isinstance(storage, LocalFilePromptStorage)
             assert storage.base_dir == Path(temp_dir)
         finally:
-            # Cleanup
             if Path(temp_dir).exists():
                 shutil.rmtree(temp_dir, ignore_errors=True)
 
     def test_get_local_storage_with_custom_dir(self):
         """Test getting local storage with custom directory."""
-        # Use tempfile to create a temporary directory
         custom_dir = tempfile.mkdtemp(prefix="custom_prompt_dir_")
         try:
             storage = get_prompt_storage("local", base_dir=custom_dir)
@@ -417,7 +401,6 @@ class TestPromptStorageFactory:
             assert isinstance(storage, LocalFilePromptStorage)
             assert storage.base_dir == Path(custom_dir)
         finally:
-            # Cleanup
             if Path(custom_dir).exists():
                 shutil.rmtree(custom_dir, ignore_errors=True)
 

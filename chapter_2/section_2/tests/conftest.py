@@ -15,7 +15,6 @@ def temp_dir():
     """Create a temporary directory for tests."""
     temp_path = tempfile.mkdtemp()
     yield temp_path
-    # Cleanup
     shutil.rmtree(temp_path, ignore_errors=True)
 
 
@@ -24,7 +23,6 @@ def temp_storage_dir():
     """Create a temporary storage directory for prompt storage tests."""
     temp_path = tempfile.mkdtemp(prefix="prompt_storage_")
     yield temp_path
-    # Cleanup
     shutil.rmtree(temp_path, ignore_errors=True)
 
 
@@ -33,7 +31,6 @@ def temp_output_dir():
     """Create a temporary output directory for generated files."""
     temp_path = tempfile.mkdtemp(prefix="output_")
     yield temp_path
-    # Cleanup
     shutil.rmtree(temp_path, ignore_errors=True)
 
 
@@ -42,9 +39,8 @@ def mock_logger():
     """Create a real logger instance for testing (not a mock)."""
     logger = logging.getLogger("test_logger")
     logger.setLevel(logging.DEBUG)
-    logger.handlers = []  # Clear any existing handlers
+    logger.handlers = []
 
-    # Add a handler that captures logs
     handler = logging.StreamHandler()
     handler.setLevel(logging.DEBUG)
     formatter = logging.Formatter("%(message)s")
@@ -89,16 +85,13 @@ def sample_metadata():
     }
 
 
-# Configure pytest to capture logs
 def pytest_configure(config):
     """Configure pytest."""
     config.addinivalue_line("markers", "asyncio: mark test as an asyncio coroutine")
 
 
-# Optional: Add custom pytest collection behavior
 def pytest_collection_modifyitems(config, items):
     """Modify test collection."""
-    # Add asyncio marker to all async tests
     for item in items:
         if "asyncio" in item.keywords:
             item.add_marker(pytest.mark.asyncio)

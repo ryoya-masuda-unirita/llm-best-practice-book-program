@@ -3,6 +3,8 @@
 import asyncio
 import random
 import time
+from dataclasses import dataclass, field
+from typing import Optional
 
 from src.client.llm_client import LLMProvider
 from src.config import config
@@ -10,204 +12,207 @@ from src.logger import make_logger
 from src.model.model import Priority, QueuedTask, TaskStatus
 from src.prompt.prompt import make_prompt
 from src.service.queue_manager import queue_manager
-from src.service.request_llm import request_gemini, request_openai
+from src.service.request_llm import request_openai
 
 logger = make_logger(__name__)
+
+
+@dataclass
+class WorkerStats:
+    """Statistics tracking for worker performance."""
+
+    processed_count: int = 0
+    failed_count: int = 0
+    total_processing_time_ms: float = 0.0
+
+    def record_success(self, processing_time_ms: float) -> None:
+        self.processed_count += 1
+        self.total_processing_time_ms += processing_time_ms
+
+    def record_failure(self) -> None:
+        self.failed_count += 1
+
+    @property
+    def average_processing_time_ms(self) -> float:
+        if self.processed_count == 0:
+            return 0.0
+        return self.total_processing_time_ms / self.processed_count
+
+
+@dataclass
+class PriorityWeights:
+    """Configuration for priority queue processing weights."""
+
+    high: float = field(default_factory=lambda: config.high_priority_ratio)
+    medium: float = field(default_factory=lambda: config.medium_priority_ratio)
+    low: float = field(default_factory=lambda: config.low_priority_ratio)
+
+    def as_list(self) -> list[float]:
+        return [self.high, self.medium, self.low]
+
+    def normalized(self) -> list[float]:
+        total = self.high + self.medium + self.low
+        return [w / total for w in self.as_list()]
+
+
+class WeightedPriorityScheduler:
+    """Selects priority queues using weighted random selection to prevent starvation."""
+
+    PRIORITIES = [Priority.HIGH, Priority.MEDIUM, Priority.LOW]
+
+    def __init__(self, weights: Optional[PriorityWeights] = None) -> None:
+        self._weights = weights or PriorityWeights()
+
+    def select_priority(self) -> Priority:
+        return random.choices(self.PRIORITIES, weights=self._weights.normalized(), k=1)[0]
+
+    def get_weights_display(self) -> str:
+        return f"High: {self._weights.high:.0%}, Medium: {self._weights.medium:.0%}, Low: {self._weights.low:.0%}"
+
+
+class TaskProcessor:
+    """Handles execution of individual LLM tasks with retry logic."""
+
+    def __init__(self, stats: WorkerStats) -> None:
+        self._stats = stats
+
+    async def process(self, task: QueuedTask) -> None:
+        start_time = time.time()
+
+        try:
+            await self._execute_task(task, start_time)
+        except Exception as e:
+            await self._handle_failure(task, e)
+
+    async def _execute_task(self, task: QueuedTask, start_time: float) -> None:
+        task.status = TaskStatus.PROCESSING
+        task.started_at = start_time
+        await queue_manager.update_task(task)
+
+        logger.info(
+            f"Processing task {task.task_id} (priority: {task.priority.value}, provider: {task.provider}/{task.model})"
+        )
+
+        if task.provider != LLMProvider.OPENAI.value:
+            raise ValueError(f"Unsupported provider: {task.provider}")
+
+        prompt = make_prompt(character_request=task.character_request)
+        character = await request_openai(model=task.model, prompt=prompt)
+
+        processing_time_ms = (time.time() - start_time) * 1000
+
+        task.result = {
+            "character": character.model_dump(),
+            "provider": task.provider,
+            "model": task.model,
+            "processing_time_ms": processing_time_ms,
+        }
+        task.status = TaskStatus.COMPLETED
+        task.completed_at = time.time()
+
+        await queue_manager.update_task(task)
+        self._stats.record_success(processing_time_ms)
+
+        logger.info(
+            f"Completed task {task.task_id} in {processing_time_ms:.2f}ms (total: {self._stats.processed_count})"
+        )
+
+    async def _handle_failure(self, task: QueuedTask, error: Exception) -> None:
+        task.retry_count += 1
+        task.error_message = str(error)
+
+        if task.retry_count >= config.max_retry_attempts:
+            task.status = TaskStatus.FAILED
+            task.completed_at = time.time()
+            self._stats.record_failure()
+            logger.error(
+                f"Task {task.task_id} failed after {task.retry_count} attempts: {error} "
+                f"(total failed: {self._stats.failed_count})"
+            )
+        else:
+            task.status = TaskStatus.PENDING
+            logger.warning(f"Task {task.task_id} failed (attempt {task.retry_count}), re-queuing: {error}")
+
+        await queue_manager.update_task(task)
+
+        if task.retry_count < config.max_retry_attempts:
+            await queue_manager.enqueue_task(task)
 
 
 class PriorityWorker:
     """Worker that processes tasks from priority queues with weighted scheduling."""
 
-    def __init__(self):
-        """Initialize the worker."""
-        self.running = False
-        self.processed_count = 0
-        self.failed_count = 0
+    MAX_DEQUEUE_ATTEMPTS = 10
+    BUSY_POLL_INTERVAL = 0.1
+    IDLE_POLL_INTERVAL = 1.0
 
-    def _get_next_priority(self) -> Priority:
-        """
-        Determine which priority queue to process next based on configured ratios.
+    def __init__(self) -> None:
+        self._running = False
+        self._stats = WorkerStats()
+        self._scheduler = WeightedPriorityScheduler()
+        self._processor = TaskProcessor(self._stats)
 
-        Uses weighted random selection based on priority ratios to ensure
-        fair distribution while maintaining priority preferences.
+    @property
+    def stats(self) -> WorkerStats:
+        return self._stats
 
-        Returns:
-            The priority level to process next
-        """
-        # Create weighted choices based on configured ratios
-        priorities = [Priority.HIGH, Priority.MEDIUM, Priority.LOW]
-        weights = [
-            config.high_priority_ratio,
-            config.medium_priority_ratio,
-            config.low_priority_ratio,
-        ]
+    @property
+    def is_running(self) -> bool:
+        return self._running
 
-        # Normalize weights to sum to 1.0
-        total_weight = sum(weights)
-        normalized_weights = [w / total_weight for w in weights]
+    async def run(self, poll_interval: Optional[float] = None) -> None:
+        """Run the worker continuously, processing tasks from priority queues."""
+        idle_interval = poll_interval or self.IDLE_POLL_INTERVAL
+        self._running = True
 
-        # Weighted random selection
-        return random.choices(priorities, weights=normalized_weights, k=1)[0]
-
-    async def _process_task(self, task: QueuedTask) -> None:
-        """
-        Process a single task by calling the LLM and storing the result.
-
-        Args:
-            task: The task to process
-        """
-        start_time = time.time()
+        logger.info(f"Worker started with priority ratios - {self._scheduler.get_weights_display()}")
 
         try:
-            # Update task status to processing
-            task.status = TaskStatus.PROCESSING
-            task.started_at = start_time
-            await queue_manager.update_task(task)
-
-            logger.info(
-                f"Processing task {task.task_id} "
-                f"(priority: {task.priority.value}, provider: {task.provider}/{task.model})"
-            )
-
-            # Create prompt
-            prompt = make_prompt(character_request=task.character_request)
-
-            # Call LLM based on provider
-            if task.provider == LLMProvider.OPENAI.value:
-                character = await request_openai(model=task.model, prompt=prompt)
-            elif task.provider == LLMProvider.GEMINI.value:
-                character = await request_gemini(model=task.model, prompt=prompt)
-            else:
-                raise ValueError(f"Unsupported provider: {task.provider}")
-
-            # Calculate processing time
-            processing_time = (time.time() - start_time) * 1000
-
-            # Store result
-            task.result = {
-                "character": character.model_dump(),
-                "provider": task.provider,
-                "model": task.model,
-                "processing_time_ms": processing_time,
-            }
-            task.status = TaskStatus.COMPLETED
-            task.completed_at = time.time()
-
-            await queue_manager.update_task(task)
-
-            self.processed_count += 1
-            logger.info(
-                f"Successfully processed task {task.task_id} in {processing_time:.2f}ms "
-                f"(total processed: {self.processed_count})"
-            )
-
-        except Exception as e:
-            # Handle failure
-            task.retry_count += 1
-            task.error_message = str(e)
-
-            if task.retry_count >= config.max_retry_attempts:
-                task.status = TaskStatus.FAILED
-                task.completed_at = time.time()
-                self.failed_count += 1
-                logger.error(
-                    f"Task {task.task_id} failed after {task.retry_count} attempts: {e} "
-                    f"(total failed: {self.failed_count})"
-                )
-            else:
-                # Re-queue for retry
-                task.status = TaskStatus.PENDING
-                logger.warning(f"Task {task.task_id} failed (attempt {task.retry_count}), re-queuing: {e}")
-
-            await queue_manager.update_task(task)
-
-            # Re-enqueue if not exceeding max retries
-            if task.retry_count < config.max_retry_attempts:
-                await queue_manager.enqueue_task(task)
-
-    async def _process_next_task(self) -> bool:
-        """
-        Attempt to process the next task from priority queues.
-
-        Returns:
-            True if a task was processed, False if no tasks available
-        """
-        # Get queue sizes
-        queue_sizes = await queue_manager.get_all_queue_sizes()
-        total_tasks = sum(queue_sizes.values())
-
-        if total_tasks == 0:
-            return False
-
-        # Try to get a task from queues in weighted priority order
-        attempts = 0
-        max_attempts = 10  # Prevent infinite loops
-
-        while attempts < max_attempts:
-            priority = self._get_next_priority()
-
-            # Skip if this queue is empty
-            if queue_sizes[priority.value] == 0:
-                attempts += 1
-                continue
-
-            # Try to dequeue a task
-            task = await queue_manager.dequeue_task(priority)
-
-            if task:
-                await self._process_task(task)
-                return True
-
-            attempts += 1
-
-        return False
-
-    async def run(self, poll_interval: float = 1.0) -> None:
-        """
-        Run the worker continuously, processing tasks from priority queues.
-
-        Args:
-            poll_interval: Time to wait between polling cycles (seconds)
-        """
-        self.running = True
-        logger.info(
-            f"Worker started with priority ratios - "
-            f"High: {config.high_priority_ratio:.0%}, "
-            f"Medium: {config.medium_priority_ratio:.0%}, "
-            f"Low: {config.low_priority_ratio:.0%}"
-        )
-
-        try:
-            while self.running:
-                try:
-                    # Try to process a task
-                    task_processed = await self._process_next_task()
-
-                    if not task_processed:
-                        # No tasks available, wait before next poll
-                        await asyncio.sleep(poll_interval)
-                    else:
-                        # Task was processed, check for more immediately
-                        await asyncio.sleep(0.1)
-
-                except Exception as e:
-                    logger.error(f"Error in worker loop: {e}")
-                    await asyncio.sleep(poll_interval)
-
+            await self._main_loop(idle_interval)
         except asyncio.CancelledError:
             logger.info("Worker received cancellation signal")
         finally:
-            self.running = False
-            logger.info(f"Worker stopped. Total processed: {self.processed_count}, Failed: {self.failed_count}")
+            self._running = False
+            logger.info(
+                f"Worker stopped. Processed: {self._stats.processed_count}, "
+                f"Failed: {self._stats.failed_count}, Avg time: {self._stats.average_processing_time_ms:.2f}ms"
+            )
+
+    async def _main_loop(self, idle_interval: float) -> None:
+        while self._running:
+            try:
+                task_processed = await self._try_process_next_task()
+                await asyncio.sleep(self.BUSY_POLL_INTERVAL if task_processed else idle_interval)
+            except Exception as e:
+                logger.error(f"Error in worker loop: {e}")
+                await asyncio.sleep(idle_interval)
 
     def stop(self) -> None:
-        """Signal the worker to stop."""
         logger.info("Stopping worker...")
-        self.running = False
+        self._running = False
+
+    async def _try_process_next_task(self) -> bool:
+        """Attempt to process the next task using weighted priority selection."""
+        queue_sizes = await queue_manager.get_all_queue_sizes()
+
+        if sum(queue_sizes.values()) == 0:
+            return False
+
+        for _ in range(self.MAX_DEQUEUE_ATTEMPTS):
+            priority = self._scheduler.select_priority()
+
+            if queue_sizes[priority.value] == 0:
+                continue
+
+            task = await queue_manager.dequeue_task(priority)
+            if task:
+                await self._processor.process(task)
+                return True
+
+        return False
 
 
-async def main():
-    """Main entry point for running the worker."""
+async def main() -> None:
     worker = PriorityWorker()
 
     try:

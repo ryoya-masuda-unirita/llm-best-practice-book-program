@@ -27,13 +27,9 @@ class PromptData(BaseModel):
     metadata: Optional[dict[str, Any]] = Field(default_factory=dict, description="Additional metadata")
 
     def mask_sensitive_data(self) -> None:
-        """Mask potentially sensitive information in prompt and response content.
-
-        This method uses regex patterns to mask common sensitive data types.
-        For production use, consider using NER models or more sophisticated masking.
-        """
+        """Mask potentially sensitive information in prompt and response content."""
         patterns = [
-            (r"\b\d{3}-\d{2}-\d{4}\b", "***-**-****"),  # SSN pattern
+            (r"\b\d{3}-\d{2}-\d{4}\b", "***-**-****"),  # SSN
             (r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "***@***.***"),  # Email
             (r"\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b", "****-****-****-****"),  # Credit card
         ]

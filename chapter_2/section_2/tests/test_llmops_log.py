@@ -51,7 +51,7 @@ class TestLLMOpsLogEntry:
         assert log_entry.prompt_id == prompt_id
         assert log_entry.model == model
         assert log_entry.temperature == temperature
-        assert log_entry.level == LogLevel.INFO  # Default level
+        assert log_entry.level == LogLevel.INFO
         assert log_entry.user_id is None
         assert log_entry.latency_ms is None
         assert log_entry.status_code is None
@@ -96,7 +96,6 @@ class TestLLMOpsLogEntry:
         )
 
         assert log_entry.timestamp is not None
-        # Verify timestamp is valid ISO 8601 format
         parsed_time = datetime.fromisoformat(log_entry.timestamp)
         assert isinstance(parsed_time, datetime)
 
@@ -107,9 +106,9 @@ class TestLLMOpsLogEntry:
             (0.5, False),
             (1.0, False),
             (2.0, False),
-            (-0.1, True),  # Below minimum
-            (2.1, True),  # Above maximum
-            (3.0, True),  # Way above maximum
+            (-0.1, True),
+            (2.1, True),
+            (3.0, True),
         ],
     )
     def test_temperature_validation(self, temperature, should_fail):
@@ -137,7 +136,7 @@ class TestLLMOpsLogEntry:
             (0.0, False),
             (100.0, False),
             (1000.5, False),
-            (-0.1, True),  # Negative latency
+            (-0.1, True),
             (-100.0, True),
         ],
     )
@@ -178,7 +177,6 @@ class TestLLMOpsLogEntry:
         json_str = log_entry.to_json_string()
         assert isinstance(json_str, str)
 
-        # Parse back to verify it's valid JSON
         parsed = json.loads(json_str)
         assert parsed["request_id"] == "req-001"
         assert parsed["prompt_id"] == "prompt-001"
@@ -201,7 +199,6 @@ class TestLLMOpsLogEntry:
         json_str = log_entry.to_json_string()
         parsed = json.loads(json_str)
 
-        # These fields should not be present when None
         assert "user_id" not in parsed
         assert "latency_ms" not in parsed
         assert "status_code" not in parsed
@@ -224,7 +221,6 @@ class TestLLMOpsLogEntry:
 
         log_entry.save_to_file(file_path)
 
-        # Read back and verify
         with open(file_path, "r", encoding="utf-8") as f:
             loaded_data = json.load(f)
 

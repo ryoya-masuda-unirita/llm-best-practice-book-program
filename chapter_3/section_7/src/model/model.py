@@ -112,7 +112,7 @@ class CharacterResponse(BaseModel):
 class LLMRequest(BaseModel):
     """Request model for LLM API."""
 
-    provider: LLMProvider = Field(..., description="The LLM provider to use (openai or gemini)")
+    provider: LLMProvider = Field(..., description="The LLM provider to use (openai)")
     model: str = Field(..., description="The model name to use for generation")
     character_request: CharacterRequest = Field(..., description="Character generation request parameters")
     user_tier: UserTier = Field(default=UserTier.FREE, description="User tier for priority assignment")

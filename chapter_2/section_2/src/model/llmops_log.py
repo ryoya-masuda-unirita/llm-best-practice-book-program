@@ -12,8 +12,6 @@ class StorageType(StrEnum):
     """Types of prompt storage backends."""
 
     LOCAL = "local"
-    # S3 = "s3"
-    # DATABASE = "database"
 
 
 class LogLevel(StrEnum):
@@ -26,11 +24,7 @@ class LogLevel(StrEnum):
 
 
 class LLMOpsLogEntry(BaseModel):
-    """Structured log entry for LLM operations.
-
-    Based on the specification in CLAUDE.md, this model captures essential
-    metadata for LLM requests while keeping prompt content separate.
-    """
+    """Structured log entry for LLM operations."""
 
     model_config = ConfigDict(
         validate_assignment=True,
