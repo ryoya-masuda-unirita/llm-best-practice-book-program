@@ -64,7 +64,6 @@ class PromptNode(Node):
     async def execute(self, context: ExecutionContext) -> Any:
         logger.info(f"Executing prompt node: {self.name}")
 
-        # Build prompt
         if self.injected_prompt_builder:
             prompt = self.injected_prompt_builder.build_prompt(context)
         elif self.prompt_builder:
@@ -74,14 +73,11 @@ class PromptNode(Node):
         else:
             prompt = context.get_variable("prompt", "")
 
-        # Log preview
         preview = prompt[:100] if isinstance(prompt, str) else f"{len(prompt)} messages"
         logger.info(f"Prompt: {preview}...")
 
-        # Execute
         try:
             if self.injected_llm_client:
-                # DI approach
                 raw_response = await self.injected_llm_client.generate(prompt, context, **self.executor_kwargs)
                 result = (
                     self.injected_response_parser.parse_response(raw_response, context)
@@ -89,7 +85,6 @@ class PromptNode(Node):
                     else raw_response
                 )
             elif self.llm_executor:
-                # Legacy approach
                 result = self.llm_executor(prompt, context)
                 if asyncio.iscoroutine(result):
                     result = await result
@@ -129,7 +124,6 @@ class IfElseNode(Node):
     async def execute(self, context: ExecutionContext) -> dict[str, Any]:
         logger.info(f"Evaluating condition: {self.name}")
 
-        # Evaluate
         if self.condition:
             result = self.condition(context)
         elif self.condition_expr:

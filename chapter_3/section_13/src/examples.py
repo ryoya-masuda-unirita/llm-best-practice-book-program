@@ -5,32 +5,50 @@ This module provides practical examples showing how to use DI patterns
 to build flexible, testable, and maintainable LLM pipelines.
 """
 
+from typing import Optional
+
 from pydantic import BaseModel
 
+from src.client.llm_client import GeminiModel, LLMProvider, OpenAIModel
 from src.logger import make_logger
 from src.workflow import (
     DIContainer,
+    GeminiLLMClient,
     ILLMClient,
     IPromptBuilder,
     IResponseParser,
     MessageListPromptBuilder,
     MockLLMClient,
+    OpenAILLMClient,
     StructuredResponseParser,
     TemplatePromptBuilder,
     TextResponseParser,
     WorkflowBuilder,
     WorkflowEngine,
 )
+from src.workflow.base import ExecutionContext
 
 logger = make_logger(__name__)
 
 
-# ============================================================================
-# Example 1: Basic DI with Manual Injection
-# ============================================================================
+def create_llm_client(llm_provider: LLMProvider) -> ILLMClient:
+    """Create an LLM client based on the provider.
+
+    Args:
+        llm_provider: The LLM provider to use.
+
+    Returns:
+        An LLM client instance.
+    """
+    if llm_provider == LLMProvider.OPENAI:
+        return OpenAILLMClient(model=OpenAIModel.GPT_4O_MINI)
+    elif llm_provider == LLMProvider.GEMINI:
+        return GeminiLLMClient(model=GeminiModel.GEMINI_2_5_FLASH)
+    else:
+        raise ValueError(f"Unknown LLM provider: {llm_provider}")
 
 
-async def example_1_manual_di():
+async def example_1_manual_di(llm_provider: Optional[LLMProvider] = None):
     """
     Example 1: Manual dependency injection without a container.
 
@@ -41,12 +59,13 @@ async def example_1_manual_di():
     logger.info("Example 1: Manual Dependency Injection")
     logger.info("=" * 60)
 
-    # Create dependencies manually
     prompt_builder = TemplatePromptBuilder(template="Translate '{text}' to {target_language}")
-    llm_client = MockLLMClient(mock_response="Bonjour le monde")
+    if llm_provider is None:
+        llm_client: ILLMClient = MockLLMClient(mock_response="Bonjour le monde")
+    else:
+        llm_client = create_llm_client(llm_provider)
     response_parser = TextResponseParser()
 
-    # Build workflow with injected dependencies
     workflow = (
         WorkflowBuilder("translation-workflow", "Translation Example")
         .add_start_node(initial_data={"text": "Hello world", "target_language": "French"})
@@ -63,22 +82,15 @@ async def example_1_manual_di():
         .build()
     )
 
-    # Execute
     engine = WorkflowEngine(enable_checkpointing=False)
     result = await engine.execute(workflow)
 
     logger.info(f"Translation result: {result['outputs']['translate']}")
-    logger.info(f"Mock client was called {llm_client.call_count} time(s)")
 
     return result
 
 
-# ============================================================================
-# Example 2: DI Container with Singleton Services
-# ============================================================================
-
-
-async def example_2_di_container_singleton():
+async def example_2_di_container_singleton(llm_provider: Optional[LLMProvider] = None):
     """
     Example 2: Using DI container with singleton services.
 
@@ -89,22 +101,19 @@ async def example_2_di_container_singleton():
     logger.info("Example 2: DI Container with Singleton Services")
     logger.info("=" * 60)
 
-    # Create and configure DI container
     container = DIContainer()
 
-    # Register services as singletons (one instance shared)
-    container.register_singleton(ILLMClient, lambda: MockLLMClient(mock_response="Analyzed content"))
+    if llm_provider is None:
+        container.register_singleton(ILLMClient, lambda: MockLLMClient(mock_response="Analyzed content"))
+    else:
+        container.register_singleton(ILLMClient, lambda: create_llm_client(llm_provider))
     container.register_singleton(IResponseParser, TextResponseParser)
-
-    # Register prompt builder as transient (new instance each time)
     container.register_transient(IPromptBuilder, lambda: TemplatePromptBuilder(template="Analyze: {content}"))
 
-    # Resolve services from container
     llm_client = container.resolve(ILLMClient)
     response_parser = container.resolve(IResponseParser)
     prompt_builder = container.resolve(IPromptBuilder)
 
-    # Build workflow
     workflow = (
         WorkflowBuilder("analysis-workflow", "Content Analysis")
         .add_start_node(initial_data={"content": "This is a sample document for analysis."})
@@ -121,7 +130,6 @@ async def example_2_di_container_singleton():
         .build()
     )
 
-    # Execute with DI-enabled engine
     engine = WorkflowEngine(enable_checkpointing=False, di_container=container)
     result = await engine.execute(workflow)
 
@@ -130,12 +138,7 @@ async def example_2_di_container_singleton():
     return result
 
 
-# ============================================================================
-# Example 3: Swapping LLM Providers (A/B Testing)
-# ============================================================================
-
-
-async def example_3_swapping_providers():
+async def example_3_swapping_providers(llm_provider: Optional[LLMProvider] = None):
     """
     Example 3: Easy A/B testing by swapping LLM providers.
 
@@ -146,16 +149,16 @@ async def example_3_swapping_providers():
     logger.info("Example 3: Swapping LLM Providers for A/B Testing")
     logger.info("=" * 60)
 
-    # Shared prompt builder
     prompt_builder = TemplatePromptBuilder(template="Summarize: {article}")
 
-    # Test with different providers
-    providers = [
-        ("Mock Provider A", MockLLMClient(mock_response="Summary from provider A")),
-        ("Mock Provider B", MockLLMClient(mock_response="Summary from provider B")),
-    ]
-
-    initial_data = {"article": "Long article text goes here..."}
+    if llm_provider is None:
+        providers: list[tuple[str, ILLMClient]] = [
+            ("Mock Provider A", MockLLMClient(mock_response="Summary from provider A")),
+            ("Mock Provider B", MockLLMClient(mock_response="Summary from provider B")),
+        ]
+    else:
+        # Use real provider
+        providers = [(f"{llm_provider.value}", create_llm_client(llm_provider))]
 
     results = []
     for provider_name, llm_client in providers:
@@ -163,7 +166,7 @@ async def example_3_swapping_providers():
 
         workflow = (
             WorkflowBuilder(f"summarization-{provider_name}", "Summarization Workflow")
-            .add_start_node(initial_data=initial_data)
+            .add_start_node(initial_data={"article": "Long article text goes here..."})
             .add_prompt_node(
                 "summarize",
                 name="Summarize Article",
@@ -183,15 +186,10 @@ async def example_3_swapping_providers():
         logger.info(f"  Result: {result['outputs']['summarize']}")
         results.append(result)
 
-    return results[0]  # Return first result for compatibility
+    return results[0]
 
 
-# ============================================================================
-# Example 4: Multi-Stage Pipeline with Different Components
-# ============================================================================
-
-
-async def example_4_multi_stage_pipeline():
+async def example_4_multi_stage_pipeline(llm_provider: Optional[LLMProvider] = None):
     """
     Example 4: Multi-stage pipeline with different injected components.
 
@@ -202,27 +200,28 @@ async def example_4_multi_stage_pipeline():
     logger.info("Example 4: Multi-Stage Pipeline with DI")
     logger.info("=" * 60)
 
-    # Stage 1: Extract information (simple template)
     extract_builder = TemplatePromptBuilder(template="Extract key points from: {document}")
-    extract_client = MockLLMClient(mock_response="Key points: A, B, C")
+    if llm_provider is None:
+        extract_client: ILLMClient = MockLLMClient(mock_response="Key points: A, B, C")
+    else:
+        extract_client = create_llm_client(llm_provider)
     extract_parser = TextResponseParser()
 
-    # Stage 2: Generate summary (message-based)
     summary_builder = MessageListPromptBuilder(system_message="You are a summarization expert.")
-    summary_client = MockLLMClient(mock_response="Professional summary of key points")
+    if llm_provider is None:
+        summary_client: ILLMClient = MockLLMClient(mock_response="Professional summary of key points")
+    else:
+        summary_client = create_llm_client(llm_provider)
     summary_parser = TextResponseParser()
 
-    # Stage 3: Format output
-    def format_output(context):
+    def format_output(context: ExecutionContext) -> str:
         key_points = context.get_variable("extract_output", "")
         summary = context.get_variable("summarize_output", "")
         return f"## Key Points\n{key_points}\n\n## Summary\n{summary}"
 
-    # Build multi-stage workflow
     workflow = (
         WorkflowBuilder("multi-stage-workflow", "Document Processing Pipeline")
         .add_start_node(initial_data={"document": "Long technical document...", "prompt": "temp"})
-        # Stage 1: Extract
         .add_prompt_node(
             "extract",
             name="Extract Key Points",
@@ -230,7 +229,6 @@ async def example_4_multi_stage_pipeline():
             injected_llm_client=extract_client,
             injected_response_parser=extract_parser,
         )
-        # Stage 2: Summarize
         .add_prompt_node(
             "summarize",
             name="Generate Summary",
@@ -238,10 +236,8 @@ async def example_4_multi_stage_pipeline():
             injected_llm_client=summary_client,
             injected_response_parser=summary_parser,
         )
-        # Stage 3: Format
         .add_python_script_node("format", name="Format Output", script_func=format_output)
         .add_end_node()
-        # Connect stages
         .add_edge("start", "extract")
         .add_edge("extract", "summarize")
         .add_edge("summarize", "format")
@@ -258,11 +254,6 @@ async def example_4_multi_stage_pipeline():
     return result
 
 
-# ============================================================================
-# Example 5: Structured Output with Custom Parser
-# ============================================================================
-
-
 class Character(BaseModel):
     """Example structured output model."""
 
@@ -271,7 +262,7 @@ class Character(BaseModel):
     occupation: str
 
 
-async def example_5_structured_output():
+async def example_5_structured_output(llm_provider: Optional[LLMProvider] = None):
     """
     Example 5: Using structured output with custom parsers.
 
@@ -281,19 +272,24 @@ async def example_5_structured_output():
     logger.info("Example 5: Structured Output with DI")
     logger.info("=" * 60)
 
-    # Note: In real usage, you'd use OpenAILLMClient or GeminiLLMClient
-    # with response_format parameter for actual structured output
     prompt_builder = TemplatePromptBuilder(template="Create a character named {name}")
 
-    # Mock client that returns structured-like response
-    class MockStructuredClient(MockLLMClient):
-        async def generate(self, prompt, context, **kwargs):
-            response = await super().generate(prompt, context, **kwargs)
-            # Simulate parsed response
-            response["parsed"] = Character(name="Alice", age=30, occupation="Engineer")
-            return response
+    if llm_provider is None:
 
-    llm_client = MockStructuredClient()
+        class MockStructuredClient(MockLLMClient):
+            async def generate(self, prompt, context, **kwargs):
+                response = await super().generate(prompt, context, **kwargs)
+                response["parsed"] = Character(name="Alice", age=30, occupation="Engineer")
+                return response
+
+        llm_client: ILLMClient = MockStructuredClient()
+    elif llm_provider == LLMProvider.OPENAI:
+        llm_client = OpenAILLMClient(model=OpenAIModel.GPT_4O_MINI, response_format=Character)
+    elif llm_provider == LLMProvider.GEMINI:
+        llm_client = GeminiLLMClient(model=GeminiModel.GEMINI_2_5_FLASH, response_schema=Character)
+    else:
+        raise ValueError(f"Unknown LLM provider: {llm_provider}")
+
     response_parser = StructuredResponseParser()
 
     workflow = (
@@ -322,12 +318,7 @@ async def example_5_structured_output():
     return result
 
 
-# ============================================================================
-# Example 6: Testing with Mock vs Real Clients
-# ============================================================================
-
-
-async def example_6_testing_pattern():
+async def example_6_testing_pattern(llm_provider: Optional[LLMProvider] = None):
     """
     Example 6: Testing pattern showing mock vs real clients.
 
@@ -362,16 +353,14 @@ async def example_6_testing_pattern():
         result = await engine.execute(workflow)
         return result
 
-    # Test mode: Use mock client (no API costs, fast)
     mock_client = MockLLMClient(mock_response="Positive sentiment (confidence: 0.95)")
     test_result = await run_sentiment_analysis(mock_client, test_mode=True)
     logger.info(f"Test result: {test_result['outputs']['analyze']}")
 
-    # Production mode: Would use real client
-    # Uncomment to test with real API:
-    # real_client = OpenAILLMClient(model=OpenAIModel.GPT_4O_MINI)
-    # prod_result = await run_sentiment_analysis(real_client, test_mode=False)
-    # logger.info(f"Production result: {prod_result}")
+    if llm_provider is not None:
+        real_client = create_llm_client(llm_provider)
+        prod_result = await run_sentiment_analysis(real_client, test_mode=False)
+        logger.info(f"Production result: {prod_result['outputs']['analyze']}")
 
     logger.info("\nSame workflow code works with both mock and real clients!")
 

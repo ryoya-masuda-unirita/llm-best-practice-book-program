@@ -28,16 +28,11 @@ from src.workflow.nodes import EndNode, IfElseNode, LoopNode, PromptNode, Python
 from src.workflow.state import ExecutionState, WorkflowState
 from src.workflow.workflow import Workflow
 
-# Optional: LLM executor helpers (legacy)
-try:
-    from src.workflow import llm_executors
-except ImportError:
-    llm_executors = None
-
 __all__ = [
     # Core workflow components
     "WorkflowBuilder",
     "WorkflowEngine",
+    "Workflow",
     "StartNode",
     "EndNode",
     "PromptNode",
@@ -46,7 +41,6 @@ __all__ = [
     "PythonScriptNode",
     "ExecutionState",
     "WorkflowState",
-    "Workflow",
     # Dependency Injection
     "DIContainer",
     "DIScope",
@@ -55,20 +49,20 @@ __all__ = [
     "IPromptBuilder",
     "ILLMClient",
     "IResponseParser",
+    # DI Base Classes
     "BasePromptBuilder",
     "BaseLLMClient",
-    "BaseResponseParser",
-    # DI Implementations
+    # DI Implementations - Prompt Builders
     "TemplatePromptBuilder",
     "MessageListPromptBuilder",
     "DynamicPromptBuilder",
+    # DI Implementations - LLM Clients
     "OpenAILLMClient",
     "GeminiLLMClient",
     "MockLLMClient",
+    # DI Implementations - Response Parsers
     "TextResponseParser",
     "StructuredResponseParser",
     "JSONResponseParser",
     "EnhancedResponseParser",
-    # Legacy
-    "llm_executors",
 ]

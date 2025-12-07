@@ -3,9 +3,13 @@
 import asyncio
 import sys
 from functools import wraps
+from typing import Optional
 
 import click
 
+from src.client.llm_client import (
+    LLMProvider,
+)
 from src.examples import (
     example_1_manual_di,
     example_2_di_container_singleton,
@@ -41,6 +45,14 @@ def async_cmd(func):
 
 @click.command()
 @click.option(
+    "--llm-provider",
+    "-lp",
+    type=click.Choice(LLMProvider),
+    required=False,
+    default=None,
+    help="The LLM provider to use.",
+)
+@click.option(
     "--workflow",
     "-w",
     type=click.Choice(list(WORKFLOWS.keys()) + ["all"]),
@@ -49,7 +61,10 @@ def async_cmd(func):
     help="The workflow example to run. Use 'all' to run all workflows.",
 )
 @async_cmd
-async def main(workflow: str):
+async def main(
+    llm_provider: Optional[LLMProvider],
+    workflow: str,
+):
     """
     Run Dependency Injection workflow examples.
 
@@ -67,9 +82,9 @@ async def main(workflow: str):
         python -m src.main --workflow all
 
     """
+
     try:
         if workflow == "all":
-            # Run all workflows
             logger.info("Running all workflow examples...\n")
 
             for name, workflow_func in WORKFLOWS.items():
@@ -77,7 +92,7 @@ async def main(workflow: str):
                 logger.info(f"Running workflow: {name}")
                 logger.info(f"{'=' * 60}\n")
 
-                result = await workflow_func()
+                result = await workflow_func(llm_provider=llm_provider)
 
                 logger.info(f"\n✓ Workflow '{name}' completed successfully")
                 logger.info(f"  Status: {result.get('status', 'unknown')}")
@@ -90,7 +105,6 @@ async def main(workflow: str):
             logger.info("=" * 60)
 
         else:
-            # Run specific workflow
             if workflow not in WORKFLOWS:
                 logger.error(f"Unknown workflow: {workflow}")
                 logger.info(f"Available workflows: {', '.join(WORKFLOWS.keys())}, all")
@@ -99,13 +113,12 @@ async def main(workflow: str):
             logger.info(f"Running workflow: {workflow}\n")
 
             workflow_func = WORKFLOWS[workflow]
-            result = await workflow_func()
+            result = await workflow_func(llm_provider=llm_provider)
 
             logger.info("\n✓ Workflow completed successfully")
             logger.info(f"  Status: {result.get('status', 'unknown')}")
             logger.info(f"  Nodes executed: {result.get('nodes_executed', 0)}")
 
-            # Show outputs if available
             if "outputs" in result and result["outputs"]:
                 logger.info("\n  Final outputs:")
                 for node_id, output in result["outputs"].items():

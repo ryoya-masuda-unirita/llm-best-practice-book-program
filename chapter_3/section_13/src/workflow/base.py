@@ -89,9 +89,7 @@ class Edge(BaseModel):
         if self.condition is None:
             return True
 
-        # Evaluate condition using context variables
         try:
-            # Simple condition evaluation - can be extended
             return eval(self.condition, {"context": context, "variables": context.variables})
         except Exception:
             return False

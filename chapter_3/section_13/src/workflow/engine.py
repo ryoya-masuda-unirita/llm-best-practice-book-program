@@ -39,7 +39,6 @@ class WorkflowEngine:
         logger.info(f"Starting workflow: {workflow.workflow_id}")
         workflow.validate()
 
-        # Initialize or restore state
         if resume_from_checkpoint and self.checkpoint_manager:
             workflow_state, context = await self._resume(workflow.workflow_id, resume_from_checkpoint)
         else:
@@ -49,7 +48,6 @@ class WorkflowEngine:
                 for k, v in initial_data.items():
                     context.set_variable(k, v)
 
-        # Setup and execute
         self._setup_mediator(workflow)
         workflow_state.start_workflow()
 
@@ -96,15 +94,12 @@ class WorkflowEngine:
                 self.mediator.notify_completion(current_id, output, context)
                 nodes_executed += 1
 
-                # Checkpoint
                 if self.enable_checkpointing and nodes_executed % self.checkpoint_interval == 0:
                     await self._checkpoint(workflow.workflow_id, state, context)
 
-                # Check if end
                 if current_id in workflow.end_node_ids:
                     break
 
-                # Get next node
                 next_nodes = workflow.get_next_nodes(current_id, context)
                 if hasattr(node, "true_branch"):
                     current_id = node.true_branch if output.get("condition_result") else node.false_branch

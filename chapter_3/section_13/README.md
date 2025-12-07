@@ -14,7 +14,6 @@
 - **ワークフローエンジン**: DAG（有向非巡回グラフ）ベースの柔軟なワークフロー実行
 - **チェックポイント機能**: ワークフロー実行の中断・再開をサポート
 - **デザインパターン**: Builder、Mediator、Memento、Strategyパターンの実装
-- **後方互換性**: レガシーな実装方法も引き続きサポート
 - **テスト容易性**: MockLLMClientによる高速なユニットテスト
 
 ## プロジェクト構成
@@ -42,8 +41,7 @@ chapter_3/section_13/
 │       ├── di.py                # DI関連コンポーネント（統合版）
 │       ├── state.py             # ワークフロー状態管理
 │       ├── mediator.py          # Mediatorパターン実装
-│       ├── memento.py           # Mementoパターン実装（チェックポイント）
-│       └── llm_executors.py     # レガシーLLM実行関数
+│       └── memento.py           # Mementoパターン実装（チェックポイント）
 ├── checkpoints/                  # チェックポイント保存先（自動作成）
 ├── .envrc.example               # 環境変数設定のサンプル
 ├── pyproject.toml               # プロジェクト依存関係
@@ -218,7 +216,6 @@ workflow = (
 **ポイント**:
 - メソッドチェーンによる流暢なAPI
 - DI対応の`injected_*`パラメータ
-- レガシーな`llm_executor`パラメータも引き続きサポート
 - DAG構造の自動検証
 
 #### 5. ワークフローエンジン (`src/workflow/engine.py`)
@@ -251,7 +248,7 @@ result = await engine.execute(
 
 ### 環境構成
 
-- **Python**: 3.10以上
+- **Python**: 3.13.2以上
 - **依存ライブラリ**:
   - google-genai>=1.45.0
   - openai>=2.4.0
@@ -426,87 +423,4 @@ Professional summary of key points
 ✓ Workflow completed successfully
   Status: completed
   Nodes executed: 5
-```
-
-### テスト方法
-
-#### 1. 全ワークフローの実行テスト
-
-```bash
-python -m src.main --workflow all
-```
-
-**期待される動作**:
-- 6つすべてのサンプルワークフローが正常に完了
-- エラーなく実行完了
-- 各ワークフローの出力が正しく表示される
-
-#### 2. 単体テストパターン
-
-```python
-import asyncio
-from src.workflow import (
-    WorkflowBuilder, WorkflowEngine,
-    MockLLMClient, TemplatePromptBuilder, TextResponseParser
-)
-
-async def test_workflow():
-    # テスト用のモッククライアントを使用
-    mock_client = MockLLMClient(mock_response="Test output")
-
-    workflow = (
-        WorkflowBuilder("test")
-        .add_start_node(initial_data={"input": "test"})
-        .add_prompt_node(
-            "process",
-            prompt_template="Process {input}",
-            injected_llm_client=mock_client,
-        )
-        .add_end_node()
-        .add_edge("start", "process")
-        .add_edge("process", "end")
-        .build()
-    )
-
-    result = await WorkflowEngine(enable_checkpointing=False).execute(workflow)
-
-    # アサーション
-    assert result["status"] == "completed"
-    assert mock_client.call_count == 1
-    assert result["outputs"]["process"] == "Test output"
-
-asyncio.run(test_workflow())
-```
-
-#### 3. DIコンテナのテスト
-
-```python
-from src.workflow import DIContainer, ILLMClient, MockLLMClient, ServiceLifetime
-
-# シングルトンのテスト
-container = DIContainer()
-container.register_singleton(ILLMClient, lambda: MockLLMClient("response"))
-
-client1 = container.resolve(ILLMClient)
-client2 = container.resolve(ILLMClient)
-
-assert client1 is client2  # 同一インスタンス
-```
-
-#### 4. プロバイダー切り替えのテスト
-
-実際のAPIを使用する場合（.envrcにAPIキーを設定）：
-
-```python
-from src.workflow import OpenAILLMClient, GeminiLLMClient
-
-# OpenAIでテスト
-openai_client = OpenAILLMClient(model="gpt-4o-mini")
-workflow = build_workflow(openai_client)
-result = await engine.execute(workflow)
-
-# Geminiでテスト（同じワークフロー定義）
-gemini_client = GeminiLLMClient(model="gemini-2.0-flash-exp")
-workflow = build_workflow(gemini_client)
-result = await engine.execute(workflow)
 ```

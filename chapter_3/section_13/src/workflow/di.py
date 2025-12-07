@@ -22,11 +22,6 @@ logger = make_logger(__name__)
 T = TypeVar("T")
 
 
-# ============================================================================
-# Protocols (Interfaces)
-# ============================================================================
-
-
 @runtime_checkable
 class IPromptBuilder(Protocol):
     """Interface for prompt building components."""
@@ -48,11 +43,6 @@ class IResponseParser(Protocol):
     """Interface for response parsing components."""
 
     def parse_response(self, raw_response: dict[str, Any], context: ExecutionContext) -> Any: ...
-
-
-# ============================================================================
-# Base Classes
-# ============================================================================
 
 
 class BasePromptBuilder(ABC):
@@ -81,11 +71,6 @@ class BaseLLMClient(ABC):
         self, prompt: str | list[dict[str, Any]], context: ExecutionContext, **kwargs: Any
     ) -> dict[str, Any]:
         pass
-
-
-# ============================================================================
-# Prompt Builder Implementations
-# ============================================================================
 
 
 class TemplatePromptBuilder(BasePromptBuilder):
@@ -127,11 +112,6 @@ class DynamicPromptBuilder(BasePromptBuilder):
             current = self._format(context) if self.template else str(context.get_variable("prompt", ""))
             return history + ([{"role": "user", "content": current}] if current else [])
         return self._format(context) if self.template else str(context.get_variable("prompt", ""))
-
-
-# ============================================================================
-# LLM Client Implementations
-# ============================================================================
 
 
 class OpenAILLMClient(BaseLLMClient):
@@ -180,7 +160,6 @@ class GeminiLLMClient(BaseLLMClient):
         self.system_instruction = system_instruction
 
     async def generate(self, prompt: str | list[dict[str, Any]], context: ExecutionContext, **kwargs) -> dict[str, Any]:
-        # Extract content
         if isinstance(prompt, str):
             content = prompt
             sys_inst = self.system_instruction
@@ -194,7 +173,6 @@ class GeminiLLMClient(BaseLLMClient):
                     content_parts.append(msg.get("content", ""))
             content = "\n".join(content_parts)
 
-        # Build config
         config_params = {**self.params, **kwargs}
         if sys_inst:
             config_params["system_instruction"] = sys_inst
@@ -241,11 +219,6 @@ class MockLLMClient(BaseLLMClient):
         }
 
 
-# ============================================================================
-# Response Parser Implementations
-# ============================================================================
-
-
 class TextResponseParser:
     """Extracts text content from responses."""
 
@@ -286,7 +259,6 @@ class EnhancedResponseParser:
     """Parser that includes metadata and usage tracking."""
 
     def parse_response(self, raw_response: dict[str, Any], context: ExecutionContext) -> dict[str, Any]:
-        # Track usage
         if usage := raw_response.get("usage"):
             total = context.get_variable("total_tokens_used", 0)
             context.set_variable("total_tokens_used", total + usage.get("total_tokens", 0))
@@ -298,11 +270,6 @@ class EnhancedResponseParser:
             "finish_reason": raw_response.get("finish_reason", "unknown"),
             "parsed_data": raw_response.get("parsed"),
         }
-
-
-# ============================================================================
-# DI Container
-# ============================================================================
 
 
 class ServiceLifetime(str, Enum):
@@ -393,9 +360,3 @@ class DIScope:
 
     def __exit__(self, *args) -> None:
         self.container.clear_scope(self.scope_id)
-
-
-# Type aliases
-PromptBuilder = IPromptBuilder
-LLMClient = ILLMClient
-ResponseParser = IResponseParser
