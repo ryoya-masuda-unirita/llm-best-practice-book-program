@@ -15,7 +15,7 @@ class Config(BaseModel):
     if os.path.exists(".envrc"):
         load_dotenv(".envrc")
 
-    gemini_api_key: Secret[str] = Field(default=os.environ["GEMINI_API_KEY"], description="API key for Gemini")
+    anthropic_api_key: Secret[str] = Field(default=os.environ["ANTHROPIC_API_KEY"], description="API key for Anthropic")
 
 
 config = Config()

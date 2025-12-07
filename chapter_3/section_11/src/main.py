@@ -5,7 +5,7 @@ from functools import wraps
 
 import click
 
-from src.client.llm_client import GeminiEmbeddingModel, GeminiModel, LLMProvider, OpenAIEmbeddingModel, OpenAIModel
+from src.client.llm_client import GeminiEmbeddingModel, GeminiModel
 from src.logger import make_logger
 from src.service.rag_pipeline import RAGPipeline
 
@@ -28,14 +28,6 @@ def cli():
 
 @cli.command()
 @click.option(
-    "--llm-provider",
-    "-lp",
-    type=click.Choice(LLMProvider),
-    required=True,
-    default=LLMProvider.GEMINI,
-    help="The LLM provider to use.",
-)
-@click.option(
     "--data-directory",
     "-d",
     type=click.Path(exists=True, file_okay=False, dir_okay=True),
@@ -46,43 +38,25 @@ def cli():
 @click.option(
     "--chunker-model",
     "-cm",
-    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str()),
-    default=OpenAIModel.GPT_5_MINI,
+    type=click.Choice(GeminiModel.list_str()),
+    default=GeminiModel.GEMINI_2_5_FLASH,
     help="Model for semantic chunking.",
 )
 @click.option(
     "--embedding-model",
     "-em",
-    type=click.Choice(OpenAIEmbeddingModel.list_str() + GeminiEmbeddingModel.list_str()),
-    default=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_SMALL,
+    type=click.Choice(GeminiEmbeddingModel.list_str()),
+    default=GeminiEmbeddingModel.GEMINI_EMBEDDING_001,
     help="Model for creating embeddings.",
 )
 @async_cmd
 async def index(
-    llm_provider: LLMProvider,
     data_directory: str,
     chunker_model: str,
     embedding_model: str,
 ):
     """Index documents from the data directory."""
     logger.info(f"Indexing documents from: {data_directory}")
-
-    if (
-        llm_provider == LLMProvider.OPENAI
-        and chunker_model not in OpenAIModel.list_str()
-        and embedding_model not in OpenAIEmbeddingModel.list_str()
-    ):
-        raise ValueError(
-            f"Invalid model '{chunker_model}' and '{embedding_model}' for provider '{llm_provider.value}'."
-        )
-    if (
-        llm_provider == LLMProvider.GEMINI
-        and chunker_model not in GeminiModel.list_str()
-        and embedding_model not in GeminiEmbeddingModel.list_str()
-    ):
-        raise ValueError(
-            f"Invalid model '{chunker_model}' and '{embedding_model}' for provider '{llm_provider.value}'."
-        )
 
     pipeline = RAGPipeline(data_directory=data_directory, chunker_model=chunker_model, embedding_model=embedding_model)
 
@@ -92,14 +66,6 @@ async def index(
 
 
 @cli.command()
-@click.option(
-    "--llm-provider",
-    "-lp",
-    type=click.Choice(LLMProvider),
-    required=True,
-    default=LLMProvider.GEMINI,
-    help="The LLM provider to use.",
-)
 @click.option(
     "--data-directory",
     "-d",
@@ -118,22 +84,22 @@ async def index(
 @click.option(
     "--chunker-model",
     "-cm",
-    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str()),
-    default=OpenAIModel.GPT_5_MINI,
+    type=click.Choice(GeminiModel.list_str()),
+    default=GeminiModel.GEMINI_2_5_FLASH,
     help="Model for semantic chunking.",
 )
 @click.option(
     "--embedding-model",
     "-em",
-    type=click.Choice(OpenAIEmbeddingModel.list_str() + GeminiEmbeddingModel.list_str()),
-    default=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_SMALL,
+    type=click.Choice(GeminiEmbeddingModel.list_str()),
+    default=GeminiEmbeddingModel.GEMINI_EMBEDDING_001,
     help="Model for creating embeddings.",
 )
 @click.option(
     "--generator-model",
     "-gm",
-    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str()),
-    default=OpenAIModel.GPT_5_MINI,
+    type=click.Choice(GeminiModel.list_str()),
+    default=GeminiModel.GEMINI_2_5_FLASH,
     help="Model for answer generation.",
 )
 @click.option(
@@ -152,7 +118,6 @@ async def index(
 )
 @async_cmd
 async def query(
-    llm_provider: LLMProvider,
     data_directory: str,
     question: str,
     chunker_model: str,
@@ -163,23 +128,6 @@ async def query(
 ):
     """Query the RAG system with a question."""
     logger.info(f"Processing query: {question}")
-
-    if (
-        llm_provider == LLMProvider.OPENAI
-        and chunker_model not in OpenAIModel.list_str()
-        and embedding_model not in OpenAIEmbeddingModel.list_str()
-    ):
-        raise ValueError(
-            f"Invalid model '{chunker_model}' and '{embedding_model}' for provider '{llm_provider.value}'."
-        )
-    if (
-        llm_provider == LLMProvider.GEMINI
-        and chunker_model not in GeminiModel.list_str()
-        and embedding_model not in GeminiEmbeddingModel.list_str()
-    ):
-        raise ValueError(
-            f"Invalid model '{chunker_model}' and '{embedding_model}' for provider '{llm_provider.value}'."
-        )
 
     pipeline = RAGPipeline(
         data_directory=data_directory,
@@ -202,7 +150,6 @@ async def query(
     logger.info("=" * 80 + "\n")
 
     if output_file:
-        # Handle case where output_file is a directory
         if output_file.endswith("/") or output_file.endswith("\\"):
             output_file = os.path.join(output_file, "answer.json")
         elif os.path.exists(output_file) and os.path.isdir(output_file):

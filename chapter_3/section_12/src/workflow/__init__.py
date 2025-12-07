@@ -1,28 +1,23 @@
-"""Workflow orchestration engine for LLM-based workflows."""
+"""Workflow orchestration engine."""
 
 from src.workflow.builder import WorkflowBuilder
 from src.workflow.engine import WorkflowEngine
-from src.workflow.nodes import EndNode, IfElseNode, LoopNode, PromptNode, PythonScriptNode, StartNode
-from src.workflow.state import ExecutionState, WorkflowState
+from src.workflow.models import ExecutionContext, ExecutionState, WorkflowState
+from src.workflow.nodes import EndNode, IfElseNode, LoopNode, PromptNode, PythonScriptNode, ScriptNode, StartNode
 from src.workflow.workflow import Workflow
-
-# Optional: LLM executor helpers
-try:
-    from src.workflow import llm_executors
-except ImportError:
-    llm_executors = None
 
 __all__ = [
     "WorkflowBuilder",
     "WorkflowEngine",
+    "Workflow",
+    "ExecutionContext",
+    "ExecutionState",
+    "WorkflowState",
     "StartNode",
     "EndNode",
     "PromptNode",
     "IfElseNode",
     "LoopNode",
+    "ScriptNode",
     "PythonScriptNode",
-    "ExecutionState",
-    "WorkflowState",
-    "Workflow",
-    "llm_executors",
 ]

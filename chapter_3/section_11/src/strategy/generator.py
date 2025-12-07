@@ -2,7 +2,7 @@
 
 from google.genai.types import GenerateContentConfig
 
-from src.client.llm_client import GeminiModel, OpenAIModel, google_genai_client, openai_client
+from src.client.llm_client import GeminiModel, google_genai_client
 from src.logger import make_logger
 from src.model.rag_model import Chunk, RAGAnswer
 from src.strategy.base import Component
@@ -14,13 +14,6 @@ class AnswerGeneratorInput:
     """Input data for answer generator."""
 
     def __init__(self, question: str, chunks: list[Chunk]):
-        """
-        Initialize the input.
-
-        Args:
-            question: The user's question
-            chunks: Retrieved relevant chunks
-        """
         self.question = question
         self.chunks = chunks
 
@@ -28,25 +21,11 @@ class AnswerGeneratorInput:
 class AnswerGenerator(Component[AnswerGeneratorInput, RAGAnswer]):
     """Component for generating answers based on retrieved chunks."""
 
-    def __init__(self, model: OpenAIModel | GeminiModel = GeminiModel.GEMINI_2_5_FLASH):
-        """
-        Initialize the answer generator.
-
-        Args:
-            model: The LLM model to use for answer generation
-        """
+    def __init__(self, model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH):
         self.model = model
 
     async def process(self, input_data: AnswerGeneratorInput) -> RAGAnswer:
-        """
-        Generate an answer based on the question and retrieved chunks.
-
-        Args:
-            input_data: Contains question and relevant chunks
-
-        Returns:
-            Generated answer with source information
-        """
+        """Generate an answer based on the question and retrieved chunks."""
         question = input_data.question
         chunks = input_data.chunks
 
@@ -68,15 +47,6 @@ class AnswerGenerator(Component[AnswerGeneratorInput, RAGAnswer]):
         return rag_answer
 
     def _build_context(self, chunks: list[Chunk]) -> str:
-        """
-        Build context from chunks.
-
-        Args:
-            chunks: List of retrieved chunks
-
-        Returns:
-            Formatted context string
-        """
         context_parts = []
         for i, chunk in enumerate(chunks, 1):
             context_parts.append(f"[文書{i}] (出典: {chunk.source_file})\n{chunk.text}\n")
@@ -84,16 +54,6 @@ class AnswerGenerator(Component[AnswerGeneratorInput, RAGAnswer]):
         return "\n".join(context_parts)
 
     async def _generate_answer(self, question: str, context: str) -> str:
-        """
-        Generate answer using LLM.
-
-        Args:
-            question: The user's question
-            context: Context built from retrieved chunks
-
-        Returns:
-            Generated answer
-        """
         system_instruction = """あなたは与えられた文書に基づいて質問に答える専門家です。
 
 以下のルールに従ってください：
@@ -113,22 +73,11 @@ class AnswerGenerator(Component[AnswerGeneratorInput, RAGAnswer]):
 
 【回答】"""
 
-        # Determine if using OpenAI or Gemini based on model name
-        if self.model in OpenAIModel.list_str():
-            result = await openai_client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_instruction},
-                    {"role": "user", "content": user_prompt},
-                ],
-            )
-            return result.choices[0].message.content or ""
-        else:
-            result = await google_genai_client.aio.models.generate_content(
-                model=self.model,
-                contents=user_prompt,
-                config=GenerateContentConfig(
-                    system_instruction=system_instruction,
-                ),
-            )
-            return result.text
+        result = await google_genai_client.aio.models.generate_content(
+            model=self.model,
+            contents=user_prompt,
+            config=GenerateContentConfig(
+                system_instruction=system_instruction,
+            ),
+        )
+        return result.text

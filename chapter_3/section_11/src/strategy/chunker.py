@@ -2,7 +2,7 @@
 
 from google.genai.types import GenerateContentConfig
 
-from src.client.llm_client import GeminiModel, OpenAIModel, google_genai_client, openai_client
+from src.client.llm_client import GeminiModel, google_genai_client
 from src.logger import make_logger
 from src.model.rag_model import Chunk, ChunkingResponse, Document
 from src.strategy.base import Component
@@ -13,25 +13,11 @@ logger = make_logger(__name__)
 class SemanticChunker(Component[list[Document], list[Chunk]]):
     """Component for splitting documents into semantic chunks using LLM."""
 
-    def __init__(self, model: OpenAIModel | GeminiModel = GeminiModel.GEMINI_2_5_FLASH):
-        """
-        Initialize the semantic chunker.
-
-        Args:
-            model: The LLM model to use for semantic chunking
-        """
+    def __init__(self, model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH):
         self.model = model
 
     async def process(self, input_data: list[Document]) -> list[Chunk]:
-        """
-        Split documents into semantic chunks.
-
-        Args:
-            input_data: List of documents to chunk
-
-        Returns:
-            List of chunks from all documents
-        """
+        """Split documents into semantic chunks."""
         all_chunks = []
 
         for document in input_data:
@@ -47,15 +33,6 @@ class SemanticChunker(Component[list[Document], list[Chunk]]):
         return all_chunks
 
     async def _chunk_document(self, document: Document) -> list[Chunk]:
-        """
-        Chunk a single document into semantic segments.
-
-        Args:
-            document: The document to chunk
-
-        Returns:
-            List of chunks from the document
-        """
         lines = document.content.split("\n")
         numbered_content = "\n".join([f"{i + 1}: {line}" for i, line in enumerate(lines)])
 
@@ -75,28 +52,16 @@ class SemanticChunker(Component[list[Document], list[Chunk]]):
 
 各セグメントについて、開始行番号、終了行番号、トピック、分割理由を提供してください。"""
 
-        # Determine if using OpenAI or Gemini based on model name
-        if self.model in OpenAIModel.list_str():
-            result = await openai_client.responses.parse(
-                model=self.model,
-                input=[
-                    {"role": "system", "content": system_instruction},
-                    {"role": "user", "content": user_prompt},
-                ],
-                text_format=ChunkingResponse,
-            )
-            chunking_response: ChunkingResponse = result.output_parsed
-        else:
-            result = await google_genai_client.aio.models.generate_content(
-                model=self.model,
-                contents=user_prompt,
-                config=GenerateContentConfig(
-                    system_instruction=system_instruction,
-                    response_mime_type="application/json",
-                    response_schema=ChunkingResponse,
-                ),
-            )
-            chunking_response: ChunkingResponse = result.parsed
+        result = await google_genai_client.aio.models.generate_content(
+            model=self.model,
+            contents=user_prompt,
+            config=GenerateContentConfig(
+                system_instruction=system_instruction,
+                response_mime_type="application/json",
+                response_schema=ChunkingResponse,
+            ),
+        )
+        chunking_response: ChunkingResponse = result.parsed
 
         chunks = []
         for idx, segment in enumerate(chunking_response.segments):

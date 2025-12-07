@@ -1,6 +1,6 @@
 """RAG pipeline orchestrator that chains all components."""
 
-from src.client.llm_client import GeminiEmbeddingModel, GeminiModel, OpenAIEmbeddingModel, OpenAIModel
+from src.client.llm_client import GeminiEmbeddingModel, GeminiModel
 from src.logger import make_logger
 from src.model.rag_model import RAGAnswer
 from src.strategy.chunker import SemanticChunker
@@ -18,21 +18,11 @@ class RAGPipeline:
     def __init__(
         self,
         data_directory: str,
-        chunker_model: OpenAIModel | GeminiModel = GeminiModel.GEMINI_2_5_FLASH,
-        embedding_model: OpenAIEmbeddingModel | GeminiEmbeddingModel = OpenAIEmbeddingModel.TEXT_EMBEDDING_3_SMALL,
-        generator_model: OpenAIModel | GeminiModel = GeminiModel.GEMINI_2_5_FLASH,
+        chunker_model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH,
+        embedding_model: GeminiEmbeddingModel = GeminiEmbeddingModel.GEMINI_EMBEDDING_001,
+        generator_model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH,
         top_k: int = 5,
     ):
-        """
-        Initialize the RAG pipeline.
-
-        Args:
-            data_directory: Directory containing documents to index
-            chunker_model: Model for semantic chunking
-            embedding_model: Model for creating embeddings
-            generator_model: Model for answer generation
-            top_k: Number of top chunks to retrieve
-        """
         self.data_directory = data_directory
         self.vector_store = VectorStore()
 
@@ -45,12 +35,7 @@ class RAGPipeline:
         self._is_indexed = False
 
     async def index_documents(self) -> None:
-        """
-        Index all documents in the data directory.
-
-        This method loads documents, chunks them, creates embeddings,
-        and stores them in the vector store.
-        """
+        """Load documents, chunk them, create embeddings, and store in vector store."""
         logger.info(f"Starting document indexing from {self.data_directory}")
 
         documents = await self.loader.process(self.data_directory)
@@ -73,18 +58,7 @@ class RAGPipeline:
         logger.info("Document indexing completed")
 
     async def query(self, question: str) -> RAGAnswer:
-        """
-        Query the RAG system with a question.
-
-        Args:
-            question: The user's question
-
-        Returns:
-            Generated answer with source information
-
-        Raises:
-            RuntimeError: If documents are not indexed yet
-        """
+        """Query the RAG system with a question."""
         if not self._is_indexed:
             raise RuntimeError("Documents must be indexed before querying. Call index_documents() first.")
 

@@ -1,9 +1,5 @@
 # Environment variables for LLM API access
-# Copy this file to .envrc and fill in your API keys
-
-# OpenAI API Key
-# Get your key from: https://platform.openai.com/api-keys
-export OPENAI_API_KEY="sk-your-openai-api-key-here"
+# Copy this file to .envrc and fill in your API key
 
 # Google Gemini API Key
 # Get your key from: https://aistudio.google.com/app/apikey

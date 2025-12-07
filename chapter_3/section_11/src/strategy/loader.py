@@ -13,25 +13,10 @@ class DocumentLoader(Component[str, list[Document]]):
     """Component for loading documents from a directory."""
 
     def __init__(self, file_extensions: list[str] | None = None):
-        """
-        Initialize the document loader.
-
-        Args:
-            file_extensions: List of file extensions to load (e.g., ['.md', '.txt']).
-                           If None, defaults to ['.md']
-        """
         self.file_extensions = file_extensions or [".md"]
 
     async def process(self, input_data: str) -> list[Document]:
-        """
-        Load all documents from the specified directory.
-
-        Args:
-            input_data: Path to the directory containing documents
-
-        Returns:
-            List of loaded documents
-        """
+        """Load all documents from the specified directory."""
         directory = Path(input_data)
 
         if not directory.exists() or not directory.is_dir():
