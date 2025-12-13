@@ -27,21 +27,7 @@ class ExecutionLLMService(ILLMService):
         provider: str,
         cache_key: str | None = None,
     ) -> CharacterResponse:
-        """
-        Generate character by calling OpenAI API directly.
-
-        Args:
-            prompt: The prompt messages for LLM
-            model: The model identifier
-            provider: The LLM provider (openai)
-            cache_key: Not used in execution layer (for interface compatibility)
-
-        Returns:
-            CharacterResponse: The generated character
-
-        Raises:
-            ValueError: If provider is not supported
-        """
+        """Generate character by calling OpenAI API directly."""
         if provider != LLMProvider.OPENAI:
             raise ValueError(f"Unsupported LLM provider: {provider}")
 

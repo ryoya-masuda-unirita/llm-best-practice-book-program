@@ -23,17 +23,12 @@ class GatewayService:
     """Core gateway service for routing LLM requests to appropriate providers."""
 
     def __init__(self):
-        """Initialize the gateway service."""
         self._openai_client: Optional[AsyncOpenAI] = None
         self._gemini_client: Optional[genai.Client] = None
         logger.info("Gateway service initialized")
 
     def _get_openai_client(self) -> AsyncOpenAI:
-        """Get or create OpenAI client with managed API key.
-
-        Returns:
-            Configured OpenAI client
-        """
+        """Get or create OpenAI client with managed API key."""
         if self._openai_client is None:
             api_key = api_key_manager.get_api_key("openai")
             self._openai_client = AsyncOpenAI(api_key=api_key)
@@ -41,11 +36,7 @@ class GatewayService:
         return self._openai_client
 
     def _get_gemini_client(self) -> genai.Client:
-        """Get or create Gemini client with managed API key.
-
-        Returns:
-            Configured Gemini client
-        """
+        """Get or create Gemini client with managed API key."""
         if self._gemini_client is None:
             api_key = api_key_manager.get_api_key("gemini")
             self._gemini_client = genai.Client(api_key=api_key)
@@ -58,19 +49,8 @@ class GatewayService:
         prompt: list[dict],
         response_format: BaseModel,
     ) -> Any:
-        """Call OpenAI API.
-
-        Args:
-            model: Model name
-            prompt: Prompt messages
-            response_format: Response format schema
-
-        Returns:
-            Generated content
-        """
+        """Call OpenAI API with structured output."""
         client = self._get_openai_client()
-
-        # Structured output mode
         result = await client.responses.parse(
             model=model,
             input=prompt,
@@ -84,19 +64,8 @@ class GatewayService:
         prompt: list[dict],
         response_format: BaseModel,
     ) -> Any:
-        """Call Gemini API.
-
-        Args:
-            model: Model name
-            prompt: Prompt messages
-            response_format: Response format schema
-
-        Returns:
-            Generated content
-        """
+        """Call Gemini API with structured output."""
         client = self._get_gemini_client()
-
-        # Extract system instruction and user message
         system_instruction = prompt[0]["content"] if prompt[0]["role"] == "system" else None
         user_content = prompt[-1]["content"]
 
@@ -128,25 +97,11 @@ class GatewayService:
     ) -> tuple[Any, float]:
         """Process an LLM request through the gateway.
 
-        Args:
-            request_id: Unique request identifier
-            provider: LLM provider name
-            model: Model name
-            prompt: Prompt messages
-            response_format: Response format schema
-            client_id: Client identifier
-
-        Returns:
-            Tuple of (content, processing_time_ms)
-
-        Raises:
-            ValueError: If provider is not supported
-            Exception: If request fails
+        Returns tuple of (content, processing_time_ms).
+        Raises ValueError if provider is not supported.
         """
-        # Log the request
         gateway_monitor.log_request(request_id, provider, model, client_id)
 
-        # Validate provider
         if not api_key_manager.is_provider_supported(provider):
             gateway_monitor.log_error(request_id, "UnsupportedProvider", f"Provider '{provider}' is not supported")
             raise ValueError(f"Unsupported provider: {provider}")
@@ -154,7 +109,6 @@ class GatewayService:
         start_time = time.time()
 
         try:
-            # Route to appropriate provider
             if provider.lower() == "openai":
                 content = await self._call_openai(
                     model=model,
@@ -171,8 +125,6 @@ class GatewayService:
                 raise ValueError(f"Unsupported provider: {provider}")
 
             processing_time_ms = (time.time() - start_time) * 1000
-
-            # Log successful response
             gateway_monitor.log_response(request_id, provider, model, processing_time_ms, True)
 
             return content, processing_time_ms

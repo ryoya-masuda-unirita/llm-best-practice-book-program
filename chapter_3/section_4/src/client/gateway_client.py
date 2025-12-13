@@ -18,11 +18,7 @@ class GatewayClient:
     """Client for making requests to the LLM API Gateway."""
 
     def __init__(self, gateway_url: Optional[str] = None):
-        """Initialize the gateway client.
-
-        Args:
-            gateway_url: Base URL of the gateway server (defaults to config value)
-        """
+        """Initialize the gateway client with optional custom URL (defaults to config)."""
         self.gateway_url = gateway_url or config.gateway_url
         self.client = httpx.AsyncClient(timeout=60.0)
         logger.info(f"Gateway client initialized with URL: {self.gateway_url}")
@@ -35,22 +31,7 @@ class GatewayClient:
         response_format: Optional[dict] = None,
         client_id: Optional[str] = None,
     ) -> tuple[Any, float, str]:
-        """Generate content via the gateway.
-
-        Args:
-            provider: LLM provider name (openai or gemini)
-            model: Model name to use
-            prompt: Prompt messages
-            response_format: Response format schema
-            client_id: Client identifier for tracking
-
-        Returns:
-            Tuple of (content, processing_time_ms, request_id)
-
-        Raises:
-            httpx.HTTPError: If the request fails
-            Exception: If the gateway returns an error
-        """
+        """Generate content via the gateway. Returns (content, processing_time_ms, request_id)."""
         request_data = {
             "provider": provider,
             "model": model,
@@ -88,14 +69,7 @@ class GatewayClient:
             raise Exception(f"Failed to connect to gateway: {str(e)}")
 
     async def health_check(self) -> dict:
-        """Check the health of the gateway.
-
-        Returns:
-            Gateway health response
-
-        Raises:
-            Exception: If health check fails
-        """
+        """Check the health of the gateway."""
         try:
             response = await self.client.get(f"{self.gateway_url}/health")
             response.raise_for_status()

@@ -4,19 +4,9 @@ from src.model.llm_as_a_judge_model import JudgeRequest, JudgeResponse
 
 
 def make_openai_judge_prompt(request: JudgeRequest) -> list:
-    """
-    Create a prompt for LLM-as-a-Judge evaluation (OpenAI format).
-
-    Args:
-        request: JudgeRequest containing the question, response, and optional context
-
-    Returns:
-        List of messages for the LLM API
-    """
     params = JudgeResponse.detailed_model()
     param_dump = json.dumps(params, indent=2, ensure_ascii=False)
 
-    # Build the evaluation content
     evaluation_content = f"""以下の質問と回答を評価してください。
 
 【質問】
@@ -26,14 +16,12 @@ def make_openai_judge_prompt(request: JudgeRequest) -> list:
 {request.response}
 """
 
-    # Add request parameters if provided
     if request.request_parameters:
         evaluation_content += f"""
 【リクエストパラメータ】
 {request.request_parameters}
 """
 
-    # Add context if provided (for RAG evaluation, etc.)
     if request.context:
         evaluation_content += f"""
 【参照情報】
@@ -88,15 +76,6 @@ def make_openai_judge_prompt(request: JudgeRequest) -> list:
 
 
 def make_gemini_judge_prompt(request: JudgeRequest) -> tuple[str, str]:
-    """
-    Create a prompt for LLM-as-a-Judge evaluation (Gemini format).
-
-    Args:
-        request: JudgeRequest containing the question, response, and optional context
-
-    Returns:
-        Tuple of (system_prompt, user_prompt) for Gemini API
-    """
     params = JudgeResponse.detailed_model()
     param_dump = json.dumps(params, indent=2, ensure_ascii=False)
 
@@ -137,7 +116,6 @@ def make_gemini_judge_prompt(request: JudgeRequest) -> tuple[str, str]:
 - 応答は有効なJSONであること
 """
 
-    # Build the evaluation content
     evaluation_content = f"""以下の質問と回答を評価してください。
 
 【質問】
@@ -147,14 +125,12 @@ def make_gemini_judge_prompt(request: JudgeRequest) -> tuple[str, str]:
 {request.response}
 """
 
-    # Add request parameters if provided
     if request.request_parameters:
         evaluation_content += f"""
 【リクエストパラメータ】
 {request.request_parameters}
 """
 
-    # Add context if provided (for RAG evaluation, etc.)
     if request.context:
         evaluation_content += f"""
 【参照情報】
@@ -165,19 +141,9 @@ def make_gemini_judge_prompt(request: JudgeRequest) -> tuple[str, str]:
 
 
 def make_anthropic_judge_prompt(request: JudgeRequest) -> list:
-    """
-    Create a prompt for LLM-as-a-Judge evaluation (Anthropic format).
-
-    Args:
-        request: JudgeRequest containing the question, response, and optional context
-
-    Returns:
-        List of messages for the LLM API
-    """
     params = JudgeResponse.detailed_model()
     param_dump = json.dumps(params, indent=2, ensure_ascii=False)
 
-    # Build the evaluation content
     evaluation_content = f"""以下の質問と回答を評価してください。
 
 【質問】
@@ -187,14 +153,12 @@ def make_anthropic_judge_prompt(request: JudgeRequest) -> list:
 {request.response}
 """
 
-    # Add request parameters if provided
     if request.request_parameters:
         evaluation_content += f"""
 【リクエストパラメータ】
 {request.request_parameters}
 """
 
-    # Add context if provided (for RAG evaluation, etc.)
     if request.context:
         evaluation_content += f"""
 【参照情報】
@@ -251,24 +215,11 @@ def make_custom_openai_judge_prompt(
     criteria: list[dict[str, str]],
     scoring_guide: str | None = None,
 ) -> list:
-    """
-    Create a custom LLM-as-a-Judge prompt with user-defined evaluation criteria (OpenAI format).
-
-    Args:
-        request: JudgeRequest containing the question, response, and optional context
-        criteria: List of custom criteria, each with 'name' and 'description'
-        scoring_guide: Optional custom scoring guide (uses default if not provided)
-
-    Returns:
-        List of messages for the LLM API
-    """
     params = JudgeResponse.detailed_model()
     param_dump = json.dumps(params, indent=2, ensure_ascii=False)
 
-    # Build criteria section
     criteria_text = "\n".join([f"{i + 1}. {c['name']}: {c['description']}" for i, c in enumerate(criteria)])
 
-    # Use default scoring guide if not provided
     if not scoring_guide:
         scoring_guide = """- 1点: 完全に不適切
 - 2点: 不十分
@@ -276,7 +227,6 @@ def make_custom_openai_judge_prompt(
 - 4点: 良好
 - 5点: 完璧"""
 
-    # Build the evaluation content
     evaluation_content = f"""以下の質問と回答を評価してください。
 
 【質問】
@@ -328,24 +278,11 @@ def make_custom_gemini_judge_prompt(
     criteria: list[dict[str, str]],
     scoring_guide: str | None = None,
 ) -> tuple[str, str]:
-    """
-    Create a custom LLM-as-a-Judge prompt with user-defined evaluation criteria (Gemini format).
-
-    Args:
-        request: JudgeRequest containing the question, response, and optional context
-        criteria: List of custom criteria, each with 'name' and 'description'
-        scoring_guide: Optional custom scoring guide (uses default if not provided)
-
-    Returns:
-        Tuple of (system_prompt, user_prompt) for Gemini API
-    """
     params = JudgeResponse.detailed_model()
     param_dump = json.dumps(params, indent=2, ensure_ascii=False)
 
-    # Build criteria section
     criteria_text = "\n".join([f"{i + 1}. {c['name']}: {c['description']}" for i, c in enumerate(criteria)])
 
-    # Use default scoring guide if not provided
     if not scoring_guide:
         scoring_guide = """- 1点: 完全に不適切
 - 2点: 不十分
@@ -374,7 +311,6 @@ def make_custom_gemini_judge_prompt(
 - 応答は有効なJSONであること
 """
 
-    # Build the evaluation content
     evaluation_content = f"""以下の質問と回答を評価してください。
 
 【質問】
@@ -398,24 +334,11 @@ def make_custom_anthropic_judge_prompt(
     criteria: list[dict[str, str]],
     scoring_guide: str | None = None,
 ) -> list:
-    """
-    Create a custom LLM-as-a-Judge prompt with user-defined evaluation criteria (Anthropic format).
-
-    Args:
-        request: JudgeRequest containing the question, response, and optional context
-        criteria: List of custom criteria, each with 'name' and 'description'
-        scoring_guide: Optional custom scoring guide (uses default if not provided)
-
-    Returns:
-        List of messages for the LLM API
-    """
     params = JudgeResponse.detailed_model()
     param_dump = json.dumps(params, indent=2, ensure_ascii=False)
 
-    # Build criteria section
     criteria_text = "\n".join([f"{i + 1}. {c['name']}: {c['description']}" for i, c in enumerate(criteria)])
 
-    # Use default scoring guide if not provided
     if not scoring_guide:
         scoring_guide = """- 1点: 完全に不適切
 - 2点: 不十分
@@ -423,7 +346,6 @@ def make_custom_anthropic_judge_prompt(
 - 4点: 良好
 - 5点: 完璧"""
 
-    # Build the evaluation content
     evaluation_content = f"""以下の質問と回答を評価してください。
 
 【質問】

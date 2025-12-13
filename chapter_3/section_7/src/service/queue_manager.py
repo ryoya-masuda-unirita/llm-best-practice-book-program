@@ -1,5 +1,3 @@
-"""Redis-based priority queue manager for LLM request processing."""
-
 import time
 from typing import Optional
 
@@ -13,13 +11,6 @@ logger = make_logger(__name__)
 
 
 class PriorityQueueManager:
-    """
-    Manages priority queues using Redis for LLM request processing.
-
-    Uses Redis Sorted Sets for priority queues (score = timestamp for FIFO),
-    key-value for task storage, and a Set for tracking processing state.
-    """
-
     QUEUE_PREFIX = "llm:queue"
     TASK_PREFIX = "llm:task"
     PROCESSING_SET = "llm:processing"
@@ -34,7 +25,6 @@ class PriorityQueueManager:
         self._redis: Optional[aioredis.Redis] = None
 
     async def connect(self) -> None:
-        """Establish connection to Redis if not already connected."""
         if self._redis is not None:
             return
 
@@ -46,7 +36,6 @@ class PriorityQueueManager:
         logger.info(f"Connected to Redis at {config.redis_host}:{config.redis_port}")
 
     async def disconnect(self) -> None:
-        """Close Redis connection."""
         if self._redis is None:
             return
 
@@ -72,7 +61,6 @@ class PriorityQueueManager:
         return self.USER_TIER_PRIORITY_MAP.get(user_tier, Priority.LOW)
 
     async def get_task(self, task_id: str) -> Optional[QueuedTask]:
-        """Retrieve a task by its ID."""
         redis = await self._ensure_connected()
         task_data = await redis.get(self._get_task_key(task_id))
 
@@ -82,7 +70,6 @@ class PriorityQueueManager:
         return QueuedTask.model_validate_json(task_data)
 
     async def update_task(self, task: QueuedTask) -> None:
-        """Update task data. Removes from processing set if terminal status."""
         redis = await self._ensure_connected()
 
         await redis.set(self._get_task_key(task.task_id), task.model_dump_json())
@@ -93,7 +80,6 @@ class PriorityQueueManager:
         logger.debug(f"Updated task {task.task_id} with status {task.status.value}")
 
     async def enqueue_task(self, task: QueuedTask) -> QueuedTask:
-        """Add a task to the appropriate priority queue."""
         redis = await self._ensure_connected()
 
         if not task.priority:
@@ -106,7 +92,6 @@ class PriorityQueueManager:
         return task
 
     async def dequeue_task(self, priority: Priority) -> Optional[QueuedTask]:
-        """Remove and return the oldest task from the specified priority queue."""
         redis = await self._ensure_connected()
         queue_key = self._get_queue_key(priority)
 
@@ -130,7 +115,6 @@ class PriorityQueueManager:
         return task
 
     async def get_queue_position(self, task_id: str) -> Optional[int]:
-        """Get the position of a task in its queue (0-indexed)."""
         redis = await self._ensure_connected()
 
         for priority in Priority:
@@ -152,7 +136,6 @@ class PriorityQueueManager:
         return await redis.scard(self.PROCESSING_SET)
 
     async def cleanup_old_tasks(self, max_age_seconds: int = 86400) -> int:
-        """Remove completed/failed tasks older than max_age_seconds (default: 24h)."""
         redis = await self._ensure_connected()
 
         cutoff_time = time.time() - max_age_seconds

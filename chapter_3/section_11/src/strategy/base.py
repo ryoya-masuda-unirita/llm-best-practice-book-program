@@ -12,5 +12,4 @@ class Component(ABC, Generic[InputType, OutputType]):
 
     @abstractmethod
     async def process(self, input_data: InputType) -> OutputType:
-        """Process input data and return output."""
         pass

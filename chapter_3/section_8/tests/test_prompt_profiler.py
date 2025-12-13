@@ -1,8 +1,4 @@
-"""Tests for the PromptProfiler collection layer.
-
-These tests verify the profiler correctly collects metrics for LLM requests
-including latency, token counts, and quality scores.
-"""
+"""Tests for the PromptProfiler collection layer."""
 
 import asyncio
 
@@ -18,10 +14,7 @@ from src.service.prompt_profiler import (
 
 
 class TestEstimateCost:
-    """Test cost estimation functionality."""
-
     def test_estimate_cost_openai(self):
-        """Test cost estimation for OpenAI models."""
         cost = estimate_cost(
             provider="openai",
             model="gpt-4o-mini",
@@ -32,7 +25,6 @@ class TestEstimateCost:
         assert cost > 0
 
     def test_estimate_cost_gemini(self):
-        """Test cost estimation for Gemini models."""
         cost = estimate_cost(
             provider="gemini",
             model="gemini-2.5-flash",
@@ -43,7 +35,6 @@ class TestEstimateCost:
         assert cost > 0
 
     def test_estimate_cost_anthropic(self):
-        """Test cost estimation for Anthropic models."""
         cost = estimate_cost(
             provider="anthropic",
             model="claude-sonnet-4-5",
@@ -54,7 +45,6 @@ class TestEstimateCost:
         assert cost > 0
 
     def test_estimate_cost_unknown_model(self):
-        """Test cost estimation for unknown model returns None."""
         cost = estimate_cost(
             provider="unknown",
             model="unknown-model",
@@ -65,11 +55,8 @@ class TestEstimateCost:
 
 
 class TestMetricsStore:
-    """Test the MetricsStore class."""
-
     @pytest.mark.asyncio
     async def test_add_and_get_metrics(self, sample_profiler_metrics: ProfilerMetrics):
-        """Test adding and retrieving metrics."""
         store = MetricsStore(max_size=100)
 
         await store.add(sample_profiler_metrics)
@@ -80,26 +67,21 @@ class TestMetricsStore:
 
     @pytest.mark.asyncio
     async def test_get_by_prompt_id(self, sample_metrics_list: list[ProfilerMetrics]):
-        """Test filtering metrics by prompt ID."""
         store = MetricsStore(max_size=100)
 
         for m in sample_metrics_list:
             await store.add(m)
 
-        # All metrics have the same prompt_id
         filtered = await store.get_by_prompt_id("character_generation")
         assert len(filtered) == len(sample_metrics_list)
 
-        # Non-existent prompt_id
         filtered = await store.get_by_prompt_id("nonexistent")
         assert len(filtered) == 0
 
     @pytest.mark.asyncio
     async def test_max_size_eviction(self):
-        """Test that store evicts old entries when max size is exceeded."""
         store = MetricsStore(max_size=5)
 
-        # Add 10 metrics
         for i in range(10):
             metrics = ProfilerMetrics(
                 prompt_id="test",
@@ -113,7 +95,6 @@ class TestMetricsStore:
             )
             await store.add(metrics)
 
-        # Should only have 5 (the last 5)
         all_metrics = await store.get_all()
         assert len(all_metrics) == 5
         assert all_metrics[0].request_id == "request-5"
@@ -121,7 +102,6 @@ class TestMetricsStore:
 
     @pytest.mark.asyncio
     async def test_get_recent(self, sample_metrics_list: list[ProfilerMetrics]):
-        """Test getting recent metrics."""
         store = MetricsStore(max_size=100)
 
         for m in sample_metrics_list:
@@ -132,7 +112,6 @@ class TestMetricsStore:
 
     @pytest.mark.asyncio
     async def test_clear(self, sample_metrics_list: list[ProfilerMetrics]):
-        """Test clearing all metrics."""
         store = MetricsStore(max_size=100)
 
         for m in sample_metrics_list:
@@ -143,11 +122,8 @@ class TestMetricsStore:
 
 
 class TestPromptProfiler:
-    """Test the PromptProfiler class."""
-
     @pytest.mark.asyncio
     async def test_profile_context_manager(self):
-        """Test profiling with context manager."""
         profiler = PromptProfiler()
 
         async with profiler.profile(
@@ -156,16 +132,13 @@ class TestPromptProfiler:
             provider="openai",
             prompt_name="Test Prompt",
         ) as ctx:
-            # Simulate some work
             await asyncio.sleep(0.01)
             ctx["input_tokens"] = 100
             ctx["output_tokens"] = 50
             ctx["response"] = "test response"
 
-        # Give async task time to complete
         await asyncio.sleep(0.1)
 
-        # Check metrics were collected
         metrics = await profiler.get_metrics(prompt_id="test_prompt")
         assert len(metrics) == 1
         assert metrics[0].input_tokens == 100
@@ -174,7 +147,6 @@ class TestPromptProfiler:
 
     @pytest.mark.asyncio
     async def test_profile_with_error(self):
-        """Test profiling when an error occurs."""
         profiler = PromptProfiler()
 
         with pytest.raises(ValueError):
@@ -185,7 +157,6 @@ class TestPromptProfiler:
             ):
                 raise ValueError("Test error")
 
-        # Give async task time to complete
         await asyncio.sleep(0.1)
 
         metrics = await profiler.get_metrics(prompt_id="error_prompt")
@@ -195,7 +166,6 @@ class TestPromptProfiler:
 
     @pytest.mark.asyncio
     async def test_profile_with_quality_score(self):
-        """Test profiling with quality score."""
         profiler = PromptProfiler()
 
         async with profiler.profile(
@@ -217,7 +187,6 @@ class TestPromptProfiler:
 
     @pytest.mark.asyncio
     async def test_record_metrics_directly(self):
-        """Test recording metrics directly without context manager."""
         profiler = PromptProfiler()
 
         metrics = await profiler.record_metrics(
@@ -233,13 +202,11 @@ class TestPromptProfiler:
         assert metrics.latency_ms == 150.0
         assert metrics.input_tokens == 200
 
-        # Verify it was stored
         stored = await profiler.get_metrics(prompt_id="direct_prompt")
         assert len(stored) == 1
 
     @pytest.mark.asyncio
     async def test_cost_estimation_enabled(self):
-        """Test that cost estimation works when enabled."""
         profiler = PromptProfiler(enable_cost_estimation=True)
 
         async with profiler.profile(
@@ -259,7 +226,6 @@ class TestPromptProfiler:
 
     @pytest.mark.asyncio
     async def test_cost_estimation_disabled(self):
-        """Test that cost estimation can be disabled."""
         profiler = PromptProfiler(enable_cost_estimation=False)
 
         async with profiler.profile(
@@ -278,21 +244,16 @@ class TestPromptProfiler:
 
 
 class TestDefaultProfiler:
-    """Test the default profiler singleton."""
-
     def test_get_default_profiler(self):
-        """Test getting the default profiler."""
         profiler1 = get_default_profiler()
         profiler2 = get_default_profiler()
         assert profiler1 is profiler2
 
     def test_set_default_profiler(self):
-        """Test setting a custom default profiler."""
         custom_profiler = PromptProfiler(enable_cost_estimation=False)
         set_default_profiler(custom_profiler)
 
         assert get_default_profiler() is custom_profiler
         assert get_default_profiler().enable_cost_estimation is False
 
-        # Reset to a new instance for other tests
         set_default_profiler(PromptProfiler())

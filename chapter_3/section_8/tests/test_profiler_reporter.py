@@ -1,7 +1,4 @@
-"""Tests for the ProfilerReporter visualization layer.
-
-These tests verify the reporter correctly generates reports in various formats.
-"""
+"""Tests for the ProfilerReporter visualization layer."""
 
 import json
 import tempfile
@@ -13,10 +10,7 @@ from src.service.profiler_reporter import ProfilerReporter
 
 
 class TestSummaryReport:
-    """Test summary report generation."""
-
     def test_generate_summary_report(self, sample_metrics_list: list[ProfilerMetrics]):
-        """Test basic summary report generation."""
         reporter = ProfilerReporter()
         report = reporter.generate_summary_report(sample_metrics_list)
 
@@ -29,21 +23,18 @@ class TestSummaryReport:
         assert "P95:" in report
 
     def test_generate_summary_report_with_title(self, sample_metrics_list: list[ProfilerMetrics]):
-        """Test summary report with custom title."""
         reporter = ProfilerReporter()
         report = reporter.generate_summary_report(sample_metrics_list, title="Custom Title")
 
         assert "Custom Title" in report
 
     def test_generate_summary_report_empty(self):
-        """Test summary report with no metrics."""
         reporter = ProfilerReporter()
         report = reporter.generate_summary_report([])
 
         assert "No metrics available" in report
 
     def test_generate_summary_with_quality_scores(self, sample_metrics_list: list[ProfilerMetrics]):
-        """Test summary report includes quality scores when available."""
         reporter = ProfilerReporter()
         report = reporter.generate_summary_report(sample_metrics_list)
 
@@ -51,7 +42,6 @@ class TestSummaryReport:
         assert "Average:" in report
 
     def test_generate_summary_with_costs(self, sample_metrics_list: list[ProfilerMetrics]):
-        """Test summary report includes cost estimates when available."""
         reporter = ProfilerReporter()
         report = reporter.generate_summary_report(sample_metrics_list)
 
@@ -60,10 +50,7 @@ class TestSummaryReport:
 
 
 class TestComparisonReport:
-    """Test comparison report generation."""
-
     def test_generate_comparison_report(self, mixed_prompt_metrics: list[ProfilerMetrics]):
-        """Test prompt comparison report generation."""
         reporter = ProfilerReporter()
         report = reporter.generate_prompt_comparison_report(
             mixed_prompt_metrics,
@@ -78,7 +65,6 @@ class TestComparisonReport:
         assert "Success Rate" in report
 
     def test_generate_comparison_report_empty(self):
-        """Test comparison report with no matching prompts."""
         reporter = ProfilerReporter()
         report = reporter.generate_prompt_comparison_report(
             [],
@@ -89,10 +75,7 @@ class TestComparisonReport:
 
 
 class TestTrendReport:
-    """Test trend report generation."""
-
     def test_generate_trend_report(self, sample_metrics_list: list[ProfilerMetrics]):
-        """Test trend analysis report generation."""
         reporter = ProfilerReporter()
         report = reporter.generate_trend_report(sample_metrics_list)
 
@@ -102,7 +85,6 @@ class TestTrendReport:
         assert "TIME SERIES DATA" in report
 
     def test_generate_trend_report_empty(self):
-        """Test trend report with no metrics."""
         reporter = ProfilerReporter()
         report = reporter.generate_trend_report([])
 
@@ -110,10 +92,7 @@ class TestTrendReport:
 
 
 class TestAlertReport:
-    """Test alert report generation."""
-
     def test_generate_alert_report(self):
-        """Test alert report generation."""
         reporter = ProfilerReporter()
 
         alerts = [
@@ -144,7 +123,6 @@ class TestAlertReport:
         assert "Low quality warning" in report
 
     def test_generate_alert_report_empty(self):
-        """Test alert report with no alerts."""
         reporter = ProfilerReporter()
         report = reporter.generate_alert_report([])
 
@@ -152,10 +130,7 @@ class TestAlertReport:
 
 
 class TestJsonReport:
-    """Test JSON report generation."""
-
     def test_generate_json_report(self, sample_metrics_list: list[ProfilerMetrics]):
-        """Test JSON report generation."""
         reporter = ProfilerReporter()
         report = reporter.generate_json_report(sample_metrics_list)
 
@@ -169,7 +144,6 @@ class TestJsonReport:
         assert "error_summary" in report
 
     def test_generate_json_report_with_raw_metrics(self, sample_metrics_list: list[ProfilerMetrics]):
-        """Test JSON report includes raw metrics when requested."""
         reporter = ProfilerReporter()
         report = reporter.generate_json_report(sample_metrics_list, include_raw_metrics=True)
 
@@ -177,7 +151,6 @@ class TestJsonReport:
         assert len(report["raw_metrics"]) == len(sample_metrics_list)
 
     def test_generate_json_report_empty(self):
-        """Test JSON report with no metrics."""
         reporter = ProfilerReporter()
         report = reporter.generate_json_report([])
 
@@ -185,24 +158,18 @@ class TestJsonReport:
         assert report["summary"] is None
 
     def test_json_report_is_valid_json(self, sample_metrics_list: list[ProfilerMetrics]):
-        """Test that JSON report is valid JSON."""
         reporter = ProfilerReporter()
         report = reporter.generate_json_report(sample_metrics_list)
 
-        # Should be serializable to JSON string
         json_str = json.dumps(report)
         assert json_str is not None
 
-        # Should be parseable back
         parsed = json.loads(json_str)
         assert parsed["sample_count"] == report["sample_count"]
 
 
 class TestHtmlReport:
-    """Test HTML report generation."""
-
     def test_generate_html_report(self, sample_metrics_list: list[ProfilerMetrics]):
-        """Test HTML report generation."""
         reporter = ProfilerReporter()
         html = reporter.generate_html_report(sample_metrics_list)
 
@@ -214,14 +181,12 @@ class TestHtmlReport:
         assert "Avg Latency" in html
 
     def test_generate_html_report_with_title(self, sample_metrics_list: list[ProfilerMetrics]):
-        """Test HTML report with custom title."""
         reporter = ProfilerReporter()
         html = reporter.generate_html_report(sample_metrics_list, title="Custom Dashboard")
 
         assert "Custom Dashboard" in html
 
     def test_html_report_includes_tables(self, sample_metrics_list: list[ProfilerMetrics]):
-        """Test that HTML report includes data tables."""
         reporter = ProfilerReporter()
         html = reporter.generate_html_report(sample_metrics_list)
 
@@ -232,10 +197,7 @@ class TestHtmlReport:
 
 
 class TestSaveReport:
-    """Test saving reports to files."""
-
     def test_save_json_report(self, sample_metrics_list: list[ProfilerMetrics]):
-        """Test saving JSON report to file."""
         reporter = ProfilerReporter()
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -249,7 +211,6 @@ class TestSaveReport:
                 assert "sample_count" in data
 
     def test_save_html_report(self, sample_metrics_list: list[ProfilerMetrics]):
-        """Test saving HTML report to file."""
         reporter = ProfilerReporter()
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -263,7 +224,6 @@ class TestSaveReport:
                 assert "<!DOCTYPE html>" in content
 
     def test_save_txt_report(self, sample_metrics_list: list[ProfilerMetrics]):
-        """Test saving text report to file."""
         reporter = ProfilerReporter()
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -277,7 +237,6 @@ class TestSaveReport:
                 assert "LATENCY" in content
 
     def test_save_report_creates_directories(self, sample_metrics_list: list[ProfilerMetrics]):
-        """Test that save_report creates parent directories."""
         reporter = ProfilerReporter()
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -287,7 +246,6 @@ class TestSaveReport:
             assert output_path.exists()
 
     def test_save_report_invalid_format(self, sample_metrics_list: list[ProfilerMetrics]):
-        """Test that invalid format raises error."""
         reporter = ProfilerReporter()
 
         with tempfile.TemporaryDirectory() as tmpdir:

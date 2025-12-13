@@ -31,7 +31,6 @@ class TestStreamOpenAIResponse:
             ):
                 chunks.append(chunk)
 
-            # Verify the client was called with correct parameters
             mock_openai_client.chat.completions.create.assert_called_once()
             call_args = mock_openai_client.chat.completions.create.call_args
             assert call_args.kwargs["model"] == "gpt-4o"
@@ -115,10 +114,7 @@ class TestStreamOpenAIResponse:
             async for chunk in stream_openai_response(prompt=prompt):
                 chunks.append(chunk)
 
-            # Verify that chunks were generated
             assert len(chunks) > 0
-
-            # Verify the prompt was passed correctly
             call_args = mock_openai_client.chat.completions.create.call_args
             messages = call_args.kwargs["messages"]
             assert len(messages) == 1

@@ -17,7 +17,6 @@ class SemanticChunker(Component[list[Document], list[Chunk]]):
         self.model = model
 
     async def process(self, input_data: list[Document]) -> list[Chunk]:
-        """Split documents into semantic chunks."""
         all_chunks = []
 
         for document in input_data:

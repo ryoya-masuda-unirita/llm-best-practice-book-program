@@ -64,26 +64,10 @@ async def request_with_judge(
     judge_model: OpenAIModel | GeminiModel | AnthropicModel | None = None,
     judge_provider: str | None = None,
 ) -> tuple[CharacterResponse, JudgeResponse]:
-    """
-    Request character generation and evaluate it using LLM-as-a-Judge.
-
-    Args:
-        character_request: The character request with gender, age, and additional instructions
-        model: The model to use for character generation
-        provider: The provider for character generation ("openai", "gemini", or "anthropic")
-        judge_model: The model to use for evaluation (defaults to same as generation model)
-        judge_provider: The provider for evaluation (defaults to same as generation provider)
-
-    Returns:
-        Tuple of (CharacterResponse, JudgeResponse)
-    """
-
-    # Step 1: Generate prompt from character request
-    logger.info("Step 1: Generating prompt...")
+    logger.info("Generating prompt...")
     prompt = make_prompt(character=character_request, provider=LLMProvider(provider))
 
-    # Step 2: Generate character
-    logger.info("Step 2: Generating character...")
+    logger.info("Generating character...")
     if provider == LLMProvider.OPENAI:
         character_response = await request_openai(prompt=prompt, model=model)
     elif provider == LLMProvider.GEMINI:
@@ -95,17 +79,13 @@ async def request_with_judge(
 
     logger.info("Character generation completed.")
 
-    # Step 3: Evaluate the generated character using LLM-as-a-Judge
-    logger.info("Step 3: Evaluating character with LLM-as-a-Judge...")
+    logger.info("Evaluating character with LLM-as-a-Judge...")
 
-    # Use same model/provider for judgment if not specified
     if judge_model is None:
         judge_model = model
     if judge_provider is None:
         judge_provider = provider
 
-    # Create a judge request
-    # Extract the user prompt from the messages
     if isinstance(prompt, tuple):
         user_prompt = prompt[1]  # Gemini format: (system, user)
     else:
@@ -113,7 +93,6 @@ async def request_with_judge(
             (msg["content"] for msg in prompt if msg["role"] == "user"), "キャラクターを生成してください。"
         )
 
-    # Format request parameters as a string for evaluation
     request_params_str = f"""Gender: {character_request.gender.value}
 Age: {character_request.age}
 Additional Instructions: {character_request.additional_instructions or "None"}"""
@@ -121,11 +100,10 @@ Additional Instructions: {character_request.additional_instructions or "None"}""
     judge_request = JudgeRequest(
         question=user_prompt,
         response=character_response.model_dump_json(indent=2, ensure_ascii=False),
-        context=None,  # No reference context for creative generation
+        context=None,
         request_parameters=request_params_str,
     )
 
-    # Get judgment
     if judge_provider == LLMProvider.OPENAI:
         judge_response = await judge_with_openai(judge_request=judge_request, model=judge_model)
     elif judge_provider == LLMProvider.GEMINI:

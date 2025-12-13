@@ -186,16 +186,6 @@ Think step by step about the optimal structure before generating the schema.
 
 
 def get_schema_extraction_messages(prompts: list[str], use_high_reasoning: bool = False) -> list[dict[str, str]]:
-    """Generate messages for schema extraction
-
-    Args:
-        prompts: List of user's natural language prompts (can be single or multiple)
-        use_high_reasoning: Whether to use high reasoning mode for unclear structures
-
-    Returns:
-        List of messages to send to OpenAI API
-    """
-    # Format prompts as numbered list if multiple, or single prompt if one
     if len(prompts) == 1:
         formatted_prompts = prompts[0]
     else:
@@ -225,22 +215,8 @@ def get_schema_retry_messages(
     error_message: str,
     use_high_reasoning: bool = False,
 ) -> list[dict[str, str]]:
-    """Generate messages for schema retry with error feedback
-
-    Args:
-        original_prompt: User's original natural language prompt
-        previous_schema: Previously generated schema that failed validation
-        error_message: Validation error message
-        use_high_reasoning: Whether to use high reasoning mode
-
-    Returns:
-        List of messages including error feedback for retry
-    """
-
-    # Start with the original messages
     messages = get_schema_extraction_messages(original_prompt, use_high_reasoning)
 
-    # Add the previous attempt as assistant response
     if previous_schema:
         messages.append(
             {
@@ -249,7 +225,6 @@ def get_schema_retry_messages(
             }
         )
 
-    # Add error feedback as user message
     retry_prompt = f"""The previous schema had validation errors. Please fix the schema based on the following error:
 
 **Validation Error:**

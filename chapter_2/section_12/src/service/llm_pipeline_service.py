@@ -20,15 +20,7 @@ MAX_RETRIES = 2
 
 
 async def read_document_node(state: PipelineState) -> PipelineState:
-    """
-    Read the markdown document from the file path.
-
-    Args:
-        state: The current pipeline state
-
-    Returns:
-        Updated state with document content
-    """
+    """Read the markdown document from the file path."""
     logger.info(f"Reading document from: {state['document_path']}")
 
     try:
@@ -53,15 +45,7 @@ async def read_document_node(state: PipelineState) -> PipelineState:
 
 
 async def analyze_document_openai_node(state: PipelineState) -> PipelineState:
-    """
-    Analyze the document using OpenAI API.
-
-    Args:
-        state: The current pipeline state
-
-    Returns:
-        Updated state with analysis result
-    """
+    """Analyze the document using OpenAI API."""
     retry_count = state.get("retry_count", 0)
     logger.info(f"Analyzing document with OpenAI (attempt {retry_count + 1})")
 
@@ -69,7 +53,6 @@ async def analyze_document_openai_node(state: PipelineState) -> PipelineState:
         model = state.get("model", OpenAIModel.GPT_4O)
         prompt = make_document_analysis_prompt(state["document_content"])
 
-        # If this is a retry, add feedback from the judge
         evaluation_result = state.get("evaluation_result")
         if evaluation_result and retry_count > 0:
             feedback_msg = f"""
@@ -111,15 +94,7 @@ async def analyze_document_openai_node(state: PipelineState) -> PipelineState:
 
 
 async def analyze_document_gemini_node(state: PipelineState) -> PipelineState:
-    """
-    Analyze the document using Google Gemini API.
-
-    Args:
-        state: The current pipeline state
-
-    Returns:
-        Updated state with analysis result
-    """
+    """Analyze the document using Google Gemini API."""
     retry_count = state.get("retry_count", 0)
     logger.info(f"Analyzing document with Gemini (attempt {retry_count + 1})")
 
@@ -127,7 +102,6 @@ async def analyze_document_gemini_node(state: PipelineState) -> PipelineState:
         model = state.get("model", GeminiModel.GEMINI_2_5_FLASH)
         system_instruction, user_content = make_document_analysis_system_instruction(state["document_content"])
 
-        # If this is a retry, add feedback from the judge
         evaluation_result = state.get("evaluation_result")
         if evaluation_result and retry_count > 0:
             feedback_msg = f"""
@@ -173,15 +147,7 @@ async def analyze_document_gemini_node(state: PipelineState) -> PipelineState:
 
 
 async def judge_analysis_openai_node(state: PipelineState) -> PipelineState:
-    """
-    Evaluate the analysis using OpenAI API (LLM-as-a-judge).
-
-    Args:
-        state: The current pipeline state
-
-    Returns:
-        Updated state with evaluation result
-    """
+    """Evaluate the analysis using OpenAI API (LLM-as-a-judge)."""
     logger.info("Evaluating analysis with OpenAI judge")
 
     try:
@@ -218,15 +184,7 @@ async def judge_analysis_openai_node(state: PipelineState) -> PipelineState:
 
 
 async def judge_analysis_gemini_node(state: PipelineState) -> PipelineState:
-    """
-    Evaluate the analysis using Google Gemini API (LLM-as-a-judge).
-
-    Args:
-        state: The current pipeline state
-
-    Returns:
-        Updated state with evaluation result
-    """
+    """Evaluate the analysis using Google Gemini API (LLM-as-a-judge)."""
     logger.info("Evaluating analysis with Gemini judge")
 
     try:
@@ -269,15 +227,7 @@ async def judge_analysis_gemini_node(state: PipelineState) -> PipelineState:
 
 
 def route_to_llm_provider(state: PipelineState) -> Literal["analyze_openai", "analyze_gemini", "end"]:
-    """
-    Route to the appropriate LLM provider based on state.
-
-    Args:
-        state: The current pipeline state
-
-    Returns:
-        The next node to execute
-    """
+    """Route to the appropriate LLM provider based on state."""
     if state.get("error"):
         logger.error(f"Error detected, ending pipeline: {state['error']}")
         return "end"
@@ -296,15 +246,7 @@ def route_to_llm_provider(state: PipelineState) -> Literal["analyze_openai", "an
 
 
 def route_to_judge(state: PipelineState) -> Literal["judge_openai", "judge_gemini", "end"]:
-    """
-    Route to the appropriate LLM judge based on state.
-
-    Args:
-        state: The current pipeline state
-
-    Returns:
-        The next node to execute
-    """
+    """Route to the appropriate LLM judge based on state."""
     if state.get("error"):
         logger.error(f"Error detected, ending pipeline: {state['error']}")
         return "end"
@@ -327,15 +269,7 @@ def route_to_judge(state: PipelineState) -> Literal["judge_openai", "judge_gemin
 
 
 def route_after_judge(state: PipelineState) -> Literal["analyze_openai", "analyze_gemini", "end"]:
-    """
-    Decide whether to retry analysis or end pipeline based on evaluation.
-
-    Args:
-        state: The current pipeline state
-
-    Returns:
-        The next node to execute
-    """
+    """Decide whether to retry analysis or end pipeline based on evaluation."""
     if state.get("error"):
         logger.error(f"Error detected, ending pipeline: {state['error']}")
         return "end"
@@ -347,28 +281,23 @@ def route_after_judge(state: PipelineState) -> Literal["analyze_openai", "analyz
 
     retry_count = state.get("retry_count", 0)
 
-    # Check if analysis is acceptable (grade >= 4)
     if evaluation_result.is_acceptable():
         logger.info(f"Analysis accepted with grade {evaluation_result.grade}/5")
         return "end"
 
-    # Check if we've reached max retries
     if retry_count >= MAX_RETRIES:
         logger.warning(
             f"Max retries ({MAX_RETRIES}) reached. Accepting analysis with grade {evaluation_result.grade}/5"
         )
         return "end"
 
-    # Retry analysis with feedback
     logger.info(
         f"Analysis grade {evaluation_result.grade}/5 is below threshold. "
         f"Retrying (attempt {retry_count + 2}/{MAX_RETRIES + 1})"
     )
 
-    # Increment retry count
     state["retry_count"] = retry_count + 1
 
-    # Route to appropriate analyzer for retry
     llm_provider = state.get("llm_provider", LLMProvider.OPENAI)
     if llm_provider == LLMProvider.OPENAI:
         return "analyze_openai"
@@ -379,33 +308,17 @@ def route_after_judge(state: PipelineState) -> Literal["analyze_openai", "analyz
 
 
 def create_document_analysis_graph() -> StateGraph:
-    """
-    Create the document analysis LangGraph pipeline with LLM-as-a-judge.
-
-    Pipeline flow:
-    1. Read document
-    2. Analyze document (OpenAI or Gemini)
-    3. Judge the analysis (LLM-as-a-judge)
-    4. If grade < 4 and retries < MAX_RETRIES: retry analysis with feedback
-    5. Otherwise: end
-
-    Returns:
-        Compiled StateGraph for document analysis
-    """
-    # Create the graph
+    """Create the document analysis LangGraph pipeline with LLM-as-a-judge."""
     graph = StateGraph(PipelineState)
 
-    # Add nodes
     graph.add_node("read_document", read_document_node)
     graph.add_node("analyze_openai", analyze_document_openai_node)
     graph.add_node("analyze_gemini", analyze_document_gemini_node)
     graph.add_node("judge_openai", judge_analysis_openai_node)
     graph.add_node("judge_gemini", judge_analysis_gemini_node)
 
-    # Add edges
     graph.add_edge(START, "read_document")
 
-    # Route from read_document to appropriate analyzer
     graph.add_conditional_edges(
         "read_document",
         route_to_llm_provider,
@@ -416,7 +329,6 @@ def create_document_analysis_graph() -> StateGraph:
         },
     )
 
-    # After analysis, route to appropriate judge
     graph.add_conditional_edges(
         "analyze_openai",
         route_to_judge,
@@ -437,7 +349,6 @@ def create_document_analysis_graph() -> StateGraph:
         },
     )
 
-    # After judging, decide whether to retry or end
     graph.add_conditional_edges(
         "judge_openai",
         route_after_judge,
@@ -466,21 +377,10 @@ async def run_document_analysis_pipeline(
     llm_provider: LLMProvider,
     model: str,
 ) -> DocumentAnalysis | None:
-    """
-    Run the document analysis pipeline.
-
-    Args:
-        document_path: Path to the markdown document to analyze
-        llm_provider: The LLM provider to use (OpenAI or Gemini)
-        model: The model name to use
-
-    Returns:
-        DocumentAnalysis result or None if failed
-    """
+    """Run the document analysis pipeline."""
     logger.info(f"Starting document analysis pipeline for: {document_path}")
     logger.info(f"LLM Provider: {llm_provider}, Model: {model}")
 
-    # Create initial state
     initial_state: PipelineState = {
         "document_path": document_path,
         "document_content": "",
@@ -492,11 +392,9 @@ async def run_document_analysis_pipeline(
         "model": model,  # type: ignore
     }
 
-    # Create and run the graph
     graph = create_document_analysis_graph()
     final_state = await graph.ainvoke(initial_state)
 
-    # Check for errors
     if final_state.get("error"):
         logger.error(f"Pipeline failed: {final_state['error']}")
         return None

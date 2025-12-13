@@ -4,15 +4,7 @@ from src.model.llm_as_a_judge_model import JudgeRequest, JudgeResponse
 
 
 def make_openai_judge_prompt(request: JudgeRequest) -> list:
-    """
-    Create a prompt for LLM-as-a-Judge evaluation (OpenAI format).
-
-    Args:
-        request: JudgeRequest containing the question, response, and optional context
-
-    Returns:
-        List of messages for the LLM API
-    """
+    """Create a prompt for LLM-as-a-Judge evaluation (OpenAI format)."""
     params = JudgeResponse.detailed_model()
     param_dump = json.dumps(params, indent=2, ensure_ascii=False)
 
@@ -85,15 +77,7 @@ def make_openai_judge_prompt(request: JudgeRequest) -> list:
 
 
 def make_gemini_judge_prompt(request: JudgeRequest) -> tuple[str, str]:
-    """
-    Create a prompt for LLM-as-a-Judge evaluation (Gemini format).
-
-    Args:
-        request: JudgeRequest containing the question, response, and optional context
-
-    Returns:
-        Tuple of (system_prompt, user_prompt) for Gemini API
-    """
+    """Create a prompt for LLM-as-a-Judge evaluation (Gemini format)."""
     params = JudgeResponse.detailed_model()
     param_dump = json.dumps(params, indent=2, ensure_ascii=False)
 
@@ -159,15 +143,7 @@ def make_gemini_judge_prompt(request: JudgeRequest) -> tuple[str, str]:
 
 
 def make_anthropic_judge_prompt(request: JudgeRequest) -> list:
-    """
-    Create a prompt for LLM-as-a-Judge evaluation (Anthropic format).
-
-    Args:
-        request: JudgeRequest containing the question, response, and optional context
-
-    Returns:
-        List of messages for the LLM API
-    """
+    """Create a prompt for LLM-as-a-Judge evaluation (Anthropic format)."""
     params = JudgeResponse.detailed_model()
     param_dump = json.dumps(params, indent=2, ensure_ascii=False)
 
@@ -242,17 +218,7 @@ def make_custom_openai_judge_prompt(
     criteria: list[dict[str, str]],
     scoring_guide: str | None = None,
 ) -> list:
-    """
-    Create a custom LLM-as-a-Judge prompt with user-defined evaluation criteria (OpenAI format).
-
-    Args:
-        request: JudgeRequest containing the question, response, and optional context
-        criteria: List of custom criteria, each with 'name' and 'description'
-        scoring_guide: Optional custom scoring guide (uses default if not provided)
-
-    Returns:
-        List of messages for the LLM API
-    """
+    """Create a custom LLM-as-a-Judge prompt with user-defined evaluation criteria (OpenAI format)."""
     params = JudgeResponse.detailed_model()
     param_dump = json.dumps(params, indent=2, ensure_ascii=False)
 
@@ -316,17 +282,7 @@ def make_custom_gemini_judge_prompt(
     criteria: list[dict[str, str]],
     scoring_guide: str | None = None,
 ) -> tuple[str, str]:
-    """
-    Create a custom LLM-as-a-Judge prompt with user-defined evaluation criteria (Gemini format).
-
-    Args:
-        request: JudgeRequest containing the question, response, and optional context
-        criteria: List of custom criteria, each with 'name' and 'description'
-        scoring_guide: Optional custom scoring guide (uses default if not provided)
-
-    Returns:
-        Tuple of (system_prompt, user_prompt) for Gemini API
-    """
+    """Create a custom LLM-as-a-Judge prompt with user-defined evaluation criteria (Gemini format)."""
     params = JudgeResponse.detailed_model()
     param_dump = json.dumps(params, indent=2, ensure_ascii=False)
 
@@ -383,17 +339,7 @@ def make_custom_anthropic_judge_prompt(
     criteria: list[dict[str, str]],
     scoring_guide: str | None = None,
 ) -> list:
-    """
-    Create a custom LLM-as-a-Judge prompt with user-defined evaluation criteria (Anthropic format).
-
-    Args:
-        request: JudgeRequest containing the question, response, and optional context
-        criteria: List of custom criteria, each with 'name' and 'description'
-        scoring_guide: Optional custom scoring guide (uses default if not provided)
-
-    Returns:
-        List of messages for the LLM API
-    """
+    """Create a custom LLM-as-a-Judge prompt with user-defined evaluation criteria (Anthropic format)."""
     params = JudgeResponse.detailed_model()
     param_dump = json.dumps(params, indent=2, ensure_ascii=False)
 
@@ -450,17 +396,8 @@ def make_custom_anthropic_judge_prompt(
     ]
 
 
-# Backward compatibility functions (default to OpenAI)
 def make_judge_prompt(request: JudgeRequest) -> list:
-    """
-    Create a prompt for LLM-as-a-Judge evaluation (backward compatibility, defaults to OpenAI format).
-
-    Args:
-        request: JudgeRequest containing the question, response, and optional context
-
-    Returns:
-        List of messages for the LLM API
-    """
+    """Create a prompt for LLM-as-a-Judge evaluation (defaults to OpenAI format)."""
     return make_openai_judge_prompt(request)
 
 
@@ -469,15 +406,5 @@ def make_custom_judge_prompt(
     criteria: list[dict[str, str]],
     scoring_guide: str | None = None,
 ) -> list:
-    """
-    Create a custom LLM-as-a-Judge prompt (backward compatibility, defaults to OpenAI format).
-
-    Args:
-        request: JudgeRequest containing the question, response, and optional context
-        criteria: List of custom criteria, each with 'name' and 'description'
-        scoring_guide: Optional custom scoring guide (uses default if not provided)
-
-    Returns:
-        List of messages for the LLM API
-    """
+    """Create a custom LLM-as-a-Judge prompt (defaults to OpenAI format)."""
     return make_custom_openai_judge_prompt(request, criteria, scoring_guide)

@@ -31,7 +31,6 @@ class TestDocumentAnalysis:
                 improvement_requests=["Only one", "Only two"],
             )
 
-        # Check that the error is about list length
         errors = exc_info.value.errors()
         assert any("at least 3 items" in str(error).lower() for error in errors)
 
@@ -41,10 +40,9 @@ class TestDocumentAnalysis:
             DocumentAnalysis(
                 theme="Test theme",
                 value="Test value",
-                improvement_requests=["1", "2", "3", "4", "5", "6"],  # 6 items, should fail
+                improvement_requests=["1", "2", "3", "4", "5", "6"],
             )
 
-        # Check that the error is about list length
         errors = exc_info.value.errors()
         assert any("at most 5 items" in str(error).lower() for error in errors)
 
@@ -65,10 +63,8 @@ class TestDocumentAnalysis:
         output_file = tmp_path / "analysis.json"
         sample_analysis.save_as_json(str(output_file))
 
-        # Verify file was created
         assert output_file.exists()
 
-        # Load and verify content
         with open(output_file, "r", encoding="utf-8") as f:
             data = json.load(f)
 
@@ -81,10 +77,8 @@ class TestDocumentAnalysis:
         output_file = tmp_path / "analysis.md"
         sample_analysis.save_as_markdown(str(output_file))
 
-        # Verify file was created
         assert output_file.exists()
 
-        # Load and verify content
         with open(output_file, "r", encoding="utf-8") as f:
             content = f.read()
 
@@ -214,50 +208,34 @@ class TestModelSerialization:
 
     def test_document_analysis_serialization(self, sample_analysis: DocumentAnalysis):
         """Test DocumentAnalysis can be serialized and deserialized."""
-        # Serialize
         data = sample_analysis.model_dump()
-
-        # Deserialize
         reconstructed = DocumentAnalysis(**data)
 
-        # Verify
         assert reconstructed.theme == sample_analysis.theme
         assert reconstructed.value == sample_analysis.value
         assert reconstructed.improvement_requests == sample_analysis.improvement_requests
 
     def test_document_analysis_json_serialization(self, sample_analysis: DocumentAnalysis):
         """Test DocumentAnalysis JSON serialization."""
-        # Serialize to JSON string
         json_str = sample_analysis.model_dump_json()
-
-        # Deserialize
         reconstructed = DocumentAnalysis.model_validate_json(json_str)
 
-        # Verify
         assert reconstructed == sample_analysis
 
     def test_evaluation_serialization(self, sample_evaluation_good: AnalysisEvaluation):
         """Test AnalysisEvaluation can be serialized and deserialized."""
-        # Serialize
         data = sample_evaluation_good.model_dump()
-
-        # Deserialize
         reconstructed = AnalysisEvaluation(**data)
 
-        # Verify
         assert reconstructed.grade == sample_evaluation_good.grade
         assert reconstructed.reasoning == sample_evaluation_good.reasoning
         assert reconstructed.specific_improvements == sample_evaluation_good.specific_improvements
 
     def test_evaluation_json_serialization(self, sample_evaluation_poor: AnalysisEvaluation):
         """Test AnalysisEvaluation JSON serialization."""
-        # Serialize to JSON string
         json_str = sample_evaluation_poor.model_dump_json()
-
-        # Deserialize
         reconstructed = AnalysisEvaluation.model_validate_json(json_str)
 
-        # Verify
         assert reconstructed.grade == sample_evaluation_poor.grade
         assert reconstructed.reasoning == sample_evaluation_poor.reasoning
         assert reconstructed.specific_improvements == sample_evaluation_poor.specific_improvements

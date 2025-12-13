@@ -12,7 +12,6 @@ GEMINI_EMBEDDING_DIMENSION = 768
 
 
 def _get_gemini_embedding_sync(text: str) -> list[float]:
-    """Get embedding vector from Google Gemini API (synchronous)."""
     logger.debug(f"Generating Gemini embedding for text: {text[:50]}...")
 
     result = google_genai_client.models.embed_content(
@@ -26,24 +25,11 @@ def _get_gemini_embedding_sync(text: str) -> list[float]:
 
 
 async def get_embedding(text: str) -> list[float]:
-    """
-    Get embedding vector using Gemini API.
-
-    Args:
-        text: Text to embed
-
-    Returns:
-        Embedding vector as list of floats
-    """
+    """Get embedding vector using Gemini API."""
     loop = asyncio.get_event_loop()
     return await loop.run_in_executor(None, _get_gemini_embedding_sync, text)
 
 
 def get_embedding_dimension() -> int:
-    """
-    Get the embedding dimension for Gemini.
-
-    Returns:
-        Embedding dimension as integer (768)
-    """
+    """Get the embedding dimension for Gemini."""
     return GEMINI_EMBEDDING_DIMENSION

@@ -48,7 +48,6 @@ class PromptAnalyzer:
         Returns:
             Updated PromptLog
         """
-        # Create updated log (immutable, so we create a new one)
         updated_data = log.to_dict()
         updated_data["evaluation"] = evaluation.model_dump()
         updated_data["evaluation_status"] = status
@@ -57,7 +56,6 @@ class PromptAnalyzer:
 
         updated_log = PromptLog(**updated_data)
 
-        # Save the updated log
         self.storage.save_log(updated_log)
 
         logger.info(f"Evaluated log {log.log_id}: {status} (score: {updated_log.get_overall_score()})")
@@ -87,7 +85,6 @@ class PromptAnalyzer:
         if log.evaluation_status != EvaluationStatus.SUCCESS:
             logger.warning(f"Creating template from non-successful log {log.log_id} (status: {log.evaluation_status})")
 
-        # Extract system and user prompts from messages
         system_prompt = ""
         user_prompt = ""
         for message in log.messages:
@@ -96,7 +93,6 @@ class PromptAnalyzer:
             elif message.get("role") == "user":
                 user_prompt = message.get("content", "")
 
-        # Create template
         template = PromptTemplate(
             name=template_name,
             description=description,
@@ -116,7 +112,6 @@ class PromptAnalyzer:
             notes=f"Created from log {log.log_id}",
         )
 
-        # Save template
         template_id = self.storage.save_template(template)
         logger.info(f"Created template '{template_name}' of {template_id} from log {log.log_id}")
 
@@ -144,11 +139,9 @@ class PromptAnalyzer:
             logger.warning(f"Template {template_id} not found")
             return None
 
-        # Calculate new statistics
         new_success_count = template.success_count + 1 if success else template.success_count
         new_failure_count = template.failure_count if success else template.failure_count + 1
 
-        # Update average score
         new_average_score = template.average_score
         if score is not None:
             if template.average_score is None:
@@ -157,7 +150,6 @@ class PromptAnalyzer:
                 total_uses = template.success_count + template.failure_count
                 new_average_score = (template.average_score * total_uses + score) / (total_uses + 1)
 
-        # Create updated template
         updated_data = template.to_dict()
         updated_data["success_count"] = new_success_count
         updated_data["failure_count"] = new_failure_count
@@ -194,7 +186,6 @@ class PromptAnalyzer:
         if log.evaluation_status == EvaluationStatus.SUCCESS:
             logger.warning(f"Creating anti-pattern from successful log {log.log_id}")
 
-        # Extract the prompt pattern
         user_prompt = ""
         for message in log.messages:
             if message.get("role") == "user":
@@ -215,7 +206,6 @@ class PromptAnalyzer:
             notes=log.failure_reason or "",
         )
 
-        # Save anti-pattern
         pattern_id = self.storage.save_antipattern(antipattern)
         logger.info(f"Created anti-pattern '{pattern_name}' of {pattern_id} from failed log {log.log_id}")
 
@@ -260,13 +250,11 @@ class PromptAnalyzer:
         Returns:
             Dictionary with analysis results
         """
-        # Get all logs (or filtered by category)
         if category:
             from src.model.prompt_log import PromptCategory
 
             logs = self.storage.get_logs_by_category(PromptCategory(category), limit=limit)
         else:
-            # Get mix of success and failure
             success_logs = self.storage.get_logs_by_status(EvaluationStatus.SUCCESS, limit=limit // 2)
             failure_logs = self.storage.get_logs_by_status(EvaluationStatus.FAILURE, limit=limit // 2)
             logs = success_logs + failure_logs
@@ -280,7 +268,6 @@ class PromptAnalyzer:
                 "average_score": None,
             }
 
-        # Calculate statistics
         success_count = sum(1 for log in logs if log.evaluation_status == EvaluationStatus.SUCCESS)
         failure_count = sum(1 for log in logs if log.evaluation_status == EvaluationStatus.FAILURE)
         scores = [log.get_overall_score() for log in logs if log.get_overall_score()]
@@ -311,7 +298,6 @@ class PromptAnalyzer:
         """
         templates = self.storage.list_templates(category=log.metadata.category)
 
-        # Simple similarity based on tag overlap
         similar = []
         for template in templates:
             if not log.metadata.tags:

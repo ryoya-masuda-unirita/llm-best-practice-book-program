@@ -71,7 +71,6 @@ Output directory: {output_directory}
 
     os.makedirs(output_directory, exist_ok=True)
 
-    # Run document analysis pipeline
     if not document_path:
         raise ValueError("Document path is required for pipeline mode. Use --document-path option.")
 
@@ -84,7 +83,6 @@ Output directory: {output_directory}
     if result is None:
         raise ValueError("Document analysis pipeline failed. Check logs for details.")
 
-    # Save both JSON and Markdown outputs
     base_name = f"{llm_provider.value}_analysis_{uuid4().hex}"
     json_file_path = os.path.join(output_directory, f"{base_name}.json")
     md_file_path = os.path.join(output_directory, f"{base_name}.md")
@@ -96,7 +94,6 @@ Output directory: {output_directory}
 JSON: {json_file_path}
 Markdown: {md_file_path}""")
 
-    # Clean up Google Gemini client session
     if llm_provider == LLMProvider.GEMINI:
         await google_genai_client.aio.aclose()
 

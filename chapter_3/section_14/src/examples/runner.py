@@ -1,5 +1,6 @@
-from typing import Any, Optional
+from typing import Optional
 
+from openai import OpenAI
 from src.auto_structured_output import StructureExtractor
 from src.client.llm_client import OpenAIModel
 from src.logger import make_logger
@@ -8,7 +9,7 @@ logger = make_logger(__name__)
 
 
 def run(
-    llm_client: Any,
+    llm_client: OpenAI,
     model: OpenAIModel,
     prompt: str,
     file_name: Optional[str] = None,
@@ -19,14 +20,13 @@ def run(
     logger.info(f"Generated model: {T_Model.__name__}")
     logger.info(f"Fields: {T_Model.model_json_schema()}")
 
-    # Use the model
-    response = llm_client.chat.completions.parse(
+    response = llm_client.responses.parse(
         model=model,
-        messages=[{"role": "user", "content": prompt}],
-        response_format=T_Model,
+        input=[{"role": "user", "content": prompt}],
+        text_format=T_Model,
     )
 
-    data = response.choices[0].message.parsed
+    data = response.output_parsed
     if data is None:
         raise ValueError("Parsed data is None")
     data_dict = data.model_dump()

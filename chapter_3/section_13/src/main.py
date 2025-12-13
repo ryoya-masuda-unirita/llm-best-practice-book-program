@@ -22,7 +22,6 @@ from src.logger import make_logger
 
 logger = make_logger(__name__)
 
-# Mapping of workflow names to their functions
 WORKFLOWS = {
     "example_1_manual_di": example_1_manual_di,
     "example_2_di_container_singleton": example_2_di_container_singleton,

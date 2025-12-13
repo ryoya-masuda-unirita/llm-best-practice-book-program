@@ -8,14 +8,7 @@ _LOG_FORMAT = "[%(asctime)s] [%(levelname)s] [%(name)s] [%(filename)s:%(lineno)d
 
 
 def make_logger(name: str) -> logging.Logger:
-    """Create a configured logger with standard formatting.
-
-    Args:
-        name: Logger name (typically __name__)
-
-    Returns:
-        Configured logger instance
-    """
+    """Create a configured logger with standard formatting."""
     logger = logging.getLogger(name)
     logger.setLevel(LOG_LEVEL)
 

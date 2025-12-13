@@ -13,20 +13,9 @@ logger = make_logger(__name__)
 
 
 class LLMRequestWrapper:
-    """
-    Wrapper for LLM requests with comprehensive timeout and fallback handling.
-
-    This class encapsulates the logic for making LLM requests with automatic
-    fallback strategies including caching, alternative providers, and templates.
-    """
+    """Wrapper for LLM requests with timeout and fallback handling."""
 
     def __init__(self, fallback_coordinator: FallbackCoordinator):
-        """
-        Initialize the LLM request wrapper.
-
-        Args:
-            fallback_coordinator: FallbackCoordinator instance for handling fallback strategies
-        """
         self.fallback_coordinator = fallback_coordinator
 
     async def request_openai(
@@ -36,18 +25,7 @@ class LLMRequestWrapper:
         alternative_model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH,
         with_fallback: bool = True,
     ) -> tuple[CharacterResponse, Optional[FallbackStrategy], Optional[str]]:
-        """
-        Request character generation from OpenAI with optional fallback to Gemini.
-
-        Args:
-            prompt: The prompt for character generation
-            model: OpenAI model to use
-            alternative_model: Gemini model to use as fallback
-            with_fallback: If True, use fallback strategies on failure
-
-        Returns:
-            Tuple of (response, strategy_used, error_reason)
-        """
+        """Request character generation from OpenAI with optional fallback to Gemini."""
         return await self._make_request(
             primary_provider=LLMProvider.OPENAI,
             primary_func=lambda: self._request_openai_internal(prompt, model),
@@ -64,18 +42,7 @@ class LLMRequestWrapper:
         alternative_model: OpenAIModel = OpenAIModel.GPT_4O_MINI,
         with_fallback: bool = True,
     ) -> tuple[CharacterResponse, Optional[FallbackStrategy], Optional[str]]:
-        """
-        Request character generation from Gemini with optional fallback to OpenAI.
-
-        Args:
-            prompt: The prompt for character generation
-            model: Gemini model to use
-            alternative_model: OpenAI model to use as fallback
-            with_fallback: If True, use fallback strategies on failure
-
-        Returns:
-            Tuple of (response, strategy_used, error_reason)
-        """
+        """Request character generation from Gemini with optional fallback to OpenAI."""
         return await self._make_request(
             primary_provider=LLMProvider.GEMINI,
             primary_func=lambda: self._request_gemini_internal(prompt, model),
@@ -94,20 +61,7 @@ class LLMRequestWrapper:
         model: str,
         with_fallback: bool,
     ) -> tuple[CharacterResponse, Optional[FallbackStrategy], Optional[str]]:
-        """
-        Make an LLM request with optional fallback handling.
-
-        Args:
-            primary_provider: Primary LLM provider
-            primary_func: Async function for primary request
-            alternative_func: Async function for alternative request
-            prompt: The prompt for the request
-            model: Model identifier
-            with_fallback: Whether to enable fallback strategies
-
-        Returns:
-            Tuple of (response, strategy_used, error_reason)
-        """
+        """Make an LLM request with optional fallback handling."""
         if with_fallback:
             return await self.fallback_coordinator.request_with_fallback(
                 primary_provider=primary_provider,
@@ -117,23 +71,13 @@ class LLMRequestWrapper:
                 model=model,
             )
         else:
-            # No fallback - direct request
             response = await primary_func()
             return response, None, None
 
     async def _request_gemini_internal(
         self, prompt: str | list[dict], model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH
     ) -> CharacterResponse:
-        """
-        Internal method for Gemini API requests.
-
-        Args:
-            prompt: The prompt for character generation
-            model: Gemini model to use
-
-        Returns:
-            CharacterResponse object
-        """
+        """Internal method for Gemini API requests."""
         result = await google_genai_client.aio.models.generate_content(
             model=model,
             contents=prompt[-1]["content"],
@@ -148,16 +92,7 @@ class LLMRequestWrapper:
     async def _request_openai_internal(
         self, prompt: str | list[dict], model: OpenAIModel = OpenAIModel.GPT_4O_MINI
     ) -> CharacterResponse:
-        """
-        Internal method for OpenAI API requests.
-
-        Args:
-            prompt: The prompt for character generation
-            model: OpenAI model to use
-
-        Returns:
-            CharacterResponse object
-        """
+        """Internal method for OpenAI API requests."""
         result = await openai_client.responses.parse(
             model=model,
             input=prompt,

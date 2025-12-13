@@ -66,7 +66,6 @@ class GeminiAdapter(LLMClient):
     ) -> BaseModel:
         logger.debug(f"Gemini request: model={self._model}")
 
-        # Handle both tuple (system, user) and list formats
         if isinstance(messages, tuple):
             system_instruction, user_content = messages
         else:

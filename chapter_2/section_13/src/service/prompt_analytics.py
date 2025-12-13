@@ -55,7 +55,6 @@ class PromptAnalytics:
         """
         model_stats = defaultdict(lambda: {"total": 0, "success": 0, "scores": [], "avg_time": []})
 
-        # Collect data from logs
         for category in PromptCategory:
             logs = self.storage.get_logs_by_category(category, limit=1000)
             for log in logs:
@@ -72,7 +71,6 @@ class PromptAnalytics:
                 if log.metadata.execution_time_ms:
                     model_stats[model]["avg_time"].append(log.metadata.execution_time_ms)
 
-        # Calculate statistics
         results = {}
         for model, stats in model_stats.items():
             avg_score = sum(stats["scores"]) / len(stats["scores"]) if stats["scores"] else None
@@ -114,7 +112,6 @@ class PromptAnalytics:
                 }
             )
 
-        # Sort by usage
         report.sort(key=lambda x: x["total_uses"], reverse=True)
         return report
 
@@ -142,7 +139,6 @@ class PromptAnalytics:
                 }
             )
 
-        # Sort by severity and occurrence
         severity_order = {"high": 3, "medium": 2, "low": 1}
         report.sort(
             key=lambda x: (severity_order.get(x["severity"], 0), x["occurrence_count"]),
@@ -190,7 +186,6 @@ class PromptAnalytics:
         """
         suggestions = []
 
-        # Check for low-performing templates
         templates = self.storage.list_templates()
         for template in templates:
             if template.get_success_rate() < 0.5 and (template.success_count + template.failure_count) >= 5:
@@ -206,7 +201,6 @@ class PromptAnalytics:
                     }
                 )
 
-        # Check for high-occurrence anti-patterns
         antipatterns = self.storage.list_antipatterns()
         for pattern in antipatterns:
             if pattern.occurrence_count >= 5:
@@ -222,7 +216,6 @@ class PromptAnalytics:
                     }
                 )
 
-        # Check for unused templates
         for template in templates:
             total_uses = template.success_count + template.failure_count
             if total_uses == 0:

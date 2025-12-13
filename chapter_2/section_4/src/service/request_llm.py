@@ -15,26 +15,20 @@ from src.service.llmops_logger import LLMOpsLogger
 logger = make_logger(__name__)
 
 
-# Retry configuration
 MAX_RETRIES = 5
 MAX_BACKOFF_SECONDS = 60
 BASE_BACKOFF_SECONDS = 1
-JITTER_MIN = 0.1  # 10% jitter
-JITTER_MAX = 0.5  # 50% jitter
+JITTER_MIN = 0.1
+JITTER_MAX = 0.5
 
-# Error codes that should trigger retry
 RETRYABLE_STATUS_CODES = {429, 500, 503, 502, 504}
 
 
 def calculate_backoff_with_jitter(attempt: int, base: float = BASE_BACKOFF_SECONDS) -> float:
     """Calculate exponential backoff time with random jitter."""
-    # Exponential backoff: base * 2^attempt
     backoff = min(base * (2**attempt), MAX_BACKOFF_SECONDS)
-
-    # Add random jitter (10-50% of backoff time)
     jitter_range = backoff * (JITTER_MAX - JITTER_MIN)
     jitter = random.uniform(backoff * JITTER_MIN, backoff * JITTER_MIN + jitter_range)
-
     return backoff + jitter
 
 
@@ -45,7 +39,6 @@ def should_retry_error(error: Exception) -> tuple[bool, int | None]:
     Returns:
         tuple: (should_retry: bool, retry_after_seconds: int | None)
     """
-    # Google Gemini errors
     if isinstance(error, google_exceptions.ResourceExhausted):
         return True, None
 
@@ -59,7 +52,6 @@ def should_retry_error(error: Exception) -> tuple[bool, int | None]:
     ):
         return True, None
 
-    # Unknown errors - don't retry
     return False, None
 
 
@@ -89,9 +81,7 @@ def retry_with_exponential_backoff(max_retries: int = MAX_RETRIES):
                         )
                         raise
 
-                    # Calculate backoff time
                     if retry_after is not None:
-                        # Respect Retry-After header
                         backoff_time = retry_after
                         logger.warning(
                             f"Rate limit hit (attempt {attempt + 1}/{max_retries + 1}). "
@@ -107,7 +97,6 @@ def retry_with_exponential_backoff(max_retries: int = MAX_RETRIES):
 
                     await asyncio.sleep(backoff_time)
 
-            # This should never be reached, but just in case
             raise last_exception
 
         return wrapper
@@ -178,11 +167,9 @@ async def batch_request_gemini(
         f"(parallelism: {parallelism})"
     )
 
-    # Create semaphore to limit concurrent requests
     semaphore = asyncio.Semaphore(parallelism)
 
     async def request_with_semaphore(req: CharacterRequest) -> CharacterResponse:
-        """Wrapper to execute request with semaphore."""
         async with semaphore:
             return await request_gemini(
                 character_request=req,
@@ -191,11 +178,9 @@ async def batch_request_gemini(
                 user_id=user_id,
             )
 
-    # Process all requests with controlled concurrency
     tasks = [request_with_semaphore(req) for req in character_requests]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
-    # Separate successful results from errors
     successful_results = []
     failed_requests = []
 

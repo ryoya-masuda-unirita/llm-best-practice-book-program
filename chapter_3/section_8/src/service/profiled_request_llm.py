@@ -1,8 +1,4 @@
-"""Profiled LLM request service with performance monitoring.
-
-This module wraps the standard request_llm functions with profiling capabilities,
-transparently collecting performance metrics for each LLM request.
-"""
+"""Profiled LLM request service with performance monitoring."""
 
 from typing import Optional
 
@@ -33,17 +29,7 @@ async def profiled_request_openai(
     prompt_id: str = "character_generation",
     profiler: Optional[PromptProfiler] = None,
 ) -> CharacterResponse:
-    """Request character generation from OpenAI with profiling.
-
-    Args:
-        prompt: The prompt messages
-        model: The OpenAI model to use
-        prompt_id: Identifier for the prompt template
-        profiler: PromptProfiler instance (uses default if not provided)
-
-    Returns:
-        CharacterResponse from the model
-    """
+    """Request character generation from OpenAI with profiling."""
     profiler = profiler or get_default_profiler()
 
     async with profiler.profile(
@@ -77,17 +63,7 @@ async def profiled_request_gemini(
     prompt_id: str = "character_generation",
     profiler: Optional[PromptProfiler] = None,
 ) -> CharacterResponse:
-    """Request character generation from Gemini with profiling.
-
-    Args:
-        prompt: The (system_prompt, user_prompt) tuple
-        model: The Gemini model to use
-        prompt_id: Identifier for the prompt template
-        profiler: PromptProfiler instance (uses default if not provided)
-
-    Returns:
-        CharacterResponse from the model
-    """
+    """Request character generation from Gemini with profiling."""
     profiler = profiler or get_default_profiler()
     system_prompt, user_prompt = prompt
 
@@ -127,17 +103,7 @@ async def profiled_request_anthropic(
     prompt_id: str = "character_generation",
     profiler: Optional[PromptProfiler] = None,
 ) -> CharacterResponse:
-    """Request character generation from Anthropic with profiling.
-
-    Args:
-        prompt: The prompt messages
-        model: The Anthropic model to use
-        prompt_id: Identifier for the prompt template
-        profiler: PromptProfiler instance (uses default if not provided)
-
-    Returns:
-        CharacterResponse from the model
-    """
+    """Request character generation from Anthropic with profiling."""
     profiler = profiler or get_default_profiler()
 
     async with profiler.profile(
@@ -175,23 +141,7 @@ async def profiled_request_with_judge(
     judge_provider: str | None = None,
     profiler: Optional[PromptProfiler] = None,
 ) -> tuple[CharacterResponse, JudgeResponse]:
-    """
-    Request character generation and evaluate it using LLM-as-a-Judge, with profiling.
-
-    This function profiles both the character generation and the judge evaluation,
-    and records the quality score from the judge in the generation metrics.
-
-    Args:
-        character_request: The character request with gender, age, and additional instructions
-        model: The model to use for character generation
-        provider: The provider for character generation ("openai", "gemini", or "anthropic")
-        judge_model: The model to use for evaluation (defaults to same as generation model)
-        judge_provider: The provider for evaluation (defaults to same as generation provider)
-        profiler: PromptProfiler instance (uses default if not provided)
-
-    Returns:
-        Tuple of (CharacterResponse, JudgeResponse)
-    """
+    """Request character generation and evaluate it using LLM-as-a-Judge, with profiling."""
     profiler = profiler or get_default_profiler()
 
     logger.info("Generating prompt...")
@@ -300,16 +250,8 @@ Additional Instructions: {character_request.additional_instructions or "None"}""
     return character_response, judge_response
 
 
-# Convenience function to get profiler metrics
 async def get_profiler_summary(profiler: Optional[PromptProfiler] = None) -> dict:
-    """Get a summary of collected profiler metrics.
-
-    Args:
-        profiler: PromptProfiler instance (uses default if not provided)
-
-    Returns:
-        Dictionary with summary statistics
-    """
+    """Get a summary of collected profiler metrics."""
     from src.service.metrics_analyzer import MetricsAnalyzer
     from src.service.profiler_reporter import ProfilerReporter
 

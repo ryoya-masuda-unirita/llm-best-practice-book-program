@@ -14,10 +14,9 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS設定（必要に応じて調整してください）
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 本番環境では適切に制限してください
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -26,29 +25,13 @@ app.add_middleware(
 
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
-    """
-    ヘルスチェックエンドポイント
-
-    Returns:
-        サービスのステータス情報
-    """
+    """ヘルスチェックエンドポイント"""
     return HealthResponse(status="healthy", message="LLM Streaming API is running")
 
 
 @app.post("/stream")
 async def stream_response(request: StreamRequest):
-    """
-    LLMからストリーミングで応答を取得するエンドポイント
-
-    Args:
-        request: ストリーミングリクエスト
-
-    Returns:
-        StreamingResponse: Server-Sent Events形式のストリーミングレスポンス
-
-    Raises:
-        HTTPException: サポートされていないプロバイダーが指定された場合
-    """
+    """LLMからストリーミングで応答を取得するエンドポイント"""
     logger.info(f"Streaming request received: provider={request.provider}, model={request.model}")
 
     try:
@@ -60,7 +43,7 @@ async def stream_response(request: StreamRequest):
                 headers={
                     "Cache-Control": "no-cache",
                     "Connection": "keep-alive",
-                    "X-Accel-Buffering": "no",  # nginxのバッファリングを無効化
+                    "X-Accel-Buffering": "no",
                 },
             )
         else:
@@ -76,18 +59,7 @@ async def stream_response(request: StreamRequest):
 
 @app.post("/completions", response_model=CompletionResponse)
 async def get_completion(request: StreamRequest):
-    """
-    LLMから非ストリーミングで応答を取得するエンドポイント
-
-    Args:
-        request: リクエスト
-
-    Returns:
-        CompletionResponse: 完全な応答テキスト
-
-    Raises:
-        HTTPException: サポートされていないプロバイダーが指定された場合、またはエラーが発生した場合
-    """
+    """LLMから非ストリーミングで応答を取得するエンドポイント"""
     logger.info(f"Completion request received: provider={request.provider}, model={request.model}")
 
     try:

@@ -45,7 +45,6 @@ class JobListResponse(BaseModel):
 
 
 def raise_not_found(job_id: str) -> None:
-    """Raise HTTP 404 for job not found."""
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail=f"Job {job_id} not found",
@@ -53,7 +52,6 @@ def raise_not_found(job_id: str) -> None:
 
 
 def raise_internal_error(message: str, error: Exception) -> None:
-    """Raise HTTP 500 internal server error."""
     logger.error(f"{message}: {error}")
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -63,21 +61,18 @@ def raise_internal_error(message: str, error: Exception) -> None:
 
 @app.on_event("startup")
 async def startup_event() -> None:
-    """Initialize Redis connection on startup."""
     await redis_client.connect()
     logger.info("Batch API Server started")
 
 
 @app.on_event("shutdown")
 async def shutdown_event() -> None:
-    """Close Redis connection on shutdown."""
     await redis_client.disconnect()
     logger.info("Batch API Server shutdown")
 
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 async def health_check() -> HealthResponse:
-    """Health check endpoint."""
     return HealthResponse()
 
 
@@ -193,7 +188,6 @@ async def get_batch_job_result(job_id: str) -> BatchJobResultResponse:
 
 @app.get("/batch/queue/stats", response_model=QueueStatsResponse, tags=["Batch"])
 async def get_queue_stats() -> QueueStatsResponse:
-    """Get statistics about the job queue."""
     try:
         queue_length = await redis_client.get_queue_length(QUEUE_NAME)
         return QueueStatsResponse(queue_name=QUEUE_NAME, pending_jobs=queue_length)
@@ -203,7 +197,6 @@ async def get_queue_stats() -> QueueStatsResponse:
 
 @app.get("/batch/jobs", response_model=JobListResponse, tags=["Batch"])
 async def list_batch_job_ids() -> JobListResponse:
-    """Get a list of all batch job IDs."""
     try:
         job_ids = await redis_client.list_job_ids()
         return JobListResponse(job_ids=job_ids, count=len(job_ids))

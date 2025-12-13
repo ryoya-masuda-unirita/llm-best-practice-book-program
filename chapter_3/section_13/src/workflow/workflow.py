@@ -15,13 +15,6 @@ class Workflow:
     """
 
     def __init__(self, workflow_id: str, name: str | None = None):
-        """
-        Initialize a workflow.
-
-        Args:
-            workflow_id: Unique identifier for the workflow
-            name: Optional human-readable name
-        """
         self.workflow_id = workflow_id
         self.name = name or workflow_id
         self.nodes: dict[str, Node] = {}
@@ -53,16 +46,7 @@ class Workflow:
         return self.nodes.get(node_id)
 
     def get_next_nodes(self, node_id: str, context: ExecutionContext) -> list[str]:
-        """
-        Get the next nodes to execute after a given node.
-
-        Args:
-            node_id: Current node ID
-            context: Execution context
-
-        Returns:
-            List of next node IDs
-        """
+        """Get the next nodes to execute after a given node."""
         next_node_ids = []
 
         for edge in self.edges:
@@ -79,15 +63,7 @@ class Workflow:
         return next_node_ids
 
     def validate(self) -> bool:
-        """
-        Validate the workflow structure.
-
-        Returns:
-            True if workflow is valid
-
-        Raises:
-            ValueError: If workflow is invalid
-        """
+        """Validate the workflow structure."""
         if not self.start_node_id:
             raise ValueError("Workflow must have a start node")
 
@@ -101,7 +77,6 @@ class Workflow:
             if end_node_id not in self.nodes:
                 raise ValueError(f"End node {end_node_id} not found")
 
-        # Check for cycles (simple DFS-based cycle detection)
         if self._has_cycle():
             raise ValueError("Workflow contains cycles (not a valid DAG)")
 
@@ -109,12 +84,7 @@ class Workflow:
         return True
 
     def _has_cycle(self) -> bool:
-        """
-        Check if the workflow has cycles using DFS.
-
-        Returns:
-            True if cycle detected
-        """
+        """Check if the workflow has cycles using DFS."""
         visited = set()
         rec_stack = set()
 
@@ -142,12 +112,7 @@ class Workflow:
         return False
 
     def to_dict(self) -> dict[str, Any]:
-        """
-        Convert workflow to dictionary representation.
-
-        Returns:
-            Workflow as dictionary
-        """
+        """Convert workflow to dictionary representation."""
         return {
             "workflow_id": self.workflow_id,
             "name": self.name,

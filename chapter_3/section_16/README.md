@@ -14,11 +14,12 @@ LLMは確率的な出力を行うため、単純な算数であっても桁数�
 - **LLMによるスクリプト生成**: 文書の特性に応じた最適なPython抽出スクリプトを自動生成
 - **セキュアなサンドボックス実行**: 生成されたスクリプトを安全な環境で実行（ファイルシステム・ネットワークアクセス禁止）
 - **自己修正機能**: スクリプト実行エラー時にLLMが自動的にコードを修正して再試行（最大3回）
+- **LLM-as-a-Judge品質評価**: 抽出結果をLLMが1〜5のスコアで評価し、低スコア時は改善提案を生成して再修正
 - **構造化出力**: Anthropic API の Structured Outputs を活用した型安全な出力
 
 ## プロジェクト構成
 
-### ディレクトリ構成
+### ディレクトリ構成.../
 
 ```
 section_16/
@@ -40,7 +41,8 @@ section_16/
 │       ├── __init__.py
 │       ├── document_processor.py  # 文書処理オーケストレーション
 │       ├── request_llm.py         # LLMリクエスト処理
-│       └── script_executor.py     # スクリプト実行・検証
+│       ├── script_executor.py     # スクリプト実行・検証
+│       └── validator.py           # LLM-as-a-Judge品質評価
 ├── data/                     # サンプル入力文書
 │   ├── contract_0.md
 │   ├── report_0.md
@@ -82,6 +84,13 @@ section_16/
 │  │   - スクリプト検証（禁止パターン・モジュールチェック）            │    │
 │  │   - サンドボックス実行（PATH/PYTHONPATH空、タイムアウト設定）     │    │
 │  │   - エラー時は correct_script() で修正して再試行（最大3回）       │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                    │                                     │
+│                                    ▼                                     │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │ Step 4: validate_extraction_result()                            │    │
+│  │   - LLM-as-a-Judgeで抽出結果を1〜5のスコアで評価                 │    │
+│  │   - 低スコア時は改善提案を生成しスクリプトを再修正               │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
 └───────────────────────────────────┬─────────────────────────────────────┘
                                     │
@@ -181,7 +190,37 @@ async def generate_extraction_script(
     return result.parsed_output
 ```
 
-#### 4. データモデル定義 (`src/model/model.py`)
+#### 4. LLM-as-a-Judge品質評価 (`src/service/validator.py`)
+
+抽出結果の品質をLLMが評価し、低スコアの場合は改善提案を生成します。
+
+```python
+async def validate_extraction_result(
+    model: AnthropicModel,
+    extraction_result: ExtractionResult,
+    document_content: str,
+) -> ValidationResult:
+    """Validate the extraction result using LLM-as-a-Judge."""
+    prompt = make_validation_prompt(
+        document_content=document_content,
+        extraction_result=json.dumps(extraction_result.raw_result, ensure_ascii=False),
+        script_explanation=extraction_result.script_explanation,
+    )
+
+    result = await anthropic_client.beta.messages.parse(
+        model=model,
+        max_tokens=2048,
+        betas=["structured-outputs-2025-11-13"],
+        messages=prompt,
+        output_format=ValidationResult,  # score, reasoning, fix_proposal
+    )
+
+    return result.parsed_output
+```
+
+**ポイント**: スコアが閾値（3）以下の場合、改善提案を基にスクリプトを再修正し、抽出精度を高めます。
+
+#### 5. データモデル定義 (`src/model/model.py`)
 
 抽出される文書構造はPydanticモデルで厳密に定義されています。
 

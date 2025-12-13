@@ -35,7 +35,6 @@ class RAGPipeline:
         self._is_indexed = False
 
     async def index_documents(self) -> None:
-        """Load documents, chunk them, create embeddings, and store in vector store."""
         logger.info(f"Starting document indexing from {self.data_directory}")
 
         documents = await self.loader.process(self.data_directory)
@@ -58,7 +57,6 @@ class RAGPipeline:
         logger.info("Document indexing completed")
 
     async def query(self, question: str) -> RAGAnswer:
-        """Query the RAG system with a question."""
         if not self._is_indexed:
             raise RuntimeError("Documents must be indexed before querying. Call index_documents() first.")
 

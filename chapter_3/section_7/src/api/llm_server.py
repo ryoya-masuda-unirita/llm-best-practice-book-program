@@ -1,5 +1,3 @@
-"""LLM API Server with priority queue support for character generation."""
-
 import time
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -28,7 +26,6 @@ ESTIMATED_SECONDS_PER_TASK = 5.0
 
 
 def validate_request(request: LLMRequest) -> None:
-    """Validate provider and model in the request."""
     if request.provider != LLMProvider.OPENAI:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -42,7 +39,6 @@ def validate_request(request: LLMRequest) -> None:
 
 
 def build_task_status_response(task: QueuedTask, queue_position: Optional[int]) -> TaskStatusResponse:
-    """Build TaskStatusResponse from a QueuedTask."""
     result = None
     if task.status == TaskStatus.COMPLETED and task.result:
         result = LLMResponse(
@@ -89,7 +85,6 @@ async def health_check():
 
 @app.post("/generate/queue", response_model=TaskSubmissionResponse, tags=["Queue"])
 async def queue_generate_character(request: LLMRequest):
-    """Queue a character generation request with priority based on user tier."""
     validate_request(request)
 
     priority = queue_manager.get_priority_for_user_tier(request.user_tier)
@@ -120,7 +115,6 @@ async def queue_generate_character(request: LLMRequest):
 
 @app.get("/task/{task_id}", response_model=TaskStatusResponse, tags=["Queue"])
 async def get_task_status(task_id: str):
-    """Get the status of a queued task."""
     task = await queue_manager.get_task(task_id)
 
     if not task:
@@ -133,7 +127,6 @@ async def get_task_status(task_id: str):
 
 @app.get("/queue/stats", response_model=QueueStatsResponse, tags=["Queue"])
 async def get_queue_stats():
-    """Get statistics about all priority queues."""
     queue_sizes = await queue_manager.get_all_queue_sizes()
 
     return QueueStatsResponse(
@@ -147,7 +140,6 @@ async def get_queue_stats():
 
 @app.post("/generate", response_model=LLMResponse, tags=["LLM"])
 async def generate_character(request: LLMRequest):
-    """Generate a character synchronously using the specified LLM model."""
     validate_request(request)
 
     start_time = time.time()

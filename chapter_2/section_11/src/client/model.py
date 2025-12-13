@@ -2,8 +2,6 @@
 
 from enum import StrEnum
 
-# Import adapter classes and factory
-
 
 class LLMProvider(StrEnum):
     """LLM provider identifiers."""

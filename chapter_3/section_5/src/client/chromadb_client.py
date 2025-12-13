@@ -9,13 +9,9 @@ from src.logger import make_logger
 
 logger = make_logger(__name__)
 
-# Get ChromaDB configuration from environment
 CHROMA_HOST = os.getenv("CHROMA_HOST", None)
 CHROMA_PORT = os.getenv("CHROMA_PORT", "8000")
 
-# Initialize ChromaDB client
-# If CHROMA_HOST is set, use HTTP client (for Docker)
-# Otherwise, use persistent client (for local development)
 if CHROMA_HOST:
     logger.info(f"Connecting to remote ChromaDB at {CHROMA_HOST}:{CHROMA_PORT}")
     chroma_client = chromadb.HttpClient(
@@ -32,26 +28,19 @@ else:
         )
     )
 
-# Collection names for different data types
 KNOWLEDGE_COLLECTION_NAME = "character_knowledge"
 
 
 def get_knowledge_collection():
-    """
-    Get or create the knowledge collection for character data.
-
-    Note: This collection uses custom embeddings from OpenAI/Gemini APIs,
-    not ChromaDB's default embedding function. The embedding_function is
-    set to None to indicate we provide our own embeddings.
-    """
+    """Get or create the knowledge collection for character data."""
     try:
         collection = chroma_client.get_or_create_collection(
             name=KNOWLEDGE_COLLECTION_NAME,
             metadata={
                 "description": "Storage for character generation requests and responses",
-                "hnsw:space": "cosine",  # Use cosine similarity for semantic search
+                "hnsw:space": "cosine",
             },
-            embedding_function=None,  # We provide custom embeddings from OpenAI/Gemini
+            embedding_function=None,
         )
         logger.info(f"Knowledge collection '{KNOWLEDGE_COLLECTION_NAME}' initialized with custom embeddings")
         return collection

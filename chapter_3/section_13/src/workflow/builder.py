@@ -14,13 +14,6 @@ class WorkflowBuilder:
     """
 
     def __init__(self, workflow_id: str, name: str | None = None):
-        """
-        Initialize the workflow builder.
-
-        Args:
-            workflow_id: Unique identifier for the workflow
-            name: Optional human-readable name
-        """
         self._workflow = Workflow(workflow_id, name)
         self._last_node_id: str | None = None
 
@@ -50,28 +43,12 @@ class WorkflowBuilder:
         prompt_template: str | None = None,
         prompt_builder: Callable[[ExecutionContext], str | list[dict]] | None = None,
         llm_executor: Callable[[str | list[dict], ExecutionContext], Any] | None = None,
-        # DI-based parameters
         injected_prompt_builder: Any | None = None,
         injected_llm_client: Any | None = None,
         injected_response_parser: Any | None = None,
         **executor_kwargs: Any,
     ) -> "WorkflowBuilder":
-        """
-        Add a prompt node to the workflow.
-
-        Supports both legacy executor functions and DI-based approach.
-
-        Args:
-            node_id: Unique identifier
-            name: Optional name
-            prompt_template: Template string (legacy)
-            prompt_builder: Builder function (legacy)
-            llm_executor: Executor function (legacy)
-            injected_prompt_builder: IPromptBuilder instance (DI)
-            injected_llm_client: ILLMClient instance (DI)
-            injected_response_parser: IResponseParser instance (DI)
-            **executor_kwargs: Additional arguments
-        """
+        """Add a prompt node supporting both legacy executor functions and DI-based approach."""
         node = PromptNode(
             node_id,
             name,

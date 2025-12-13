@@ -1,11 +1,12 @@
+from __future__ import annotations
+
 import json
+from dataclasses import dataclass
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class SampledSentences(BaseModel):
-    """Model for sampled sentences from a document."""
-
     model_config = ConfigDict(
         validate_assignment=True,
         frozen=True,
@@ -19,8 +20,6 @@ class SampledSentences(BaseModel):
 
 
 class GeneratedScript(BaseModel):
-    """Model for the generated Python script."""
-
     model_config = ConfigDict(
         validate_assignment=True,
         frozen=True,
@@ -33,8 +32,6 @@ class GeneratedScript(BaseModel):
 
 
 class DocumentSection(BaseModel):
-    """Model for a document section."""
-
     model_config = ConfigDict(
         validate_assignment=True,
         frozen=True,
@@ -49,8 +46,6 @@ class DocumentSection(BaseModel):
 
 
 class DocumentStructure(BaseModel):
-    """Model for the extracted document structure."""
-
     model_config = ConfigDict(
         validate_assignment=True,
         frozen=True,
@@ -64,14 +59,11 @@ class DocumentStructure(BaseModel):
     metadata: dict = Field(default_factory=dict, description="Additional metadata extracted.")
 
     def save_as_json(self, file_path: str) -> None:
-        """Save the document structure as a JSON file."""
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(self.model_dump(), f, indent=4, ensure_ascii=False)
 
 
 class ScriptExecutionResult(BaseModel):
-    """Model for script execution result."""
-
     model_config = ConfigDict(
         validate_assignment=True,
         frozen=True,
@@ -83,3 +75,31 @@ class ScriptExecutionResult(BaseModel):
     output: str = Field(default="", description="Standard output from the script.")
     error: str = Field(default="", description="Error message if execution failed.")
     result: dict | None = Field(default=None, description="Parsed JSON result if available.")
+
+
+class ValidationResult(BaseModel):
+    model_config = ConfigDict(
+        validate_assignment=True,
+        frozen=True,
+        extra="ignore",
+        arbitrary_types_allowed=True,
+    )
+
+    reasoning: str = Field(..., description="Detailed reasoning for the score.")
+    score: int = Field(..., description="Validation score from 1 to 5.", ge=1, le=5)
+    fix_proposal: str | None = Field(
+        default=None,
+        description="Proposal to fix issues if score is below 3.",
+    )
+
+
+@dataclass
+class ExtractionResult:
+    success: bool
+    document_structure: DocumentStructure | None
+    raw_result: dict | None
+    final_script: str
+    sampled_info: SampledSentences
+    script_explanation: str
+    error: str | None = None
+    validation_result: ValidationResult | None = None

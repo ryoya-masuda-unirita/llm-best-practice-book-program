@@ -7,16 +7,7 @@ logger = make_logger(__name__)
 
 
 async def _request_llm(provider: LLMProvider, model: str, prompt: list[dict]) -> CharacterResponse:
-    """Request character generation from an LLM provider via the gateway.
-
-    Args:
-        provider: LLM provider to use
-        model: Model name to use
-        prompt: Prompt messages
-
-    Returns:
-        Parsed character response
-    """
+    """Request character generation from an LLM provider via the gateway."""
     content, processing_time_ms, request_id = await gateway_client.generate(
         provider=provider.value,
         model=model,

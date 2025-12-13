@@ -4,7 +4,7 @@
 
 This project demonstrates a practice where LLM generates Python scripts to handle tasks that LLMs struggle with (numerical calculations, complex data processing) and executes them in a sandboxed environment. Instead of asking the LLM to compute results directly, the system has the LLM generate extraction scripts, executes them safely, and uses the deterministic output.
 
-The application takes documents (contracts, reports, etc.) as input, generates Python scripts to extract document structure, and outputs results in JSON format. If script execution fails, the system uses LLM-based self-correction to automatically fix and retry.
+The application takes documents (contracts, reports, etc.) as input, generates Python scripts to extract document structure, and outputs results in JSON format. If script execution fails, the system uses LLM-based self-correction to automatically fix and retry. Additionally, LLM-as-a-Judge validates extraction quality and triggers re-correction when scores are low.
 
 ## Architecture
 
@@ -37,6 +37,13 @@ The application takes documents (contracts, reports, etc.) as input, generates P
 |  |   - Validate script (forbidden patterns/module check)           |     |
 |  |   - Sandbox execution (empty PATH/PYTHONPATH, timeout)          |     |
 |  |   - On error: correct_script() and retry (up to 3 times)        |     |
+|  +----------------------------------------------------------------+     |
+|                                   |                                      |
+|                                   v                                      |
+|  +----------------------------------------------------------------+     |
+|  | Step 4: validate_extraction_result()                            |     |
+|  |   - LLM-as-a-Judge evaluates extraction quality (score 1-5)     |     |
+|  |   - Low score triggers fix_proposal and script re-correction    |     |
 |  +----------------------------------------------------------------+     |
 +----------------------------------+--------------------------------------+
                                    |
@@ -71,7 +78,8 @@ section_16/
 |       |-- __init__.py
 |       |-- document_processor.py  # Document processing orchestration
 |       |-- request_llm.py         # LLM request handling
-|       +-- script_executor.py     # Script execution and validation
+|       |-- script_executor.py     # Script execution and validation
+|       +-- validator.py           # LLM-as-a-Judge quality evaluation
 |-- data/                     # Sample input documents
 |   |-- contract_0.md
 |   |-- report_0.md
@@ -85,7 +93,7 @@ section_16/
 ## Key Components
 
 ### document_processor.py
-- `extract_document_structure()`: Main orchestration function for the 3-step pipeline
+- `extract_document_structure()`: Main orchestration function for the 4-step pipeline
 - `_execute_script_with_retry()`: Handles retry loop with self-correction
 - `save_extraction_results()`: Saves structure, script, and metadata files
 - `ExtractionResult`: Dataclass containing extraction results
@@ -100,6 +108,11 @@ section_16/
 - `sample_document()`: Extracts document type and key sections using LLM
 - `generate_extraction_script()`: Generates Python extraction script
 - `correct_script()`: Fixes failed scripts based on error messages
+- `correct_script_from_validation()`: Fixes scripts based on validation feedback
+
+### validator.py
+- `validate_extraction_result()`: LLM-as-a-Judge evaluates extraction quality (score 1-5)
+- Returns `ValidationResult` with score, reasoning, and fix_proposal
 
 ### model.py
 - `SampledSentences`: Document sampling results
@@ -107,6 +120,7 @@ section_16/
 - `DocumentStructure`: Hierarchical document structure
 - `DocumentSection`: Individual section with title, level, content, subsections
 - `ScriptExecutionResult`: Execution status and output
+- `ValidationResult`: Quality evaluation with score, reasoning, fix_proposal
 
 ## Dependencies
 
@@ -186,6 +200,14 @@ When script execution fails:
 2. LLM receives original script + error message + document context
 3. LLM generates corrected script
 4. Process retries up to 3 times (configurable via DEFAULT_MAX_CORRECTION_ATTEMPTS)
+
+### LLM-as-a-Judge Quality Evaluation
+
+After successful script execution:
+1. Extraction result is evaluated by LLM with a 1-5 score
+2. If score <= 3 (VALIDATION_THRESHOLD), fix_proposal is generated
+3. Script is re-corrected based on validation feedback
+4. Process retries up to 3 times (configurable via DEFAULT_MAX_VALIDATION_ATTEMPTS)
 
 ### Structured Outputs
 

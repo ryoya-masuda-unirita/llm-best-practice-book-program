@@ -77,15 +77,7 @@ class Edge(BaseModel):
     condition: str | None = Field(default=None, description="Optional condition for edge traversal")
 
     def should_traverse(self, context: ExecutionContext) -> bool:
-        """
-        Determine if this edge should be traversed based on the condition.
-
-        Args:
-            context: Execution context
-
-        Returns:
-            True if edge should be traversed
-        """
+        """Determine if this edge should be traversed based on the condition."""
         if self.condition is None:
             return True
 

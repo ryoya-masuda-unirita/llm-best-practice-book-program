@@ -10,7 +10,6 @@ from src.model.profiler_metrics import AlertThreshold, MetricStatus, ProfilerMet
 
 @pytest.fixture
 def sample_character_request() -> CharacterRequest:
-    """Create a sample character request for testing."""
     return CharacterRequest(
         gender=Gender.FEMALE,
         age=25,
@@ -20,7 +19,6 @@ def sample_character_request() -> CharacterRequest:
 
 @pytest.fixture
 def sample_character_response() -> CharacterResponse:
-    """Create a sample character response for testing."""
     return CharacterResponse(
         first_name="Luna",
         last_name="Starweaver",
@@ -45,12 +43,11 @@ def sample_character_response() -> CharacterResponse:
 
 @pytest.fixture
 def low_quality_character_response() -> CharacterResponse:
-    """Create a low quality character response for testing."""
     return CharacterResponse(
         first_name="X",
         last_name="Y",
-        gender=Gender.MALE,  # Wrong gender
-        age=50,  # Wrong age
+        gender=Gender.MALE,
+        age=50,
         personalities=[
             CharacterPersonality(
                 short_personality="A",
@@ -70,22 +67,21 @@ def low_quality_character_response() -> CharacterResponse:
 
 @pytest.fixture
 def sample_judge_response() -> JudgeResponse:
-    """Create a sample high-quality judge response for testing."""
     return JudgeResponse(
         evaluations=[
             EvaluationCriterion(
                 criterion_name="accuracy",
-                score=4,  # GOOD
+                score=4,
                 reasoning="The character meets the requested gender and age requirements with appropriate fantasy elements.",
             ),
             EvaluationCriterion(
                 criterion_name="comprehensiveness",
-                score=4,  # GOOD
+                score=4,
                 reasoning="All required fields are present including detailed personality descriptions.",
             ),
             EvaluationCriterion(
                 criterion_name="clarity",
-                score=5,  # PERFECT
+                score=5,
                 reasoning="The response is well-structured and easy to understand.",
             ),
         ],
@@ -96,22 +92,21 @@ def sample_judge_response() -> JudgeResponse:
 
 @pytest.fixture
 def low_quality_judge_response() -> JudgeResponse:
-    """Create a sample low-quality judge response for testing."""
     return JudgeResponse(
         evaluations=[
             EvaluationCriterion(
                 criterion_name="accuracy",
-                score=2,  # POOR
+                score=2,
                 reasoning="The character does not meet the gender and age requirements.",
             ),
             EvaluationCriterion(
                 criterion_name="comprehensiveness",
-                score=2,  # POOR
+                score=2,
                 reasoning="Personality descriptions are too brief and lack detail.",
             ),
             EvaluationCriterion(
                 criterion_name="clarity",
-                score=3,  # ACCEPTABLE
+                score=3,
                 reasoning="The structure is correct but content is minimal.",
             ),
         ],
@@ -122,7 +117,6 @@ def low_quality_judge_response() -> JudgeResponse:
 
 @pytest.fixture
 def sample_profiler_metrics() -> ProfilerMetrics:
-    """Create a sample profiler metrics entry."""
     return ProfilerMetrics(
         prompt_id="character_generation",
         request_id="test-request-001",
@@ -142,7 +136,6 @@ def sample_profiler_metrics() -> ProfilerMetrics:
 
 @pytest.fixture
 def sample_metrics_list() -> list[ProfilerMetrics]:
-    """Create a list of sample metrics for aggregation testing."""
     base_time = datetime.now(timezone.utc)
 
     metrics = []
@@ -153,7 +146,7 @@ def sample_metrics_list() -> list[ProfilerMetrics]:
                 request_id=f"test-request-{i:03d}",
                 prompt_name="Character Generation",
                 timestamp=(base_time).isoformat(),
-                latency_ms=1000.0 + (i * 100),  # 1000-1900ms
+                latency_ms=1000.0 + (i * 100),
                 input_tokens=500 + (i * 10),
                 output_tokens=200 + (i * 5),
                 total_tokens=700 + (i * 15),
@@ -170,7 +163,6 @@ def sample_metrics_list() -> list[ProfilerMetrics]:
 
 @pytest.fixture
 def mixed_prompt_metrics() -> list[ProfilerMetrics]:
-    """Create metrics for multiple prompts."""
     base_time = datetime.now(timezone.utc)
 
     metrics = []
@@ -201,7 +193,6 @@ def mixed_prompt_metrics() -> list[ProfilerMetrics]:
 
 @pytest.fixture
 def alert_thresholds() -> AlertThreshold:
-    """Create alert thresholds for testing."""
     return AlertThreshold(
         latency_warning_ms=2000.0,
         latency_critical_ms=5000.0,

@@ -21,7 +21,6 @@ app = FastAPI(
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 async def health_check():
-    """Health check endpoint."""
     return HealthResponse()
 
 
@@ -36,7 +35,6 @@ async def generate_character(request: LLMRequest):
     start_time = time.time()
 
     try:
-        # Validate model for provider
         if request.provider == LLMProvider.GEMINI and request.model not in GeminiModel.list_str():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -45,16 +43,12 @@ async def generate_character(request: LLMRequest):
 
         prompt = make_prompt(character_request=request.character_request)
 
-        # Generate character using batch API
         if request.provider == LLMProvider.GEMINI:
-            # Extract system and user prompts for batch API
             system_prompt = prompt[0]["content"]
             user_prompt = prompt[-1]["content"]
 
-            # Submit batch job
             batch_job_name = submit_gemini_batch(model=request.model, prompts=[(system_prompt, user_prompt)])
 
-            # Poll for completion
             while True:
                 batch_status = get_gemini_batch_status(batch_job_name)
                 if batch_status == "JOB_STATE_SUCCEEDED":
@@ -66,7 +60,6 @@ async def generate_character(request: LLMRequest):
                     )
                 time.sleep(5)
 
-            # Get results
             results = get_gemini_batch_results(batch_job_name)
             if not results or results[0] is None:
                 raise HTTPException(

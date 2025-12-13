@@ -64,19 +64,7 @@ async def request_with_judge(
     judge_model: OpenAIModel | GeminiModel | AnthropicModel | None = None,
     judge_provider: str | None = None,
 ) -> tuple[CharacterResponse, JudgeResponse]:
-    """
-    Request character generation and evaluate it using LLM-as-a-Judge.
-
-    Args:
-        character_request: The character request with gender, age, and additional instructions
-        model: The model to use for character generation
-        provider: The provider for character generation ("openai", "gemini", or "anthropic")
-        judge_model: The model to use for evaluation (defaults to same as generation model)
-        judge_provider: The provider for evaluation (defaults to same as generation provider)
-
-    Returns:
-        Tuple of (CharacterResponse, JudgeResponse)
-    """
+    """Request character generation and evaluate it using LLM-as-a-Judge."""
     logger.info("Generating prompt...")
     prompt = make_prompt(character=character_request, provider=LLMProvider(provider))
 

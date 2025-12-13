@@ -86,7 +86,6 @@ Storage type: {storage_type.value}""")
     if model not in GeminiModel.list_str():
         raise ValueError(f"Invalid Gemini model '{model}'.")
 
-    # Load character requests from YAML file
     logger.info(f"Loading character requests from {request_file}")
     character_requests_data = CharacterRequests.load_from_yaml(request_file)
     character_requests = character_requests_data.requests
@@ -94,7 +93,6 @@ Storage type: {storage_type.value}""")
 
     os.makedirs(output_directory, exist_ok=True)
 
-    # Process requests in batch using Gemini
     llmops_logger = create_llmops_logger(logger_name="llmops", storage_type=storage_type)
     results = await batch_request_gemini(
         character_requests=character_requests,
@@ -104,7 +102,6 @@ Storage type: {storage_type.value}""")
         parallelism=parallelism,
     )
 
-    # Save results to individual JSON files
     logger.info(f"Saving {len(results)} character responses to {output_directory}")
     for i, result in enumerate(results):
         file_name = f"gemini_{i + 1:03d}_{uuid4().hex[:8]}.json"

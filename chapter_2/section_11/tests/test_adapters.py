@@ -54,18 +54,15 @@ class TestOpenAIAdapter:
     @pytest.mark.asyncio
     async def test_chat_success(self, adapter):
         """Test successful chat completion."""
-        # Setup mock response using new API structure
         mock_parsed = MockResponse(message="Hello", confidence=0.95)
         mock_result = MagicMock()
         mock_result.output_parsed = mock_parsed
 
         adapter._client.responses.parse = AsyncMock(return_value=mock_result)
 
-        # Execute
         messages = [{"role": "user", "content": "Hello"}]
         result = await adapter.chat(messages, MockResponse)
 
-        # Verify
         assert result == mock_parsed
         assert result.message == "Hello"
         assert result.confidence == 0.95
@@ -139,21 +136,18 @@ class TestGeminiAdapter:
     @pytest.mark.asyncio
     async def test_chat_success_with_system_message(self, adapter):
         """Test successful chat completion with system instruction."""
-        # Setup mock response
         mock_parsed = MockResponse(message="Response", confidence=0.9)
         mock_result = MagicMock()
         mock_result.parsed = mock_parsed
 
         adapter._client.aio.models.generate_content = AsyncMock(return_value=mock_result)
 
-        # Execute with system and user messages
         messages = [
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": "Hello"},
         ]
         result = await adapter.chat(messages, MockResponse)
 
-        # Verify
         assert result == mock_parsed
         call_args = adapter._client.aio.models.generate_content.call_args
         assert call_args.kwargs["model"] == GeminiModel.GEMINI_2_5_PRO
@@ -177,7 +171,6 @@ class TestGeminiAdapter:
         assert result == mock_parsed
         call_args = adapter._client.aio.models.generate_content.call_args
         assert call_args.kwargs["contents"] == "Hello"
-        # System instruction should not be set
         assert (
             not hasattr(call_args.kwargs["config"], "system_instruction")
             or call_args.kwargs["config"].system_instruction is None

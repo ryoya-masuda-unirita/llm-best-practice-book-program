@@ -46,7 +46,6 @@ class CircuitBreaker:
     """
 
     def __init__(self, config: CircuitBreakerConfig):
-        """Initialize the circuit breaker."""
         self.config = config
         self.state = CircuitState.CLOSED
         self.failure_count = 0
@@ -68,18 +67,10 @@ class CircuitBreaker:
         """
         Execute a function through the circuit breaker.
 
-        Args:
-            func: Async function to execute
-            *args, **kwargs: Arguments to pass to the function
-
-        Returns:
-            Result of the function call
-
         Raises:
             CircuitBreakerOpenError: If circuit is open
         """
         async with self.lock:
-            # Check circuit state and potentially transition
             await self._check_state()
 
             if self.state == CircuitState.OPEN:
@@ -87,7 +78,6 @@ class CircuitBreaker:
                     f"Circuit breaker is OPEN. Service unavailable. Last failure: {self.last_failure_time}"
                 )
 
-        # Execute the function
         try:
             result = await func(*args, **kwargs)
             await self._on_success()
@@ -99,7 +89,6 @@ class CircuitBreaker:
     async def _check_state(self):
         """Check and potentially transition circuit state."""
         if self.state == CircuitState.OPEN:
-            # Check if timeout has elapsed to try half-open
             if self.last_failure_time:
                 elapsed = time.time() - self.last_failure_time
                 if elapsed >= self.config.timeout_seconds:
@@ -136,7 +125,6 @@ class CircuitBreaker:
 
             logger.warning(f"Circuit breaker recorded failure. Count: {self.failure_count}")
 
-            # Check if we should open the circuit
             if self.state == CircuitState.HALF_OPEN:
                 logger.warning("Circuit breaker transitioning from HALF_OPEN to OPEN (failure in half-open)")
                 self.state = CircuitState.OPEN
@@ -144,13 +132,11 @@ class CircuitBreaker:
                 self.success_count = 0
 
             elif self.state == CircuitState.CLOSED:
-                # Check failure count threshold
                 if self.failure_count >= self.config.failure_threshold:
                     logger.error(f"Circuit breaker transitioning from CLOSED to OPEN (failures: {self.failure_count})")
                     self.state = CircuitState.OPEN
                     return
 
-                # Check error rate threshold
                 if self.total_requests >= self.config.min_requests:
                     error_rate = self.failed_requests / self.total_requests
                     if error_rate >= self.config.error_rate_threshold:

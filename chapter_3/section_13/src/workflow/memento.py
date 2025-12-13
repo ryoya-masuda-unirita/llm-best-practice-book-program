@@ -49,15 +49,7 @@ class WorkflowMemento(BaseModel):
 
     @classmethod
     def from_json(cls, json_str: str) -> "WorkflowMemento":
-        """
-        Deserialize memento from JSON.
-
-        Args:
-            json_str: JSON string
-
-        Returns:
-            WorkflowMemento instance
-        """
+        """Deserialize memento from JSON."""
         data = json.loads(json_str)
         data["timestamp"] = datetime.fromisoformat(data["timestamp"])
         return cls(**data)
@@ -70,12 +62,6 @@ class CheckpointManager:
     """
 
     def __init__(self, checkpoint_dir: str = "checkpoints"):
-        """
-        Initialize checkpoint manager.
-
-        Args:
-            checkpoint_dir: Directory to store checkpoints
-        """
         self.checkpoint_dir = Path(checkpoint_dir)
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Checkpoint manager initialized with directory: {self.checkpoint_dir}")
@@ -88,19 +74,7 @@ class CheckpointManager:
         checkpoint_id: str | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> WorkflowMemento:
-        """
-        Create a checkpoint of the current workflow state.
-
-        Args:
-            workflow_id: Workflow ID
-            workflow_state: Current workflow state
-            execution_context: Current execution context
-            checkpoint_id: Optional checkpoint ID (auto-generated if not provided)
-            metadata: Optional metadata
-
-        Returns:
-            WorkflowMemento instance
-        """
+        """Create a checkpoint of the current workflow state."""
         from uuid import uuid4
 
         checkpoint_id = checkpoint_id or uuid4().hex
@@ -117,15 +91,7 @@ class CheckpointManager:
         return memento
 
     def save_checkpoint(self, memento: WorkflowMemento) -> Path:
-        """
-        Save a checkpoint to disk.
-
-        Args:
-            memento: Memento to save
-
-        Returns:
-            Path to saved checkpoint file
-        """
+        """Save a checkpoint to disk."""
         checkpoint_file = self.checkpoint_dir / f"{memento.workflow_id}_{memento.checkpoint_id}.json"
 
         with open(checkpoint_file, "w", encoding="utf-8") as f:
@@ -135,19 +101,7 @@ class CheckpointManager:
         return checkpoint_file
 
     def load_checkpoint(self, workflow_id: str, checkpoint_id: str) -> WorkflowMemento:
-        """
-        Load a checkpoint from disk.
-
-        Args:
-            workflow_id: Workflow ID
-            checkpoint_id: Checkpoint ID
-
-        Returns:
-            WorkflowMemento instance
-
-        Raises:
-            FileNotFoundError: If checkpoint file not found
-        """
+        """Load a checkpoint from disk."""
         checkpoint_file = self.checkpoint_dir / f"{workflow_id}_{checkpoint_id}.json"
 
         if not checkpoint_file.exists():
@@ -161,15 +115,7 @@ class CheckpointManager:
         return memento
 
     def load_latest_checkpoint(self, workflow_id: str) -> WorkflowMemento | None:
-        """
-        Load the latest checkpoint for a workflow.
-
-        Args:
-            workflow_id: Workflow ID
-
-        Returns:
-            WorkflowMemento instance or None if no checkpoints found
-        """
+        """Load the latest checkpoint for a workflow."""
         checkpoint_files = sorted(
             self.checkpoint_dir.glob(f"{workflow_id}_*.json"), key=lambda p: p.stat().st_mtime, reverse=True
         )
@@ -210,15 +156,7 @@ class CheckpointManager:
         return checkpoints
 
     def restore_from_checkpoint(self, memento: WorkflowMemento) -> tuple[WorkflowState, ExecutionContext]:
-        """
-        Restore workflow state and execution context from a memento.
-
-        Args:
-            memento: Memento to restore from
-
-        Returns:
-            Tuple of (WorkflowState, ExecutionContext)
-        """
+        """Restore workflow state and execution context from a memento."""
         workflow_state = WorkflowState(**memento.workflow_state)
         execution_context = ExecutionContext(**memento.execution_context)
 

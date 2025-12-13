@@ -32,14 +32,7 @@ logger = make_logger(__name__)
 
 
 def create_llm_client(llm_provider: LLMProvider) -> ILLMClient:
-    """Create an LLM client based on the provider.
-
-    Args:
-        llm_provider: The LLM provider to use.
-
-    Returns:
-        An LLM client instance.
-    """
+    """Create an LLM client based on the provider."""
     if llm_provider == LLMProvider.OPENAI:
         return OpenAILLMClient(model=OpenAIModel.GPT_4O_MINI)
     elif llm_provider == LLMProvider.GEMINI:

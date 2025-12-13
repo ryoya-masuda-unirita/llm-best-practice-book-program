@@ -15,20 +15,14 @@ logger = make_logger(__name__)
 class GatewayMonitor:
     """Monitors and logs gateway operations for observability.
 
-    This provides centralized monitoring so that all LLM API usage can be
-    tracked, analyzed, and optimized from a single point.
+    Provides centralized monitoring so all LLM API usage can be tracked and analyzed.
     """
 
     def __init__(self):
-        """Initialize the gateway monitor."""
         logger.info("Gateway Monitor initialized")
 
     def generate_request_id(self) -> str:
-        """Generate a unique request ID for tracking.
-
-        Returns:
-            A unique request identifier
-        """
+        """Generate a unique request ID for tracking."""
         return str(uuid.uuid4())
 
     def log_request(
@@ -38,14 +32,7 @@ class GatewayMonitor:
         model: str,
         client_id: Optional[str] = None,
     ) -> None:
-        """Log an incoming gateway request.
-
-        Args:
-            request_id: Unique request identifier
-            provider: LLM provider name
-            model: Model name
-            client_id: Client identifier
-        """
+        """Log an incoming gateway request."""
         logger.info(f"[REQUEST] id={request_id} | provider={provider} | model={model} | client={client_id}")
 
     def log_response(
@@ -57,16 +44,7 @@ class GatewayMonitor:
         success: bool,
         error: Optional[str] = None,
     ) -> None:
-        """Log a gateway response.
-
-        Args:
-            request_id: Unique request identifier
-            provider: LLM provider name
-            model: Model name
-            processing_time_ms: Processing time in milliseconds
-            success: Whether the request was successful
-            error: Error message if request failed
-        """
+        """Log a gateway response."""
         status = "SUCCESS" if success else "FAILURE"
 
         log_msg = (
@@ -91,15 +69,7 @@ class GatewayMonitor:
         provider: Optional[str] = None,
         model: Optional[str] = None,
     ) -> None:
-        """Log an error event.
-
-        Args:
-            request_id: Unique request identifier
-            error_type: Type of error
-            error_message: Error message
-            provider: LLM provider name (if applicable)
-            model: Model name (if applicable)
-        """
+        """Log an error event."""
         log_msg = f"[ERROR] id={request_id} | type={error_type} | message={error_message}"
 
         if provider:

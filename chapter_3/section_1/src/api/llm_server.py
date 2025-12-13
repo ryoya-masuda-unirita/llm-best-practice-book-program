@@ -36,7 +36,6 @@ async def generate_character(request: LLMRequest):
     start_time = time.time()
 
     try:
-        # Validate model
         if request.model not in GeminiModel.list_str():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

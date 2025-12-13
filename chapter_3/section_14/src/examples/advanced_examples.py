@@ -1,18 +1,18 @@
 """Advanced usage examples with nested structures and complex schemas"""
 
 import os
-from typing import Any, Optional
+from typing import Optional
 
-from src.client.llm_client import GeminiModel, OpenAIModel
+from openai import OpenAI
+from src.client.llm_client import OpenAIModel
 from src.examples.runner import run
 
 
 def example_1_nested_objects(
-    llm_client: Any,
-    model: OpenAIModel | GeminiModel,
+    llm_client: OpenAI,
+    model: OpenAIModel,
     output_directory: Optional[str] = None,
 ) -> None:
-    """Example 1: Nested object structures"""
     print("\n=== Example 1: Nested Objects (User Profile) ===")
 
     prompt = """You are an expert at extracting data from user profile.
@@ -49,11 +49,10 @@ Output user profile information:
 
 
 def example_2_complex_article(
-    llm_client: Any,
-    model: OpenAIModel | GeminiModel,
+    llm_client: OpenAI,
+    model: OpenAIModel,
     output_directory: Optional[str] = None,
 ) -> None:
-    """Example 2: Complex article with nested author and comments"""
     print("\n=== Example 2: Complex Article Structure ===")
 
     prompt = """Your task is to extract structured information from an article.
@@ -103,11 +102,10 @@ Output article information:
 
 
 def example_3_array_of_objects(
-    llm_client: Any,
-    model: OpenAIModel | GeminiModel,
+    llm_client: OpenAI,
+    model: OpenAIModel,
     output_directory: Optional[str] = None,
 ) -> None:
-    """Example 3: Arrays of nested objects"""
     print("\n=== Example 3: Array of Objects (Order System) ===")
 
     prompt = """You are an expert at defining complex data models with nested objects and arrays.
@@ -159,11 +157,10 @@ The output should be in the following format:
 
 
 def example_4_deep_nesting(
-    llm_client: Any,
-    model: OpenAIModel | GeminiModel,
+    llm_client: OpenAI,
+    model: OpenAIModel,
     output_directory: Optional[str] = None,
 ) -> None:
-    """Example 4: Deeply nested structure (Organization)"""
     print("\n=== Example 4: Deeply Nested Structure (Organization) ===")
 
     prompt = """
@@ -196,11 +193,10 @@ Output organization information:
 
 
 def example_5_anyof_union_types(
-    llm_client: Any,
-    model: OpenAIModel | GeminiModel,
+    llm_client: OpenAI,
+    model: OpenAIModel,
     output_directory: Optional[str] = None,
 ) -> None:
-    """Example 5: Using anyOf for union types"""
     print("\n=== Example 5: Union Types (Payment Methods) ===")
 
     prompt = """ Your task is to define a data model for payment information.
@@ -249,11 +245,10 @@ Output payment information:
 
 
 def example_6_validation_constraints(
-    llm_client: Any,
-    model: OpenAIModel | GeminiModel,
+    llm_client: OpenAI,
+    model: OpenAIModel,
     output_directory: Optional[str] = None,
 ) -> None:
-    """Example 6: Models with validation constraints"""
     print("\n=== Example 6: Validation Constraints ===")
 
     prompt = """<role>You are an expert at defining data models with validation constraints.</role>

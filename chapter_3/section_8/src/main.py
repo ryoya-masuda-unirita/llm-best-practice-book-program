@@ -197,7 +197,6 @@ Output directory: {output_directory}""")
             analyzer = MetricsAnalyzer()
             reporter = ProfilerReporter(analyzer)
 
-            # Generate and save report
             report_extension = "html" if profiler_report_format == "html" else profiler_report_format
             report_file_name = f"{key}_profiler_report.{report_extension}"
             report_file_path = Path(output_directory) / report_file_name

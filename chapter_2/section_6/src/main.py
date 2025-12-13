@@ -13,14 +13,9 @@ from src.service.template_engine import TemplateEngine
 
 logger = make_logger(__name__)
 
-# Project root directory
 PROJECT_ROOT = Path(__file__).parent.parent
-
-# Initialize paths
 TEMPLATE_DIR = PROJECT_ROOT / "templates"
 VARIABLES_DIR = PROJECT_ROOT / "variables"
-
-# Initialize template engine
 TEMPLATE_ENGINE = TemplateEngine(template_dir=TEMPLATE_DIR)
 
 
@@ -72,7 +67,6 @@ async def main(
     template: str = "templates/character_generation.yaml",
     variables: str | None = None,
 ):
-    # Resolve paths
     template_path = Path(template)
     if not template_path.is_absolute():
         template_path = PROJECT_ROOT / template_path
@@ -83,17 +77,13 @@ async def main(
         if not variables_path.is_absolute():
             variables_path = PROJECT_ROOT / variables_path
 
-    # Validate paths
     if not template_path.exists():
         raise FileNotFoundError(f"Template file not found: {template_path}")
 
     if variables_path and not variables_path.exists():
         raise FileNotFoundError(f"Variables file not found: {variables_path}")
 
-    logger.info(f"""Model: {model}
-Output directory: {output_directory}
-Template: {template_path}
-Variables: {variables_path or "default"}""")
+    logger.info(f"Model: {model}, Template: {template_path}, Variables: {variables_path or 'default'}")
 
     if model not in OpenAIModel.list_str():
         raise ValueError(f"Invalid model '{model}'. Must be one of {OpenAIModel.list_str()}")
@@ -112,7 +102,7 @@ Variables: {variables_path or "default"}""")
     file_name = f"openai_{uuid4().hex}.json"
     file_path = os.path.join(output_directory, file_name)
     result.save_as_json(file_path)
-    logger.info(f"""File saved to {file_path}""")
+    logger.info(f"File saved to {file_path}")
 
 
 if __name__ == "__main__":

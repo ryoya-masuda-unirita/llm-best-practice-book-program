@@ -8,13 +8,13 @@ from src.prompt.prompt import (
     make_error_correction_prompt,
     make_sampling_prompt,
     make_script_generation_prompt,
+    make_validation_correction_prompt,
 )
 
 logger = make_logger(__name__)
 
 
 async def sample_document(model: AnthropicModel, document_content: str) -> SampledSentences:
-    """Sample representative sentences from a document using LLM."""
     prompt = make_sampling_prompt(document_content)
     result = await anthropic_client.beta.messages.parse(
         model=model,
@@ -32,7 +32,6 @@ async def generate_extraction_script(
     document_content: str,
     sampled_info: dict,
 ) -> GeneratedScript:
-    """Generate a Python script to extract document structure."""
     prompt = make_script_generation_prompt(document_content, sampled_info)
     result = await anthropic_client.beta.messages.parse(
         model=model,
@@ -51,7 +50,6 @@ async def correct_script(
     error_message: str,
     document_content: str,
 ) -> GeneratedScript:
-    """Correct a failed script using LLM."""
     prompt = make_error_correction_prompt(original_script, error_message, document_content)
     result = await anthropic_client.beta.messages.parse(
         model=model,
@@ -61,4 +59,23 @@ async def correct_script(
         output_format=GeneratedScript,
     )
     logger.info(f"Corrected script explanation: {result.parsed_output.explanation}")
+    return result.parsed_output
+
+
+async def correct_script_from_validation(
+    model: AnthropicModel,
+    original_script: str,
+    validation_reasoning: str,
+    fix_proposal: str,
+    document_content: str,
+) -> GeneratedScript:
+    prompt = make_validation_correction_prompt(original_script, validation_reasoning, fix_proposal, document_content)
+    result = await anthropic_client.beta.messages.parse(
+        model=model,
+        max_tokens=4096,
+        betas=["structured-outputs-2025-11-13"],
+        messages=prompt,
+        output_format=GeneratedScript,
+    )
+    logger.info(f"Validation-corrected script explanation: {result.parsed_output.explanation}")
     return result.parsed_output

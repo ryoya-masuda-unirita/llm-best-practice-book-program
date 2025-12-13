@@ -34,7 +34,6 @@ class TemplateEngine:
         if not self.template_dir.exists():
             raise FileNotFoundError(f"Template directory not found: {self.template_dir}")
 
-        # Setup Jinja2 environment
         self.env = Environment(
             loader=FileSystemLoader(str(self.template_dir)),
             trim_blocks=True,
@@ -96,15 +95,12 @@ class TemplateEngine:
             TemplateNotFound: If template file doesn't exist
             TemplateValidationError: If required variables are missing (when validate=True)
         """
-        # Validate variables if requested
         if validate:
             self.validate_variables(template_name, variables)
 
-        # Load and render the template
         template = self.env.get_template(template_name)
         rendered_yaml = template.render(**variables)
 
-        # Parse the rendered YAML
         return yaml.safe_load(rendered_yaml)
 
     def render_prompt_messages(
@@ -134,7 +130,6 @@ class TemplateEngine:
         """
         rendered = self.render_template(template_name, variables, validate=validate)
 
-        # Validate that the expected keys exist
         if system_key not in rendered:
             raise TemplateValidationError(f"Template missing key: {system_key}")
         if user_key not in rendered:

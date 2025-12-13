@@ -19,7 +19,6 @@ def mock_openai_client():
     """Mock OpenAI client for testing."""
     mock_client = Mock()
 
-    # Mock chunk structure
     class MockDelta:
         def __init__(self, content):
             self.content = content
@@ -32,12 +31,10 @@ def mock_openai_client():
         def __init__(self, content):
             self.choices = [MockChoice(content)]
 
-    # Create async generator function
     async def mock_stream_generator():
         for content in ["Hello", " ", "World", "!"]:
             yield MockChunk(content)
 
-    # Wrap the create method in AsyncMock to track calls
     async def mock_create(*args, **kwargs):
         return mock_stream_generator()
 

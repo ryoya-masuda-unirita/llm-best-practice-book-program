@@ -113,15 +113,7 @@ class WorkflowState(BaseModel):
             self.node_records[node_id].error = error
 
     def increment_retry(self, node_id: str) -> int:
-        """
-        Increment retry count for a node.
-
-        Args:
-            node_id: Node ID
-
-        Returns:
-            New retry count
-        """
+        """Increment retry count for a node and return new count."""
         if node_id in self.node_records:
             self.node_records[node_id].retry_count += 1
             return self.node_records[node_id].retry_count

@@ -53,7 +53,6 @@ def build_status_response(
     started_at: float | None = None,
     completed_at: float | None = None,
 ) -> BatchJobStatusResponse:
-    """Build a BatchJobStatusResponse with the given parameters."""
     return BatchJobStatusResponse(
         job_id=job_id,
         status=status,
@@ -71,12 +70,6 @@ def build_task_results(
     batch_results: list[CharacterResponse | None],
     processing_time_ms: float,
 ) -> tuple[list[TaskStatus], int, int]:
-    """
-    Build task results from batch results.
-
-    Returns:
-        Tuple of (task_results, completed_count, failed_count)
-    """
     task_results: list[TaskStatus] = []
     completed_count = 0
     failed_count = 0
@@ -108,7 +101,6 @@ def build_task_results(
 
 
 def prepare_prompts(character_requests: list[dict[str, Any]]) -> list[tuple[str, str]]:
-    """Prepare prompts from character request dicts."""
     prompts: list[tuple[str, str]] = []
     for char_req_dict in character_requests:
         character_request = CharacterRequest(**char_req_dict)
@@ -123,13 +115,11 @@ class BatchWorker:
     """Worker that processes batch jobs from Redis queue with concurrent polling."""
 
     def __init__(self) -> None:
-        """Initialize the batch worker."""
         self.running = False
         self.processed_jobs = 0
         self.active_jobs: dict[str, ActiveJob] = {}
 
     async def start(self) -> None:
-        """Start the worker and begin processing jobs."""
         self.running = True
         logger.info("Batch worker started, waiting for jobs...")
 
@@ -147,12 +137,10 @@ class BatchWorker:
         logger.info(f"Batch worker stopped. Processed {self.processed_jobs} jobs total.")
 
     def stop(self) -> None:
-        """Stop the worker gracefully."""
         logger.info("Stopping batch worker...")
         self.running = False
 
     async def _job_pickup_loop(self) -> None:
-        """Loop that picks up new jobs from the queue and submits them to Gemini."""
         while self.running:
             try:
                 job_data = await redis_client.dequeue_job(QUEUE_NAME, timeout=POLL_TIMEOUT)
@@ -165,7 +153,6 @@ class BatchWorker:
                 await asyncio.sleep(1)
 
     async def _poll_active_jobs_loop(self) -> None:
-        """Loop that polls all active jobs for completion."""
         while self.running:
             if not self.active_jobs:
                 await asyncio.sleep(BATCH_POLL_INTERVAL)
@@ -176,7 +163,6 @@ class BatchWorker:
             await asyncio.sleep(BATCH_POLL_INTERVAL)
 
     async def _submit_job_to_gemini(self, job_data: dict[str, Any]) -> None:
-        """Submit a job to Gemini batch API immediately."""
         try:
             job = InternalJobData(**job_data)
             job_id = job.job_id
@@ -222,7 +208,6 @@ class BatchWorker:
             await self._mark_job_failed(job_data.get("job_id", "unknown"), str(e))
 
     async def _check_job_status(self, active_job: ActiveJob) -> None:
-        """Check the status of an active Gemini batch job."""
         try:
             batch_status = get_gemini_batch_status(active_job.gemini_batch_name)
 
@@ -243,12 +228,10 @@ class BatchWorker:
             logger.error(f"Error checking job {active_job.job_id}: {e}")
 
     def _finalize_job(self, job_id: str) -> None:
-        """Remove job from active jobs and increment counter."""
         del self.active_jobs[job_id]
         self.processed_jobs += 1
 
     async def _process_completed_job(self, active_job: ActiveJob) -> None:
-        """Process a completed Gemini batch job and store results."""
         try:
             batch_results = get_gemini_batch_results(active_job.gemini_batch_name)
             processing_time_ms = (time.time() - active_job.start_time) * 1000
@@ -291,7 +274,6 @@ class BatchWorker:
             await self._mark_job_failed(active_job.job_id, str(e))
 
     async def _mark_job_failed(self, job_id: str, error_msg: str) -> None:
-        """Mark a job as failed in Redis."""
         try:
             status_dict = await redis_client.get_job_status(job_id)
             if not status_dict:
@@ -320,13 +302,11 @@ worker = BatchWorker()
 
 
 def signal_handler(signum: int, frame: Any) -> None:
-    """Handle shutdown signals."""
     logger.info(f"Received signal {signum}, shutting down...")
     worker.stop()
 
 
 async def main() -> None:
-    """Main entry point for the worker."""
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     await worker.start()

@@ -1,5 +1,3 @@
-"""LLM API Server - FastAPI application that exposes LLM functionality."""
-
 import time
 
 from fastapi import FastAPI, HTTPException, status

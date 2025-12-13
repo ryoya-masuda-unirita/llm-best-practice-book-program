@@ -25,14 +25,7 @@ async def stream_request(
     prompt: str,
     model: str | None = None,
 ):
-    """
-    APIサーバーにストリーミングリクエストを送信し、レスポンスを表示する
-
-    Args:
-        url: APIエンドポイントのURL
-        prompt: ユーザーのプロンプト
-        model: 使用するモデル名
-    """
+    """APIサーバーにストリーミングリクエストを送信し、レスポンスを表示する"""
     payload = {
         "prompt": prompt,
         "provider": "openai",
@@ -59,7 +52,6 @@ async def stream_request(
                     print(error_text)
                     return
 
-                # ストリーミングレスポンスを逐次的に表示
                 async for chunk in response.content.iter_any():
                     if chunk:
                         text = chunk.decode("utf-8")
@@ -79,14 +71,7 @@ async def completion_request(
     prompt: str,
     model: str | None = None,
 ):
-    """
-    APIサーバーに非ストリーミングリクエストを送信し、完全なレスポンスを表示する
-
-    Args:
-        url: APIエンドポイントのURL
-        prompt: ユーザーのプロンプト
-        model: 使用するモデル名
-    """
+    """APIサーバーに非ストリーミングリクエストを送信し、レスポンスを表示する"""
     payload = {
         "prompt": prompt,
         "provider": "openai",
@@ -113,7 +98,6 @@ async def completion_request(
                     print(error_text)
                     return
 
-                # 非ストリーミングレスポンスを取得
                 response_data = await response.json()
                 print(response_data["content"])
 
@@ -157,7 +141,6 @@ def main(
     model: str | None,
 ):
     """LLM APIのサンプルクライアント"""
-    # URLが指定されていない場合はmodeに応じてデフォルトURLを設定
     if url is None:
         if mode == "stream":
             url = "http://127.0.0.1:8000/stream"

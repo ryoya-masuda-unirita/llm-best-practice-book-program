@@ -34,18 +34,8 @@ def make_generation_prompt(
 
 
 def make_classification_prompt(text: str, categories: list[str]) -> list:
-    """Create a prompt for text classification with structured output.
-
-    Args:
-        text: The text to classify
-        categories: List of possible categories
-
-    Returns:
-        list: Prompt messages for the LLM
-    """
     categories_str = ", ".join([f'"{cat}"' for cat in categories])
 
-    # Create schema description for structured output
     schema_description = json.dumps(
         {
             "reasoning": "string; Brief explanation for why this category was chosen",

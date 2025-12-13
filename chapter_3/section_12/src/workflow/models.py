@@ -8,6 +8,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
+
 class ExecutionState(str, Enum):
     """Workflow/node execution states."""
 

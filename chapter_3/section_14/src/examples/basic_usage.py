@@ -1,18 +1,18 @@
 """Basic usage examples for auto-structured-output package"""
 
 import os
-from typing import Any, Optional
+from typing import Optional
 
-from src.client.llm_client import GeminiModel, OpenAIModel
+from openai import OpenAI
+from src.client.llm_client import OpenAIModel
 from src.examples.runner import run
 
 
 def example_1_simple_user_model(
-    llm_client: Any,
-    model: OpenAIModel | GeminiModel,
+    llm_client: OpenAI,
+    model: OpenAIModel,
     output_directory: Optional[str] = None,
 ) -> None:
-    """Example 1: Extract a simple user model"""
     print("\n=== Example 1: Simple User Model ===")
 
     prompt = """
@@ -47,11 +47,10 @@ Please output the user information in the following format:
 
 
 def example_2_product_with_enum(
-    llm_client: Any,
-    model: OpenAIModel | GeminiModel,
+    llm_client: OpenAI,
+    model: OpenAIModel,
     output_directory: Optional[str] = None,
 ) -> None:
-    """Example 2: Product model with enum status"""
     print("\n=== Example 2: Product with Enum Status ===")
 
     prompt = """We have the following product information.
@@ -78,11 +77,10 @@ Please output the product information in the following format:
 
 
 def example_3_optional_fields(
-    llm_client: Any,
-    model: OpenAIModel | GeminiModel,
+    llm_client: OpenAI,
+    model: OpenAIModel,
     output_directory: Optional[str] = None,
 ) -> None:
-    """Example 3: Model with optional fields"""
     print("\n=== Example 3: Optional Fields ===")
 
     prompt = """Analyze the following book information.
@@ -113,11 +111,10 @@ Please output the book information in the following format:
 
 
 def example_4_array_fields(
-    llm_client: Any,
-    model: OpenAIModel | GeminiModel,
+    llm_client: OpenAI,
+    model: OpenAIModel,
     output_directory: Optional[str] = None,
 ) -> None:
-    """Example 4: Model with array fields"""
     print("\n=== Example 4: Array Fields ===")
 
     prompt = """Review the following course information.
@@ -146,11 +143,10 @@ prerequisites
 
 
 def example_5_datetime_fields(
-    llm_client: Any,
-    model: OpenAIModel | GeminiModel,
+    llm_client: OpenAI,
+    model: OpenAIModel,
     output_directory: Optional[str] = None,
 ) -> None:
-    """Example 5: Model with date-time fields"""
     print("\n=== Example 5: DateTime Fields ===")
 
     prompt = """You are an expert event organizer.

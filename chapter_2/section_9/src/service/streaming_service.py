@@ -11,19 +11,7 @@ async def get_openai_response(
     prompt: str,
     model: str = OpenAIModel.GPT_4O_MINI,
 ) -> str:
-    """
-    OpenAI APIから非ストリーミングで応答を取得する非同期関数
-
-    Args:
-        prompt: ユーザーのプロンプト
-        model: 使用するOpenAIモデル
-
-    Returns:
-        生成されたテキスト全体
-
-    Raises:
-        Exception: OpenAI API呼び出しでエラーが発生した場合
-    """
+    """OpenAI APIから非ストリーミングで応答を取得する"""
     try:
         response = await openai_client.chat.completions.create(
             model=model,
@@ -42,16 +30,7 @@ async def stream_openai_response(
     prompt: str,
     model: str = OpenAIModel.GPT_4O_MINI,
 ) -> AsyncIterator[str]:
-    """
-    OpenAI APIからストリーミングで応答を取得する非同期ジェネレータ
-
-    Args:
-        prompt: ユーザーのプロンプト
-        model: 使用するOpenAIモデル
-
-    Yields:
-        生成されたテキストのチャンク
-    """
+    """OpenAI APIからストリーミングで応答を取得する非同期ジェネレータ"""
     try:
         stream = await openai_client.chat.completions.create(
             model=model,
@@ -63,7 +42,6 @@ async def stream_openai_response(
             if chunk.choices[0].delta.content:
                 content = chunk.choices[0].delta.content
                 yield content
-                # イベントループのブロッキングを防ぐために微小な待機時間を入れます
                 await asyncio.sleep(0.01)
 
     except Exception as e:

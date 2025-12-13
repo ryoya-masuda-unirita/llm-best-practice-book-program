@@ -15,7 +15,6 @@ class Embedder(Component[list[Chunk], list[ChunkWithEmbedding]]):
         self.model = model
 
     async def process(self, input_data: list[Chunk]) -> list[ChunkWithEmbedding]:
-        """Create embeddings for all chunks."""
         chunks_with_embeddings = []
 
         for chunk in input_data:

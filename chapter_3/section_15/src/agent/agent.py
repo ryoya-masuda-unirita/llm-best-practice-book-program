@@ -1,8 +1,6 @@
 """Base Agent implementation with Strategy pattern."""
 
-from typing import Any
-
-from src.agent.base import Action, ActionType, Memory, Strategy
+from src.agent.base import Action, ActionType, Memory, Strategy, ToolResult
 from src.agent.controller import ExecutionController, ExecutionRequest, create_default_controller
 from src.agent.memory import ConversationalMemory
 from src.agent.states import (
@@ -15,6 +13,9 @@ from src.agent.states import (
     ThinkingState,
 )
 from src.agent.toolbox import ToolBox
+from src.logger import make_logger
+
+logger = make_logger(__name__)
 
 
 class BaseAgent:
@@ -69,17 +70,17 @@ class BaseAgent:
         finally:
             self.agent_context.transition_to(IdleState())
 
-    def _execute_action(self, action: Action) -> Any:
+    def _execute_action(self, action: Action) -> ToolResult | str:
         """Execute an action based on its type."""
         if action.type == ActionType.TOOL_CALL:
             return self._execute_tool_call(action)
         elif action.type == ActionType.FINAL_ANSWER:
             self.agent_context.transition_to(CompletedState())
-            return str(action.answer)
+            return action.answer or ""
         else:  # THINK
-            return action.thought
+            return action.thought or ""
 
-    def _execute_tool_call(self, action: Action) -> Any:
+    def _execute_tool_call(self, action: Action) -> ToolResult:
         """Execute a tool call action."""
         if self.agent_context.get_status() != AgentStatus.ACTING:
             self.agent_context.transition_to(ActingState())
@@ -88,12 +89,12 @@ class BaseAgent:
         if not tool:
             if self.agent_context.get_status() == AgentStatus.ACTING:
                 self.agent_context.transition_to(ThinkingState())
-            return {"error": f"Tool '{action.tool_name}' not found"}
+            return ToolResult(success=False, data=None, error=f"Tool '{action.tool_name}' not found")
 
         if not tool.validate_params(action.params):
             if self.agent_context.get_status() == AgentStatus.ACTING:
                 self.agent_context.transition_to(ThinkingState())
-            return {"error": f"Invalid parameters for tool '{action.tool_name}'"}
+            return ToolResult(success=False, data=None, error=f"Invalid parameters for tool '{action.tool_name}'")
 
         result = tool.execute(action.params)
 
@@ -106,7 +107,7 @@ class BaseAgent:
         """Check if task is complete."""
         return self.agent_context.is_terminal() or not self.agent_context.can_act()
 
-    def get_execution_trace(self) -> dict[str, Any]:
+    def get_execution_trace(self) -> dict[str, object]:
         """Get detailed execution trace."""
         return {
             "context": self.memory.get_context(),
@@ -158,15 +159,21 @@ class ConfigurableAgent(BaseAgent):
     def _log_execution(self) -> None:
         """Log execution details."""
         trace = self.get_execution_trace()
-        print("\n=== Agent Execution Trace ===")
-        print(f"Iterations: {self.current_iteration}")
-        print(f"Final State: {trace['current_state']}\n")
-        print("State History:")
-        for state in trace["state_history"]:
-            print(f"  {state['from_state']} -> {state['to_state']} at {state['timestamp']}")
-        print("\nEvents:")
-        for event in trace["events"]:
-            print(f"  [{event['state']}] {event['message']}")
+        logger.info("\n=== Agent Execution Trace ===")
+        logger.info(f"Iterations: {self.current_iteration}")
+        logger.info(f"Final State: {trace['current_state']}\n")
+        logger.info("State History:")
+        state_history = trace.get("state_history")
+        if isinstance(state_history, list):
+            for state in state_history:
+                if isinstance(state, dict):
+                    logger.info(f"  {state.get('from_state')} -> {state.get('to_state')} at {state.get('timestamp')}")
+        logger.info("\nEvents:")
+        events = trace.get("events")
+        if isinstance(events, list):
+            for event in events:
+                if isinstance(event, dict):
+                    logger.info(f"  [{event.get('state')}] {event.get('message')}")
 
 
 class MultiStrategyAgent(BaseAgent):

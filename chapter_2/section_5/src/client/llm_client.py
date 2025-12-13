@@ -6,8 +6,6 @@ from src.config import config
 
 
 class LLMProvider(StrEnum):
-    """Enum for LLM providers."""
-
     GEMINI = "gemini"
 
 

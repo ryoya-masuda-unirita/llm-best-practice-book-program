@@ -1,5 +1,3 @@
-"""Background worker for processing queued LLM requests with priority scheduling."""
-
 import asyncio
 import random
 import time
@@ -19,8 +17,6 @@ logger = make_logger(__name__)
 
 @dataclass
 class WorkerStats:
-    """Statistics tracking for worker performance."""
-
     processed_count: int = 0
     failed_count: int = 0
     total_processing_time_ms: float = 0.0
@@ -41,8 +37,6 @@ class WorkerStats:
 
 @dataclass
 class PriorityWeights:
-    """Configuration for priority queue processing weights."""
-
     high: float = field(default_factory=lambda: config.high_priority_ratio)
     medium: float = field(default_factory=lambda: config.medium_priority_ratio)
     low: float = field(default_factory=lambda: config.low_priority_ratio)
@@ -56,8 +50,6 @@ class PriorityWeights:
 
 
 class WeightedPriorityScheduler:
-    """Selects priority queues using weighted random selection to prevent starvation."""
-
     PRIORITIES = [Priority.HIGH, Priority.MEDIUM, Priority.LOW]
 
     def __init__(self, weights: Optional[PriorityWeights] = None) -> None:
@@ -71,8 +63,6 @@ class WeightedPriorityScheduler:
 
 
 class TaskProcessor:
-    """Handles execution of individual LLM tasks with retry logic."""
-
     def __init__(self, stats: WorkerStats) -> None:
         self._stats = stats
 
@@ -140,8 +130,6 @@ class TaskProcessor:
 
 
 class PriorityWorker:
-    """Worker that processes tasks from priority queues with weighted scheduling."""
-
     MAX_DEQUEUE_ATTEMPTS = 10
     BUSY_POLL_INTERVAL = 0.1
     IDLE_POLL_INTERVAL = 1.0
@@ -161,7 +149,6 @@ class PriorityWorker:
         return self._running
 
     async def run(self, poll_interval: Optional[float] = None) -> None:
-        """Run the worker continuously, processing tasks from priority queues."""
         idle_interval = poll_interval or self.IDLE_POLL_INTERVAL
         self._running = True
 
@@ -192,7 +179,6 @@ class PriorityWorker:
         self._running = False
 
     async def _try_process_next_task(self) -> bool:
-        """Attempt to process the next task using weighted priority selection."""
         queue_sizes = await queue_manager.get_all_queue_sizes()
 
         if sum(queue_sizes.values()) == 0:

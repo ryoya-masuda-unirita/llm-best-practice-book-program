@@ -29,7 +29,6 @@ async def health_check():
     return HealthResponse()
 
 
-# Command Endpoints (Write Operations - Async)
 @app.post(
     "/command/register",
     response_model=KnowledgeRegisterResponse,
@@ -49,14 +48,8 @@ async def health_check():
     """,
 )
 async def register_knowledge(command: KnowledgeRegisterCommand, background_tasks: BackgroundTasks):
-    """
-    Register knowledge asynchronously.
-
-    The knowledge will be processed in the background, allowing for
-    high throughput without blocking the response.
-    """
+    """Register knowledge asynchronously."""
     try:
-        # Queue the command for async processing
         job_id = await register_knowledge_async(command)
 
         logger.info(f"Knowledge registration command accepted with job_id: {job_id}")
@@ -75,7 +68,6 @@ async def register_knowledge(command: KnowledgeRegisterCommand, background_tasks
         )
 
 
-# Query Endpoints (Read Operations - Sync)
 @app.post(
     "/query/search",
     response_model=KnowledgeSearchResponse,
@@ -94,12 +86,7 @@ async def register_knowledge(command: KnowledgeRegisterCommand, background_tasks
     """,
 )
 async def search_knowledge_endpoint(query: KnowledgeSearchQuery):
-    """
-    Search knowledge base synchronously.
-
-    Returns results immediately with low latency, optimized for
-    real-time user queries.
-    """
+    """Search knowledge base synchronously."""
     try:
         results = await search_knowledge(query)
 
@@ -133,12 +120,7 @@ async def search_knowledge_endpoint(query: KnowledgeSearchQuery):
     """,
 )
 async def get_stats():
-    """
-    Get knowledge base statistics.
-
-    Returns aggregate information about stored knowledge items
-    including total count and distribution metrics.
-    """
+    """Get knowledge base statistics."""
     try:
         stats = await get_knowledge_stats()
 

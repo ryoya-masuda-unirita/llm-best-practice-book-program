@@ -99,7 +99,6 @@ async def request_gemini_outfit(model: GeminiModel, latitude: float, longitude: 
             if "天気予報データを取得できませんでした" in response_text or "天気予報を取得できません" in response_text:
                 raise ValueError(_make_us_only_error_message(latitude, longitude))
 
-            # Extract JSON from markdown code blocks or raw JSON
             json_text = None
             if "```json" in response_text:
                 json_start = response_text.find("```json") + 7

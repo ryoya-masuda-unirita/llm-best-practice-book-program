@@ -1,5 +1,3 @@
-"""Service interfaces for LLM functionality following Interface Segregation Principle."""
-
 from abc import ABC, abstractmethod
 
 from anthropic import AsyncAnthropic

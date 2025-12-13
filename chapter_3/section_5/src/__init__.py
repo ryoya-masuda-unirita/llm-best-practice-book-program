@@ -2,5 +2,4 @@
 
 from concurrent.futures import ThreadPoolExecutor
 
-# Shared thread pool executor for async operations
 executor = ThreadPoolExecutor(max_workers=4)

@@ -57,15 +57,6 @@ class FallbackCoordinator:
         semantic_cache_manager: Optional[SemanticCacheManager] = None,
         timeout: Optional[float] = None,
     ):
-        """
-        Initialize the fallback coordinator.
-
-        Args:
-            fallback_strategy: Strategy to use for fallback
-            cache_manager: CacheManager instance for parameter cache (creates new if None)
-            semantic_cache_manager: SemanticCacheManager instance for semantic cache (optional)
-            timeout: Request timeout in seconds (uses config default if None)
-        """
         self.fallback_strategy = fallback_strategy
         self.cache_manager = cache_manager or CacheManager()
         self.semantic_cache_manager = semantic_cache_manager
@@ -93,34 +84,19 @@ class FallbackCoordinator:
         prompt: Optional[list] = None,
         model: Optional[str] = None,
     ) -> tuple[CharacterResponse, FallbackStrategy, Optional[str]]:
-        """
-        Execute LLM request with comprehensive fallback handling.
-
-        Args:
-            primary_provider: Primary LLM provider to use
-            primary_request_func: Async function for primary request
-            alternative_request_func: Optional async function for alternative provider
-            prompt: The prompt (for cache lookup)
-            model: Model name (for cache lookup)
-
-        Returns:
-            Tuple of (response, strategy_used, error_reason)
-        """
+        """Execute LLM request with comprehensive fallback handling."""
         self.stats["total_requests"] += 1
         context = RequestContext(prompt=prompt, model=model)
 
-        # Try primary request
         result = await self._try_primary_request(primary_provider, primary_request_func, context)
         if result:
             return result.response, result.strategy, result.error_reason
 
-        # Primary failed - try fallback strategy
         error_reason = "timeout" if self.stats["timeout_count"] > 0 else "error"
         result = await self._execute_fallback_strategy(alternative_request_func, context, error_reason)
         if result:
             return result.response, result.strategy, result.error_reason
 
-        # All strategies failed
         self._handle_fallback_failure(error_reason)
 
     async def _try_primary_request(

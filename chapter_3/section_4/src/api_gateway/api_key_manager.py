@@ -17,15 +17,11 @@ logger = make_logger(__name__)
 class APIKeyManager:
     """Manages API keys for different LLM providers.
 
-    This centralizes API key management, ensuring that:
-    1. API keys are stored securely in one location
-    2. Client applications never have direct access to API keys
-    3. Key rotation can be performed by updating configuration only
-    4. Different providers can be supported transparently
+    Centralizes API key management so client applications never have direct access
+    to keys and key rotation requires only configuration updates.
     """
 
     def __init__(self):
-        """Initialize the API key manager with provider credentials."""
         self._provider_keys: Dict[str, Secret[str]] = {
             "openai": config.openai_api_key,
             "gemini": config.gemini_api_key,
@@ -33,17 +29,7 @@ class APIKeyManager:
         logger.info(f"API Key Manager initialized with {len(self._provider_keys)} providers")
 
     def get_api_key(self, provider: str) -> str:
-        """Get the API key for a specific provider.
-
-        Args:
-            provider: The LLM provider name (e.g., 'openai', 'gemini')
-
-        Returns:
-            The API key for the specified provider
-
-        Raises:
-            ValueError: If the provider is not supported
-        """
+        """Get the API key for a specific provider. Raises ValueError if unsupported."""
         provider_lower = provider.lower()
 
         if provider_lower not in self._provider_keys:
@@ -54,22 +40,11 @@ class APIKeyManager:
         return self._provider_keys[provider_lower]
 
     def is_provider_supported(self, provider: str) -> bool:
-        """Check if a provider is supported.
-
-        Args:
-            provider: The LLM provider name
-
-        Returns:
-            True if provider is supported, False otherwise
-        """
+        """Check if a provider is supported."""
         return provider.lower() in self._provider_keys
 
     def list_supported_providers(self) -> list[str]:
-        """Get a list of all supported providers.
-
-        Returns:
-            List of supported provider names
-        """
+        """Get a list of all supported providers."""
         return list(self._provider_keys.keys())
 
 

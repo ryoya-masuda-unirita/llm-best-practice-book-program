@@ -10,24 +10,18 @@ from src.client.llm_client import LLMProvider
 
 
 class Priority(StrEnum):
-    """Priority levels for request processing."""
-
     HIGH = "high"
     MEDIUM = "medium"
     LOW = "low"
 
 
 class UserTier(StrEnum):
-    """User tier levels."""
-
-    ENTERPRISE = "enterprise"  # Highest priority
-    PREMIUM = "premium"  # Medium priority
-    FREE = "free"  # Lowest priority
+    ENTERPRISE = "enterprise"
+    PREMIUM = "premium"
+    FREE = "free"
 
 
 class TaskStatus(StrEnum):
-    """Status of queued tasks."""
-
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -103,15 +97,11 @@ class CharacterResponse(BaseModel):
         return params
 
     def save_as_json(self, file_path: str) -> None:
-        """Save the character response as a JSON file."""
-
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(self.model_dump(), f, indent=4, ensure_ascii=False)
 
 
 class LLMRequest(BaseModel):
-    """Request model for LLM API."""
-
     provider: LLMProvider = Field(..., description="The LLM provider to use (openai)")
     model: str = Field(..., description="The model name to use for generation")
     character_request: CharacterRequest = Field(..., description="Character generation request parameters")
@@ -119,8 +109,6 @@ class LLMRequest(BaseModel):
 
 
 class QueuedTask(BaseModel):
-    """Model for a queued task in Redis."""
-
     model_config = ConfigDict(
         validate_assignment=True,
         extra="ignore",
@@ -143,8 +131,6 @@ class QueuedTask(BaseModel):
 
 
 class LLMResponse(BaseModel):
-    """Response model for LLM API."""
-
     character: CharacterResponse = Field(..., description="Generated character information")
     provider: str = Field(..., description="LLM provider used")
     model: str = Field(..., description="Model used")
@@ -152,8 +138,6 @@ class LLMResponse(BaseModel):
 
 
 class TaskSubmissionResponse(BaseModel):
-    """Response when a task is submitted to the queue."""
-
     task_id: str = Field(..., description="Unique identifier for the submitted task")
     priority: Priority = Field(..., description="Priority level assigned to the task")
     status: TaskStatus = Field(default=TaskStatus.PENDING, description="Initial status of the task")
@@ -164,8 +148,6 @@ class TaskSubmissionResponse(BaseModel):
 
 
 class TaskStatusResponse(BaseModel):
-    """Response for task status queries."""
-
     task_id: str = Field(..., description="Task identifier")
     priority: Priority = Field(..., description="Priority level of the task")
     status: TaskStatus = Field(..., description="Current status of the task")
@@ -178,8 +160,6 @@ class TaskStatusResponse(BaseModel):
 
 
 class QueueStatsResponse(BaseModel):
-    """Response for queue statistics."""
-
     high_priority_count: int = Field(..., description="Number of tasks in high priority queue")
     medium_priority_count: int = Field(..., description="Number of tasks in medium priority queue")
     low_priority_count: int = Field(..., description="Number of tasks in low priority queue")
@@ -188,7 +168,5 @@ class QueueStatsResponse(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    """Health check response."""
-
     status: Literal["healthy"] = "healthy"
     timestamp: float = Field(default_factory=time.time)

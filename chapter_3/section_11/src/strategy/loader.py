@@ -16,7 +16,6 @@ class DocumentLoader(Component[str, list[Document]]):
         self.file_extensions = file_extensions or [".md"]
 
     async def process(self, input_data: str) -> list[Document]:
-        """Load all documents from the specified directory."""
         directory = Path(input_data)
 
         if not directory.exists() or not directory.is_dir():

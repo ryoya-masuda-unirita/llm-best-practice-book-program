@@ -1,13 +1,4 @@
-"""Metrics Analyzer - Analysis layer for prompt performance profiling.
-
-This module implements the second layer of the prompt performance profiling system
-as described in CLAUDE.md. It provides multi-dimensional analysis of collected metrics:
-- Time series analysis for latency trends
-- Statistical anomaly detection
-- Cost analysis and budget tracking
-- Quality evaluation with LLM-as-a-Judge integration
-- Alert generation based on configurable thresholds
-"""
+"""Metrics Analyzer - Analysis layer for prompt performance profiling."""
 
 import statistics
 from collections import defaultdict
@@ -27,26 +18,13 @@ logger = make_logger(__name__)
 
 
 class MetricsAnalyzer:
-    """Analyzer for prompt performance metrics.
-
-    This class provides multi-dimensional analysis capabilities:
-    - Aggregation by prompt, model, provider, or time period
-    - Trend detection and anomaly identification
-    - Cost tracking and budget monitoring
-    - Alert generation based on thresholds
-    """
+    """Analyzer for prompt performance metrics."""
 
     def __init__(
         self,
         thresholds: Optional[AlertThreshold] = None,
         baseline_window_hours: int = 24,
     ):
-        """Initialize the metrics analyzer.
-
-        Args:
-            thresholds: Alert thresholds for monitoring
-            baseline_window_hours: Hours of data to use for baseline calculations
-        """
         self.thresholds = thresholds or AlertThreshold()
         self.baseline_window_hours = baseline_window_hours
         self._baselines: dict[str, dict[str, float]] = {}
@@ -57,16 +35,7 @@ class MetricsAnalyzer:
         prompt_id: Optional[str] = None,
         prompt_name: Optional[str] = None,
     ) -> AggregatedMetrics:
-        """Aggregate a list of metrics into summary statistics.
-
-        Args:
-            metrics: List of ProfilerMetrics to aggregate
-            prompt_id: Optional prompt ID for the aggregation
-            prompt_name: Optional prompt name for the aggregation
-
-        Returns:
-            AggregatedMetrics with summary statistics
-        """
+        """Aggregate a list of metrics into summary statistics."""
         return AggregatedMetrics.from_metrics_list(
             metrics,
             prompt_id=prompt_id,
@@ -77,14 +46,7 @@ class MetricsAnalyzer:
         self,
         metrics: list[ProfilerMetrics],
     ) -> dict[str, AggregatedMetrics]:
-        """Aggregate metrics grouped by prompt ID.
-
-        Args:
-            metrics: List of ProfilerMetrics to aggregate
-
-        Returns:
-            Dictionary mapping prompt_id to AggregatedMetrics
-        """
+        """Aggregate metrics grouped by prompt ID."""
         grouped: dict[str, list[ProfilerMetrics]] = defaultdict(list)
         for m in metrics:
             grouped[m.prompt_id].append(m)
@@ -103,14 +65,7 @@ class MetricsAnalyzer:
         self,
         metrics: list[ProfilerMetrics],
     ) -> dict[str, AggregatedMetrics]:
-        """Aggregate metrics grouped by model.
-
-        Args:
-            metrics: List of ProfilerMetrics to aggregate
-
-        Returns:
-            Dictionary mapping model name to AggregatedMetrics
-        """
+        """Aggregate metrics grouped by model."""
         grouped: dict[str, list[ProfilerMetrics]] = defaultdict(list)
         for m in metrics:
             grouped[m.model].append(m)
@@ -121,14 +76,7 @@ class MetricsAnalyzer:
         self,
         metrics: list[ProfilerMetrics],
     ) -> dict[str, AggregatedMetrics]:
-        """Aggregate metrics grouped by provider.
-
-        Args:
-            metrics: List of ProfilerMetrics to aggregate
-
-        Returns:
-            Dictionary mapping provider name to AggregatedMetrics
-        """
+        """Aggregate metrics grouped by provider."""
         grouped: dict[str, list[ProfilerMetrics]] = defaultdict(list)
         for m in metrics:
             grouped[m.provider].append(m)
@@ -140,15 +88,7 @@ class MetricsAnalyzer:
         metrics: list[ProfilerMetrics],
         bucket_minutes: int = 60,
     ) -> dict[str, AggregatedMetrics]:
-        """Aggregate metrics grouped by time buckets.
-
-        Args:
-            metrics: List of ProfilerMetrics to aggregate
-            bucket_minutes: Size of each time bucket in minutes
-
-        Returns:
-            Dictionary mapping bucket start time to AggregatedMetrics
-        """
+        """Aggregate metrics grouped by time buckets."""
         grouped: dict[str, list[ProfilerMetrics]] = defaultdict(list)
 
         for m in metrics:
@@ -177,15 +117,7 @@ class MetricsAnalyzer:
         metrics: list[ProfilerMetrics],
         prompt_id: str,
     ) -> dict[str, float]:
-        """Calculate baseline metrics for a prompt.
-
-        Args:
-            metrics: Historical metrics to use for baseline
-            prompt_id: Prompt ID to calculate baseline for
-
-        Returns:
-            Dictionary with baseline values for key metrics
-        """
+        """Calculate baseline metrics for a prompt."""
         prompt_metrics = [m for m in metrics if m.prompt_id == prompt_id]
 
         if not prompt_metrics:
@@ -214,15 +146,7 @@ class MetricsAnalyzer:
         metrics: ProfilerMetrics,
         baseline: Optional[dict[str, float]] = None,
     ) -> list[str]:
-        """Detect anomalies in a single metrics entry.
-
-        Args:
-            metrics: The metrics to check
-            baseline: Optional baseline to compare against
-
-        Returns:
-            List of anomaly descriptions
-        """
+        """Detect anomalies in a single metrics entry."""
         anomalies = []
 
         if baseline is None:
@@ -288,15 +212,7 @@ class MetricsAnalyzer:
         metrics: ProfilerMetrics,
         baseline: Optional[dict[str, float]] = None,
     ) -> list[Alert]:
-        """Generate alerts based on metrics and thresholds.
-
-        Args:
-            metrics: The metrics to check
-            baseline: Optional baseline to compare against
-
-        Returns:
-            List of Alert objects
-        """
+        """Generate alerts based on metrics and thresholds."""
         alerts = []
 
         if baseline is None:
@@ -439,14 +355,7 @@ class MetricsAnalyzer:
         self,
         aggregated: AggregatedMetrics,
     ) -> list[Alert]:
-        """Generate alerts based on aggregated metrics.
-
-        Args:
-            aggregated: Aggregated metrics to analyze
-
-        Returns:
-            List of Alert objects
-        """
+        """Generate alerts based on aggregated metrics."""
         alerts = []
 
         if aggregated.success_rate < self.thresholds.success_rate_critical:
@@ -520,15 +429,7 @@ class MetricsAnalyzer:
         metrics: list[ProfilerMetrics],
         prompt_ids: list[str],
     ) -> dict[str, dict[str, float]]:
-        """Compare performance across multiple prompts.
-
-        Args:
-            metrics: List of metrics to analyze
-            prompt_ids: List of prompt IDs to compare
-
-        Returns:
-            Dictionary with comparison results
-        """
+        """Compare performance across multiple prompts."""
         aggregated = self.aggregate_by_prompt(metrics)
 
         comparison = {}
@@ -554,15 +455,7 @@ class MetricsAnalyzer:
         time_series: dict[str, AggregatedMetrics],
         metric_name: str = "latency_mean_ms",
     ) -> dict[str, float]:
-        """Detect trends in time-series metrics.
-
-        Args:
-            time_series: Time-bucketed aggregated metrics
-            metric_name: Name of the metric to analyze
-
-        Returns:
-            Dictionary with trend analysis results
-        """
+        """Detect trends in time-series metrics."""
         if len(time_series) < 2:
             return {"trend": 0.0, "change_percent": 0.0}
 
@@ -602,14 +495,7 @@ class MetricsAnalyzer:
         self,
         metrics: list[ProfilerMetrics],
     ) -> dict[str, float]:
-        """Calculate cost summary for a set of metrics.
-
-        Args:
-            metrics: List of metrics to analyze
-
-        Returns:
-            Dictionary with cost summary
-        """
+        """Calculate cost summary for a set of metrics."""
         costs = [m.estimated_cost_usd for m in metrics if m.estimated_cost_usd is not None]
 
         if not costs:
@@ -632,14 +518,7 @@ class MetricsAnalyzer:
         self,
         metrics: list[ProfilerMetrics],
     ) -> dict[str, int]:
-        """Get summary of errors by type.
-
-        Args:
-            metrics: List of metrics to analyze
-
-        Returns:
-            Dictionary mapping error type to count
-        """
+        """Get summary of errors by type."""
         error_counts: dict[str, int] = defaultdict(int)
 
         for m in metrics:

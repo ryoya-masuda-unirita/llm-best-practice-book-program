@@ -2,9 +2,8 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
 
-from src.agent.base import Action, ActionType
+from src.agent.base import Action, ActionType, MetadataDict
 
 
 @dataclass
@@ -12,8 +11,8 @@ class ExecutionRequest:
     """Request to execute an action."""
 
     action: Action
-    context: dict[str, Any]
-    metadata: dict[str, Any] | None = None
+    context: dict[str, object]
+    metadata: MetadataDict | None = None
 
 
 @dataclass
@@ -22,7 +21,7 @@ class ExecutionResponse:
 
     allowed: bool
     reason: str | None = None
-    metadata: dict[str, Any] | None = None
+    metadata: MetadataDict | None = None
 
 
 class ExecutionHandler(ABC):
@@ -71,7 +70,11 @@ class CostLimitHandler(ExecutionHandler):
         super().__init__()
         self.max_cost = max_cost
         self.current_cost = 0.0
-        self.cost_map = {ActionType.TOOL_CALL: 0.01, ActionType.THINK: 0.005, ActionType.FINAL_ANSWER: 0.001}
+        self.cost_map: dict[ActionType, float] = {
+            ActionType.TOOL_CALL: 0.01,
+            ActionType.THINK: 0.005,
+            ActionType.FINAL_ANSWER: 0.001,
+        }
 
     def _check(self, request: ExecutionRequest) -> ExecutionResponse:
         self.current_cost += self.cost_map.get(request.action.type, 0.0)
@@ -114,7 +117,7 @@ class DangerousActionHandler(ExecutionHandler):
 
     def __init__(self, dangerous_tools: list[str] | None = None):
         super().__init__()
-        self.dangerous_tools = set(dangerous_tools or ["delete", "destroy", "remove_all"])
+        self.dangerous_tools: set[str] = set(dangerous_tools or ["delete", "destroy", "remove_all"])
 
     def _check(self, request: ExecutionRequest) -> ExecutionResponse:
         if request.action.type == ActionType.TOOL_CALL and request.action.tool_name in self.dangerous_tools:

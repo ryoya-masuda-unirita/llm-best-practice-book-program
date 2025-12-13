@@ -1,118 +1,38 @@
-"""Examples demonstrating high reasoning mode for inferring structure from unclear prompts
+"""Examples demonstrating high reasoning mode for inferring structure from unclear prompts"""
 
-High reasoning mode uses enhanced reasoning capabilities to infer
-optimal structured output formats when the expected structure is not clearly defined.
-"""
-
-import json
 import os
-from typing import Any, Optional
+from typing import Optional
 
-from google import genai
+from openai import OpenAI
 from src.auto_structured_output.extractor import StructureExtractor
-from src.client.llm_client import GeminiModel, OpenAIModel
+from src.client.llm_client import OpenAIModel
 from src.logger import make_logger
 
 logger = make_logger(__name__)
 
 
-def _convert_to_gemini_schema(pydantic_model: type[Any]) -> dict[str, Any]:
-    """Convert Pydantic model to Gemini schema format
-
-    Args:
-        pydantic_model: Pydantic model class
-
-    Returns:
-        Gemini-compatible schema dictionary
-    """
-    schema = pydantic_model.model_json_schema()
-
-    type_mapping = {
-        "string": genai.types.Type.STRING,
-        "integer": genai.types.Type.INTEGER,
-        "number": genai.types.Type.NUMBER,
-        "boolean": genai.types.Type.BOOLEAN,
-        "array": genai.types.Type.ARRAY,
-        "object": genai.types.Type.OBJECT,
-    }
-
-    def convert_properties(properties: dict[str, Any]) -> dict[str, Any]:
-        gemini_props = {}
-        for prop_name, prop_info in properties.items():
-            prop_type = prop_info.get("type", "string")
-            gemini_prop = {"type": type_mapping.get(prop_type, genai.types.Type.STRING)}
-
-            if "description" in prop_info:
-                gemini_prop["description"] = prop_info["description"]
-
-            if prop_type == "array" and "items" in prop_info:
-                gemini_prop["items"] = convert_properties({"item": prop_info["items"]})["item"]
-
-            if prop_type == "object" and "properties" in prop_info:
-                gemini_prop["properties"] = convert_properties(prop_info["properties"])
-                if "required" in prop_info:
-                    gemini_prop["required"] = prop_info["required"]
-
-            if "enum" in prop_info:
-                gemini_prop["enum"] = prop_info["enum"]
-
-            gemini_props[prop_name] = gemini_prop
-        return gemini_props
-
-    return {
-        "type": genai.types.Type.OBJECT,
-        "properties": convert_properties(schema.get("properties", {})),
-        "required": schema.get("required", []),
-    }
-
-
 def run_high_reasoning(
-    llm_client: Any,
-    model: OpenAIModel | GeminiModel,
+    llm_client: OpenAI,
+    model: OpenAIModel,
     prompts: list[str],
     file_name: Optional[str] = None,
 ) -> None:
-    """Run high reasoning example with multiple prompts support
-
-    Args:
-        llm_client: LLM client (OpenAI or Gemini)
-        model: Model name to use
-        prompts: List of prompts for unified schema generation
-        file_name: Optional file path to save the schema
-    """
     extractor = StructureExtractor(llm_client=llm_client, model=model)
     T_Model = extractor.extract_structure(prompts, use_high_reasoning=True)
 
     logger.info(f"Generated model: {T_Model.__name__}")
     logger.info(f"Fields: {T_Model.model_json_schema()}")
 
-    # Use the model with the first prompt for demonstration
-    # Check if it's a Gemini client
-    if isinstance(llm_client, genai.Client):
-        # Gemini client
-        gemini_schema = _convert_to_gemini_schema(T_Model)
+    response = llm_client.responses.parse(
+        model=model,
+        input=[{"role": "user", "content": prompts[0]}],
+        text_format=T_Model,
+    )
 
-        response = llm_client.models.generate_content(
-            model=model,
-            contents={"role": "user", "parts": [{"text": prompts[0]}]},
-            config={"response_mime_type": "application/json", "response_schema": gemini_schema},
-        )
-
-        content = response.text
-        if not content:
-            raise ValueError("Response from Gemini is empty")
-
-        data_dict = json.loads(content)
-    else:
-        # OpenAI client
-        response = llm_client.chat.completions.parse(
-            model=model, messages=[{"role": "user", "content": prompts[0]}], response_format=T_Model
-        )
-
-        data = response.choices[0].message.parsed
-        if data is None:
-            raise ValueError("Parsed data is None")
-        data_dict = data.model_dump()
+    data = response.output_parsed
+    if data is None:
+        raise ValueError("Parsed data is None")
+    data_dict = data.model_dump()
 
     logger.info("\nGenerated data:")
     logger.info(data_dict)
@@ -122,15 +42,10 @@ def run_high_reasoning(
 
 
 def example_1_customer_feedback_analysis(
-    llm_client: Any,
-    model: OpenAIModel | GeminiModel,
+    llm_client: OpenAI,
+    model: OpenAIModel,
     output_directory: Optional[str] = None,
 ) -> None:
-    """Example 1: Analyze customer feedback and extract insights
-
-    This prompt doesn't specify exact fields, so high reasoning mode
-    will infer an appropriate structure based on domain knowledge.
-    """
     print("\n=== Example 1: Customer Feedback Analysis ===")
 
     prompt = """
@@ -172,15 +87,10 @@ by product category, customer segment, and severity of issues raised.
 
 
 def example_2_meeting_summary(
-    llm_client: Any,
-    model: OpenAIModel | GeminiModel,
+    llm_client: OpenAI,
+    model: OpenAIModel,
     output_directory: Optional[str] = None,
 ) -> None:
-    """Example 2: Extract structured meeting summary
-
-    The prompt describes a meeting scenario but doesn't specify exact fields.
-    High reasoning mode will infer appropriate structure for meeting summaries.
-    """
     print("\n=== Example 2: Meeting Summary ===")
 
     prompt = """
@@ -226,15 +136,10 @@ of action item completion, and integration with project management tools.
 
 
 def example_3_research_paper_metadata(
-    llm_client: Any,
-    model: OpenAIModel | GeminiModel,
+    llm_client: OpenAI,
+    model: OpenAIModel,
     output_directory: Optional[str] = None,
 ) -> None:
-    """Example 3: Extract research paper metadata
-
-    Infer what metadata would be useful for academic research papers
-    without explicitly listing all fields.
-    """
     print("\n=== Example 3: Research Paper Metadata ===")
 
     prompt = """
@@ -288,16 +193,10 @@ collaboration network mapping, and integration with reference management softwar
 
 
 def example_4_job_application_evaluation(
-    llm_client: Any,
-    model: OpenAIModel | GeminiModel,
+    llm_client: OpenAI,
+    model: OpenAIModel,
     output_directory: Optional[str] = None,
 ) -> None:
-    """Example 4: Evaluate job applications
-
-    Demonstrates multi-prompt unified schema generation for different candidate levels.
-    The system infers a comprehensive structure that works for both junior and senior
-    software engineering candidates.
-    """
     print("\n=== Example 4: Job Application Evaluation ===")
 
     prompts = [
@@ -344,16 +243,10 @@ their specialized domain.
 
 
 def example_5_financial_transaction_analysis(
-    llm_client: Any,
-    model: OpenAIModel | GeminiModel,
+    llm_client: OpenAI,
+    model: OpenAIModel,
     output_directory: Optional[str] = None,
 ) -> None:
-    """Example 5: Analyze financial transactions for fraud detection
-
-    Demonstrates multi-prompt unified schema generation for different transaction types.
-    The system infers a comprehensive fraud detection structure that works across
-    e-commerce purchases, wire transfers, and recurring subscription payments.
-    """
     print("\n=== Example 5: Financial Transaction Analysis ===")
 
     prompts = [
@@ -404,16 +297,10 @@ while minimizing false positives that could disrupt legitimate long-term custome
 
 
 def example_6_high_reasoning(
-    llm_client: Any,
-    model: OpenAIModel | GeminiModel,
+    llm_client: OpenAI,
+    model: OpenAIModel,
     output_directory: Optional[str] = None,
 ) -> None:
-    """Example 6: Customer review analysis across different product categories
-
-    Demonstrates multi-prompt unified schema generation for analyzing reviews across
-    different product types. The system infers a comprehensive structure that works
-    for physical products, digital services, and hospitality experiences.
-    """
     print("\n=== Example 6: High Reasoning ===")
 
     prompts = [

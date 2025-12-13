@@ -32,7 +32,6 @@ async def startup_event():
     logger.info(f"Cache enabled: {config.cache_enabled}")
     logger.info(f"Cache backend: {config.cache_backend}")
 
-    # Initialize Redis connection if using Redis backend
     if config.cache_enabled and config.cache_backend == CacheBackend.REDIS:
         try:
             await redis_client.connect()
@@ -47,7 +46,6 @@ async def shutdown_event():
     """Cleanup on shutdown."""
     logger.info("Shutting down LLM API server...")
 
-    # Close Redis connection if it was used
     if config.cache_enabled and config.cache_backend == CacheBackend.REDIS:
         try:
             await redis_client.disconnect()
@@ -73,7 +71,6 @@ async def generate_character(request: LLMRequest):
     start_time = time.time()
 
     try:
-        # Validate model for provider
         if request.provider == LLMProvider.OPENAI and request.model not in OpenAIModel.list_str():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -82,11 +79,8 @@ async def generate_character(request: LLMRequest):
 
         prompt = make_prompt(character_request=request.character_request)
 
-        # Get LLM service instance (uses factory pattern with DI)
         llm_service = get_llm_service()
 
-        # Generate character using the service layer
-        # The service will automatically handle caching if enabled
         character = await llm_service.generate_character(
             prompt=prompt, model=request.model, provider=request.provider.value
         )
@@ -126,7 +120,6 @@ async def get_cache_metrics():
     try:
         llm_service = get_llm_service()
 
-        # Check if service is CachedLLMService to access metrics
         if isinstance(llm_service, CachedLLMService):
             return llm_service.get_cache_metrics()
         else:

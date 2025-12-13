@@ -51,16 +51,13 @@ class PromptCatalog:
         """
         templates = self.storage.list_templates(category=category, tags=tags, min_success_rate=min_success_rate)
 
-        # Apply additional filters
         results = []
         for template in templates:
-            # Text search
             if query:
                 query_lower = query.lower()
                 if query_lower not in template.name.lower() and query_lower not in template.description.lower():
                     continue
 
-            # Minimum score filter
             if min_score is not None and template.average_score is not None and template.average_score < min_score:
                 continue
 
@@ -86,7 +83,6 @@ class PromptCatalog:
         """
         templates = self.storage.list_templates(category=category)
 
-        # Already sorted by success rate and score in storage
         return templates[:limit]
 
     def get_template_recommendations(
@@ -108,7 +104,6 @@ class PromptCatalog:
         """
         templates = self.storage.list_templates(category=category, tags=tags, min_success_rate=0.5)
 
-        # Prioritize templates with higher usage and scores
         templates.sort(
             key=lambda t: (
                 t.success_count + t.failure_count,  # Total usage
@@ -143,16 +138,13 @@ class PromptCatalog:
         """
         antipatterns = self.storage.list_antipatterns(category=category, tags=tags, severity=severity)
 
-        # Apply additional filters
         results = []
         for pattern in antipatterns:
-            # Text search
             if query:
                 query_lower = query.lower()
                 if query_lower not in pattern.name.lower() and query_lower not in pattern.description.lower():
                     continue
 
-            # Minimum occurrence filter
             if pattern.occurrence_count < min_occurrence:
                 continue
 
@@ -178,7 +170,6 @@ class PromptCatalog:
         """
         antipatterns = self.storage.list_antipatterns(category=category)
 
-        # Already sorted by severity and occurrence in storage
         return antipatterns[:limit]
 
     def get_catalog_summary(self) -> dict:
@@ -191,7 +182,6 @@ class PromptCatalog:
         all_templates = self.storage.list_templates()
         all_antipatterns = self.storage.list_antipatterns()
 
-        # Group by category
         templates_by_category = {}
         for template in all_templates:
             cat = template.category.value
@@ -206,7 +196,6 @@ class PromptCatalog:
                 antipatterns_by_category[cat] = []
             antipatterns_by_category[cat].append(pattern)
 
-        # Calculate statistics
         total_template_uses = sum(t.success_count + t.failure_count for t in all_templates)
         avg_success_rate = (
             sum(t.get_success_rate() for t in all_templates) / len(all_templates) if all_templates else 0.0

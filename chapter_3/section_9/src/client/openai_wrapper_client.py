@@ -198,7 +198,6 @@ class ResponsesWrapper:
         end_time = datetime.now()
         duration_ms = (end_time - start_time).total_seconds() * 1000
 
-        # Handle both CompletionUsage and ResponseUsage field naming
         usage_info = {}
         if hasattr(response, "usage") and response.usage:
             usage = response.usage
@@ -279,7 +278,6 @@ class AsyncResponsesWrapper:
         end_time = datetime.now()
         duration_ms = (end_time - start_time).total_seconds() * 1000
 
-        # Handle both CompletionUsage and ResponseUsage field naming
         usage_info = {}
         if hasattr(response, "usage") and response.usage:
             usage = response.usage

@@ -46,27 +46,22 @@ def resolve_template_path(
         default_template_engine = TemplateEngine(template_dir=template_dir)
 
     if template_path:
-        # Use provided path directly
         final_template_path = template_path
         if not final_template_path.is_absolute():
-            # If relative, resolve against templates directory
             final_template_path = template_dir / final_template_path
         template_name_for_engine = final_template_path.name
 
-        # Create appropriate template engine
         if final_template_path.parent != template_dir:
             temp_engine = TemplateEngine(template_dir=final_template_path.parent)
         else:
             temp_engine = default_template_engine
 
     elif template_name:
-        # Legacy: use template name
         template_name_for_engine = template_name
         temp_engine = default_template_engine
         final_template_path = template_dir / template_name
 
     else:
-        # Default
         template_name_for_engine = "character_generation.yaml"
         temp_engine = default_template_engine
         final_template_path = template_dir / template_name_for_engine
@@ -98,7 +93,6 @@ def load_variables(
             return yaml.safe_load(f)
 
     elif variables_file:
-        # Legacy: use variables file name
         if variables_dir is None:
             raise ValueError("variables_dir must be provided when using variables_file")
         variables_file_path = variables_dir / variables_file
@@ -106,7 +100,6 @@ def load_variables(
             return yaml.safe_load(f)
 
     else:
-        # Default variables for character generation
         return {
             "gender": "male",
             "age": 25,
@@ -126,7 +119,6 @@ def prepare_character_variables(base_variables: dict[str, Any]) -> dict[str, Any
     """
     variables = base_variables.copy()
 
-    # Add response schema to variables
     params = CharacterResponse.detailed_model()
     variables["response_schema"] = json.dumps(params, indent=2, ensure_ascii=False)
 
@@ -226,7 +218,6 @@ async def request_openai(
     if template_dir is None:
         raise ValueError("template_dir must be provided")
 
-    # 1. Resolve template path
     final_template_path, template_name_for_engine, temp_engine = resolve_template_path(
         template_name=template_name,
         template_path=template_path,
@@ -234,17 +225,14 @@ async def request_openai(
         default_template_engine=template_engine,
     )
 
-    # 2. Load variables
     base_variables = load_variables(
         variables_file=variables_file,
         variables_path=variables_path,
         variables_dir=variables_dir,
     )
 
-    # 3. Prepare variables with response schema
     variables = prepare_character_variables(base_variables)
 
-    # 4. Render prompt from template
     messages = render_prompt_from_template(
         template_path=final_template_path,
         template_name=template_name_for_engine,
@@ -252,7 +240,6 @@ async def request_openai(
         variables=variables,
     )
 
-    # 5. Execute LLM request
     return await execute_llm_request(
         model=model,
         messages=messages,

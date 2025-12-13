@@ -1,16 +1,4 @@
-"""Profiler Reporter - Visualization layer for prompt performance profiling.
-
-This module implements the third layer of the prompt performance profiling system
-as described in CLAUDE.md. It provides reporting and visualization capabilities:
-- Text-based reports for terminal output
-- JSON reports for programmatic consumption
-- HTML reports for visual dashboards
-- Comparison reports for A/B testing
-- Trend analysis reports
-
-Note: For production use with Grafana/Kibana, the metrics can be exported
-using the to_json_string() methods and ingested into those systems.
-"""
+"""Profiler Reporter - Visualization layer for prompt performance profiling."""
 
 import json
 from datetime import datetime, timezone
@@ -25,21 +13,9 @@ logger = make_logger(__name__)
 
 
 class ProfilerReporter:
-    """Reporter for generating profiler reports and visualizations.
-
-    This class provides various report formats:
-    - Terminal-friendly text reports
-    - JSON reports for API consumption
-    - HTML reports for browser viewing
-    - Comparison reports for prompt A/B testing
-    """
+    """Reporter for generating profiler reports and visualizations."""
 
     def __init__(self, analyzer: Optional[MetricsAnalyzer] = None):
-        """Initialize the reporter.
-
-        Args:
-            analyzer: MetricsAnalyzer instance for data processing
-        """
         self.analyzer = analyzer or MetricsAnalyzer()
 
     def generate_summary_report(
@@ -47,15 +23,7 @@ class ProfilerReporter:
         metrics: list[ProfilerMetrics],
         title: str = "Prompt Performance Summary",
     ) -> str:
-        """Generate a text summary report.
-
-        Args:
-            metrics: List of metrics to summarize
-            title: Report title
-
-        Returns:
-            Formatted text report
-        """
+        """Generate a text summary report."""
         if not metrics:
             return f"{title}\n{'=' * len(title)}\n\nNo metrics available.\n"
 
@@ -126,16 +94,7 @@ class ProfilerReporter:
         prompt_ids: list[str],
         title: str = "Prompt Comparison Report",
     ) -> str:
-        """Generate a comparison report for multiple prompts.
-
-        Args:
-            metrics: List of metrics to analyze
-            prompt_ids: List of prompt IDs to compare
-            title: Report title
-
-        Returns:
-            Formatted text report
-        """
+        """Generate a comparison report for multiple prompts."""
         comparison = self.analyzer.compare_prompts(metrics, prompt_ids)
 
         if not comparison:
@@ -190,16 +149,7 @@ class ProfilerReporter:
         bucket_minutes: int = 60,
         title: str = "Performance Trend Report",
     ) -> str:
-        """Generate a trend analysis report.
-
-        Args:
-            metrics: List of metrics to analyze
-            bucket_minutes: Time bucket size in minutes
-            title: Report title
-
-        Returns:
-            Formatted text report
-        """
+        """Generate a trend analysis report."""
         time_series = self.analyzer.aggregate_by_time_bucket(metrics, bucket_minutes)
 
         if not time_series:
@@ -250,15 +200,7 @@ class ProfilerReporter:
         alerts: list[Alert],
         title: str = "Performance Alerts",
     ) -> str:
-        """Generate a report of alerts.
-
-        Args:
-            alerts: List of alerts to report
-            title: Report title
-
-        Returns:
-            Formatted text report
-        """
+        """Generate a report of alerts."""
         lines = [
             title,
             "=" * len(title),
@@ -305,15 +247,7 @@ class ProfilerReporter:
         metrics: list[ProfilerMetrics],
         include_raw_metrics: bool = False,
     ) -> dict:
-        """Generate a JSON report.
-
-        Args:
-            metrics: List of metrics to analyze
-            include_raw_metrics: Whether to include raw metrics data
-
-        Returns:
-            Dictionary containing the report data
-        """
+        """Generate a JSON report."""
         if not metrics:
             return {
                 "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -356,15 +290,7 @@ class ProfilerReporter:
         metrics: list[ProfilerMetrics],
         title: str = "Prompt Performance Dashboard",
     ) -> str:
-        """Generate an HTML report.
-
-        Args:
-            metrics: List of metrics to analyze
-            title: Report title
-
-        Returns:
-            HTML string
-        """
+        """Generate an HTML report."""
         json_data = self.generate_json_report(metrics)
         summary = json_data.get("summary", {})
 
@@ -564,14 +490,7 @@ class ProfilerReporter:
         format: str = "json",
         title: str = "Performance Report",
     ) -> None:
-        """Save a report to file.
-
-        Args:
-            metrics: List of metrics to analyze
-            output_path: Path to save the report
-            format: Report format ('json', 'html', 'txt')
-            title: Report title
-        """
+        """Save a report to file."""
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -596,17 +515,7 @@ class ProfilerReporter:
         logger.info(f"Report saved to: {output_path}")
 
     def print_summary(self, metrics: list[ProfilerMetrics]) -> None:
-        """Print a summary report to stdout.
-
-        Args:
-            metrics: List of metrics to summarize
-        """
         print(self.generate_summary_report(metrics))
 
     def print_alerts(self, alerts: list[Alert]) -> None:
-        """Print alerts to stdout.
-
-        Args:
-            alerts: List of alerts to print
-        """
         print(self.generate_alert_report(alerts))

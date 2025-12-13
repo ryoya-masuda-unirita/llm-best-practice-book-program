@@ -252,11 +252,11 @@ def example_5_graph_mediator():
     )
 
     logger.info("Graph Execution Results:")
-    logger.info(f"Success: {result['success']}")
-    logger.info(f"Final Output: {result['final_output']}")
+    logger.info(f"Success: {result.success}")
+    logger.info(f"Final Output: {result.final_output}")
     logger.info("\nExecution Log:")
-    for log_entry in result["execution_log"]:
-        logger.info(f"  Node: {log_entry['node_id']}, Success: {log_entry['success']}")
+    for log_entry in result.execution_log:
+        logger.info(f"  Node: {log_entry.node_id}, Success: {log_entry.success}")
 
     return result
 
@@ -305,11 +305,11 @@ def example_6_parallel_execution():
     )
 
     logger.info("Parallel Execution Results:")
-    logger.info(f"Success: {result['success']}")
+    logger.info(f"Success: {result.success}")
     logger.info("\nExecution Log:")
-    for log_entry in result["execution_log"]:
-        parallel_flag = "PARALLEL" if log_entry.get("parallel") else "SEQUENTIAL"
-        logger.info(f"  [{parallel_flag}] Node: {log_entry['node_id']}")
+    for log_entry in result.execution_log:
+        parallel_flag = "PARALLEL" if log_entry.parallel else "SEQUENTIAL"
+        logger.info(f"  [{parallel_flag}] Node: {log_entry.node_id}")
 
     return result
 

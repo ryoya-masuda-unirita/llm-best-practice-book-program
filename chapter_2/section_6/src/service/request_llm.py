@@ -1,9 +1,4 @@
-"""
-LLM request service with template engine integration.
-
-This module provides functions for making requests to OpenAI API
-using the template engine for prompt management.
-"""
+"""LLM request service with template engine integration."""
 
 import json
 from pathlib import Path
@@ -25,21 +20,7 @@ def resolve_template_path(
     template_dir: Path | None = None,
     default_template_engine: TemplateEngine | None = None,
 ) -> tuple[Path, str, TemplateEngine]:
-    """
-    Resolve template path and return the path, name, and appropriate engine.
-
-    Args:
-        template_name: Template file name (deprecated)
-        template_path: Path to template file
-        template_dir: Directory containing templates
-        default_template_engine: Default template engine instance
-
-    Returns:
-        Tuple of (resolved_path, template_name_for_engine, template_engine)
-
-    Raises:
-        ValueError: If template_dir is not provided when needed
-    """
+    """Resolve template path and return the path, name, and appropriate engine."""
     if template_dir is None:
         raise ValueError("template_dir must be provided")
 
@@ -80,20 +61,7 @@ def load_variables(
     variables_path: Path | None = None,
     variables_dir: Path | None = None,
 ) -> dict[str, Any]:
-    """
-    Load variables from file or return default variables.
-
-    Args:
-        variables_file: Variables file name (deprecated)
-        variables_path: Path to variables file
-        variables_dir: Directory containing variables files
-
-    Returns:
-        Dictionary of variables
-
-    Raises:
-        ValueError: If variables_dir is not provided when variables_file is used
-    """
+    """Load variables from file or return default variables."""
     if variables_path:
         with open(variables_path, "r", encoding="utf-8") as f:
             return yaml.safe_load(f)
@@ -116,18 +84,8 @@ def load_variables(
 
 
 def prepare_character_variables(base_variables: dict[str, Any]) -> dict[str, Any]:
-    """
-    Prepare variables for character generation by adding response schema.
-
-    Args:
-        base_variables: Base variables dictionary
-
-    Returns:
-        Variables with response schema added
-    """
+    """Prepare variables for character generation by adding response schema."""
     variables = base_variables.copy()
-
-    # Add response schema to variables
     params = CharacterResponse.detailed_model()
     variables["response_schema"] = json.dumps(params, indent=2, ensure_ascii=False)
 
@@ -140,18 +98,7 @@ def render_prompt_from_template(
     template_engine: TemplateEngine,
     variables: dict[str, Any],
 ) -> list[dict[str, str]]:
-    """
-    Render prompt messages from template.
-
-    Args:
-        template_path: Path to template file
-        template_name: Template file name for engine
-        template_engine: TemplateEngine instance to use
-        variables: Variables to inject into template
-
-    Returns:
-        List of message dictionaries for LLM API
-    """
+    """Render prompt messages from template."""
     logger.info(f"Using template: {template_path}")
     logger.info(f"Variables: gender={variables.get('gender', 'N/A')}, age={variables.get('age', 'N/A')}")
 
@@ -166,16 +113,7 @@ async def execute_llm_request(
     model: OpenAIModel,
     messages: list[dict[str, str]],
 ) -> CharacterResponse:
-    """
-    Execute LLM request and parse response.
-
-    Args:
-        model: OpenAI model to use
-        messages: Messages to send to LLM
-
-    Returns:
-        Parsed CharacterResponse
-    """
+    """Execute LLM request and parse response."""
     result = await openai_client.beta.chat.completions.parse(
         model=model,
         messages=messages,
@@ -195,37 +133,10 @@ async def request_openai(
     variables_dir: Path | None = None,
     template_engine: TemplateEngine | None = None,
 ) -> CharacterResponse:
-    """
-    Request OpenAI API using template engine.
-
-    This is the main entry point for making LLM requests with templates.
-    It orchestrates the template resolution, variable loading, prompt rendering,
-    and LLM request execution.
-
-    Args:
-        model: OpenAI model to use
-        template_name: Name of the template file (deprecated, use template_path)
-        variables_file: Variables file name (deprecated, use variables_path)
-        template_path: Path to template file (absolute or relative to templates/)
-        variables_path: Path to variables file (absolute or relative to variables/)
-        template_dir: Directory containing templates (required)
-        variables_dir: Directory containing variables files
-        template_engine: TemplateEngine instance (optional, created if not provided)
-
-    Returns:
-        CharacterResponse: Parsed character response
-
-    Raises:
-        ValueError: If template_dir is not provided
-
-    Note:
-        If both template_name and template_path are provided, template_path takes precedence.
-        Same for variables_file and variables_path.
-    """
+    """Request OpenAI API using template engine."""
     if template_dir is None:
         raise ValueError("template_dir must be provided")
 
-    # 1. Resolve template path
     final_template_path, template_name_for_engine, temp_engine = resolve_template_path(
         template_name=template_name,
         template_path=template_path,
@@ -233,17 +144,14 @@ async def request_openai(
         default_template_engine=template_engine,
     )
 
-    # 2. Load variables
     base_variables = load_variables(
         variables_file=variables_file,
         variables_path=variables_path,
         variables_dir=variables_dir,
     )
 
-    # 3. Prepare variables with response schema
     variables = prepare_character_variables(base_variables)
 
-    # 4. Render prompt from template
     messages = render_prompt_from_template(
         template_path=final_template_path,
         template_name=template_name_for_engine,
@@ -251,7 +159,6 @@ async def request_openai(
         variables=variables,
     )
 
-    # 5. Execute LLM request
     return await execute_llm_request(
         model=model,
         messages=messages,

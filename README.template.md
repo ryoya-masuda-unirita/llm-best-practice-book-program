@@ -22,8 +22,6 @@
 
 ### 出力例
 
-### テスト方法
-
 
 <Example>
 # Chapter 2 Section 1: 構造化出力を用いたLLM基本実装
@@ -350,51 +348,3 @@ Options:
 Output directory: outputs
 [2025-10-17 10:30:47] [INFO] [__main__] [main.py:88] [main] File saved to outputs/gemini_a1b2c3d4e5f6.json
 ```
-
-### テスト方法
-
-現在、このセクションにはユニットテストは含まれていません。手動テストは以下の方法で行います：
-
-#### 1. OpenAI APIのテスト
-
-```bash
-uv run python -m src.main -lp openai -od test_outputs
-```
-
-期待される動作：
-- `test_outputs`ディレクトリが作成される
-- `openai_XXXXXXXX.json`形式のファイルが生成される
-- JSONファイルが`CharacterResponse`スキーマに準拠している
-
-#### 2. Gemini APIのテスト
-
-```bash
-uv run python -m src.main -lp gemini -od test_outputs
-```
-
-期待される動作：
-- `test_outputs`ディレクトリが作成される
-- `gemini_XXXXXXXX.json`形式のファイルが生成される
-- JSONファイルが`CharacterResponse`スキーマに準拠している
-
-#### 3. バリデーションの確認
-
-生成されたJSONファイルが正しい構造を持っているか確認：
-
-```bash
-# jqを使用してJSONを検証
-cat test_outputs/gemini_*.json | jq .
-
-# Pythonで読み込みテスト
-python -c "
-from src.model.model import CharacterResponse
-import json
-
-with open('test_outputs/gemini_*.json') as f:
-    data = json.load(f)
-    character = CharacterResponse(**data)
-    print(f'Valid! {character.first_name} {character.last_name}')
-"
-```
-
-</Example>

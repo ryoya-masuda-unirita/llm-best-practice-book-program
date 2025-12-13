@@ -68,7 +68,6 @@ class LLMOpsLogger:
         finally:
             latency_ms = (time.time() - start_time) * 1000
 
-            # Create and log structured entry
             log_entry = LLMOpsLogEntry(
                 request_id=request_id,
                 prompt_id=prompt_id,
@@ -82,7 +81,6 @@ class LLMOpsLogger:
                 metadata=metadata or {},
             )
 
-            # Store prompt separately
             prompt_data = PromptData(
                 prompt_id=prompt_id,
                 prompt_content=prompt_content,
@@ -91,7 +89,6 @@ class LLMOpsLogger:
             )
             await self._store_prompt(prompt_data)
 
-            # Log to stream
             getattr(self.logger, level.lower())(log_entry.to_json_string())
 
     async def retrieve_prompt(self, prompt_id: str) -> PromptData | None:

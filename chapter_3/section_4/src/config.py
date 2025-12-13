@@ -21,8 +21,6 @@ class Config(BaseModel):
     proxy_retry_backoff: float = Field(
         default=float(os.environ.get("PROXY_RETRY_BACKOFF", "2.0")), description="Proxy retry backoff in seconds"
     )
-
-    # Gateway configuration
     gateway_url: str = Field(
         default=os.environ.get("GATEWAY_URL", "http://localhost:8080"), description="Gateway server URL"
     )

@@ -1,39 +1,33 @@
 import json
 import os
-from dataclasses import dataclass
 from pathlib import Path
 from uuid import uuid4
 
 from src.client.llm_client import AnthropicModel
 from src.logger import make_logger
-from src.model.model import DocumentStructure, SampledSentences, ScriptExecutionResult
-from src.service.request_llm import correct_script, generate_extraction_script, sample_document
+from src.model.model import DocumentStructure, ExtractionResult, ScriptExecutionResult
+from src.service.request_llm import (
+    correct_script,
+    correct_script_from_validation,
+    generate_extraction_script,
+    sample_document,
+)
 from src.service.script_executor import execute_script
+from src.service.validator import validate_extraction_result
 
 logger = make_logger(__name__)
 
 DEFAULT_MAX_CORRECTION_ATTEMPTS = 3
-
-
-@dataclass
-class ExtractionResult:
-    """Result of document structure extraction."""
-
-    success: bool
-    document_structure: DocumentStructure | None
-    raw_result: dict | None
-    final_script: str
-    sampled_info: SampledSentences
-    script_explanation: str
-    error: str | None = None
+DEFAULT_MAX_VALIDATION_ATTEMPTS = 3
+VALIDATION_THRESHOLD = 3
 
 
 async def extract_document_structure(
     model: AnthropicModel,
     document_content: str,
     max_correction_attempts: int = DEFAULT_MAX_CORRECTION_ATTEMPTS,
+    max_validation_attempts: int = DEFAULT_MAX_VALIDATION_ATTEMPTS,
 ) -> ExtractionResult:
-    """Extract document structure using LLM-generated scripts."""
     logger.info("Step 1: Sampling document sentences...")
     sampled_info = await sample_document(model=model, document_content=document_content)
     logger.info(f"Document type identified: {sampled_info.document_type}")
@@ -48,33 +42,88 @@ async def extract_document_structure(
     logger.info(f"Script explanation: {generated_script.explanation}")
 
     current_script = generated_script.script
-    execution_result = await _execute_script_with_retry(
-        model=model,
-        script=current_script,
-        document_content=document_content,
-        max_attempts=max_correction_attempts,
-    )
+    current_explanation = generated_script.explanation
+    validation_result = None
 
-    if not execution_result.success or not execution_result.result:
-        return ExtractionResult(
-            success=False,
-            document_structure=None,
-            raw_result=None,
-            final_script=current_script,
-            sampled_info=sampled_info,
-            script_explanation=generated_script.explanation,
-            error=execution_result.error,
+    for validation_attempt in range(max_validation_attempts + 1):
+        execution_result = await _execute_script_with_retry(
+            model=model,
+            script=current_script,
+            document_content=document_content,
+            max_attempts=max_correction_attempts,
         )
 
-    document_structure = _parse_document_structure(execution_result.result)
+        if not execution_result.success or not execution_result.result:
+            return ExtractionResult(
+                success=False,
+                document_structure=None,
+                raw_result=None,
+                final_script=current_script,
+                sampled_info=sampled_info,
+                script_explanation=current_explanation,
+                error=execution_result.error,
+                validation_result=validation_result,
+            )
+
+        document_structure = _parse_document_structure(execution_result.result)
+
+        temp_result = ExtractionResult(
+            success=True,
+            document_structure=document_structure,
+            raw_result=execution_result.result,
+            final_script=current_script,
+            sampled_info=sampled_info,
+            script_explanation=current_explanation,
+        )
+
+        logger.info(
+            f"Step 4: Validating extraction result (attempt {validation_attempt + 1}/{max_validation_attempts + 1})..."
+        )
+        validation_result = await validate_extraction_result(
+            model=model,
+            extraction_result=temp_result,
+            document_content=document_content,
+        )
+
+        if validation_result.score > VALIDATION_THRESHOLD:
+            logger.info(f"Validation passed with score {validation_result.score}/5")
+            return ExtractionResult(
+                success=True,
+                document_structure=document_structure,
+                raw_result=execution_result.result,
+                final_script=current_script,
+                sampled_info=sampled_info,
+                script_explanation=current_explanation,
+                validation_result=validation_result,
+            )
+
+        if validation_attempt < max_validation_attempts:
+            logger.warning(f"Validation score {validation_result.score}/5 is below threshold {VALIDATION_THRESHOLD}")
+            fix_proposal = validation_result.fix_proposal or validation_result.reasoning
+            logger.info("Attempting to correct script based on validation feedback...")
+            corrected_script = await correct_script_from_validation(
+                model=model,
+                original_script=current_script,
+                validation_reasoning=validation_result.reasoning,
+                fix_proposal=fix_proposal,
+                document_content=document_content,
+            )
+            current_script = corrected_script.script
+            current_explanation = corrected_script.explanation
+            logger.info(f"Script corrected: {current_explanation}")
+        else:
+            logger.warning(
+                f"Validation failed after {max_validation_attempts + 1} attempts with final score {validation_result.score}/5"
+            )
 
     return ExtractionResult(
         success=True,
         document_structure=document_structure,
         raw_result=execution_result.result,
-        final_script=execution_result.output if hasattr(execution_result, "final_script") else current_script,
+        final_script=current_script,
         sampled_info=sampled_info,
-        script_explanation=generated_script.explanation,
+        script_explanation=current_explanation,
+        validation_result=validation_result,
     )
 
 
@@ -84,7 +133,6 @@ async def _execute_script_with_retry(
     document_content: str,
     max_attempts: int = DEFAULT_MAX_CORRECTION_ATTEMPTS,
 ) -> ScriptExecutionResult:
-    """Execute a script with retry and self-correction on failure."""
     current_script = script
 
     for attempt in range(max_attempts + 1):
@@ -113,7 +161,6 @@ async def _execute_script_with_retry(
 
 
 def _parse_document_structure(result: dict) -> DocumentStructure | None:
-    """Parse execution result into DocumentStructure model."""
     try:
         return DocumentStructure(**result)
     except Exception as e:
@@ -127,7 +174,6 @@ def save_extraction_results(
     output_directory: str,
     model: str,
 ) -> dict[str, str]:
-    """Save extraction results to output files."""
     os.makedirs(output_directory, exist_ok=True)
 
     run_id = uuid4().hex[:8]

@@ -53,47 +53,39 @@ def async_cmd(func):
 )
 @async_cmd
 async def main(agent: str):
-    try:
-        if agent == "all":
-            logger.info("Running all agent examples...\n")
+    if agent == "all":
+        logger.info("Running all agent examples...\n")
 
-            for name, agent_func in AGENTS.items():
-                logger.info(f"\n{'=' * 60}")
-                logger.info(f"Running workflow: {name}")
-                logger.info(f"{'=' * 60}\n")
+        for name, agent_func in AGENTS.items():
+            logger.info(f"\n{'=' * 60}")
+            logger.info(f"Running workflow: {name}")
+            logger.info(f"{'=' * 60}\n")
 
-                result = agent_func()
+            result = agent_func()
 
-                logger.info(f"\n✓ Agent '{name}' completed successfully")
-                if isinstance(result, dict):
-                    logger.info(f"  Result: {result}")
-                else:
-                    logger.info(f"  Output: {result}")
+            logger.info(f"\n✓ Agent '{name}' completed successfully")
+            if isinstance(result, dict):
+                logger.info(f"  Result: {result}")
+            else:
+                logger.info(f"  Output: {result}")
 
-                await asyncio.sleep(1)
+            await asyncio.sleep(1)
 
-            logger.info("\n" + "=" * 60)
-            logger.info("ALL AGENTS COMPLETED SUCCESSFULLY")
-            logger.info("=" * 60)
+        logger.info("\n" + "=" * 60)
+        logger.info("ALL AGENTS COMPLETED SUCCESSFULLY")
+        logger.info("=" * 60)
 
-        else:
-            # Run specific workflow
-            if agent not in AGENTS:
-                logger.error(f"Unknown agent: {agent}")
-                logger.info(f"Available agents: {', '.join(AGENTS.keys())}, all")
-                sys.exit(1)
+    else:
+        # Run specific workflow
+        if agent not in AGENTS:
+            logger.error(f"Unknown agent: {agent}")
+            logger.info(f"Available agents: {', '.join(AGENTS.keys())}, all")
+            sys.exit(1)
 
-            logger.info(f"Running agent: {agent}\n")
+        logger.info(f"Running agent: {agent}\n")
 
-            agent_func = AGENTS[agent]
-            agent_func()
-
-    except KeyboardInterrupt:
-        logger.info("\n\nAgent execution interrupted by user")
-        sys.exit(0)
-    except Exception as e:
-        logger.error(f"\n✗ Agent execution failed: {e}", exc_info=True)
-        sys.exit(1)
+        agent_func = AGENTS[agent]
+        agent_func()
 
 
 if __name__ == "__main__":

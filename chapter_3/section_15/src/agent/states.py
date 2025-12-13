@@ -1,9 +1,11 @@
 """State pattern for agent execution states."""
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any
+
+from src.agent.base import MetadataDict
 
 
 class AgentStatus(Enum):
@@ -16,6 +18,25 @@ class AgentStatus(Enum):
     COMPLETED = "completed"
     ERROR = "error"
     PAUSED = "paused"
+
+
+@dataclass
+class StateTransition:
+    """Record of a state transition."""
+
+    timestamp: datetime
+    from_state: str
+    to_state: str
+
+
+@dataclass
+class AgentEvent:
+    """An event that occurred during agent execution."""
+
+    timestamp: datetime
+    state: str
+    message: str
+    metadata: MetadataDict
 
 
 class AgentState(ABC):
@@ -35,7 +56,6 @@ class AgentState(ABC):
         return True  # Default: allow all transitions
 
 
-# Concrete states
 class IdleState(AgentState):
     def get_status(self) -> AgentStatus:
         return AgentStatus.IDLE
@@ -104,8 +124,8 @@ class AgentContext:
 
     def __init__(self):
         self._state: AgentState = IdleState()
-        self._state_history: list[dict[str, Any]] = []
-        self._events: list[dict[str, Any]] = []
+        self._state_history: list[StateTransition] = []
+        self._events: list[AgentEvent] = []
 
     @property
     def state(self) -> AgentState:
@@ -122,11 +142,11 @@ class AgentContext:
         old_state = self._state
         self._state = new_state
         self._state_history.append(
-            {
-                "timestamp": datetime.now(),
-                "from_state": old_state.get_status().value,
-                "to_state": new_state.get_status().value,
-            }
+            StateTransition(
+                timestamp=datetime.now(),
+                from_state=old_state.get_status().value,
+                to_state=new_state.get_status().value,
+            )
         )
         self._state.handle(self)
         return True
@@ -134,21 +154,26 @@ class AgentContext:
     def get_status(self) -> AgentStatus:
         return self._state.get_status()
 
-    def add_event(self, message: str, metadata: dict[str, Any] | None = None) -> None:
+    def add_event(self, message: str, metadata: MetadataDict | None = None) -> None:
         self._events.append(
-            {
-                "timestamp": datetime.now(),
-                "state": self._state.get_status().value,
-                "message": message,
-                "metadata": metadata or {},
-            }
+            AgentEvent(
+                timestamp=datetime.now(),
+                state=self._state.get_status().value,
+                message=message,
+                metadata=metadata or {},
+            )
         )
 
-    def get_state_history(self) -> list[dict[str, Any]]:
-        return self._state_history.copy()
+    def get_state_history(self) -> list[dict[str, str | datetime]]:
+        return [
+            {"timestamp": t.timestamp, "from_state": t.from_state, "to_state": t.to_state} for t in self._state_history
+        ]
 
-    def get_events(self) -> list[dict[str, Any]]:
-        return self._events.copy()
+    def get_events(self) -> list[dict[str, str | datetime | MetadataDict]]:
+        return [
+            {"timestamp": e.timestamp, "state": e.state, "message": e.message, "metadata": e.metadata}
+            for e in self._events
+        ]
 
     def is_terminal(self) -> bool:
         return self.get_status() in (AgentStatus.COMPLETED, AgentStatus.ERROR)

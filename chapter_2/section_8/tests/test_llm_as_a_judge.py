@@ -1,11 +1,4 @@
-"""Tests for LLM-as-a-Judge functionality.
-
-This module tests the core judge functionality including:
-- Model validation
-- Prompt generation
-- Judge response parsing
-- Quality threshold evaluation
-"""
+"""Tests for LLM-as-a-Judge functionality."""
 
 import json
 
@@ -64,7 +57,6 @@ class TestJudgeModels:
         file_path = tmp_path / "judge_result.json"
         sample_judge_response.save_as_json(str(file_path))
 
-        # Verify file was created and contains valid JSON
         assert file_path.exists()
         with open(file_path, encoding="utf-8") as f:
             data = json.load(f)
@@ -92,7 +84,6 @@ class TestJudgePrompts:
         prompt = make_judge_prompt(sample_judge_request)
         system_content = prompt[0]["content"]
 
-        # Check for evaluation criteria (in Japanese)
         assert "accuracy" in system_content
         assert "comprehensiveness" in system_content
         assert "clarity" in system_content
@@ -102,7 +93,6 @@ class TestJudgePrompts:
         prompt = make_judge_prompt(sample_judge_request)
         user_content = prompt[1]["content"]
 
-        # Question should be part of user content
         assert len(user_content) > 0
 
     def test_make_custom_judge_prompt(self, sample_judge_request: JudgeRequest):
@@ -130,7 +120,6 @@ class TestJudgeService:
         self, mocker, sample_judge_request: JudgeRequest, sample_judge_response: JudgeResponse
     ):
         """Test judging with OpenAI."""
-        # Mock the OpenAI API response
         mock_result = mocker.AsyncMock()
         mock_result.output_parsed = sample_judge_response
 
@@ -151,7 +140,6 @@ class TestJudgeService:
         self, mocker, sample_judge_request: JudgeRequest, sample_judge_response: JudgeResponse
     ):
         """Test judging with Gemini."""
-        # Mock the Gemini API response
         mock_result = mocker.AsyncMock()
         mock_result.parsed = sample_judge_response
 
@@ -172,7 +160,6 @@ class TestJudgeService:
         self, sample_judge_request: JudgeRequest, sample_judge_response: JudgeResponse
     ):
         """Test that judge returns expected number of evaluation criteria."""
-        # The default judge prompt should evaluate 3 criteria
         assert len(sample_judge_response.evaluations) == 3
 
     @pytest.mark.asyncio
@@ -181,5 +168,4 @@ class TestJudgeService:
         scores = [eval.score for eval in sample_judge_response.evaluations]
         expected_avg = sum(scores) / len(scores)
 
-        # Allow for small floating point differences
         assert abs(sample_judge_response.overall_score - expected_avg) < 0.1

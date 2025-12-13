@@ -1,8 +1,8 @@
 from datetime import date, datetime, time
-from enum import Enum
+from enum import StrEnum
 
 
-class SupportedType(Enum):
+class SupportedType(StrEnum):
     STRING = "string"
     NUMBER = "number"
     INTEGER = "integer"
@@ -14,30 +14,23 @@ class SupportedType(Enum):
     ANY_OF = "anyOf"
 
     @staticmethod
-    def from_str(_type: str) -> "SupportedType":
-        for t in SupportedType:
-            if t.value == _type:
-                return t
-        raise ValueError(f"Unsupported type: {_type}")
-
-    @staticmethod
     def is_supported_type(_type: str) -> bool:
-        return any(t.value == _type for t in SupportedType)
+        return _type in SupportedType._value2member_map_
 
     def to_type_mapping(self) -> type:
-        type_mapping = {
-            "string": str,
-            "integer": int,
-            "number": float,
-            "boolean": bool,
-            "array": list,
-            "object": dict,
-            "null": type(None),
+        type_mapping: dict[str, type] = {
+            SupportedType.STRING: str,
+            SupportedType.INTEGER: int,
+            SupportedType.NUMBER: float,
+            SupportedType.BOOLEAN: bool,
+            SupportedType.ARRAY: list,
+            SupportedType.OBJECT: dict,
+            SupportedType.NULL: type(None),
         }
-        return type_mapping[self.value]
+        return type_mapping[self]
 
 
-class StringFormat(Enum):
+class StringFormat(StrEnum):
     DATE_TIME = "date-time"
     DATE = "date"
     TIME = "time"
@@ -50,18 +43,18 @@ class StringFormat(Enum):
 
     @staticmethod
     def is_supported_format(_format: str) -> bool:
-        return any(f.value == _format for f in StringFormat)
+        return _format in StringFormat._value2member_map_
 
     def to_format_mapping(self) -> type:
-        format_mapping = {
-            "date-time": datetime,
-            "date": date,
-            "time": time,
-            "duration": str,
-            "email": str,
-            "hostname": str,
-            "ipv4": str,
-            "ipv6": str,
-            "uuid": str,
+        format_mapping: dict[str, type] = {
+            StringFormat.DATE_TIME: datetime,
+            StringFormat.DATE: date,
+            StringFormat.TIME: time,
+            StringFormat.DURATION: str,
+            StringFormat.EMAIL: str,
+            StringFormat.HOSTNAME: str,
+            StringFormat.IPV4: str,
+            StringFormat.IPV6: str,
+            StringFormat.UUID: str,
         }
-        return format_mapping[self.value]
+        return format_mapping[self]

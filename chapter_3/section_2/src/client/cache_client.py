@@ -22,7 +22,6 @@ class InMemoryCache:
         self._cache: dict[str, tuple[dict, float]] = {}
 
     async def get(self, key: str) -> dict | None:
-        """Get cached value if not expired."""
         if key not in self._cache:
             return None
 
@@ -34,21 +33,18 @@ class InMemoryCache:
         return value
 
     async def set(self, key: str, value: dict, ttl: int | None = None) -> bool:
-        """Set cached value with optional TTL."""
         ttl = ttl or config.cache_ttl
         expire_at = time.time() + ttl if ttl > 0 else 0
         self._cache[key] = (value, expire_at)
         return True
 
     async def delete(self, key: str) -> bool:
-        """Delete cached value."""
         if key in self._cache:
             del self._cache[key]
             return True
         return False
 
     async def exists(self, key: str) -> bool:
-        """Check if key exists and is not expired."""
         return await self.get(key) is not None
 
 
@@ -60,7 +56,6 @@ class RedisClient:
         self._connected = False
 
     async def connect(self) -> None:
-        """Establish connection to Redis server."""
         if self._connected:
             return
 
@@ -79,19 +74,16 @@ class RedisClient:
         logger.info(f"Connected to Redis: {config.redis_host}:{config.redis_port}")
 
     async def disconnect(self) -> None:
-        """Close Redis connection."""
         if self._client and self._connected:
             await self._client.aclose()
             self._connected = False
             logger.info("Disconnected from Redis")
 
     async def _ensure_connected(self) -> None:
-        """Ensure Redis connection is established."""
         if not self._connected:
             await self.connect()
 
     async def get(self, key: str) -> dict | None:
-        """Get cached value from Redis."""
         await self._ensure_connected()
         try:
             value = await self._client.get(key)
@@ -101,7 +93,6 @@ class RedisClient:
             return None
 
     async def set(self, key: str, value: dict, ttl: int | None = None) -> bool:
-        """Set cache value in Redis with optional TTL."""
         await self._ensure_connected()
         try:
             ttl = ttl or config.cache_ttl
@@ -117,7 +108,6 @@ class RedisClient:
             return False
 
     async def delete(self, key: str) -> bool:
-        """Delete cached value from Redis."""
         await self._ensure_connected()
         try:
             result = await self._client.delete(key)
@@ -127,7 +117,6 @@ class RedisClient:
             return False
 
     async def exists(self, key: str) -> bool:
-        """Check if key exists in Redis."""
         await self._ensure_connected()
         try:
             result = await self._client.exists(key)

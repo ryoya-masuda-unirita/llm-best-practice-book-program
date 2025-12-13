@@ -21,29 +21,16 @@ logger = make_logger(__name__)
 
 
 def _search_chromadb(query_embedding: list[float], query: KnowledgeSearchQuery) -> dict:
-    """
-    Search ChromaDB for knowledge items using custom query embedding.
-
-    This is a blocking operation that runs in a thread pool.
-
-    Args:
-        query_embedding: Pre-generated embedding vector for the query
-        query: Search query parameters
-
-    Returns:
-        ChromaDB query results
-    """
+    """Search ChromaDB for knowledge items using custom query embedding."""
     try:
         collection = get_knowledge_collection()
 
-        # Prepare where clause for metadata filtering
         where_clause = None
         if query.filter_metadata:
             where_clause = query.filter_metadata
 
-        # Query the collection using custom embedding
         results = collection.query(
-            query_embeddings=[query_embedding],  # Use custom embedding instead of query_texts
+            query_embeddings=[query_embedding],
             n_results=query.limit,
             where=where_clause,
         )
@@ -70,16 +57,12 @@ def _parse_search_results(results: dict) -> list[KnowledgeItem]:
         try:
             metadata = metadatas[i]
 
-            # Extract full data from JSON
             full_data_json = metadata.get("full_data_json", "{}")
             full_data = json.loads(full_data_json)
 
-            # Parse character data
             character_request = CharacterRequest(**full_data.get("character_request", {}))
             character_response = CharacterResponse(**full_data.get("character_response", {}))
 
-            # Convert distance to similarity score (ChromaDB returns cosine distance)
-            # Similarity = 1 - distance for cosine
             similarity_score = 1.0 - distances[i]
 
             item = KnowledgeItem(
@@ -101,32 +84,17 @@ def _parse_search_results(results: dict) -> list[KnowledgeItem]:
 
 
 async def search_knowledge(query: KnowledgeSearchQuery) -> KnowledgeSearchResponse:
-    """
-    Search knowledge base using Gemini embeddings.
-
-    This is optimized for low-latency reads and returns results immediately.
-    It generates a query embedding using Gemini API and then
-    searches ChromaDB using vector similarity.
-
-    Args:
-        query: Search query parameters
-
-    Returns:
-        Search results with similarity scores
-    """
+    """Search knowledge base using Gemini embeddings."""
     start_time = time.time()
 
     logger.info(f"Searching knowledge base with query: {query.query_text[:50]}...")
 
-    # Generate embedding for the query text using Gemini
     query_embedding = await get_embedding(query.query_text)
     logger.debug(f"Generated query embedding with dimension: {len(query_embedding)}")
 
-    # Execute the blocking ChromaDB operation in a thread pool
     loop = asyncio.get_event_loop()
     results = await loop.run_in_executor(executor, _search_chromadb, query_embedding, query)
 
-    # Parse results
     items = _parse_search_results(results)
 
     query_time = (time.time() - start_time) * 1000
@@ -141,15 +109,10 @@ async def search_knowledge(query: KnowledgeSearchQuery) -> KnowledgeSearchRespon
 
 
 def _get_stats_from_chromadb() -> dict:
-    """
-    Get statistics from ChromaDB.
-
-    This is a blocking operation that runs in a thread pool.
-    """
+    """Get statistics from ChromaDB."""
     try:
         collection = get_knowledge_collection()
 
-        # Get all items (or use count if available)
         results = collection.get(include=["metadatas"])
 
         return results
@@ -160,21 +123,12 @@ def _get_stats_from_chromadb() -> dict:
 
 
 async def get_knowledge_stats() -> KnowledgeStatsResponse:
-    """
-    Get knowledge base statistics.
-
-    Returns aggregate information about stored knowledge items.
-
-    Returns:
-        Statistics including total count and distribution by model
-    """
+    """Get knowledge base statistics."""
     logger.info("Retrieving knowledge base statistics")
 
-    # Execute the blocking ChromaDB operation in a thread pool
     loop = asyncio.get_event_loop()
     results = await loop.run_in_executor(executor, _get_stats_from_chromadb)
 
-    # Calculate statistics
     total_items = len(results.get("ids", []))
     metadatas = results.get("metadatas", [])
 

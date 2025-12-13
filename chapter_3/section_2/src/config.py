@@ -21,7 +21,6 @@ class Config(BaseModel):
 
     openai_api_key: Secret[str] = Field(default=os.environ["OPENAI_API_KEY"], description="API key for OpenAI")
 
-    # Cache configuration
     cache_enabled: bool = Field(
         default=os.environ.get("CACHE_ENABLED", "true").lower() == "true",
         description="Enable or disable caching",
@@ -32,7 +31,6 @@ class Config(BaseModel):
     )
     cache_ttl: int = Field(default=int(os.environ.get("CACHE_TTL", "3600")), description="Cache TTL in seconds", ge=0)
 
-    # Redis configuration (used when cache_backend is redis)
     redis_host: str = Field(default=os.environ.get("REDIS_HOST", "localhost"), description="Redis host")
     redis_port: int = Field(default=int(os.environ.get("REDIS_PORT", "6379")), description="Redis port", ge=1)
     redis_db: int = Field(default=int(os.environ.get("REDIS_DB", "0")), description="Redis database number", ge=0)

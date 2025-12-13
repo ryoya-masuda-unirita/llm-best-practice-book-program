@@ -173,7 +173,6 @@ class LoopNode(Node):
         collection = context.get_variable(self.collection_key, []) if self.collection_key else []
 
         if collection:
-            # Iterate over collection
             for idx, item in enumerate(collection):
                 if iterations >= self.max_iterations:
                     logger.warning(f"Loop {self.name} reached max iterations")
@@ -183,7 +182,6 @@ class LoopNode(Node):
                 iterations += 1
                 logger.info(f"Loop iteration {iterations}/{len(collection)}")
         else:
-            # Condition-based loop
             while iterations < self.max_iterations:
                 if self.condition and not self.condition(context, iterations):
                     break

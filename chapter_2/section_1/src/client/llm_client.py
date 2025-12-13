@@ -8,14 +8,14 @@ from src.config import config
 
 
 class LLMProvider(StrEnum):
-    """Enum for LLM providers."""
-
     OPENAI = "openai"
     GEMINI = "gemini"
     ANTHROPIC = "anthropic"
 
 
 class OpenAIModel(StrEnum):
+    GPT_5_2 = "gpt-5.2"
+    GPT_5_1 = "gpt-5.1"
     GPT_5 = "gpt-5"
     GPT_5_MINI = "gpt-5-mini"
     GPT_5_NANO = "gpt-5-nano"
@@ -41,6 +41,8 @@ class GeminiModel(StrEnum):
 
 
 class AnthropicModel(StrEnum):
+    CLAUDE_OPUS_4_5 = "claude-opus-4-5"
+    CLAUDE_HAIKU_4_5 = "claude-haiku-4-5"
     CLAUDE_SONNET_4_5 = "claude-sonnet-4-5"
     CLAUDE_OPUS_4_1 = "claude-opus-4-1"
 

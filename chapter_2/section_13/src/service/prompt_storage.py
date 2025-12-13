@@ -32,7 +32,6 @@ class PromptStorage:
         self.templates_dir = self.storage_dir / "templates"
         self.antipatterns_dir = self.storage_dir / "antipatterns"
 
-        # Create directories if they don't exist
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         self.templates_dir.mkdir(parents=True, exist_ok=True)
         self.antipatterns_dir.mkdir(parents=True, exist_ok=True)
@@ -51,7 +50,6 @@ class PromptStorage:
         Returns:
             The log_id of the saved log
         """
-        # Create subdirectory by date for organization
         date_dir = self.logs_dir / log.metadata.timestamp.strftime("%Y-%m-%d")
         date_dir.mkdir(exist_ok=True)
 
@@ -72,7 +70,6 @@ class PromptStorage:
         Returns:
             PromptLog if found, None otherwise
         """
-        # Search in date directories
         for date_dir in sorted(self.logs_dir.iterdir(), reverse=True):
             if not date_dir.is_dir():
                 continue
@@ -217,7 +214,6 @@ class PromptStorage:
                 data = json.load(f)
                 template = PromptTemplate(**data)
 
-                # Apply filters
                 if category and template.category != category:
                     continue
                 if tags and not all(tag in template.tags for tag in tags):
@@ -227,7 +223,6 @@ class PromptStorage:
 
                 templates.append(template)
 
-        # Sort by success rate and score
         templates.sort(
             key=lambda t: (
                 t.get_success_rate(),
@@ -296,7 +291,6 @@ class PromptStorage:
                 data = json.load(f)
                 pattern = AntiPattern(**data)
 
-                # Apply filters
                 if category and pattern.category != category:
                     continue
                 if tags and not any(tag in pattern.tags for tag in tags):
@@ -306,7 +300,6 @@ class PromptStorage:
 
                 antipatterns.append(pattern)
 
-        # Sort by occurrence count and severity
         severity_order = {"high": 3, "medium": 2, "low": 1}
         antipatterns.sort(
             key=lambda p: (severity_order.get(p.severity, 0), p.occurrence_count),

@@ -27,16 +27,10 @@ async def health_check():
 
 @app.post("/generate", response_model=LLMResponse, tags=["LLM"])
 async def generate_character(request: LLMRequest):
-    """
-    Generate a character using the specified LLM provider and model.
-
-    This endpoint accepts requests to generate character descriptions using
-    either OpenAI or Gemini models.
-    """
+    """Generate a character using the specified LLM provider and model."""
     start_time = time.time()
 
     try:
-        # Validate model for provider
         if request.provider == LLMProvider.OPENAI and request.model not in OpenAIModel.list_str():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -50,7 +44,6 @@ async def generate_character(request: LLMRequest):
 
         prompt = make_prompt(character_request=request.character_request)
 
-        # Generate character
         if request.provider == LLMProvider.OPENAI:
             character = await request_openai(model=request.model, prompt=prompt)
         elif request.provider == LLMProvider.GEMINI:

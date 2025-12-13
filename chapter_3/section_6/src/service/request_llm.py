@@ -11,16 +11,6 @@ def submit_gemini_batch(
     model: GeminiModel,
     prompts: list[tuple[str, str]],
 ) -> str:
-    """
-    Submit a batch job to Gemini batch API.
-
-    Args:
-        model: Gemini model to use
-        prompts: List of (system_prompt, user_prompt) tuples
-
-    Returns:
-        Batch job name for tracking
-    """
     inline_requests = [
         {
             "contents": [
@@ -46,32 +36,11 @@ def submit_gemini_batch(
 
 
 def get_gemini_batch_status(batch_job_name: str) -> str:
-    """
-    Get the status of a Gemini batch job.
-
-    Args:
-        batch_job_name: The batch job name returned from submit_gemini_batch
-
-    Returns:
-        Job state name (e.g., "JOB_STATE_RUNNING", "JOB_STATE_SUCCEEDED", "JOB_STATE_FAILED")
-    """
     batch_job = google_genai_client.batches.get(name=batch_job_name)
     return batch_job.state.name
 
 
 def get_gemini_batch_results(batch_job_name: str) -> list[CharacterResponse | None]:
-    """
-    Get results from a completed Gemini batch job.
-
-    Args:
-        batch_job_name: The batch job name returned from submit_gemini_batch
-
-    Returns:
-        List of CharacterResponse objects (or None for failed requests)
-
-    Raises:
-        RuntimeError: If the job has not succeeded
-    """
     batch_job = google_genai_client.batches.get(name=batch_job_name)
 
     if batch_job.state.name != "JOB_STATE_SUCCEEDED":

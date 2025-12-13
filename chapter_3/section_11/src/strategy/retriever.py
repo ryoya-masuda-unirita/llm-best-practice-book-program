@@ -21,7 +21,6 @@ class VectorStore:
         logger.info(f"Stored {len(chunks_with_embeddings)} chunks. Total: {len(self.chunks_with_embeddings)}")
 
     def search(self, query_embedding: list[float], top_k: int = 5) -> list[Chunk]:
-        """Search for the most similar chunks using cosine similarity."""
         if not self.chunks_with_embeddings:
             logger.warning("Vector store is empty")
             return []
@@ -60,7 +59,6 @@ class Retriever(Component[str, list[Chunk]]):
         self.embedding_model = embedding_model
 
     async def process(self, input_data: str) -> list[Chunk]:
-        """Retrieve relevant chunks for a query."""
         query_embedding = await self._create_query_embedding(input_data)
         chunks = self.vector_store.search(query_embedding, self.top_k)
 

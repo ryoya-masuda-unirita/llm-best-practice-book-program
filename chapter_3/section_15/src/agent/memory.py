@@ -3,9 +3,8 @@
 import copy
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
 
-from src.agent.base import Action, Memory
+from src.agent.base import Action, Memory, MetadataDict, ToolResult
 
 
 @dataclass
@@ -13,9 +12,9 @@ class MemorySnapshot:
     """Memento: Snapshot of memory state for restoration."""
 
     timestamp: datetime
-    observations: list[Any]
+    observations: list[str | ToolResult]
     actions: list[Action]
-    metadata: dict[str, Any]
+    metadata: MetadataDict
 
 
 class ContextMemory(Memory):
@@ -23,11 +22,11 @@ class ContextMemory(Memory):
 
     def __init__(self, max_history: int = 100):
         self.max_history = max_history
-        self.observations: list[Any] = []
+        self.observations: list[str | ToolResult] = []
         self.actions: list[Action] = []
-        self.metadata: dict[str, Any] = {}
+        self.metadata: MetadataDict = {}
 
-    def get_context(self) -> dict[str, Any]:
+    def get_context(self) -> dict[str, object]:
         return {
             "observations": self.observations.copy(),
             "actions": self.actions.copy(),
@@ -35,7 +34,7 @@ class ContextMemory(Memory):
             "history_length": len(self.observations) + len(self.actions),
         }
 
-    def add_observation(self, observation: Any) -> None:
+    def add_observation(self, observation: str | ToolResult) -> None:
         self.observations.append(observation)
         self._trim_history()
 
@@ -80,12 +79,12 @@ class ConversationalMemory(ContextMemory):
         self.max_turns = max_turns
         self._turn_count = 0
 
-    def get_context(self) -> dict[str, Any]:
+    def get_context(self) -> dict[str, object]:
         context = super().get_context()
         context["num_turns"] = self._turn_count
         return context
 
-    def add_observation(self, observation: Any) -> None:
+    def add_observation(self, observation: str | ToolResult) -> None:
         super().add_observation(observation)
         self._turn_count = min(len(self.observations), self.max_turns)
 

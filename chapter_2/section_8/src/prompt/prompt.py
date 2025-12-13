@@ -80,17 +80,7 @@ def make_anthropic_prompt(character: CharacterRequest) -> list:
 
 
 def make_prompt(character: CharacterRequest, provider: LLMProvider | None = None) -> list | tuple[str, str]:
-    """
-    Create a prompt for character generation based on the provider.
-
-    Args:
-        character: CharacterRequest containing character specifications
-        provider: The LLM provider ("openai", "gemini", or "anthropic"). Defaults to OpenAI for backward compatibility.
-
-    Returns:
-        Provider-specific prompt format (list for OpenAI/Anthropic, tuple for Gemini)
-    """
-    # Default to OpenAI for backward compatibility
+    """Create a prompt for character generation based on the provider."""
     if provider is None:
         provider = LLMProvider.OPENAI
 

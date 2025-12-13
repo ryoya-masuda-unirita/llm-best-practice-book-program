@@ -39,7 +39,6 @@ ALLOWED_IMPORTS = {"sys", "json", "re"}
 
 
 def validate_script(script: str) -> tuple[bool, str]:
-    """Validate the script for security issues."""
     for pattern in FORBIDDEN_PATTERNS:
         if re.search(pattern, script):
             return False, f"Forbidden pattern detected: {pattern}"
@@ -56,7 +55,6 @@ def validate_script(script: str) -> tuple[bool, str]:
 
 
 def execute_script(script: str, document_content: str, timeout: int = 30) -> ScriptExecutionResult:
-    """Execute the generated script in a sandboxed environment."""
     is_valid, error_message = validate_script(script)
     if not is_valid:
         logger.warning(f"Script validation failed: {error_message}")

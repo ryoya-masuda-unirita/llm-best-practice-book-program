@@ -32,20 +32,17 @@ from src.logger import make_logger
 logger = make_logger(__name__)
 
 examples = {
-    # Basic examples
     "example_1_simple_user_model": example_1_simple_user_model,
     "example_2_product_with_enum": example_2_product_with_enum,
     "example_3_optional_fields": example_3_optional_fields,
     "example_4_array_fields": example_4_array_fields,
     "example_5_datetime_fields": example_5_datetime_fields,
-    # Advanced examples
     "example_1_nested_objects": example_1_nested_objects,
     "example_2_complex_article": example_2_complex_article,
     "example_3_array_of_objects": example_3_array_of_objects,
     "example_4_deep_nesting": example_4_deep_nesting,
     "example_5_anyof_union_types": example_5_anyof_union_types,
     "example_6_validation_constraints": example_6_validation_constraints,
-    # High reasoning examples
     "example_1_customer_feedback_analysis": example_1_customer_feedback_analysis,
     "example_2_meeting_summary": example_2_meeting_summary,
     "example_3_research_paper_metadata": example_3_research_paper_metadata,

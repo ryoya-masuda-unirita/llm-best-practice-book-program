@@ -18,7 +18,6 @@ from src.proxy.request_queue import QueueConfig, RequestQueue, RequestQueueFullE
 
 logger = make_logger(__name__)
 
-# Initialize components
 rate_limiter = TokenBucketRateLimiter(
     RateLimiterConfig(
         max_requests=10,  # 10 requests per second
@@ -100,42 +99,20 @@ async def make_request_with_retry(
     max_retries: int = config.proxy_max_retries,
 ) -> dict:
     """
-    Make HTTP request with exponential backoff retry logic using httpx-retries.
-
-    This uses httpx-retries library to handle automatic retries with exponential backoff
-    for rate limit errors (429) and server errors (5xx).
-
-    Args:
-        method: HTTP method (GET, POST, etc.)
-        url: Target URL
-        json_data: JSON data for request body
-        max_retries: Maximum number of retry attempts
-
-    Returns:
-        Response JSON data
+    Make HTTP request with exponential backoff retry logic.
 
     Raises:
         HTTPException: If all retries fail or on client errors (4xx except 429)
     """
-    # Configure retry policy
-    # - total: Maximum number of retry attempts
-    # - backoff_factor: Exponential backoff multiplier (wait = backoff_factor * (2 ** retry_count))
-    #   With backoff_factor=1.0: 1s, 2s, 4s, 8s...
-    # - status_forcelist: HTTP status codes that should trigger a retry
-    #   - 429: Too Many Requests (rate limiting)
-    #   - 500-599: Server errors
     retry_policy = Retry(
         total=max_retries,
         backoff_factor=config.proxy_retry_backoff / 2,  # Divide by 2 because formula is backoff_factor * (2 ** n)
-        status_forcelist=[429] + list(range(500, 600)),  # Retry on 429 and 5xx
+        status_forcelist=[429] + list(range(500, 600)),
     )
-
-    # Create retry transport (works with both sync and async)
     retry_transport = RetryTransport(transport=httpx.AsyncHTTPTransport(), retry=retry_policy)
 
     try:
         async with httpx.AsyncClient(transport=retry_transport, timeout=60.0) as client:
-            # Make the request
             if method == "GET":
                 response = await client.get(url)
             elif method == "POST":
@@ -143,15 +120,11 @@ async def make_request_with_retry(
             else:
                 raise ValueError(f"Unsupported HTTP method: {method}")
 
-            # Raise for HTTP errors (4xx, 5xx)
-            # Note: 429 and 5xx errors will have been retried by httpx-retries
-            # If we reach here with an error status, retries were exhausted
             response.raise_for_status()
 
             return response.json()
 
     except httpx.HTTPStatusError as e:
-        # HTTP error after retries exhausted
         status_code = e.response.status_code
 
         if status_code == 429:
@@ -167,7 +140,6 @@ async def make_request_with_retry(
                 detail=f"Backend server error after retries: {str(e)}",
             )
         else:
-            # Client error (4xx except 429) - don't retry these
             logger.error(f"Client error {status_code}: {e}")
             raise HTTPException(
                 status_code=status_code,
@@ -175,7 +147,6 @@ async def make_request_with_retry(
             )
 
     except httpx.RequestError as e:
-        # Connection/network error after retries exhausted
         logger.error(f"Request error after {max_retries} retries: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -189,7 +160,6 @@ async def process_queued_request(queue_item: dict):
     future = queue_item["future"]
 
     try:
-        # Acquire rate limiter token
         acquired = await rate_limiter.acquire(timeout=30.0)
         if not acquired:
             raise HTTPException(
@@ -197,7 +167,6 @@ async def process_queued_request(queue_item: dict):
                 detail="Rate limit timeout",
             )
 
-        # Make request through circuit breaker
         result = await circuit_breaker.call(
             make_request_with_retry,
             method=request_data["method"],
@@ -225,10 +194,7 @@ async def queue_processor():
 
     while True:
         try:
-            # Get next request from queue
             queue_item = await request_queue.dequeue()
-
-            # Process in background
             asyncio.create_task(process_queued_request(queue_item))
 
         except Exception as e:
@@ -246,7 +212,6 @@ async def proxy_health_check():
     For controlled access to backend health, use GET /health instead.
     """
     try:
-        # Check backend health directly (without controls)
         async with httpx.AsyncClient(timeout=5.0) as client:
             response = await client.get(f"{config.backend_url}/health")
             response.raise_for_status()
@@ -303,10 +268,7 @@ async def backend_health_check():
     start_time = time.time()
 
     try:
-        # Build backend URL
         backend_url = f"{config.backend_url}/health"
-
-        # Create request data for queue
         request_data = {
             "method": "GET",
             "url": backend_url,
@@ -316,7 +278,6 @@ async def backend_health_check():
         logger.info(f"Proxying GET request to {backend_url} (with access controls)")
 
         try:
-            # Enqueue request (will wait for processing)
             result = await request_queue.enqueue(request_data)
 
             processing_time = (time.time() - start_time) * 1000
@@ -326,7 +287,6 @@ async def backend_health_check():
                 f"(queue size: {request_queue.get_size()})"
             )
 
-            # Construct proper response model with proxy metadata
             response_model = BackendHealthResponse(
                 status=result.get("status", "unknown"),
                 timestamp=result.get("timestamp", time.time()),
@@ -337,7 +297,6 @@ async def backend_health_check():
                 ),
             )
 
-            # Return as JSON with by_alias=True to use _proxy_metadata instead of proxy_metadata
             return response_model
 
         except RequestQueueFullError as e:
@@ -385,13 +344,8 @@ async def backend_generate_character(request: LLMRequest):
     start_time = time.time()
 
     try:
-        # Build backend URL
         backend_url = f"{config.backend_url}/generate"
-
-        # Convert request to dict for backend
         request_body = request.model_dump()
-
-        # Create request data for queue
         request_data = {
             "method": "POST",
             "url": backend_url,
@@ -401,7 +355,6 @@ async def backend_generate_character(request: LLMRequest):
         logger.info(f"Proxying POST request to {backend_url} (with access controls)")
 
         try:
-            # Enqueue request (will wait for processing)
             result = await request_queue.enqueue(request_data)
 
             processing_time = (time.time() - start_time) * 1000
@@ -411,8 +364,6 @@ async def backend_generate_character(request: LLMRequest):
                 f"(queue size: {request_queue.get_size()})"
             )
 
-            # Construct proper response model with proxy metadata
-            # Parse the backend LLMResponse first, then add proxy metadata
             backend_response = LLMResponse(**result)
 
             response_model = ProxiedLLMResponse(
@@ -427,7 +378,6 @@ async def backend_generate_character(request: LLMRequest):
                 ),
             )
 
-            # Return as JSON with by_alias=True to use _proxy_metadata instead of proxy_metadata
             return response_model
 
         except RequestQueueFullError as e:

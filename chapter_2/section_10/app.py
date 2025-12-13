@@ -16,7 +16,6 @@ from src.service.request_llm import request_gemini, request_openai
 
 
 def configure_page() -> None:
-    """Configure Streamlit page settings."""
     st.set_page_config(
         page_title="LLMインターフェース比較",
         page_icon="🎭",
@@ -25,7 +24,6 @@ def configure_page() -> None:
 
 
 def render_header() -> None:
-    """Render the main header and introduction."""
     st.title("🎭 キャラクター生成 - インターフェース比較")
     st.markdown(
         """
@@ -37,12 +35,6 @@ def render_header() -> None:
 
 
 def render_sidebar() -> tuple[LLMProvider, str]:
-    """
-    Render the sidebar with LLM provider and model selection.
-
-    Returns:
-        tuple[LLMProvider, str]: Selected provider and model name
-    """
     with st.sidebar:
         st.header("⚙️ LLM設定")
         provider = st.selectbox(
@@ -87,17 +79,6 @@ def render_sidebar() -> tuple[LLMProvider, str]:
 
 
 def call_llm(provider: LLMProvider, model: str, character_request: CharacterRequest) -> CharacterResponse:
-    """
-    Call the appropriate LLM based on provider.
-
-    Args:
-        provider: LLM provider (OpenAI or Gemini)
-        model: Model name to use
-        character_request: CharacterRequest object with user inputs
-
-    Returns:
-        CharacterResponse: Generated character
-    """
     if provider == LLMProvider.OPENAI:
         return asyncio.run(request_openai(character_request, model))
     else:
@@ -105,12 +86,6 @@ def call_llm(provider: LLMProvider, model: str, character_request: CharacterRequ
 
 
 def display_character_result(result: CharacterResponse) -> None:
-    """
-    Display character generation result in two columns.
-
-    Args:
-        result: CharacterResponse object to display
-    """
     st.success("✅ キャラクターが正常に生成されました！")
 
     col_left, col_right = st.columns(2)
@@ -132,33 +107,15 @@ def display_character_result(result: CharacterResponse) -> None:
 
 
 def create_freeform_request(user_prompt: str) -> CharacterRequest:
-    """
-    Create a CharacterRequest from free-form user input.
-
-    For the free-form demo, we use default values and put the user's
-    free text into additional_instructions.
-
-    Args:
-        user_prompt: User's free-form input
-
-    Returns:
-        CharacterRequest: Request object with free-form text
-    """
+    """Use default values and put the user's free text into additional_instructions."""
     return CharacterRequest(
-        gender=Gender.MALE,  # Default value
-        age=25,  # Default value
+        gender=Gender.MALE,
+        age=25,
         additional_instructions=user_prompt,
     )
 
 
 def render_freeform_tab(provider: LLMProvider, model: str) -> None:
-    """
-    Render the free-form prompt tab.
-
-    Args:
-        provider: Selected LLM provider
-        model: Selected model name
-    """
     st.header("自由形式プロンプトインターフェース")
     st.markdown(
         """
@@ -181,7 +138,6 @@ def render_freeform_tab(provider: LLMProvider, model: str) -> None:
     if free_submit and free_prompt:
         with st.spinner("キャラクターを生成中..."):
             try:
-                # Create a CharacterRequest from the free-form input
                 request = create_freeform_request(free_prompt)
                 result = call_llm(provider, model, request)
                 display_character_result(result)
@@ -202,13 +158,6 @@ def render_freeform_tab(provider: LLMProvider, model: str) -> None:
 
 
 def display_internal_prompt(provider: LLMProvider, character_request: CharacterRequest) -> None:
-    """
-    Display the internal prompt sent to LLM in an expander.
-
-    Args:
-        provider: LLM provider (OpenAI or Gemini)
-        character_request: CharacterRequest object with user inputs
-    """
     with st.expander("🔍 内部プロンプトを表示"):
         st.markdown("**LLMに送信されたプロンプト:**")
         if provider == LLMProvider.OPENAI:
@@ -225,13 +174,6 @@ def display_internal_prompt(provider: LLMProvider, character_request: CharacterR
 
 
 def render_structured_form_tab(provider: LLMProvider, model: str) -> None:
-    """
-    Render the structured form tab.
-
-    Args:
-        provider: Selected LLM provider
-        model: Selected model name
-    """
     st.header("構造化フォームインターフェース")
     st.markdown(
         """
@@ -264,20 +206,13 @@ def render_structured_form_tab(provider: LLMProvider, model: str) -> None:
         if submitted:
             with st.spinner("構造化プロンプトでキャラクターを生成中..."):
                 try:
-                    # Create CharacterRequest
                     request = CharacterRequest(
                         gender=gender,
                         age=age,
                         additional_instructions=additional_instructions or "",
                     )
-
-                    # Call LLM
                     result = call_llm(provider, model, request)
-
-                    # Display result
                     display_character_result(result)
-
-                    # Show the internal prompt
                     display_internal_prompt(provider, request)
 
                 except Exception as e:
@@ -286,7 +221,6 @@ def render_structured_form_tab(provider: LLMProvider, model: str) -> None:
 
 
 def render_footer() -> None:
-    """Render the footer with learning resources."""
     st.divider()
     st.markdown(
         """
@@ -303,27 +237,18 @@ def render_footer() -> None:
 
 
 def main() -> None:
-    """Main application entry point."""
-    # Configure page
     configure_page()
-
-    # Render header
     render_header()
-
-    # Render sidebar and get selections
     provider, model = render_sidebar()
 
-    # Create tabs
     tab1, tab2 = st.tabs(["🆓 自由形式プロンプト", "📋 構造化フォーム"])
 
-    # Render tabs
     with tab1:
         render_freeform_tab(provider, model)
 
     with tab2:
         render_structured_form_tab(provider, model)
 
-    # Render footer
     render_footer()
 
 

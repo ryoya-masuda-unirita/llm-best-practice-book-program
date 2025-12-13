@@ -26,17 +26,13 @@ class TestReadDocumentNode:
         self, tmp_path, base_pipeline_state: PipelineState, sample_document_content: str
     ):
         """Test successfully reading a document."""
-        # Create a temporary file
         doc_file = tmp_path / "test.md"
         doc_file.write_text(sample_document_content, encoding="utf-8")
 
-        # Update state with the file path
         state = {**base_pipeline_state, "document_path": str(doc_file)}
 
-        # Execute
         result = await read_document_node(state)
 
-        # Assert
         assert result["error"] is None
         assert result["document_content"] == sample_document_content
         assert len(result["document_content"]) > 0
@@ -44,13 +40,10 @@ class TestReadDocumentNode:
     @pytest.mark.asyncio
     async def test_read_document_file_not_found(self, base_pipeline_state: PipelineState):
         """Test reading a non-existent file."""
-        # Update state with non-existent file
         state = {**base_pipeline_state, "document_path": "/nonexistent/file.md"}
 
-        # Execute
         result = await read_document_node(state)
 
-        # Assert
         assert result["error"] is not None
         assert "Failed to read document" in result["error"]
         assert result["document_content"] == ""
@@ -62,7 +55,6 @@ class TestAnalyzeDocumentOpenAINode:
     @pytest.mark.asyncio
     async def test_analyze_first_attempt(self, base_pipeline_state: PipelineState, sample_analysis: DocumentAnalysis):
         """Test first analysis attempt with OpenAI."""
-        # Mock OpenAI client
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.parsed = sample_analysis
@@ -70,11 +62,9 @@ class TestAnalyzeDocumentOpenAINode:
         with patch("src.service.llm_pipeline_service.openai_client") as mock_client:
             mock_client.beta.chat.completions.parse = AsyncMock(return_value=mock_response)
 
-            # Execute
             state = {**base_pipeline_state, "llm_provider": LLMProvider.OPENAI, "model": "gpt-4o"}
             result = await analyze_document_openai_node(state)
 
-            # Assert
             assert result["error"] is None
             assert result["analysis_result"] == sample_analysis
             mock_client.beta.chat.completions.parse.assert_called_once()
@@ -87,7 +77,6 @@ class TestAnalyzeDocumentOpenAINode:
         sample_evaluation_poor: AnalysisEvaluation,
     ):
         """Test analysis retry with judge feedback."""
-        # Mock OpenAI client
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.parsed = sample_analysis
@@ -95,7 +84,6 @@ class TestAnalyzeDocumentOpenAINode:
         with patch("src.service.llm_pipeline_service.openai_client") as mock_client:
             mock_client.beta.chat.completions.parse = AsyncMock(return_value=mock_response)
 
-            # Execute with retry state
             state = {
                 **base_pipeline_state,
                 "llm_provider": LLMProvider.OPENAI,
@@ -105,11 +93,9 @@ class TestAnalyzeDocumentOpenAINode:
             }
             result = await analyze_document_openai_node(state)
 
-            # Assert
             assert result["error"] is None
             assert result["analysis_result"] == sample_analysis
 
-            # Check that feedback was added to prompt
             call_args = mock_client.beta.chat.completions.parse.call_args
             messages = call_args.kwargs["messages"]
             assert any("grade of 2/5" in str(msg) for msg in messages)
@@ -120,11 +106,9 @@ class TestAnalyzeDocumentOpenAINode:
         with patch("src.service.llm_pipeline_service.openai_client") as mock_client:
             mock_client.beta.chat.completions.parse = AsyncMock(side_effect=Exception("API Error"))
 
-            # Execute
             state = {**base_pipeline_state, "llm_provider": LLMProvider.OPENAI}
             result = await analyze_document_openai_node(state)
 
-            # Assert
             assert result["error"] is not None
             assert "Failed to analyze document with OpenAI" in result["error"]
             assert result["analysis_result"] is None
@@ -136,18 +120,15 @@ class TestAnalyzeDocumentGeminiNode:
     @pytest.mark.asyncio
     async def test_analyze_first_attempt(self, base_pipeline_state: PipelineState, sample_analysis: DocumentAnalysis):
         """Test first analysis attempt with Gemini."""
-        # Mock Gemini client
         mock_response = MagicMock()
         mock_response.parsed = sample_analysis
 
         with patch("src.service.llm_pipeline_service.google_genai_client") as mock_client:
             mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
 
-            # Execute
             state = {**base_pipeline_state, "llm_provider": LLMProvider.GEMINI}
             result = await analyze_document_gemini_node(state)
 
-            # Assert
             assert result["error"] is None
             assert result["analysis_result"] == sample_analysis
             mock_client.aio.models.generate_content.assert_called_once()
@@ -158,10 +139,8 @@ class TestAnalyzeDocumentGeminiNode:
         with patch("src.service.llm_pipeline_service.google_genai_client") as mock_client:
             mock_client.aio.models.generate_content = AsyncMock(side_effect=Exception("API Error"))
 
-            # Execute
             result = await analyze_document_gemini_node(base_pipeline_state)
 
-            # Assert
             assert result["error"] is not None
             assert "Failed to analyze document with Gemini" in result["error"]
             assert result["analysis_result"] is None
@@ -177,7 +156,6 @@ class TestJudgeAnalysisOpenAINode:
         sample_evaluation_good: AnalysisEvaluation,
     ):
         """Test judging analysis with OpenAI."""
-        # Mock OpenAI client
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.parsed = sample_evaluation_good
@@ -185,11 +163,9 @@ class TestJudgeAnalysisOpenAINode:
         with patch("src.service.llm_pipeline_service.openai_client") as mock_client:
             mock_client.beta.chat.completions.parse = AsyncMock(return_value=mock_response)
 
-            # Execute
             state = {**pipeline_state_with_analysis, "llm_provider": LLMProvider.OPENAI}
             result = await judge_analysis_openai_node(state)
 
-            # Assert
             assert result["error"] is None
             assert result["evaluation_result"] == sample_evaluation_good
             assert result["evaluation_result"].grade == 4
@@ -198,10 +174,8 @@ class TestJudgeAnalysisOpenAINode:
     @pytest.mark.asyncio
     async def test_judge_without_analysis(self, base_pipeline_state: PipelineState):
         """Test judge node when no analysis result exists."""
-        # Execute
         result = await judge_analysis_openai_node(base_pipeline_state)
 
-        # Assert - should return state unchanged
         assert result["evaluation_result"] is None
 
     @pytest.mark.asyncio
@@ -210,11 +184,9 @@ class TestJudgeAnalysisOpenAINode:
         with patch("src.service.llm_pipeline_service.openai_client") as mock_client:
             mock_client.beta.chat.completions.parse = AsyncMock(side_effect=Exception("API Error"))
 
-            # Execute
             state = {**pipeline_state_with_analysis, "llm_provider": LLMProvider.OPENAI}
             result = await judge_analysis_openai_node(state)
 
-            # Assert
             assert result["error"] is not None
             assert "Failed to evaluate analysis with OpenAI" in result["error"]
 
@@ -229,17 +201,14 @@ class TestJudgeAnalysisGeminiNode:
         sample_evaluation_good: AnalysisEvaluation,
     ):
         """Test judging analysis with Gemini."""
-        # Mock Gemini client
         mock_response = MagicMock()
         mock_response.parsed = sample_evaluation_good
 
         with patch("src.service.llm_pipeline_service.google_genai_client") as mock_client:
             mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
 
-            # Execute
             result = await judge_analysis_gemini_node(pipeline_state_with_analysis)
 
-            # Assert
             assert result["error"] is None
             assert result["evaluation_result"] == sample_evaluation_good
             mock_client.aio.models.generate_content.assert_called_once()

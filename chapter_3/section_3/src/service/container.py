@@ -1,5 +1,3 @@
-"""Dependency injection container for LLM services."""
-
 from src.client.llm_client import anthropic_client
 from src.service.interfaces import ITextClassificationService, ITextGenerationService
 from src.service.text_classification_service import TextClassificationService

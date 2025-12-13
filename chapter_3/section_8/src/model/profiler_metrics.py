@@ -1,8 +1,4 @@
-"""Profiler metrics models for prompt performance profiling.
-
-Based on the specification in CLAUDE.md, this module provides structured
-data models for capturing and analyzing LLM prompt performance metrics.
-"""
+"""Profiler metrics models for prompt performance profiling."""
 
 import json
 import statistics
@@ -151,7 +147,6 @@ class AggregatedMetrics(BaseModel):
         sorted_latencies = sorted(latencies)
         n = len(sorted_latencies)
 
-        # Calculate percentiles
         p95_idx = int(n * 0.95)
         p99_idx = int(n * 0.99)
 

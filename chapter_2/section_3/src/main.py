@@ -142,7 +142,6 @@ Fallback enabled: {not disable_fallback}""")
 
     cache_manager: Optional[CacheManager] = None
     if fallback_strategy == FallbackStrategy.PARAMETER_CACHE:
-        # Initialize cache managers based on fallback strategy
         cache_manager = CacheManager(
             cache_dir=".cache",
             ttl=config.cache_ttl,
@@ -150,7 +149,6 @@ Fallback enabled: {not disable_fallback}""")
 
     semantic_cache_manager: Optional[SemanticCacheManager] = None
     if fallback_strategy == FallbackStrategy.SEMANTIC_CACHE:
-        # Choose embedding function based on primary provider
         if llm_provider == LLMProvider.OPENAI:
             embedding_func = get_openai_embedding
         else:  # GEMINI
@@ -164,7 +162,6 @@ Fallback enabled: {not disable_fallback}""")
         )
         logger.info(f"Initialized semantic cache with {llm_provider.value} embeddings (threshold: 0.95)")
 
-    # Initialize fallback coordinator
     fallback_coordinator = FallbackCoordinator(
         fallback_strategy=fallback_strategy,
         cache_manager=cache_manager,
@@ -180,7 +177,6 @@ Fallback enabled: {not disable_fallback}""")
         additional_instructions=additional_instructions,
     )
 
-    # Make request with or without fallback
     if llm_provider == LLMProvider.OPENAI:
         if model not in OpenAIModel.list_str():
             raise ValueError(f"Model {model} is not a valid OpenAI model.")
@@ -208,19 +204,16 @@ Fallback enabled: {not disable_fallback}""")
     else:
         raise ValueError(f"Unsupported LLM provider: {llm_provider.value}")
 
-    # Log fallback information if applicable
     if strategy:
         logger.info(f"Response obtained via fallback strategy: {strategy.value}")
         if error_reason:
             logger.warning(f"Primary provider failed due to: {error_reason}")
 
-    # Save result
     file_name = f"{llm_provider.value}_{uuid4().hex}.json"
     file_path = os.path.join(output_directory, file_name)
     result.save_as_json(file_path)
     logger.info(f"""File saved to {file_path}""")
 
-    # Log statistics
     fallback_coordinator.log_stats()
 
     await google_genai_client.aio.aclose()

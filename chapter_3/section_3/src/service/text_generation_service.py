@@ -1,5 +1,3 @@
-"""Concrete implementation of text generation service."""
-
 from anthropic import AsyncAnthropic
 
 from src.logger import make_logger

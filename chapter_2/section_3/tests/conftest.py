@@ -12,7 +12,6 @@ def temp_cache_dir():
     """Create a temporary cache directory for testing."""
     temp_dir = tempfile.mkdtemp()
     yield temp_dir
-    # Cleanup
     shutil.rmtree(temp_dir, ignore_errors=True)
 
 

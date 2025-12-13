@@ -25,7 +25,6 @@ class AnswerGenerator(Component[AnswerGeneratorInput, RAGAnswer]):
         self.model = model
 
     async def process(self, input_data: AnswerGeneratorInput) -> RAGAnswer:
-        """Generate an answer based on the question and retrieved chunks."""
         question = input_data.question
         chunks = input_data.chunks
 

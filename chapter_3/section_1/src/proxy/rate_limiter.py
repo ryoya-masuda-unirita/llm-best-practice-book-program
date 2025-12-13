@@ -26,7 +26,6 @@ class TokenBucketRateLimiter:
     """
 
     def __init__(self, config: RateLimiterConfig):
-        """Initialize the rate limiter."""
         self.config = config
         self.tokens = float(config.max_requests)
         self.last_update = time.time()
@@ -54,35 +53,28 @@ class TokenBucketRateLimiter:
 
         async with self.lock:
             while True:
-                # Refill tokens based on elapsed time
                 now = time.time()
                 elapsed = now - self.last_update
                 self.tokens = min(self.config.max_requests, self.tokens + elapsed * self.refill_rate)
                 self.last_update = now
 
-                # If we have tokens, consume one and return
                 if self.tokens >= 1.0:
                     self.tokens -= 1.0
                     logger.debug(f"Token acquired. Remaining tokens: {self.tokens:.2f}")
                     return True
 
-                # Check timeout
                 if timeout is not None:
                     elapsed_wait = time.time() - start_time
                     if elapsed_wait >= timeout:
                         logger.warning(f"Rate limiter timeout after {elapsed_wait:.2f}s")
                         return False
 
-                # Calculate wait time until next token is available
                 tokens_needed = 1.0 - self.tokens
                 wait_time = tokens_needed / self.refill_rate
-
-                # Don't wait too long at once
                 wait_time = min(wait_time, 0.1)
 
                 logger.debug(f"Waiting {wait_time:.3f}s for token. Current tokens: {self.tokens:.2f}")
 
-                # Release lock while waiting
                 self.lock.release()
                 try:
                     await asyncio.sleep(wait_time)

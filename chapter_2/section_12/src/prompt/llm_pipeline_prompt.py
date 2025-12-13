@@ -4,16 +4,7 @@ from src.model.llm_pipeline_model import AnalysisEvaluation, DocumentAnalysis
 
 
 def make_document_analysis_prompt(document_content: str) -> list[dict[str, str]]:
-    """
-    Create a prompt for document analysis.
-
-    Args:
-        document_content: The markdown document content to analyze
-
-    Returns:
-        List of message dictionaries for the LLM
-    """
-    # Get the schema description for the LLM
+    """Create a prompt for document analysis."""
     schema_fields = {}
     for field_name, field_info in DocumentAnalysis.model_fields.items():
         field_type = field_info.annotation
@@ -56,16 +47,7 @@ Requirements:
 
 
 def make_document_analysis_system_instruction(document_content: str) -> tuple[str, str]:
-    """
-    Create system instruction and user prompt for document analysis (for Gemini).
-
-    Args:
-        document_content: The markdown document content to analyze
-
-    Returns:
-        Tuple of (system_instruction, user_content)
-    """
-    # Get the schema description for the LLM
+    """Create system instruction and user prompt for document analysis (for Gemini)."""
     schema_fields = {}
     for field_name, field_info in DocumentAnalysis.model_fields.items():
         field_type = field_info.annotation
@@ -105,17 +87,7 @@ Requirements:
 
 
 def make_judge_prompt(document_content: str, analysis_result: DocumentAnalysis) -> list[dict[str, str]]:
-    """
-    Create a prompt for evaluating the document analysis (LLM-as-a-judge).
-
-    Args:
-        document_content: The original markdown document content
-        analysis_result: The analysis result to evaluate
-
-    Returns:
-        List of message dictionaries for the LLM judge
-    """
-    # Get the schema description for the evaluation
+    """Create a prompt for evaluating the document analysis (LLM-as-a-judge)."""
     schema_fields = {}
     for field_name, field_info in AnalysisEvaluation.model_fields.items():
         field_type = field_info.annotation
@@ -176,17 +148,7 @@ Provide your evaluation following the specified JSON structure.
 
 
 def make_judge_system_instruction(document_content: str, analysis_result: DocumentAnalysis) -> tuple[str, str]:
-    """
-    Create system instruction and user prompt for evaluating the analysis (for Gemini).
-
-    Args:
-        document_content: The original markdown document content
-        analysis_result: The analysis result to evaluate
-
-    Returns:
-        Tuple of (system_instruction, user_content)
-    """
-    # Get the schema description for the evaluation
+    """Create system instruction and user prompt for evaluating the analysis (for Gemini)."""
     schema_fields = {}
     for field_name, field_info in AnalysisEvaluation.model_fields.items():
         field_type = field_info.annotation

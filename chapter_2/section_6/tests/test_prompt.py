@@ -23,12 +23,8 @@ class TestMakePrompt:
 
         assert isinstance(messages, list)
         assert len(messages) == 2
-
-        # Check message structure
         assert messages[0]["role"] == "system"
         assert messages[1]["role"] == "user"
-
-        # Check content
         assert "male" in messages[1]["content"]
         assert "30" in messages[1]["content"]
         assert "detective" in messages[1]["content"]
@@ -45,8 +41,6 @@ class TestMakePrompt:
 
         assert isinstance(messages, list)
         assert len(messages) == 2
-
-        # Check content
         assert "female" in messages[1]["content"]
         assert "25" in messages[1]["content"]
         assert "artist" in messages[1]["content"]
@@ -63,8 +57,6 @@ class TestMakePrompt:
 
         assert isinstance(messages, list)
         assert len(messages) == 2
-
-        # Should still work without additional instructions
         assert "male" in messages[1]["content"]
         assert "40" in messages[1]["content"]
 
@@ -94,7 +86,6 @@ class TestMakePrompt:
         messages = make_prompt(request)
         system_content = messages[0]["content"]
 
-        # Check that schema fields are present
         assert "first_name" in system_content
         assert "last_name" in system_content
         assert "gender" in system_content
@@ -109,12 +100,9 @@ class TestMakePrompt:
             additional_instructions="Test",
         )
 
-        # We need to extract the JSON from the system prompt
-        # This is implicit in the make_prompt function
         params = CharacterResponse.detailed_model()
         response_schema = json.dumps(params, indent=2, ensure_ascii=False)
 
-        # Verify it's valid JSON
         parsed = json.loads(response_schema)
         assert isinstance(parsed, dict)
         assert "first_name" in parsed
@@ -209,23 +197,19 @@ class TestMakePromptWithMocking:
 
         result = make_prompt(request)
 
-        # Verify the mock was called
         assert mock_render.called
         assert mock_render.call_count == 1
 
-        # Verify it was called with correct template name
         call_args = mock_render.call_args
         assert call_args.kwargs["template_name"] == "character_generation.yaml"
         assert call_args.kwargs["validate"] is True
 
-        # Verify variables passed
         variables = call_args.kwargs["variables"]
         assert variables["gender"] == "male"
         assert variables["age"] == 30
         assert variables["additional_instructions"] == "Test instruction"
         assert "response_schema" in variables
 
-        # Verify the result
         assert result == [
             {"role": "system", "content": "mocked system"},
             {"role": "user", "content": "mocked user"},
@@ -268,7 +252,6 @@ class TestMakePromptWithMocking:
 
         make_prompt(request)
 
-        # Check that gender was converted to string value
         variables = mock_render.call_args.kwargs["variables"]
         assert variables["gender"] == "female"
         assert isinstance(variables["gender"], str)
@@ -292,7 +275,6 @@ class TestMakePromptWithMocking:
 
         make_prompt(request)
 
-        # Check that None was converted to empty string
         variables = mock_render.call_args.kwargs["variables"]
         assert variables["additional_instructions"] == ""
 
@@ -332,8 +314,6 @@ class TestCharacterResponseIntegration:
         assert "gender" in detailed
         assert "age" in detailed
         assert "personalities" in detailed
-
-        # Check personalities structure
         assert isinstance(detailed["personalities"], list)
         assert len(detailed["personalities"]) == 3
 
@@ -347,7 +327,6 @@ class TestCharacterResponseIntegration:
         detailed = CharacterResponse.detailed_model()
         json_str = json.dumps(detailed, ensure_ascii=False)
 
-        # Verify it can be parsed back
         parsed = json.loads(json_str)
         assert parsed == detailed
 
@@ -372,10 +351,8 @@ class TestCharacterResponseIntegration:
 
         make_prompt(request)
 
-        # Verify detailed_model was called
         assert mock_detailed.called
 
-        # Verify the schema was passed to template engine
         variables = mock_render.call_args.kwargs["variables"]
         assert "response_schema" in variables
         schema_dict = json.loads(variables["response_schema"])
@@ -414,7 +391,6 @@ class TestPromptEdgeCases:
         messages = make_prompt(request)
         system_content = messages[0]["content"]
 
-        # Should contain instructions about being a character generator
         assert "キャラクター" in system_content or "character" in system_content.lower()
 
     def test_make_prompt_is_deterministic(self):
@@ -428,7 +404,6 @@ class TestPromptEdgeCases:
         result1 = make_prompt(request)
         result2 = make_prompt(request)
 
-        # Results should be identical
         assert result1 == result2
 
     def test_make_prompt_with_different_requests_produces_different_outputs(self):
@@ -448,7 +423,6 @@ class TestPromptEdgeCases:
         result1 = make_prompt(request1)
         result2 = make_prompt(request2)
 
-        # User prompts should be different
         assert result1[1]["content"] != result2[1]["content"]
         assert "30" in result1[1]["content"]
         assert "25" in result2[1]["content"]

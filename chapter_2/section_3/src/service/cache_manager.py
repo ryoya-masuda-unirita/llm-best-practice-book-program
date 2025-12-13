@@ -30,13 +30,6 @@ class BaseCacheManager(ABC):
     """Base class for cache managers with common TTL functionality."""
 
     def __init__(self, cache_dir: str, ttl: Optional[int] = None):
-        """
-        Initialize the base cache manager.
-
-        Args:
-            cache_dir: Directory to store cache files
-            ttl: Time-to-live in seconds (defaults to config.cache_ttl)
-        """
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.ttl = ttl if ttl is not None else config.cache_ttl
@@ -130,14 +123,12 @@ class CacheManager(BaseCacheManager):
         if not cache_data:
             return None
 
-        # Check expiration
         cached_time = cache_data.get("timestamp", 0)
         if self._is_expired(cached_time):
             logger.info(f"Cache expired: {cache_key} (age: {time.time() - cached_time:.1f}s, ttl: {self.ttl}s)")
             cache_path.unlink(missing_ok=True)
             return None
 
-        # Return cached response
         response_data = cache_data.get("response")
         if response_data:
             logger.info(f"Cache hit: {cache_key} (age: {time.time() - cached_time:.1f}s)")
@@ -171,15 +162,6 @@ class SemanticCacheManager(BaseCacheManager):
         similarity_threshold: float = 0.95,
         embedding_func: Optional[Callable] = None,
     ):
-        """
-        Initialize the semantic cache manager.
-
-        Args:
-            cache_dir: Directory to store cache files
-            ttl: Time-to-live in seconds
-            similarity_threshold: Minimum cosine similarity for cache hit (0-1)
-            embedding_func: Async function to generate embeddings
-        """
         super().__init__(cache_dir, ttl)
         self.similarity_threshold = similarity_threshold
         self.embedding_func = embedding_func
@@ -212,13 +194,11 @@ class SemanticCacheManager(BaseCacheManager):
         best_cache_key = None
 
         for cache_key, cache_info in index.items():
-            # Check expiration and model match
             if self._is_expired(cache_info.get("timestamp", 0)):
                 continue
             if cache_info.get("model") != model:
                 continue
 
-            # Calculate similarity
             cached_embedding = cache_info.get("embedding")
             if not cached_embedding:
                 continue
@@ -237,11 +217,9 @@ class SemanticCacheManager(BaseCacheManager):
             return None
 
         try:
-            # Generate embedding and find similar cache
             query_embedding = await self.embedding_func(prompt)
             cache_key, similarity = self._find_similar_cache(query_embedding, model)
 
-            # Check if similarity meets threshold
             if similarity >= self.similarity_threshold and cache_key:
                 cache_path = self._get_cache_path(cache_key)
                 if cache_path.exists():
@@ -271,10 +249,8 @@ class SemanticCacheManager(BaseCacheManager):
             return
 
         try:
-            # Generate embedding
             embedding = await self.embedding_func(prompt)
 
-            # Generate unique cache key
             timestamp = time.time()
             cache_key = hashlib.sha256(
                 json.dumps(
@@ -282,7 +258,6 @@ class SemanticCacheManager(BaseCacheManager):
                 ).encode()
             ).hexdigest()
 
-            # Store cache data
             cache_path = self._get_cache_path(cache_key)
             cache_data = {
                 "timestamp": timestamp,
@@ -292,7 +267,6 @@ class SemanticCacheManager(BaseCacheManager):
             }
             self._save_cache_file(cache_path, cache_data)
 
-            # Update index with embedding
             index = self._load_index()
             index[cache_key] = {
                 "timestamp": timestamp,
@@ -317,7 +291,6 @@ class SemanticCacheManager(BaseCacheManager):
         for cache_key, cache_info in index.items():
             cached_time = cache_info.get("timestamp", 0)
             if current_time - cached_time > self.ttl:
-                # Remove cache file
                 cache_path = self._get_cache_path(cache_key)
                 cache_path.unlink(missing_ok=True)
                 cleared += 1

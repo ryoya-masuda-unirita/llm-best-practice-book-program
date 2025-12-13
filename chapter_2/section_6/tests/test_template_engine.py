@@ -70,7 +70,6 @@ class TestValidateVariables:
         """Test validation passes when all required variables are provided."""
         engine = TemplateEngine(template_dir=temp_template_dir)
         variables = {"name": "Alice"}
-        # Should not raise any exception
         engine.validate_variables("simple.yaml", variables)
 
     def test_validate_with_missing_variables(self, temp_template_dir):
@@ -86,7 +85,6 @@ class TestValidateVariables:
         """Test validation passes when extra variables are provided."""
         engine = TemplateEngine(template_dir=temp_template_dir)
         variables = {"name": "Alice", "extra": "value"}
-        # Should not raise - extra variables are OK
         engine.validate_variables("simple.yaml", variables)
 
     def test_validate_multi_var_template_partial_variables(self, temp_template_dir):
@@ -151,14 +149,10 @@ class TestRenderTemplate:
     def test_render_template_with_validation_disabled(self, temp_template_dir):
         """Test that validation can be disabled."""
         engine = TemplateEngine(template_dir=temp_template_dir)
-        # With validation disabled, missing variables are rendered as empty strings
         variables = {}
 
-        # With validation disabled, Jinja2 renders undefined variables as empty strings
-        # So this should succeed (no exception) but the variable will be empty
         result = engine.render_template("simple.yaml", variables, validate=False)
 
-        # The template has {{ name }}, which will be rendered as empty string
         assert result["user_prompt"] == "Hello !"
 
     def test_render_multi_var_template(self, temp_template_dir):
@@ -193,7 +187,6 @@ class TestRenderPromptMessages:
 
     def test_render_prompt_messages_custom_keys(self, temp_template_dir, tmp_path):
         """Test rendering with custom system/user keys."""
-        # Create a template with custom keys
         templates_dir = tmp_path / "custom_templates"
         templates_dir.mkdir()
 
@@ -219,7 +212,6 @@ class TestRenderPromptMessages:
 
     def test_render_prompt_messages_missing_system_key(self, temp_template_dir, tmp_path):
         """Test that missing system_prompt key raises error."""
-        # Create template without system_prompt
         templates_dir = tmp_path / "incomplete_templates"
         templates_dir.mkdir()
 
@@ -233,7 +225,6 @@ class TestRenderPromptMessages:
 
     def test_render_prompt_messages_missing_user_key(self, temp_template_dir, tmp_path):
         """Test that missing user_prompt key raises error."""
-        # Create template without user_prompt
         templates_dir = tmp_path / "incomplete_templates2"
         templates_dir.mkdir()
 
@@ -310,7 +301,6 @@ class TestTemplateEngineEdgeCases:
         variables = {"value": None}
         messages = engine.render_prompt_messages("none.yaml", variables)
 
-        # Jinja2 renders None as empty string
         assert messages[1]["content"] == "Value: None" or messages[1]["content"] == "Value: "
 
     def test_template_with_numeric_values(self, tmp_path):
@@ -344,12 +334,10 @@ class TestTemplateEngineEdgeCases:
 
         engine = TemplateEngine(template_dir=templates_dir)
 
-        # Test with True
         variables_true = {"flag": True}
         messages_true = engine.render_prompt_messages("boolean.yaml", variables_true)
         assert "Yes" in messages_true[1]["content"]
 
-        # Test with False
         variables_false = {"flag": False}
         messages_false = engine.render_prompt_messages("boolean.yaml", variables_false, validate=False)
         assert "No" in messages_false[1]["content"]

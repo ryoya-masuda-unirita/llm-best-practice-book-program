@@ -29,20 +29,7 @@ async def health_check():
 
 @app.post("/generate", response_model=LLMResponse, tags=["LLM"])
 async def generate_character(request: LLMRequest, background_tasks: BackgroundTasks, store_knowledge: bool = True):
-    """
-    Generate a character using Gemini LLM.
-
-    This endpoint accepts requests to generate character descriptions using
-    Gemini models.
-
-    By default, the generated character data is stored in the knowledge base
-    asynchronously for future retrieval and analysis.
-
-    Args:
-        request: LLM request with model and character parameters
-        background_tasks: FastAPI background tasks for async knowledge storage
-        store_knowledge: Whether to store the result in knowledge base (default: True)
-    """
+    """Generate a character using Gemini LLM."""
     start_time = time.time()
 
     try:
