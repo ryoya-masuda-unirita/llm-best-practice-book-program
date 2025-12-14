@@ -1,16 +1,16 @@
-# Chapter 2 Section 1: 構造化出力を用いたLLM基本実装
+# Chapter 2 Section 1: LLMの出力を構造化する
 
 ## 概要
 
-このプロジェクトは、**構造化出力（Structured Outputs）** を用いたLLM（大規模言語モデル）の基本実装を示すサンプルコードです。OpenAI GPTシリーズ（GPT-4o、GPT-5など）、Google Gemini 2.5シリーズ、Anthropic Claudeシリーズの3つのプロバイダーに対応し、複数のモデルから選択して利用できます。Pydanticモデルを活用して型安全なLLM応答を実現します。
+このプロジェクトは、**構造化出力（Structured Outputs）** を用いたLLM（大規模言語モデル）の基本実装を示すサンプルコードです。OpenAI、Google Gemini、Anthropic Claudeの3つのLLMプロバイダーに対応し、Pydanticモデルを活用して型安全なLLM応答を実現します。
 
-フィクションのキャラクター情報（名前、性別、年齢、性格特性）を生成するユースケースを通じて、構造化出力の実践的な実装方法を学ぶことができます。
+フィクションのキャラクター情報（名前、性別、年齢、性格特性）を生成するユースケースを通じて、構造化出力の実践的な実装方法を学ぶことができます。各プロバイダー固有のStructured Outputs APIを活用し、LLMからの応答を確実にPydanticモデルにパースします。
 
 ## 機能
 
-- **構造化出力**: PydanticモデルをAPI応答形式として直接利用
-- **マルチプロバイダー対応**: OpenAI、Google Gemini、Anthropic Claudeの3つのAPIをサポート
-- **モデル選択**: 各プロバイダーで複数のモデルから選択可能
+- **構造化出力**: PydanticモデルをAPI応答形式として直接利用し、型安全なLLM出力を実現
+- **マルチプロバイダー対応**: OpenAI、Google Gemini、Anthropic Claude APIの3プロバイダーをサポート
+- **複数モデル選択**: 各プロバイダーで複数のモデルから選択可能（全17モデル対応）
 - **非同期処理**: async/awaitパターンによる効率的なAPI呼び出し
 - **型安全性**: Pydanticによる厳密な型検証とバリデーション
 - **CLIインターフェース**: Clickライブラリを使用した使いやすいコマンドラインツール
@@ -28,16 +28,19 @@ chapter_2/section_1/
 │   ├── __init__.py              # パッケージ初期化
 │   ├── config.py                # 設定管理（API キー読み込み）
 │   ├── logger.py                # ロギング設定
-│   ├── main.py                  # メインエントリーポイント
+│   ├── main.py                  # メインエントリーポイント（CLI）
 │   ├── client/
 │   │   ├── __init__.py
-│   │   └── llm_client.py        # LLMクライアント初期化
+│   │   └── llm_client.py        # LLMクライアント初期化・モデル定義
 │   ├── model/
 │   │   ├── __init__.py
 │   │   └── model.py             # Pydanticデータモデル定義
-│   └── prompt/
+│   ├── prompt/
+│   │   ├── __init__.py
+│   │   └── prompt.py            # プロンプト生成ロジック
+│   └── service/
 │       ├── __init__.py
-│       └── prompt.py            # プロンプト生成ロジック
+│       └── request_llm.py       # LLMリクエスト処理（サービス層）
 ├── outputs/                      # 生成結果の保存先（自動作成）
 ├── .envrc.example                # 環境変数設定のサンプル
 ├── pyproject.toml                # プロジェクト依存関係
@@ -50,226 +53,33 @@ chapter_2/section_1/
 このプロジェクトは、以下の3層アーキテクチャで構成されています：
 
 ```
-┌─────────────────────────────────────────┐
-│         CLI Layer (main.py)             │
-│     - コマンドライン引数解析             │
-│     - 出力ディレクトリ管理               │
-└─────────────────┬───────────────────────┘
-                  │
-┌─────────────────▼───────────────────────┐
-│      Business Logic Layer               │
-│  - プロンプト生成 (prompt.py)           │
-│  - LLMクライアント管理 (llm_client.py)  │
-│  - データモデル (model.py)              │
-└─────────────────┬───────────────────────┘
-                  │
-┌─────────────────▼───────────────────────┐
-│      Infrastructure Layer               │
-│  - 設定管理 (config.py)                 │
-│  - ログ管理 (logger.py)                 │
-│  - 外部API (OpenAI, Gemini)             │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────┐
+│              CLI Layer (main.py)                    │
+│         - コマンドライン引数解析                     │
+│         - プロバイダー・モデル選択                   │
+│         - 出力ディレクトリ管理                       │
+└─────────────────────┬───────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────┐
+│           Service Layer (service/)                  │
+│    - request_llm.py: LLMリクエスト処理              │
+│    - 各プロバイダー固有のAPI呼び出しロジック          │
+└─────────────────────┬───────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────┐
+│          Business Logic Layer                       │
+│    - prompt/prompt.py: プロンプト生成               │
+│    - client/llm_client.py: クライアント管理          │
+│    - model/model.py: データモデル定義                │
+└─────────────────────┬───────────────────────────────┘
+                      │
+┌─────────────────────▼───────────────────────────────┐
+│          Infrastructure Layer                       │
+│    - config.py: 設定管理                            │
+│    - logger.py: ログ管理                            │
+│    - 外部API (OpenAI, Gemini, Anthropic)            │
+└─────────────────────────────────────────────────────┘
 ```
-
-### 実装の詳細
-
-#### 1. データモデル (`src/model/model.py`)
-
-Pydanticを使用して、厳密に型付けされたデータモデルを定義します：
-
-```python
-class Gender(StrEnum):
-    FEMALE = "female"
-    MALE = "male"
-
-class CharacterPersonality(BaseModel):
-    short_personality: str
-    description: str
-
-class CharacterResponse(BaseModel):
-    first_name: str
-    last_name: str
-    gender: Gender
-    age: int  # 0-100
-    personalities: list[CharacterPersonality]  # 3つの性格特性
-```
-
-**ポイント**:
-- `frozen=True`により不変オブジェクトを保証
-- `validate_assignment=True`で代入時のバリデーションを有効化
-- Fieldディスクリプタで詳細な制約を定義（`ge=0, le=100`など）
-
-#### 2. LLMクライアント (`src/client/llm_client.py`)
-
-OpenAI、Gemini、Anthropicの3つのクライアントを初期化し、利用可能なモデルを定義します：
-
-```python
-class LLMProvider(StrEnum):
-    OPENAI = "openai"
-    GEMINI = "gemini"
-    ANTHROPIC = "anthropic"
-
-class OpenAIModel(StrEnum):
-    GPT_5 = "gpt-5"
-    GPT_5_MINI = "gpt-5-mini"
-    GPT_5_NANO = "gpt-5-nano"
-    GPT_4_1 = "gpt-4.1"
-    GPT_4_1_MINI = "gpt-4.1-mini"
-    GPT_4_1_NANO = "gpt-4.1-nano"
-    GPT_4O = "gpt-4o"
-    GPT_4O_MINI = "gpt-4o-mini"
-
-class GeminiModel(StrEnum):
-    GEMINI_2_5_PRO = "gemini-2.5-pro"
-    GEMINI_2_5_FLASH = "gemini-2.5-flash"
-    GEMINI_2_5_FLASH_LITE = "gemini-2.5-flash-lite"
-
-class AnthropicModel(StrEnum):
-    CLAUDE_SONNET_4_5 = "claude-sonnet-4-5"
-    CLAUDE_OPUS_4_1 = "claude-opus-4-1"
-
-google_genai_client = genai.Client(api_key=config.gemini_api_key)
-openai_client = AsyncOpenAI(api_key=config.openai_api_key)
-anthropic_client = AsyncAnthropic(api_key=config.anthropic_api_key)
-```
-
-**ポイント**:
-- 列挙型（`StrEnum`）でプロバイダーとモデルを型安全に管理
-- 設定情報から安全にAPIキーを取得
-- 各プロバイダーで利用可能なモデルを明示的に定義
-
-**利用可能なモデル**:
-
-OpenAI:
-- `gpt-5`, `gpt-5-mini`, `gpt-5-nano`
-- `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`
-- `gpt-4o`, `gpt-4o-mini`
-
-Gemini:
-- `gemini-2.5-pro`
-- `gemini-2.5-flash`
-- `gemini-2.5-flash-lite`
-
-Anthropic:
-- `claude-sonnet-4-5`
-- `claude-opus-4-1`
-
-#### 3. プロンプト生成 (`src/prompt/prompt.py`)
-
-スキーマ情報を埋め込んだプロンプトを動的に生成します：
-
-```python
-def make_prompt() -> list:
-    params = CharacterResponse.detailed_model()
-    param_dump = json.dumps(params, indent=2, ensure_ascii=False)
-    return [
-        {
-            "role": "system",
-            "content": f"""あなたは創造的なキャラクタージェネレーターです。
-以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：
-
-{param_dump}
-..."""
-        },
-        ...
-    ]
-```
-
-**ポイント**:
-- モデルから自動的にスキーマ情報を抽出
-- システムプロンプトにスキーマを埋め込むことで、出力の一貫性を確保
-
-#### 4. API呼び出し (`src/main.py`)
-
-##### OpenAI実装
-
-```python
-async def request_openai(model: OpenAIModel) -> CharacterResponse:
-    prompt = make_prompt()
-    result = await openai_client.beta.chat.completions.parse(
-        model=model,  # モデルをパラメータとして受け取る
-        messages=prompt,
-        response_format=CharacterResponse,  # Pydanticモデルを直接指定
-        temperature=1.0,
-    )
-    return result.choices[0].message.parsed
-```
-
-**特徴**:
-- `beta.chat.completions.parse()`で構造化出力をサポート
-- `response_format`パラメータにPydanticモデルを直接渡せる
-- 返り値は自動的にPydanticモデルにパースされる
-- モデルはCLI引数から動的に選択可能
-
-##### Gemini実装
-
-```python
-async def request_gemini(model: GeminiModel) -> CharacterResponse:
-    system_prompt, user_prompt = make_gemini_prompt()
-    result = await google_genai_client.aio.models.generate_content(
-        model=model,  # モデルをパラメータとして受け取る
-        contents=user_prompt,
-        config=GenerateContentConfig(
-            system_instruction=system_prompt,
-            response_mime_type="application/json",
-            response_schema=CharacterResponse,  # Pydanticモデルを指定
-        ),
-    )
-    return result.parsed
-```
-
-**特徴**:
-- `response_schema`でPydanticモデルを指定
-- `response_mime_type="application/json"`でJSON形式を強制
-- system_instructionとcontentsを分離して指定
-- モデルはCLI引数から動的に選択可能
-
-##### Anthropic実装
-
-```python
-async def request_anthropic(model: AnthropicModel) -> CharacterResponse:
-    prompt = make_anthropic_prompt()
-    result = await anthropic_client.beta.messages.parse(
-        model=model,  # モデルをパラメータとして受け取る
-        max_tokens=1024,
-        betas=["structured-outputs-2025-11-13"],
-        messages=prompt,
-        output_format=CharacterResponse,  # Pydanticモデルを指定
-    )
-    return result.parsed_output
-```
-
-**特徴**:
-- `beta.messages.parse()`で構造化出力をサポート
-- `output_format`パラメータにPydanticモデルを直接渡せる
-- `betas`パラメータで構造化出力のベータ機能を有効化
-- 返り値は自動的にPydanticモデルにパースされる
-- モデルはCLI引数から動的に選択可能
-
-#### 5. 設定管理 (`src/config.py`)
-
-環境変数からAPIキーを安全に読み込みます：
-
-```python
-class Config(BaseModel):
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-        arbitrary_types_allowed=True,
-    )
-
-    if os.path.exists(".envrc"):
-        load_dotenv(".envrc")
-
-    gemini_api_key: Secret[str] = Field(default=os.environ["GEMINI_API_KEY"])
-    openai_api_key: Secret[str] = Field(default=os.environ["OPENAI_API_KEY"])
-    anthropic_api_key: Secret[str] = Field(default=os.environ["ANTHROPIC_API_KEY"])
-```
-
-**ポイント**:
-- `Secret[str]`型でAPIキーを保護（ログ出力時に自動マスキング）
-- Pydanticの検証機能で環境変数の存在をチェック
 
 ## 使い方
 
@@ -304,6 +114,9 @@ ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
 ```bash
 # uvを使用する場合（推奨）
 uv sync
+
+# pipを使用する場合
+pip install -e .
 ```
 
 ### 使用方法、実行方法
@@ -311,18 +124,36 @@ uv sync
 #### 基本的な使い方
 
 ```bash
-# Gemini APIを使用（プロバイダーとモデルを指定）
-uv run python -m src.main --llm-provider GEMINI --model GEMINI_2_5_FLASH --output-directory ./custom_output
+# Geminiで実行（モデルを指定）
+uv run python -m src.main --llm-provider gemini --model gemini-2.5-flash
 
-# OpenAI APIを使用
-uv run python -m src.main --llm-provider OPENAI --model GPT_5_MINI --output-directory ./custom_output
+# OpenAIで実行
+uv run python -m src.main --llm-provider openai --model gpt-4o-mini
 
-# Anthropic APIを使用
-uv run python -m src.main --llm-provider ANTHROPIC --model CLAUDE_SONNET_4_5 --output-directory ./custom_output
+# Anthropicで実行
+uv run python -m src.main --llm-provider anthropic --model claude-sonnet-4-5
+
+# 短縮オプションで実行
+uv run python -m src.main -lp openai -m gpt-4o
+```
+
+#### 出力先の指定
+
+```bash
+# カスタム出力ディレクトリを指定
+uv run python -m src.main -lp gemini -m gemini-2.5-flash --output-directory ./custom_output
 
 # 短縮オプション
-uv run python -m src.main -lp openai -m gpt-4o -od ./custom_output
+uv run python -m src.main -lp gemini -m gemini-2.5-flash -od ./my_characters
 ```
+
+#### 利用可能なモデル
+
+| プロバイダー | モデル |
+|-------------|--------|
+| OpenAI | gpt-5.2, gpt-5.1, gpt-5, gpt-5-mini, gpt-5-nano, gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, gpt-4o, gpt-4o-mini |
+| Gemini | gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite |
+| Anthropic | claude-opus-4-5, claude-haiku-4-5, claude-sonnet-4-5, claude-opus-4-1 |
 
 #### ヘルプの表示
 
@@ -332,15 +163,13 @@ uv run python -m src.main --help
 
 **出力例**:
 ```
-$ uv run python -m src.main --help                                       
 Usage: python -m src.main [OPTIONS]
 
 Options:
-  -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
+  -lp, --llm-provider [openai|gemini|anthropic]
                                   The LLM provider to use.  [required]
-  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_SONNET_4_5|CLAUDE_OPUS_4_1]
-                                  The model to use for the request.
-                                  [required]
+  -m, --model [gpt-5.2|gpt-5.1|gpt-5|gpt-5-mini|gpt-5-nano|gpt-4.1|gpt-4.1-mini|gpt-4.1-nano|gpt-4o|gpt-4o-mini|gemini-2.5-pro|gemini-2.5-flash|gemini-2.5-flash-lite|claude-opus-4-5|claude-haiku-4-5|claude-sonnet-4-5|claude-opus-4-1]
+                                  The model to use for the request.  [required]
   -od, --output-directory PATH    The directory to save output files.
   --help                          Show this message and exit.
 ```
@@ -349,7 +178,7 @@ Options:
 
 実行すると、以下のような構造化されたJSONファイルが生成されます：
 
-**ファイル名**: `outputs/gemini_a1b2c3d4e5f6.json`
+**ファイル名**: `outputs/gemini_27ea9c6863a640fdb60d60d2d34f6991.json`
 
 ```json
 {
@@ -372,4 +201,12 @@ Options:
         }
     ]
 }
+```
+
+**実行ログ例**:
+```
+[2025-11-17 10:30:45] [INFO] [src.main] [main.py:53] [main] LLM provider: gemini
+Model: gemini-2.5-flash
+Output directory: outputs
+[2025-11-17 10:30:47] [INFO] [src.main] [main.py:78] [main] File saved to outputs/gemini_27ea9c6863a640fdb60d60d2d34f6991.json
 ```

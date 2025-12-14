@@ -13,11 +13,11 @@
 
 ## 機能
 
-- **動的スキーマ生成**: 自然言語プロンプトからJSON Schemaを自動生成
-- **High Reasoningモード**: 曖昧なプロンプトに対して最適な構造を推論
-- **マルチプロンプト対応**: 複数のプロンプトから統一スキーマを生成
-- **自動バリデーション**: 生成されたスキーマの検証とリトライ機構
-- **Pydanticモデル変換**: JSON SchemaからPydanticモデルを動的に生成
+- **動的スキーマ生成**: 自然言語プロンプトからOpenAI Structured Outputs準拠のJSON Schemaを自動生成
+- **High Reasoningモード**: 曖昧なプロンプトに対してLLMがドメイン知識を活用し最適な構造を推論
+- **マルチプロンプト対応**: 複数のプロンプトから統一スキーマを生成（共通フィールドは必須、ケース固有はオプショナル）
+- **自動バリデーション**: 生成されたスキーマの検証とエラーフィードバックによる自動リトライ（最大3回）
+- **Pydanticモデル変換**: JSON SchemaからPydanticモデルを動的に生成（ネスト、配列、Union型対応）
 - **スキーマ永続化**: 生成したスキーマをJSONファイルとして保存・再利用
 
 ## プロジェクト構成
@@ -25,10 +25,10 @@
 ### ディレクトリ構成
 
 ```
-chapter_3/section_14/
+chapter_2/section_2/
 ├── src/
 │   ├── main.py                          # CLIエントリーポイント
-│   ├── config.py                        # 設定管理
+│   ├── config.py                        # 設定管理（環境変数）
 │   ├── logger.py                        # ロギング設定
 │   ├── auto_structured_output/          # コアモジュール
 │   │   ├── extractor.py                 # メインオーケストレーター
@@ -36,7 +36,7 @@ chapter_3/section_14/
 │   │   ├── model_builder.py             # JSON Schema → Pydantic変換
 │   │   ├── validators.py                # スキーマバリデーション
 │   │   ├── prompts.py                   # プロンプトテンプレート
-│   │   └── model.py                     # 型定義
+│   │   └── model.py                     # 型定義（SupportedType, StringFormat）
 │   ├── client/
 │   │   └── llm_client.py                # OpenAIクライアント設定
 │   └── examples/                        # 17個の実践的サンプル
@@ -44,7 +44,7 @@ chapter_3/section_14/
 │       ├── basic_usage.py               # 基本例（5例）
 │       ├── advanced_examples.py         # 応用例（6例）
 │       └── high_reasoning_examples.py   # 高度推論例（6例）
-├── outputs/                             # 生成されたスキーマ
+├── outputs/                             # 生成されたスキーマ出力先
 ├── .envrc.example                       # 環境変数テンプレート
 ├── Makefile                             # 開発タスク
 └── pyproject.toml                       # 依存関係
@@ -98,128 +98,6 @@ chapter_3/section_14/
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 実装の詳細
-
-#### 1. StructureExtractor (`src/auto_structured_output/extractor.py`)
-
-スキーマ生成からPydanticモデル構築までを統合するメインクラスです。
-
-```python
-class StructureExtractor:
-    def __init__(self, llm_client: OpenAI, model: str, max_retries: int = 3):
-        self.client = llm_client
-        self.model = model
-        self.schema_generator = SchemaGenerator(max_retries=max_retries)
-        self.model_builder = ModelBuilder()
-
-    def extract_structure(
-        self,
-        prompts: list[str],
-        use_high_reasoning: bool = False,
-    ) -> type[BaseModel]:
-        """プロンプトから構造を抽出しPydanticモデルを返す"""
-        schema_json = self._extract_schema_from_prompt(prompts, use_high_reasoning)
-        validated_schema = self._validate_schema(schema_json)
-        return self._build_model(validated_schema)
-
-    @staticmethod
-    def save_extracted_json(model: type[BaseModel], file_path: str | Path) -> None:
-        """生成したスキーマをJSONファイルに保存"""
-        schema = model.model_json_schema()
-        with Path(file_path).open("w", encoding="utf-8") as f:
-            json.dump(schema, f, indent=2, ensure_ascii=False)
-```
-
-**ポイント**: `use_high_reasoning=True`を指定すると、曖昧なプロンプトに対してLLMがドメイン知識を活用して最適な構造を推論します。
-
-#### 2. SchemaGenerator (`src/auto_structured_output/schema_generator.py`)
-
-LLMを使用してJSON Schemaを生成し、バリデーションエラー時は自動リトライします。
-
-```python
-class SchemaGenerator:
-    def __init__(self, max_retries: int = 3):
-        self.max_retries = max_retries
-
-    def extract_from_prompt(
-        self,
-        prompts: list[str],
-        client: OpenAI,
-        model: str,
-        use_high_reasoning: bool = False,
-    ) -> dict[str, Any]:
-        """スキーマ生成（バリデーション失敗時は自動リトライ）"""
-        messages = get_schema_extraction_messages(prompts, use_high_reasoning)
-
-        for attempt in range(self.max_retries):
-            try:
-                schema = self._call_api(client, model, messages)
-                SchemaValidator.validate_schema(schema)
-                return schema
-            except ValueError as e:
-                if attempt == self.max_retries - 1:
-                    raise
-                # エラーフィードバックを含めてリトライ
-                messages = get_schema_retry_messages(
-                    prompts, schema, str(e), use_high_reasoning
-                )
-```
-
-**ポイント**: バリデーションエラーが発生した場合、エラーメッセージをLLMにフィードバックして修正されたスキーマを再生成します。
-
-#### 3. ModelBuilder (`src/auto_structured_output/model_builder.py`)
-
-JSON SchemaからPydanticモデルを動的に生成します。
-
-```python
-class ModelBuilder:
-    def build_model(self, schema: dict[str, Any], model_name: str | None = None) -> type[BaseModel]:
-        """JSON SchemaからPydanticモデルクラスを動的に生成"""
-        name = model_name or schema.get("title", "DynamicModel")
-        properties = schema.get("properties", {})
-        required_fields = set(schema.get("required", []))
-
-        fields = {}
-        for field_name, field_info in properties.items():
-            field_type = self._get_field_type(field_info)
-            description = field_info.get("description")
-
-            if field_name in required_fields:
-                fields[field_name] = (field_type, Field(..., description=description))
-            else:
-                fields[field_name] = (Optional[field_type], Field(None, description=description))
-
-        return create_model(name, **fields)
-```
-
-**ポイント**: Pydanticの`create_model`を使用して実行時にクラスを生成。ネストしたオブジェクトや配列、Union型にも対応しています。
-
-#### 4. SchemaValidator (`src/auto_structured_output/validators.py`)
-
-OpenAI Structured Outputs仕様に準拠したスキーマかを検証します。
-
-```python
-class SchemaValidator:
-    """Validates JSON Schemas following OpenAI Structured Outputs specifications."""
-
-    @classmethod
-    def validate_schema(cls, schema: dict[str, Any]) -> dict[str, Any]:
-        if schema["type"] != "object":
-            raise ValueError("Top-level schema must be of type 'object'")
-
-        if "properties" not in schema:
-            raise ValueError("Schema must have a 'properties' field")
-
-        cls._validate_properties(schema["properties"])
-
-        if "required" in schema:
-            cls.validate_required_fields(schema["required"], schema["properties"])
-
-        return schema
-```
-
-**ポイント**: 型、フォーマット、制約条件を再帰的に検証し、OpenAI APIで使用可能なスキーマであることを保証します。
-
 ## 使い方
 
 ### 環境構成
@@ -230,6 +108,7 @@ class SchemaValidator:
   - `openai>=2.4.0` - OpenAI API クライアント
   - `pydantic>=2.12.2` - データバリデーション
   - `python-dotenv>=1.1.1` - 環境変数管理
+  - `google-genai>=1.45.0` - Google Generative AI（拡張用）
 
 ### セットアップ
 
@@ -283,6 +162,9 @@ python -m src.main -m gpt-4o -e example_1_simple_user_model
 
 # 出力ディレクトリを指定して実行
 python -m src.main -m gpt-4o -e example_2_product_with_enum -od ./my_outputs
+
+# 高推論モードのサンプル実行
+python -m src.main -m gpt-4o -e example_1_customer_feedback_analysis
 ```
 
 #### サンプル一覧
@@ -297,12 +179,15 @@ python -m src.main -m gpt-4o -e example_2_product_with_enum -od ./my_outputs
 | Advanced | `example_1_nested_objects` | ネストしたオブジェクト |
 | Advanced | `example_2_complex_article` | 著者・コメントを含む記事 |
 | Advanced | `example_3_array_of_objects` | オブジェクト配列を持つ注文 |
-| Advanced | `example_4_deep_nesting` | 深いネスト構造 |
+| Advanced | `example_4_deep_nesting` | 深いネスト構造（組織） |
 | Advanced | `example_5_anyof_union_types` | Union型の支払い方法 |
 | Advanced | `example_6_validation_constraints` | バリデーション制約付き商品 |
 | High Reasoning | `example_1_customer_feedback_analysis` | 顧客フィードバック分析 |
+| High Reasoning | `example_2_meeting_summary` | 会議サマリー抽出 |
+| High Reasoning | `example_3_research_paper_metadata` | 学術論文メタデータ |
 | High Reasoning | `example_4_job_application_evaluation` | マルチプロンプト求人評価 |
-| High Reasoning | `example_6_high_reasoning` | 商品レビュー分析 |
+| High Reasoning | `example_5_financial_transaction_analysis` | マルチプロンプト金融取引分析 |
+| High Reasoning | `example_6_high_reasoning` | 複合商品レビュー分析 |
 
 ### 出力例
 
@@ -401,11 +286,66 @@ extractor.save_extracted_json(T_Model, "my_schema.json")
 restored_model = StructureExtractor.load_from_json("my_schema.json")
 ```
 
+### 高推論モードの使用
+
+```python
+# 曖昧なプロンプトに対して最適な構造を推論
+T_Model = extractor.extract_structure(
+    ["Analyze customer feedback and extract comprehensive business insights"],
+    use_high_reasoning=True
+)
+# LLMが以下のような構造を自動推論:
+# - product_quality_assessment
+# - delivery_experience
+# - customer_satisfaction_metrics
+# - actionable_recommendations
+# など
+```
+
+### マルチプロンプト統合の使用
+
+```python
+# 複数のユースケースをカバーする統一スキーマを生成
+T_Model = extractor.extract_structure([
+    "Extract junior engineer application: education, internships, projects",
+    "Extract senior engineer application: career, large projects, leadership",
+    "Extract expert engineer application: certifications, publications, patents"
+])
+# 共通フィールドは必須、ケース固有のフィールドはオプショナルとして設計
+```
+
+## 開発コマンド
+
+```bash
+# 出力ファイルとキャッシュのクリーンアップ
+make clean
+
+# Lintチェック（ruff）
+make lint
+
+# コードフォーマット（ruff）
+make fmt
+
+# Lint + フォーマット
+make fix
+
+# 型チェック（mypy）
+make mypy
+```
+
+## カスタム例外
+
+- `ExtractionError` - 構造抽出の一般エラー
+- `SchemaValidationError` - スキーマ検証失敗（リトライ後も失敗）
+- `ModelBuildError` - Pydanticモデル構築失敗
+
 ## 注意点
 
-- **出力の安定性**: LLMが生成するスキーマは実行のたびに微妙に異なる可能性があります。安定性が必要な場合は、一度生成したスキーマを保存して再利用してください。
-- **APIコスト**: 2段階のAPI呼び出しが必要なため、通常の構造化出力より多くのトークンを消費します。
-- **バリデーションリトライ**: デフォルトで最大3回リトライしますが、複雑なスキーマでは失敗する可能性があります。
+- **OpenAI専用**: 現在の実装はOpenAI APIのみをサポートしています
+- **出力の安定性**: LLMが生成するスキーマは実行のたびに微妙に異なる可能性があります。安定性が必要な場合は、一度生成したスキーマを保存して再利用してください
+- **APIコスト**: 2段階のAPI呼び出しが必要なため、通常の構造化出力より多くのトークンを消費します
+- **バリデーションリトライ**: デフォルトで最大3回リトライしますが、複雑なスキーマでは失敗する可能性があります
+- **uriフォーマット非対応**: OpenAI Structured Outputsでは`uri`フォーマットがサポートされていません。URLは`string`型で定義してください
 
 ## ライセンス
 
