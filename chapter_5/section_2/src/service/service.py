@@ -6,17 +6,16 @@ from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import END, StateGraph
-
 from src.client.llm_client import GeminiModel
 from src.logger import make_logger
-from src.model.llm_pipeline_model import (
+from src.model.model import (
     CHARACTER_TEMPLATES,
     STYLE_GUIDES,
     THEME_ELEMENTS,
     TONE_ELEMENTS,
     AgentState,
 )
-from src.prompt.llm_pipeline_prompt import (
+from src.prompt.prompt import (
     CHARACTER_RELATIONSHIP_TIPS,
     PROSE_GENERAL_SUGGESTIONS,
     THEME_WRITING_TIPS_DEFAULT,
@@ -28,29 +27,14 @@ from src.prompt.llm_pipeline_prompt import (
 
 logger = make_logger(__name__)
 
-# Maximum number of agent iterations to prevent infinite loops
 MAX_ITERATIONS = 15
-
-
-# =============================================================================
-# Tool Definitions for the Deep Think Novel Agent
-# =============================================================================
 
 
 @tool
 def analyze_theme(theme: str) -> str:
-    """
-    Deeply analyze a theme to extract literary elements, symbolism, and emotional undertones.
-
-    Args:
-        theme: The theme or concept to analyze (e.g., "loneliness", "redemption", "forbidden love")
-
-    Returns:
-        JSON string containing theme analysis with literary elements
-    """
+    """Deeply analyze a theme to extract literary elements, symbolism, and emotional undertones."""
     logger.info(f"Tool: analyze_theme called with theme='{theme}'")
 
-    # Find matching theme or provide general analysis
     theme_lower = theme.lower()
     matched_theme = None
     for key in THEME_ELEMENTS:
@@ -83,16 +67,7 @@ def analyze_theme(theme: str) -> str:
 
 @tool
 def generate_characters(story_context: str, num_characters: int = 3) -> str:
-    """
-    Generate character profiles based on the story's needs.
-
-    Args:
-        story_context: Brief description of the story's theme and setting
-        num_characters: Number of characters to generate (default 3)
-
-    Returns:
-        JSON string containing character profiles
-    """
+    """Generate character profiles based on the story's needs."""
     logger.info(f"Tool: generate_characters called with context='{story_context}', num={num_characters}")
 
     characters = []
@@ -118,16 +93,7 @@ def generate_characters(story_context: str, num_characters: int = 3) -> str:
 
 @tool
 def create_plot_structure(premise: str, tone: str = "dramatic") -> str:
-    """
-    Create a structured plot outline with rising action, climax, and resolution.
-
-    Args:
-        premise: The basic premise or concept of the story
-        tone: The desired tone (dramatic, hopeful, bittersweet, dark, uplifting)
-
-    Returns:
-        JSON string containing plot structure
-    """
+    """Create a structured plot outline with rising action, climax, and resolution."""
     logger.info(f"Tool: create_plot_structure called with premise='{premise}', tone='{tone}'")
 
     tone_guide = TONE_ELEMENTS.get(tone, TONE_ELEMENTS["dramatic"])
@@ -167,21 +133,11 @@ def create_plot_structure(premise: str, tone: str = "dramatic") -> str:
 
 @tool
 def refine_prose(text: str, style: str = "literary") -> str:
-    """
-    Refine and polish prose for better readability and impact.
-
-    Args:
-        text: The text to refine
-        style: Desired style (literary, minimalist, lyrical, contemporary)
-
-    Returns:
-        JSON string containing prose refinement suggestions
-    """
+    """Refine and polish prose for better readability and impact."""
     logger.info(f"Tool: refine_prose called with style='{style}'")
 
     guide = STYLE_GUIDES.get(style, STYLE_GUIDES["literary"])
 
-    # Analyze the provided text
     word_count = len(text.split())
     sentences = text.count(".") + text.count("!") + text.count("?")
     avg_sentence_length = word_count / max(sentences, 1)
@@ -200,36 +156,16 @@ def refine_prose(text: str, style: str = "literary") -> str:
     return json.dumps(result, ensure_ascii=False)
 
 
-# =============================================================================
-# Deep Think ReAct Agent Implementation
-# =============================================================================
-
-# Define available tools
 tools = [analyze_theme, generate_characters, create_plot_structure, refine_prose]
 tools_by_name = {tool.name: tool for tool in tools}
 
 
 def call_model(state: AgentState, config: RunnableConfig) -> dict:
-    """
-    Call the Gemini model with deep thinking enabled.
-
-    This is the "Thought" and "Action" part of the ReAct loop.
-    The model uses extended thinking to reason deeply before deciding on actions.
-
-    Args:
-        state: Current agent state
-        config: Runtime configuration
-
-    Returns:
-        Updated state with model response
-    """
+    """Call the Gemini model with deep thinking enabled (Thought + Action in ReAct loop)."""
     logger.info("Agent: Calling Gemini model with deep thinking...")
 
-    # Get model from config or use default
     model_name = config.get("configurable", {}).get("model", GeminiModel.GEMINI_2_5_FLASH)
 
-    # Initialize Gemini model with thinking enabled
-    # thinking_budget: number of tokens for reasoning (0-24576)
     model = ChatGoogleGenerativeAI(
         model=model_name,
         temperature=1.0,  # Required for thinking mode
@@ -238,33 +174,19 @@ def call_model(state: AgentState, config: RunnableConfig) -> dict:
     )
     model_with_tools = model.bind_tools(tools)
 
-    # Build messages
     system_message = SystemMessage(content=make_novel_writer_system_prompt())
     messages = [system_message] + list(state["messages"])
 
-    # Call the model
     response = model_with_tools.invoke(messages, config)
     logger.info(f"Agent: Model response received (has_tool_calls={bool(response.tool_calls)})")
 
-    # Update thinking depth counter
     new_depth = state.get("thinking_depth", 0) + 1
 
     return {"messages": [response], "thinking_depth": new_depth}
 
 
 def tool_node(state: AgentState) -> dict:
-    """
-    Execute the tools called by the model.
-
-    This is the "Observation" part of the ReAct loop.
-    The tool results are added to the message history for the model to observe.
-
-    Args:
-        state: Current agent state
-
-    Returns:
-        Updated state with tool results
-    """
+    """Execute tools called by the model (Observation in ReAct loop)."""
     logger.info("Agent: Executing tool calls...")
 
     last_message = state["messages"][-1]
@@ -296,28 +218,15 @@ def tool_node(state: AgentState) -> dict:
 
 
 def should_continue(state: AgentState) -> Literal["tools", "end"]:
-    """
-    Determine whether to continue the ReAct loop or end.
-
-    If the last message has tool calls, continue to execute tools.
-    Otherwise, end the loop (the model has provided the final novel).
-
-    Args:
-        state: Current agent state
-
-    Returns:
-        "tools" to continue or "end" to finish
-    """
+    """Determine whether to continue the ReAct loop or end."""
     messages = state["messages"]
     last_message = messages[-1]
 
-    # Check iteration count to prevent infinite loops
     tool_message_count = sum(1 for m in messages if isinstance(m, ToolMessage))
     if tool_message_count >= MAX_ITERATIONS:
         logger.warning(f"Agent: Max iterations ({MAX_ITERATIONS}) reached, ending loop")
         return "end"
 
-    # If the last message has tool calls, continue to tools
     if isinstance(last_message, AIMessage) and last_message.tool_calls:
         logger.info("Agent: Tool calls detected, continuing to tool execution")
         return "tools"
@@ -327,27 +236,14 @@ def should_continue(state: AgentState) -> Literal["tools", "end"]:
 
 
 def extract_final_novel(state: AgentState) -> dict:
-    """
-    Extract the final novel from the agent's response.
-
-    When include_thoughts=True, message.content is a list containing both
-    thinking content and the actual response.
-
-    Args:
-        state: Current agent state
-
-    Returns:
-        Updated state with final novel
-    """
+    """Extract the final novel from the agent's response."""
     messages = state["messages"]
 
-    # Find the last AI message without tool calls (the final novel)
     for message in reversed(messages):
         if isinstance(message, AIMessage) and not message.tool_calls:
             content = message.content
-            # Handle case where content is a list (when include_thoughts=True)
+            # Handle list content when include_thoughts=True
             if isinstance(content, list):
-                # Extract only the text parts, skip thinking parts
                 text_parts = []
                 for part in content:
                     if isinstance(part, str):
@@ -361,31 +257,17 @@ def extract_final_novel(state: AgentState) -> dict:
 
 
 def create_novel_writer_graph() -> StateGraph:
-    """
-    Create the Deep Think ReAct agent graph for novel generation.
-
-    The graph follows the ReAct pattern with deep thinking:
-    1. Agent (Deep Think + Action): LLM reasons deeply and decides on actions
-    2. Tools (Observation): Execute tools and observe results
-    3. Loop back to Agent until the novel is complete
-
-    Returns:
-        Compiled StateGraph for the novel writer agent
-    """
+    """Create the Deep Think ReAct agent graph for novel generation."""
     logger.info("Creating deep think novel writer agent graph...")
 
-    # Create the graph
     graph = StateGraph(AgentState)
 
-    # Add nodes
     graph.add_node("agent", call_model)
     graph.add_node("tools", tool_node)
     graph.add_node("finalize", extract_final_novel)
 
-    # Set entry point
     graph.set_entry_point("agent")
 
-    # Add conditional edges from agent
     graph.add_conditional_edges(
         "agent",
         should_continue,
@@ -395,10 +277,7 @@ def create_novel_writer_graph() -> StateGraph:
         },
     )
 
-    # Tools always go back to agent
     graph.add_edge("tools", "agent")
-
-    # Finalize goes to END
     graph.add_edge("finalize", END)
 
     logger.info("Novel writer graph created successfully")
@@ -409,20 +288,10 @@ async def run_novel_writer(
     user_request: str,
     model: str = GeminiModel.GEMINI_2_5_FLASH,
 ) -> str | None:
-    """
-    Run the deep think novel writer agent with a user's request.
-
-    Args:
-        user_request: The user's novel request (e.g., "Write a story about finding hope in darkness")
-        model: The Gemini model to use
-
-    Returns:
-        The generated novel or None if failed
-    """
+    """Run the deep think novel writer agent with a user's request."""
     logger.info(f"Starting novel writer for request: {user_request}")
     logger.info(f"Using model: {model}")
 
-    # Create initial state
     initial_state: AgentState = {
         "messages": [("user", make_user_request_prompt(user_request))],
         "user_request": user_request,
@@ -433,7 +302,6 @@ async def run_novel_writer(
         "thinking_depth": 0,
     }
 
-    # Create and run the graph
     graph = create_novel_writer_graph()
     config = RunnableConfig(configurable={"model": model})
 

@@ -5,7 +5,7 @@ import os
 from functools import wraps
 
 import click
-from src.client.llm_client import GeminiModel, LLMProvider, OpenAIModel
+from src.client.llm_client import LLMProvider, OpenAIModel
 from src.logger import make_logger
 from src.service.runner_service import run_parallel_world_article_generation
 
@@ -36,19 +36,11 @@ def async_cmd(func):  # type: ignore
     help="Article language (en: English, ja: Japanese).",
 )
 @click.option(
-    "--llm-provider",
-    "-lp",
-    type=click.Choice([p.value for p in LLMProvider], case_sensitive=False),
-    required=True,
-    default=LLMProvider.GEMINI.value,
-    help="The LLM provider to use (openai or gemini).",
-)
-@click.option(
     "--model",
     "-m",
-    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str(), case_sensitive=False),
+    type=click.Choice(OpenAIModel.list_str(), case_sensitive=False),
     required=True,
-    help="The model to use (e.g., gpt-4o, gemini-2.5-flash).",
+    help="The model to use (e.g., gpt-4o, gpt-4o-mini).",
 )
 @click.option(
     "--output-directory",
@@ -82,7 +74,6 @@ def async_cmd(func):  # type: ignore
 async def main(
     theme: str,
     language: str,
-    llm_provider: str,
     model: str,
     output_directory: str = "outputs",
     num_outline_variants: int = 3,
@@ -100,8 +91,7 @@ async def main(
     5. Review all variants using LLM-as-a-Judge
     6. User selects the best complete article (human-in-the-loop)
     """
-    # Convert string to enum
-    llm_provider_enum = LLMProvider(llm_provider.lower())
+    llm_provider_enum = LLMProvider.OPENAI
 
     click.echo(
         f"""
@@ -112,7 +102,6 @@ async def main(
 Configuration:
   Theme: {theme}
   Language: {language}
-  LLM Provider: {llm_provider_enum.value}
   Model: {model}
   Outline Variants: {num_outline_variants}
   Second Half Variants: {num_second_half_variants}
@@ -120,16 +109,8 @@ Configuration:
 """
     )
 
-    # Validate provider and model combination
-    if llm_provider_enum == LLMProvider.OPENAI and model.lower() not in OpenAIModel.list_str():
-        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider_enum.value}'.")
-    if llm_provider_enum == LLMProvider.GEMINI and model.lower() not in GeminiModel.list_str():
-        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider_enum.value}'.")
-
-    # Create output directory
     os.makedirs(output_directory, exist_ok=True)
 
-    # Run the parallel world article generation workflow
     await run_parallel_world_article_generation(
         theme=theme,
         language=language,  # type: ignore

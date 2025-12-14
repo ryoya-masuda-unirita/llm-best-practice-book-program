@@ -4,10 +4,9 @@ from functools import wraps
 from uuid import uuid4
 
 import click
-
 from src.client.llm_client import GeminiModel
 from src.logger import make_logger
-from src.service.llm_pipeline_service import run_novel_writer
+from src.service.service import run_novel_writer
 
 logger = make_logger(__name__)
 
@@ -75,7 +74,6 @@ Output directory: {output_directory}
 
     os.makedirs(output_directory, exist_ok=True)
 
-    # Run the novel writer deep think agent
     result = await run_novel_writer(
         user_request=request,
         model=model,
@@ -84,7 +82,6 @@ Output directory: {output_directory}
     if result is None:
         raise ValueError("Novel writer failed. Check logs for details.")
 
-    # Save the novel
     base_name = f"novel_{uuid4().hex}"
     md_file_path = os.path.join(output_directory, f"{base_name}.md")
 

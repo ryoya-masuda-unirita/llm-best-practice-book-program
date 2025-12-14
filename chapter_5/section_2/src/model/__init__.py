@@ -1,4 +1,4 @@
-from src.model.llm_pipeline_model import (
+from src.model.model import (
     CHARACTER_TEMPLATES,
     STYLE_GUIDES,
     THEME_ELEMENTS,

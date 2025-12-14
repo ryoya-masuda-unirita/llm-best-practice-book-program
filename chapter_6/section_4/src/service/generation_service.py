@@ -2,10 +2,9 @@ import asyncio
 from typing import Any, Literal
 from uuid import uuid4
 
-from google.genai.types import GenerateContentConfig
-from src.client.llm_client import LLMProvider, google_genai_client, openai_client
+from src.client.llm_client import LLMProvider, openai_client
 from src.logger import make_logger
-from src.model.parallel_world_model import (
+from src.model.model import (
     ArticleHalf,
     ArticleOutline,
     ArticleReview,
@@ -13,7 +12,7 @@ from src.model.parallel_world_model import (
     ParallelSession,
     ParallelWorldState,
 )
-from src.prompt.parallel_world_prompt import (
+from src.prompt.prompt import (
     make_article_review_system_instruction,
     make_choose_best_first_half_system_instruction,
     make_first_half_generation_system_instruction,
@@ -44,25 +43,6 @@ async def _generate_with_openai(
     return result.choices[0].message.parsed
 
 
-async def _generate_with_gemini(
-    system_instruction: str,
-    user_content: str,
-    response_schema: type,
-    model: str,
-) -> Any:
-    """Generic Gemini generation helper."""
-    result = await google_genai_client.aio.models.generate_content(
-        model=model,
-        contents=user_content,
-        config=GenerateContentConfig(
-            system_instruction=system_instruction,
-            response_mime_type="application/json",
-            response_schema=response_schema,
-        ),
-    )
-    return result.parsed
-
-
 async def generate_outline(
     theme: str,
     language: Literal["en", "ja"],
@@ -72,14 +52,11 @@ async def generate_outline(
     """Generate article outline using specified LLM provider."""
     system_instruction, user_content = make_outline_generation_system_instruction(theme, language)
     try:
-        if provider == LLMProvider.OPENAI:
-            prompt = [
-                {"role": "system", "content": system_instruction},
-                {"role": "user", "content": user_content},
-            ]
-            return await _generate_with_openai(prompt, ArticleOutline, model)
-        else:  # Gemini
-            return await _generate_with_gemini(system_instruction, user_content, ArticleOutline, model)
+        prompt = [
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": user_content},
+        ]
+        return await _generate_with_openai(prompt, ArticleOutline, model)
     except Exception as e:
         logger.error(f"Failed to generate outline with {provider.value}: {e}")
         return None
@@ -94,16 +71,12 @@ async def generate_first_half(
     """Generate first half of article using specified LLM provider."""
     system_instruction, user_content = make_first_half_generation_system_instruction(outline, language)
     try:
-        if provider == LLMProvider.OPENAI:
-            prompt = [
-                {"role": "system", "content": system_instruction},
-                {"role": "user", "content": user_content},
-            ]
-            result = await _generate_with_openai(prompt, ArticleHalf, model)
-            return result
-        else:  # Gemini
-            result = await _generate_with_gemini(system_instruction, user_content, ArticleHalf, model)
-            return result
+        prompt = [
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": user_content},
+        ]
+        result = await _generate_with_openai(prompt, ArticleHalf, model)
+        return result
     except Exception as e:
         logger.error(f"Failed to generate first half with {provider.value}: {e}")
         return None
@@ -120,18 +93,26 @@ async def choose_best_first_half(
     first_halves = {uuid4().hex: candidate for candidate in first_half_candidates}
     system_instruction, user_content = make_choose_best_first_half_system_instruction(outline, first_halves, language)
     try:
-        if provider == LLMProvider.OPENAI:
-            prompt = [
-                {"role": "system", "content": system_instruction},
-                {"role": "user", "content": user_content},
-            ]
-            result = await _generate_with_openai(prompt, BestArticleSelection, model)
-            return first_halves[result.selected_id]
-        else:  # Gemini
-            result = await _generate_with_gemini(system_instruction, user_content, BestArticleSelection, model)
-            return first_halves[result.selected_id]
+        prompt = [
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": user_content},
+        ]
+        result = await _generate_with_openai(prompt, BestArticleSelection, model)
+
+        # Validate that the selected_id is one of the valid options
+        if result.selected_id not in first_halves:
+            valid_ids = list(first_halves.keys())
+            logger.error(
+                f"LLM returned invalid selected_id: '{result.selected_id}'. "
+                f"Valid IDs were: {valid_ids}"
+            )
+            # Fallback: return the first candidate if the LLM returned an invalid ID
+            logger.warning("Falling back to first candidate due to invalid selection")
+            return first_half_candidates[0] if first_half_candidates else None
+
+        return first_halves[result.selected_id]
     except Exception as e:
-        logger.error(f"Failed to generate first half with {provider.value}: {e}")
+        logger.error(f"Failed to choose best first half with {provider.value}: {e}")
         return None
 
 
@@ -145,16 +126,12 @@ async def generate_second_half(
     """Generate second half of article using specified LLM provider."""
     system_instruction, user_content = make_second_half_generation_system_instruction(outline, first_half, language)
     try:
-        if provider == LLMProvider.OPENAI:
-            prompt = [
-                {"role": "system", "content": system_instruction},
-                {"role": "user", "content": user_content},
-            ]
-            result = await _generate_with_openai(prompt, ArticleHalf, model)
-            return result.content
-        else:  # Gemini
-            result = await _generate_with_gemini(system_instruction, user_content, ArticleHalf, model)
-            return result.content
+        prompt = [
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": user_content},
+        ]
+        result = await _generate_with_openai(prompt, ArticleHalf, model)
+        return result.content
     except Exception as e:
         logger.error(f"Failed to generate second half with {provider.value}: {e}")
         return None
@@ -170,14 +147,11 @@ async def review_article(
     """Review article using LLM-as-a-Judge with specified provider."""
     system_instruction, user_content = make_article_review_system_instruction(theme, outline, full_article)
     try:
-        if provider == LLMProvider.OPENAI:
-            prompt = [
-                {"role": "system", "content": system_instruction},
-                {"role": "user", "content": user_content},
-            ]
-            return await _generate_with_openai(prompt, ArticleReview, model)
-        else:  # Gemini
-            return await _generate_with_gemini(system_instruction, user_content, ArticleReview, model)
+        prompt = [
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": user_content},
+        ]
+        return await _generate_with_openai(prompt, ArticleReview, model)
     except Exception as e:
         logger.error(f"Failed to review article with {provider.value}: {e}")
         return None
@@ -191,34 +165,17 @@ async def regenerate_second_half(
     provider: LLMProvider,
     previous_attempts: list[tuple[str, ArticleReview]],
 ) -> str | None:
-    """
-    Regenerate second half based on previous feedback.
-
-    Args:
-        outline: Article outline
-        first_half: First half content
-        language: Target language
-        model: Model name
-        provider: LLM provider
-        previous_attempts: List of (second_half_content, review) from rejected attempts
-
-    Returns:
-        New second half content or None if failed
-    """
+    """Regenerate second half based on previous feedback."""
     system_instruction, user_content = make_second_half_regeneration_system_instruction(
         outline, first_half, language, previous_attempts
     )
     try:
-        if provider == LLMProvider.OPENAI:
-            prompt = [
-                {"role": "system", "content": system_instruction},
-                {"role": "user", "content": user_content},
-            ]
-            result = await _generate_with_openai(prompt, ArticleHalf, model)
-            return result.content
-        else:  # Gemini
-            result = await _generate_with_gemini(system_instruction, user_content, ArticleHalf, model)
-            return result.content
+        prompt = [
+            {"role": "system", "content": system_instruction},
+            {"role": "user", "content": user_content},
+        ]
+        result = await _generate_with_openai(prompt, ArticleHalf, model)
+        return result.content
     except Exception as e:
         logger.error(f"Failed to regenerate second half with {provider.value}: {e}")
         return None
@@ -245,7 +202,6 @@ async def generate_multiple_outlines_node(
     """
     logger.info(f"Generating {state['num_outline_variants']} parallel outline variants for theme: {state['theme']}")
 
-    # Generate multiple outlines in parallel
     tasks = [
         generate_outline(
             state["theme"],
@@ -257,7 +213,6 @@ async def generate_multiple_outlines_node(
     ]
     outlines = await asyncio.gather(*tasks)
 
-    # Create parallel sessions for each outline
     outline_sessions = []
     for i, outline in enumerate(outlines):
         if outline:
@@ -290,7 +245,6 @@ async def generate_first_half_node(state: ParallelWorldState) -> ParallelWorldSt
     if not selected_id:
         return return_error_state(state, "No outline selected for first half generation")
 
-    # Find the selected session
     selected_session = next((s for s in state["outline_sessions"] if s.session_id == selected_id), None)
 
     if not selected_session or not selected_session.outline:
@@ -298,7 +252,6 @@ async def generate_first_half_node(state: ParallelWorldState) -> ParallelWorldSt
         logger.error(error_msg)
         return {**state, "error": error_msg}
 
-    # Generate first half
     tasks = [
         generate_first_half(
             selected_session.outline,
@@ -326,7 +279,6 @@ async def generate_first_half_node(state: ParallelWorldState) -> ParallelWorldSt
 
     logger.info(f"Successfully generated first half ({len(best_first_half.content)} characters)")
 
-    # Create new session with first half
     first_half_session = ParallelSession(
         parent_session_id=selected_session.session_id,
         outline=selected_session.outline,
@@ -355,7 +307,6 @@ async def generate_multiple_second_halves_node(
     if not first_half_session or not first_half_session.outline or not first_half_session.first_half:
         return return_error_state(state, "No first half session available for second half generation")
 
-    # Generate multiple second halves in parallel
     tasks = [
         generate_second_half(
             first_half_session.outline,
@@ -368,7 +319,6 @@ async def generate_multiple_second_halves_node(
     ]
     second_halves = await asyncio.gather(*tasks)
 
-    # Create parallel sessions for each second half
     second_half_sessions = []
     for i, second_half in enumerate(second_halves):
         if second_half:
@@ -404,7 +354,6 @@ async def review_all_articles_node(state: ParallelWorldState) -> ParallelWorldSt
     if not second_half_sessions:
         return return_error_state(state, "No second half sessions available for review")
 
-    # Review all articles in parallel
     tasks = []
     sessions_to_review = []
 
@@ -423,7 +372,6 @@ async def review_all_articles_node(state: ParallelWorldState) -> ParallelWorldSt
 
     reviews = await asyncio.gather(*tasks)
 
-    # Create reviewed sessions
     reviewed_sessions = []
     for session, review in zip(sessions_to_review, reviews):
         if review:
@@ -468,7 +416,6 @@ async def regenerate_second_halves_after_rejection_node(
     if not first_half_session or not first_half_session.outline or not first_half_session.first_half:
         return return_error_state(state, "No first half session available for regeneration")
 
-    # Collect previous rejected attempts for feedback
     rejected_ids = state.get("rejected_session_ids", [])
     reviewed_sessions = state.get("reviewed_sessions", [])
 
@@ -479,7 +426,6 @@ async def regenerate_second_halves_after_rejection_node(
 
     logger.info(f"Using feedback from {len(previous_attempts)} previous attempt(s)")
 
-    # Generate multiple new second halves in parallel, all with feedback
     tasks = [
         regenerate_second_half(
             first_half_session.outline,
@@ -493,7 +439,6 @@ async def regenerate_second_halves_after_rejection_node(
     ]
     second_halves = await asyncio.gather(*tasks)
 
-    # Create parallel sessions for each regenerated second half
     new_second_half_sessions = []
     for i, second_half in enumerate(second_halves):
         if second_half:

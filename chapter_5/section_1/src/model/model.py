@@ -5,16 +5,7 @@ from langgraph.graph.message import add_messages
 from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import TypedDict
 
-# =============================================================================
-# Constants
-# =============================================================================
-
-# Maximum number of agent iterations to prevent infinite loops
 MAX_ITERATIONS = 10
-
-# =============================================================================
-# Recipe Data
-# =============================================================================
 
 RECIPES_DATABASE: dict[str, list[dict]] = {
     "Japanese": [
@@ -43,10 +34,6 @@ RECIPES_DATABASE: dict[str, list[dict]] = {
     ],
 }
 
-# =============================================================================
-# Nutrition Data
-# =============================================================================
-
 NUTRITION_DATABASE: dict[str, dict[str, int]] = {
     "鶏の照り焼き": {"calories": 350, "protein": 28, "carbs": 15, "fat": 18, "fiber": 1},
     "豚の生姜焼き": {"calories": 380, "protein": 25, "carbs": 12, "fat": 22, "fiber": 1},
@@ -58,10 +45,6 @@ NUTRITION_DATABASE: dict[str, dict[str, int]] = {
 }
 
 DEFAULT_NUTRITION: dict[str, int] = {"calories": 400, "protein": 20, "carbs": 40, "fat": 15, "fiber": 3}
-
-# =============================================================================
-# Seasonal Ingredients Data
-# =============================================================================
 
 SEASONAL_INGREDIENTS: dict[str, dict[str, list[str]]] = {
     "spring": {
@@ -103,10 +86,6 @@ MONTH_TO_SEASON: dict[int, str] = {
 
 SEASON_TO_JAPANESE: dict[str, str] = {"spring": "春", "summer": "夏", "fall": "秋", "winter": "冬"}
 
-# =============================================================================
-# Cooking Time Data
-# =============================================================================
-
 BASE_COOKING_TIMES: dict[str, dict[str, int]] = {
     "鶏の照り焼き": {"prep": 10, "cook": 15},
     "豚の生姜焼き": {"prep": 10, "cook": 10},
@@ -121,11 +100,6 @@ BASE_COOKING_TIMES: dict[str, dict[str, int]] = {
 DEFAULT_COOKING_TIMES: dict[str, int] = {"prep": 15, "cook": 20}
 
 SKILL_LEVEL_MULTIPLIERS: dict[str, float] = {"beginner": 1.5, "intermediate": 1.0, "advanced": 0.8}
-
-
-# =============================================================================
-# Type Definitions
-# =============================================================================
 
 
 class DinnerRecommendation(BaseModel):

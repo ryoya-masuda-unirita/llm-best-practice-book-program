@@ -66,10 +66,6 @@ class NovelResult(BaseModel):
 """
 
 
-# =============================================================================
-# Tool Data: Theme Analysis Elements
-# =============================================================================
-
 THEME_ELEMENTS: dict[str, dict] = {
     "loneliness": {
         "emotional_core": "Isolation and longing for connection",
@@ -114,10 +110,6 @@ THEME_ELEMENTS: dict[str, dict] = {
 }
 
 
-# =============================================================================
-# Tool Data: Character Templates
-# =============================================================================
-
 CHARACTER_TEMPLATES: list[dict] = [
     {
         "role": "protagonist",
@@ -149,10 +141,6 @@ CHARACTER_TEMPLATES: list[dict] = [
     },
 ]
 
-
-# =============================================================================
-# Tool Data: Plot Tone Elements
-# =============================================================================
 
 TONE_ELEMENTS: dict[str, dict[str, str]] = {
     "dramatic": {
@@ -187,10 +175,6 @@ TONE_ELEMENTS: dict[str, dict[str, str]] = {
     },
 }
 
-
-# =============================================================================
-# Tool Data: Prose Style Guides
-# =============================================================================
 
 STYLE_GUIDES: dict[str, dict[str, list[str]]] = {
     "literary": {

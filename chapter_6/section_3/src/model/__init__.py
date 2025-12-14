@@ -1,4 +1,4 @@
-from src.model.parallel_world_model import (
+from src.model.model import (
     ArticleHalf,
     ArticleOutline,
     ArticleReview,

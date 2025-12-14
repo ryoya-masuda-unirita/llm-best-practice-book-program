@@ -1,4 +1,4 @@
-from src.model.llm_pipeline_model import (
+from src.model.model import (
     BASE_COOKING_TIMES,
     DEFAULT_COOKING_TIMES,
     DEFAULT_NUTRITION,

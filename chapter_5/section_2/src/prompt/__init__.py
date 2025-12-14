@@ -1,4 +1,4 @@
-from src.prompt.llm_pipeline_prompt import (
+from src.prompt.prompt import (
     CHARACTER_RELATIONSHIP_TIPS,
     PROSE_GENERAL_SUGGESTIONS,
     THEME_WRITING_TIPS_DEFAULT,

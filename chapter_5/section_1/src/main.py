@@ -7,7 +7,7 @@ import click
 
 from src.client.llm_client import OpenAIModel
 from src.logger import make_logger
-from src.service.llm_pipeline_service import run_dinner_advisor
+from src.service.service import run_dinner_advisor
 
 logger = make_logger(__name__)
 
@@ -75,7 +75,6 @@ Output directory: {output_directory}
 
     os.makedirs(output_directory, exist_ok=True)
 
-    # Run the dinner advisor ReAct agent
     recommendation = await run_dinner_advisor(
         user_request=request,
         model=model,
@@ -84,7 +83,6 @@ Output directory: {output_directory}
     if recommendation is None:
         raise ValueError("Dinner advisor failed. Check logs for details.")
 
-    # Save the recommendation as markdown
     base_name = f"dinner_recommendation_{uuid4().hex}"
     md_file_path = os.path.join(output_directory, f"{base_name}.md")
 

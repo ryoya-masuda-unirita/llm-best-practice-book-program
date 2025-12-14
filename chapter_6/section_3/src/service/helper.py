@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import click
 from src.logger import make_logger
-from src.model.parallel_world_model import (
+from src.model.model import (
     ArticleReview,
     CompletedArticle,
     ParallelSession,
@@ -13,34 +13,19 @@ from src.model.parallel_world_model import (
 logger = make_logger(__name__)
 
 
-# =============================================================================
-# Display Utilities
-# =============================================================================
-
-
 def print_separator() -> None:
     """Print a visual separator for terminal output."""
     click.echo("\n" + "=" * 80 + "\n")
 
 
 def print_article_preview(article_content: str) -> None:
-    """
-    Print a preview of article content.
-
-    Args:
-        article_content: Full article text
-    """
+    """Print a preview of article content."""
     lines = article_content.split("\n")
     click.echo("\n".join(lines))
 
 
 def display_outlines(outline_sessions: list[ParallelSession]) -> None:
-    """
-    Display all outline variants to the user.
-
-    Args:
-        outline_sessions: List of sessions containing outlines
-    """
+    """Display all outline variants to the user."""
     for i, session in enumerate(outline_sessions, 1):
         outline = session.outline
         if outline:
@@ -54,12 +39,7 @@ def display_outlines(outline_sessions: list[ParallelSession]) -> None:
 
 
 def display_reviews(reviewed_sessions: list[ParallelSession]) -> None:
-    """
-    Display all reviewed articles with their grades to the user.
-
-    Args:
-        reviewed_sessions: List of sessions with reviews
-    """
+    """Display all reviewed articles with their grades to the user."""
     for i, session in enumerate(reviewed_sessions, 1):
         review = session.review
         if review:
@@ -79,22 +59,8 @@ def display_reviews(reviewed_sessions: list[ParallelSession]) -> None:
                 print_article_preview(session.second_half)
 
 
-# =============================================================================
-# User Input Utilities
-# =============================================================================
-
-
 def get_outline_selection(outline_sessions: list[ParallelSession], auto_select: bool) -> int:
-    """
-    Get user's outline selection or auto-select the first one.
-
-    Args:
-        outline_sessions: Available outline sessions
-        auto_select: Whether to automatically select without user input
-
-    Returns:
-        Index of selected outline (0-based)
-    """
+    """Get user's outline selection or auto-select the first one."""
     if auto_select:
         selected_idx = 0
         click.echo("\n🤖 Auto-selected: Variant 1")
@@ -112,18 +78,8 @@ def get_outline_selection(outline_sessions: list[ParallelSession], auto_select: 
 
 
 def get_final_article_selection(reviewed_sessions: list[ParallelSession], auto_select: bool) -> int:
-    """
-    Get user's final article selection or auto-select the highest graded one.
-
-    Args:
-        reviewed_sessions: Available reviewed sessions
-        auto_select: Whether to automatically select without user input
-
-    Returns:
-        Index of selected article (0-based)
-    """
+    """Get user's final article selection or auto-select the highest graded one."""
     if auto_select:
-        # Select highest graded article
         best_idx = max(
             range(len(reviewed_sessions)),
             key=lambda i: reviewed_sessions[i].review.grade if reviewed_sessions[i].review else 0,
@@ -143,18 +99,8 @@ def get_final_article_selection(reviewed_sessions: list[ParallelSession], auto_s
 
 
 def get_human_approval(completed_article: CompletedArticle, auto_select: bool) -> bool:
-    """
-    Get user's approval (yes/no) for the selected article.
-
-    Args:
-        completed_article: The selected complete article
-        auto_select: Whether to automatically approve without user interaction
-
-    Returns:
-        True if approved, False if rejected (needs revision)
-    """
+    """Get user's approval (yes/no) for the selected article."""
     if auto_select:
-        # Auto-approve if grade is 4 or higher
         if completed_article.review and completed_article.review.grade >= 4:
             click.echo("\n🤖 Auto-approved: Article grade is 4 or higher")
             return True
@@ -162,7 +108,6 @@ def get_human_approval(completed_article: CompletedArticle, auto_select: bool) -
             click.echo("\n🤖 Auto-rejected: Article grade is below 4")
             return False
 
-    # Show article preview
     click.echo("\n📝 Selected Article Preview:")
     click.echo(f"Title: {completed_article.outline.title}")
     if completed_article.review:
@@ -185,18 +130,8 @@ def get_human_approval(completed_article: CompletedArticle, auto_select: bool) -
 
 
 def get_rollback_choice(available_phases: list[tuple[int, str]], auto_select: bool) -> int | None:
-    """
-    Ask user if they want to rollback to a previous phase.
-
-    Args:
-        available_phases: List of (phase_number, phase_name) tuples
-        auto_select: Whether to auto-select (skip rollback in auto mode)
-
-    Returns:
-        Phase number to rollback to, or None to continue without rollback
-    """
+    """Ask user if they want to rollback to a previous phase."""
     if auto_select:
-        # In auto mode, never rollback
         return None
 
     if not available_phases:
@@ -231,40 +166,22 @@ def get_rollback_choice(available_phases: list[tuple[int, str]], auto_select: bo
             return None
 
 
-# =============================================================================
-# File Output Utilities
-# =============================================================================
-
-
 def save_article_files(
     completed_article: CompletedArticle,
     reviewed_sessions: list[ParallelSession],
     language: Literal["en", "ja"],
     output_directory: str,
 ) -> tuple[str, str, str]:
-    """
-    Save article files to disk.
-
-    Args:
-        completed_article: The selected complete article
-        reviewed_sessions: All reviewed sessions (for variants)
-        language: Article language
-        output_directory: Directory to save files
-
-    Returns:
-        Tuple of (json_path, md_path, variants_dir)
-    """
+    """Save article files to disk."""
     base_name = f"parallel_world_article_{uuid4().hex}"
     output_dir = os.path.join(output_directory, base_name)
     os.makedirs(output_dir, exist_ok=True)
     json_path = os.path.join(output_dir, f"{base_name}.json")
     md_path = os.path.join(output_dir, f"{base_name}.md")
 
-    # Save selected article
     completed_article.save_as_json(json_path)
     completed_article.save_as_markdown(md_path)
 
-    # Save all variants for comparison
     variants_dir = os.path.join(output_dir, "all_variants")
     os.makedirs(variants_dir, exist_ok=True)
 

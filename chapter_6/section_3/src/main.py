@@ -5,7 +5,7 @@ import os
 from functools import wraps
 
 import click
-from src.client.llm_client import GeminiModel, LLMProvider, OpenAIModel
+from src.client.llm_client import GeminiModel, LLMProvider, google_genai_client
 from src.logger import make_logger
 from src.service.runner_service import run_parallel_world_article_generation
 
@@ -36,19 +36,11 @@ def async_cmd(func):  # type: ignore
     help="Article language (en: English, ja: Japanese).",
 )
 @click.option(
-    "--llm-provider",
-    "-lp",
-    type=click.Choice([p.value for p in LLMProvider], case_sensitive=False),
-    required=True,
-    default=LLMProvider.GEMINI.value,
-    help="The LLM provider to use (openai or gemini).",
-)
-@click.option(
     "--model",
     "-m",
-    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str(), case_sensitive=False),
+    type=click.Choice(GeminiModel.list_str(), case_sensitive=False),
     required=True,
-    help="The model to use (e.g., gpt-4o, gemini-2.5-flash).",
+    help="The model to use (e.g., gemini-2.5-flash).",
 )
 @click.option(
     "--output-directory",
@@ -82,27 +74,13 @@ def async_cmd(func):  # type: ignore
 async def main(
     theme: str,
     language: str,
-    llm_provider: str,
     model: str,
     output_directory: str = "outputs",
     num_outline_variants: int = 3,
     num_second_half_variants: int = 3,
     auto_select: bool = False,
 ) -> None:
-    """
-    Generate an article using parallel world pattern with human-in-the-loop.
-
-    This tool implements the parallel world pattern described in CLAUDE.md:
-    1. Generate multiple outline variants in parallel
-    2. User selects the best outline (human-in-the-loop)
-    3. Generate first half based on selected outline
-    4. Generate multiple second half variants in parallel
-    5. Review all variants using LLM-as-a-Judge
-    6. User selects the best complete article (human-in-the-loop)
-    """
-    # Convert string to enum
-    llm_provider_enum = LLMProvider(llm_provider.lower())
-
+    """Generate an article using parallel world pattern with human-in-the-loop."""
     click.echo(
         f"""
 ╔════════════════════════════════════════════════════════════════════════════╗
@@ -112,7 +90,7 @@ async def main(
 Configuration:
   Theme: {theme}
   Language: {language}
-  LLM Provider: {llm_provider_enum.value}
+  LLM Provider: {LLMProvider.GEMINI.value}
   Model: {model}
   Outline Variants: {num_outline_variants}
   Second Half Variants: {num_second_half_variants}
@@ -120,20 +98,15 @@ Configuration:
 """
     )
 
-    # Validate provider and model combination
-    if llm_provider_enum == LLMProvider.OPENAI and model.lower() not in OpenAIModel.list_str():
-        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider_enum.value}'.")
-    if llm_provider_enum == LLMProvider.GEMINI and model.lower() not in GeminiModel.list_str():
-        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider_enum.value}'.")
+    if model.lower() not in GeminiModel.list_str():
+        raise ValueError(f"Invalid model '{model}' for provider '{LLMProvider.GEMINI.value}'.")
 
-    # Create output directory
     os.makedirs(output_directory, exist_ok=True)
 
-    # Run the parallel world article generation workflow
     await run_parallel_world_article_generation(
         theme=theme,
         language=language,  # type: ignore
-        llm_provider=llm_provider_enum,
+        llm_provider=LLMProvider.GEMINI,
         model=model.lower(),
         output_directory=output_directory,
         num_outline_variants=num_outline_variants,
@@ -141,6 +114,7 @@ Configuration:
         auto_select=auto_select,
     )
 
+    await google_genai_client.aio.aclose()
 
 if __name__ == "__main__":
     main()

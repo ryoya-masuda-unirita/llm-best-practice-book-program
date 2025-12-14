@@ -1,21 +1,11 @@
-"""
-Runner Service for Parallel World Article Generation.
-
-This module orchestrates the AI agent pipeline with human-in-the-loop interactions.
-It handles:
-- User interface and interactions (display, input)
-- Pipeline orchestration and phase management
-- File output and saving
-
-For the core AI agent pipeline logic, see parallel_world_service.py
-"""
+"""Runner Service for Parallel World Article Generation."""
 
 from typing import Literal
 
 import click
 from src.client.llm_client import LLMProvider
 from src.logger import make_logger
-from src.model.parallel_world_model import (
+from src.model.model import (
     CompletedArticle,
     ParallelWorldState,
 )
@@ -41,23 +31,8 @@ from src.service.helper import (
 logger = make_logger(__name__)
 
 
-# =============================================================================
-# State-Based Phase Detection and Rollback Functions
-# =============================================================================
-
-
 def get_current_phase(state: ParallelWorldState) -> int:
-    """
-    Determine the current phase based on which state variables are populated.
-
-    The state itself serves as memory - presence of variables indicates completion.
-
-    Args:
-        state: Current pipeline state
-
-    Returns:
-        Current phase number (0-7)
-    """
+    """Determine the current phase based on which state variables are populated."""
     if state.get("human_approved") is not None:
         return 7
     elif state.get("final_selected_session_id") is not None:
@@ -92,25 +67,9 @@ def get_phase_name(phase: int) -> str:
 
 
 def forget_phases_after(state: ParallelWorldState, target_phase: int) -> ParallelWorldState:
-    """
-    Implement "forgetting the past" by removing state variables after target phase.
-
-    This is the core of the rollback mechanism - we simply delete the state
-    variables that represent later phases, causing the pipeline to regenerate
-    them from scratch.
-
-    Args:
-        state: Current pipeline state
-        target_phase: Phase to rollback to (keep this and earlier)
-
-    Returns:
-        Updated state with future phases forgotten
-    """
+    """Remove state variables after target phase to implement rollback."""
     click.echo(f"\n🔄 Rolling back to Phase {target_phase}: {get_phase_name(target_phase)}")
     click.echo("   Forgetting all subsequent phases...\n")
-
-    # Remove state variables based on target phase
-    # Keep everything up to and including target phase, remove everything after
 
     if target_phase < 7:
         state.pop("human_approved", None)
@@ -142,7 +101,6 @@ def forget_phases_after(state: ParallelWorldState, target_phase: int) -> Paralle
         state.pop("outline_sessions", None)
         logger.info("Forgot Phase 1: Outlines")
 
-    # Clear error state when rolling back
     state.pop("error", None)
 
     click.echo(f"✅ Rolled back to Phase {target_phase}. Forgotten phases will be regenerated.\n")
@@ -151,15 +109,7 @@ def forget_phases_after(state: ParallelWorldState, target_phase: int) -> Paralle
 
 
 def get_available_rollback_phases(state: ParallelWorldState) -> list[tuple[int, str]]:
-    """
-    Get list of available phases to rollback to.
-
-    Args:
-        state: Current pipeline state
-
-    Returns:
-        List of (phase_number, phase_name) tuples
-    """
+    """Get list of available phases to rollback to."""
     current_phase = get_current_phase(state)
     available = []
 
@@ -169,21 +119,8 @@ def get_available_rollback_phases(state: ParallelWorldState) -> list[tuple[int, 
     return available
 
 
-# =============================================================================
-# Phase Functions
-# =============================================================================
-
-
 async def generate_outlines(state: ParallelWorldState) -> ParallelWorldState:
-    """
-    Phase 1: Generate multiple outline variants in parallel.
-
-    Args:
-        state: Current pipeline state
-
-    Returns:
-        Updated state with outline_sessions populated
-    """
+    """Phase 1: Generate multiple outline variants in parallel."""
     print_separator()
     click.echo("🌍 PHASE 1: Generating Multiple Outline Variants (Parallel World Branching)")
     click.echo(f"Creating {state['num_outline_variants']} different article outlines in parallel...")
@@ -200,16 +137,7 @@ async def generate_outlines(state: ParallelWorldState) -> ParallelWorldState:
 
 
 async def select_outline(state: ParallelWorldState, auto_select: bool) -> ParallelWorldState:
-    """
-    Phase 2: Human selects preferred outline.
-
-    Args:
-        state: Current pipeline state
-        auto_select: Whether to auto-select without user input
-
-    Returns:
-        Updated state with selected_outline_session_id set
-    """
+    """Phase 2: Human selects preferred outline."""
     print_separator()
     click.echo("👤 PHASE 2: Human-in-the-Loop - Select Your Preferred Outline")
 
@@ -229,15 +157,7 @@ async def select_outline(state: ParallelWorldState, auto_select: bool) -> Parall
 
 
 async def generate_first_half(state: ParallelWorldState) -> ParallelWorldState:
-    """
-    Phase 3: Generate first half of article based on selected outline.
-
-    Args:
-        state: Current pipeline state
-
-    Returns:
-        Updated state with first_half_session populated
-    """
+    """Phase 3: Generate first half of article based on selected outline."""
     print_separator()
     click.echo("📝 PHASE 3: Generating First Half of Article")
 
@@ -257,15 +177,7 @@ async def generate_first_half(state: ParallelWorldState) -> ParallelWorldState:
 
 
 async def generate_second_halves(state: ParallelWorldState) -> ParallelWorldState:
-    """
-    Phase 4: Generate multiple second half variants in parallel.
-
-    Args:
-        state: Current pipeline state
-
-    Returns:
-        Updated state with second_half_sessions populated
-    """
+    """Phase 4: Generate multiple second half variants in parallel."""
     print_separator()
     click.echo("🌍 PHASE 4: Generating Multiple Second Half Variants (Parallel World Branching)")
     click.echo(f"Creating {state['num_second_half_variants']} different endings in parallel...")
@@ -283,15 +195,7 @@ async def generate_second_halves(state: ParallelWorldState) -> ParallelWorldStat
 
 
 async def review_articles(state: ParallelWorldState) -> ParallelWorldState:
-    """
-    Phase 5: Review all complete articles with LLM-as-a-Judge.
-
-    Args:
-        state: Current pipeline state
-
-    Returns:
-        Updated state with reviewed_sessions populated
-    """
+    """Phase 5: Review all complete articles with LLM-as-a-Judge."""
     print_separator()
     click.echo("⚖️  PHASE 5: Reviewing All Articles with LLM-as-a-Judge")
 
@@ -312,17 +216,7 @@ def select_final_article(
     auto_select: bool,
     iteration: int,
 ) -> tuple[ParallelWorldState, CompletedArticle | None]:
-    """
-    Phase 6: Human selects their preferred final article from reviewed sessions.
-
-    Args:
-        state: Current pipeline state
-        auto_select: Whether to auto-select without user input
-        iteration: Current iteration number
-
-    Returns:
-        Tuple of (updated_state, completed_article or None if failed)
-    """
+    """Phase 6: Human selects their preferred final article from reviewed sessions."""
     print_separator()
     click.echo(f"👤 PHASE 6: Human-in-the-Loop - Select Your Preferred Article (Iteration {iteration})")
 
@@ -337,7 +231,6 @@ def select_final_article(
     final_session = reviewed_sessions[best_idx]
     state["final_selected_session_id"] = final_session.session_id
 
-    # Create completed article for approval
     completed_article = final_session.to_completed_article(state["language"])
 
     if not completed_article:
@@ -352,17 +245,7 @@ def approve_article(
     completed_article: CompletedArticle,
     auto_select: bool,
 ) -> tuple[ParallelWorldState, bool]:
-    """
-    Phase 7: Get human approval or rejection for selected article.
-
-    Args:
-        state: Current pipeline state
-        completed_article: The article to approve or reject
-        auto_select: Whether to auto-approve based on grade
-
-    Returns:
-        Tuple of (updated_state, approval_status)
-    """
+    """Phase 7: Get human approval or rejection for selected article."""
     print_separator()
     click.echo("✅ PHASE 7: Human-in-the-Loop - Approve or Reject Article")
 
@@ -381,17 +264,7 @@ async def regenerate_and_review(
     state: ParallelWorldState,
     iteration: int,
 ) -> ParallelWorldState:
-    """
-    Phase 8: Regenerate second halves with feedback and re-review all articles.
-
-    Args:
-        state: Current pipeline state
-        iteration: Current iteration number
-
-    Returns:
-        Updated state with regenerated and re-reviewed sessions
-    """
-    # Track rejected session
+    """Phase 8: Regenerate second halves with feedback and re-review all articles."""
     rejected_session_ids = state.get("rejected_session_ids", [])
 
     final_session_id = state.get("final_selected_session_id")
@@ -401,7 +274,6 @@ async def regenerate_and_review(
 
     state["review_loop_iteration"] = iteration
 
-    # Regenerate second halves with feedback
     print_separator()
     click.echo(f"🔄 PHASE 8: Regenerating Second Half Variants (Iteration {iteration})")
     click.echo(f"Using feedback from {len(rejected_session_ids)} rejected attempt(s)...")
@@ -415,7 +287,6 @@ async def regenerate_and_review(
     second_half_sessions = state.get("second_half_sessions", [])
     click.echo(f"✅ Regenerated {len(second_half_sessions)} second half variants")
 
-    # Review regenerated articles
     print_separator()
     click.echo("⚖️  Re-reviewing Articles with LLM-as-a-Judge")
 
@@ -436,22 +307,7 @@ async def review_loop(
     auto_select: bool,
     max_iterations: int = 5,
 ) -> tuple[ParallelWorldState, CompletedArticle | None, bool, int]:
-    """
-    Phase 6-8: Review loop - select article, get approval, regenerate if rejected.
-
-    This phase combines:
-    - Phase 6: Human selects final article
-    - Phase 7: Human approves/rejects article
-    - Phase 8: Regenerate second halves if rejected
-
-    Args:
-        state: Current pipeline state
-        auto_select: Whether to auto-select without user input
-        max_iterations: Maximum number of review iterations
-
-    Returns:
-        Tuple of (updated_state, final_article, human_approved, iteration_count)
-    """
+    """Phase 6-8: Review loop - select article, get approval, regenerate if rejected."""
     iteration = state.get("review_loop_iteration", 0)
     human_approved = False
     final_completed_article = None
@@ -459,26 +315,22 @@ async def review_loop(
     while not human_approved and iteration < max_iterations:
         iteration += 1
 
-        # Phase 6: Select final article
         state, completed_article = select_final_article(state, auto_select, iteration)
 
         if not completed_article:
             return state, None, False, iteration
 
-        # Phase 7: Get human approval
         state, human_approved = approve_article(state, completed_article, auto_select)
 
         if human_approved:
             final_completed_article = completed_article
             break
 
-        # Phase 8: Regenerate and re-review if rejected
         state = await regenerate_and_review(state, iteration)
 
         if state.get("error"):
             return state, None, False, iteration
 
-    # Handle max iterations reached
     if not human_approved:
         click.echo(f"\n⚠️  Maximum iterations ({max_iterations}) reached without approval")
         click.echo("Saving the last selected article...")
@@ -494,22 +346,10 @@ def save_article(
     output_directory: str,
     iteration_count: int,
 ) -> tuple[str, str, str]:
-    """
-    Phase 9: Save final article and all variants to disk.
-
-    Args:
-        state: Current pipeline state
-        final_completed_article: The selected complete article
-        output_directory: Directory to save files
-        iteration_count: Number of review loop iterations
-
-    Returns:
-        Tuple of (json_path, md_path, variants_dir)
-    """
+    """Phase 9: Save final article and all variants to disk."""
     print_separator()
     click.echo("💾 Saving Final Article")
 
-    # Save files
     json_path, md_path, variants_dir = save_article_files(
         final_completed_article,
         state["reviewed_sessions"],
@@ -517,7 +357,6 @@ def save_article(
         output_directory,
     )
 
-    # Display summary
     click.echo(
         f"""
 ✅ Article Generation Complete!
@@ -548,11 +387,6 @@ Session Metadata:
     return json_path, md_path, variants_dir
 
 
-# =============================================================================
-# Main Runner Function
-# =============================================================================
-
-
 async def run_parallel_world_article_generation(
     theme: str,
     language: Literal["en", "ja"],
@@ -563,38 +397,7 @@ async def run_parallel_world_article_generation(
     num_second_half_variants: int,
     auto_select: bool,
 ) -> CompletedArticle | None:
-    """
-    Run the complete parallel world article generation workflow with human-in-the-loop and review loop.
-
-    This orchestrates the entire pipeline with user interactions at decision points.
-
-    Workflow:
-    1. Generate multiple outlines in parallel (AI Agent)
-    2. User selects preferred outline (Human-in-the-Loop #1)
-    3. Generate first half based on selection (AI Agent)
-    4. Generate multiple second half variants in parallel (AI Agent)
-    5. Review all complete articles with LLM-as-a-Judge (AI Agent)
-    6. User selects final article (Human-in-the-Loop #2)
-    7. User approves or rejects article (Human-in-the-Loop #3)
-    8. If rejected: Regenerate second halves with feedback, go back to step 5
-       If approved: Save selected article and all variants
-
-    Args:
-        theme: Article theme/topic
-        language: Target language ("en" or "ja")
-        llm_provider: LLM provider to use
-        model: Model name
-        output_directory: Directory to save output files
-        num_outline_variants: Number of outline variants to generate
-        num_second_half_variants: Number of second half variants to generate
-        auto_select: Whether to auto-select options without user interaction
-
-    Returns:
-        CompletedArticle if successful, None otherwise
-    """
-
-    # Initialize pipeline state with only required configuration
-    # The state itself serves as memory - presence of optional fields indicates completion
+    """Run the complete parallel world article generation workflow."""
     state: ParallelWorldState = {
         "theme": theme,
         "language": language,
@@ -604,50 +407,41 @@ async def run_parallel_world_article_generation(
         "num_second_half_variants": num_second_half_variants,
     }
 
-    # Main pipeline loop with state-based rollback support
-    # The pipeline resumes from wherever the state indicates completion
     while True:
         current_phase = get_current_phase(state)
         click.echo(f"\n📍 Current phase: {current_phase} - {get_phase_name(current_phase)}")
 
-        # Phase 1: Generate Multiple Outlines (if not already done)
         if current_phase < 1:
             state = await generate_outlines(state)
             if state.get("error"):
                 return None
 
-        # Phase 2: Human Selects Outline (if not already done)
         if current_phase < 2:
             state = await select_outline(state, auto_select)
             if state.get("error"):
                 return None
 
-        # Phase 3: Generate First Half (if not already done)
         if current_phase < 3:
             state = await generate_first_half(state)
             if state.get("error"):
                 return None
 
-            # Offer rollback after Phase 3 (rollback point #1)
             available_phases = get_available_rollback_phases(state)
             rollback_phase = get_rollback_choice(available_phases, auto_select)
             if rollback_phase is not None:
                 state = forget_phases_after(state, rollback_phase)
-                continue  # Restart from the forgotten phase
+                continue
 
-        # Phase 4: Generate Multiple Second Halves (if not already done)
         if current_phase < 4:
             state = await generate_second_halves(state)
             if state.get("error"):
                 return None
 
-        # Phase 5: Review All Articles (if not already done)
         if current_phase < 5:
             state = await review_articles(state)
             if state.get("error"):
                 return None
 
-        # Phase 6-7: Review Loop (select, approve/reject, regenerate)
         if current_phase < 7 or not state.get("human_approved"):
             state, final_completed_article, human_approved, iteration = await review_loop(
                 state, auto_select, max_iterations=5
@@ -656,22 +450,18 @@ async def run_parallel_world_article_generation(
             if not final_completed_article:
                 return None
 
-            # Offer rollback after Phase 6-7 (rollback point #2)
             available_phases = get_available_rollback_phases(state)
             rollback_phase = get_rollback_choice(available_phases, auto_select)
             if rollback_phase is not None:
                 state = forget_phases_after(state, rollback_phase)
-                continue  # Restart from the forgotten phase
+                continue
 
-            # If we reach here and approved, we're done
             if human_approved:
                 break
         else:
-            # Already completed and approved
             reviewed_sessions = state.get("reviewed_sessions", [])
             final_session_id = state.get("final_selected_session_id")
 
-            # Find the final article
             final_session = next(
                 (s for s in reviewed_sessions if s.session_id == final_session_id),
                 reviewed_sessions[0] if reviewed_sessions else None,
@@ -685,7 +475,6 @@ async def run_parallel_world_article_generation(
                 click.echo("❌ Could not find final article in state", err=True)
                 return None
 
-    # Phase 9: Save Final Article and All Variants
     save_article(state, final_completed_article, output_directory, iteration)
 
     return final_completed_article

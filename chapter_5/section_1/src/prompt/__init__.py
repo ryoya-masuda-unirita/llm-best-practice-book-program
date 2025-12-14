@@ -1,4 +1,4 @@
-from src.prompt.llm_pipeline_prompt import (
+from src.prompt.prompt import (
     make_dinner_advisor_system_prompt,
     make_user_request_prompt,
 )

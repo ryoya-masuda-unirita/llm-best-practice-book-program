@@ -1,4 +1,4 @@
-# Chapter 4 Section 2: Deep Think Novel Writer Agent
+# Chapter 5 Section 2: Deep Think Novel Writer Agent
 
 ## Overview
 
@@ -41,34 +41,34 @@ The agent leverages Gemini's thinking mode (`thinking_budget=10000`) to perform 
 ### Directory Structure
 
 ```
-chapter_4/section_2/
+chapter_5/section_2/
 |-- src/
 |   |-- __init__.py
-|   |-- main.py                      # CLI entry point
-|   |-- config.py                    # Configuration (API keys)
-|   |-- logger.py                    # Logging setup
+|   |-- main.py              # CLI entry point
+|   |-- config.py            # Configuration (API keys)
+|   |-- logger.py            # Logging setup
 |   |-- client/
 |   |   |-- __init__.py
-|   |   +-- llm_client.py            # LLM client and model enums
+|   |   +-- llm_client.py    # LLM client and model enums
 |   |-- model/
 |   |   |-- __init__.py
-|   |   +-- llm_pipeline_model.py    # Pydantic models and tool data
+|   |   +-- model.py         # Pydantic models and tool data
 |   |-- prompt/
 |   |   |-- __init__.py
-|   |   +-- llm_pipeline_prompt.py   # Prompt templates
+|   |   +-- prompt.py        # Prompt templates
 |   +-- service/
 |       |-- __init__.py
-|       +-- llm_pipeline_service.py  # LangGraph agent implementation
-|-- outputs/                         # Generated novels (auto-created)
-|-- .envrc.example                   # Environment variable template
-|-- pyproject.toml                   # Project dependencies
-|-- Makefile                         # Development commands
-+-- CLAUDE.md                        # This file
+|       +-- service.py       # LangGraph agent implementation
+|-- outputs/                 # Generated novels (auto-created)
+|-- .envrc.example           # Environment variable template
+|-- pyproject.toml           # Project dependencies
+|-- Makefile                 # Development commands
++-- CLAUDE.md                # This file
 ```
 
 ## Key Components
 
-### 1. Agent Service (`src/service/llm_pipeline_service.py`)
+### 1. Agent Service (`src/service/service.py`)
 
 The core ReAct agent implementation using LangGraph:
 
@@ -79,7 +79,7 @@ The core ReAct agent implementation using LangGraph:
 - **`create_novel_writer_graph`**: Builds the LangGraph state machine
 - **`run_novel_writer`**: Main entry point for novel generation
 
-### 2. Tools (`src/service/llm_pipeline_service.py`)
+### 2. Tools (`src/service/service.py`)
 
 Four specialized tools for creative writing:
 
@@ -90,14 +90,14 @@ Four specialized tools for creative writing:
 | `create_plot_structure` | Build story structure with tone-specific guidance |
 | `refine_prose` | Analyze and suggest improvements for prose style |
 
-### 3. Data Models (`src/model/llm_pipeline_model.py`)
+### 3. Data Models (`src/model/model.py`)
 
 - **`AgentState`**: TypedDict for LangGraph state management
 - **`NovelOutline`**: Pydantic model for story outlines
 - **`NovelResult`**: Pydantic model for final novel output
 - **Tool Data**: Predefined templates for themes, characters, tones, and styles
 
-### 4. Prompts (`src/prompt/llm_pipeline_prompt.py`)
+### 4. Prompts (`src/prompt/prompt.py`)
 
 System prompts and writing tips that guide the agent's creative process.
 

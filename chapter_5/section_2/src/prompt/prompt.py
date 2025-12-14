@@ -86,10 +86,6 @@ Write the full novel with:
 The novel should be approximately 1500-2500 words. Make every word count."""
 
 
-# =============================================================================
-# Writing Tips for Tool Responses
-# =============================================================================
-
 THEME_WRITING_TIPS_MATCHED: list[str] = [
     "Show the theme through character actions, not exposition",
     "Use sensory details to evoke emotional resonance",
@@ -118,39 +114,14 @@ PROSE_GENERAL_SUGGESTIONS: list[str] = [
 
 
 def make_novel_writer_system_prompt() -> str:
-    """
-    Create the system prompt for the novel writer agent.
-
-    Returns:
-        System prompt string
-    """
     return NOVEL_WRITER_SYSTEM_PROMPT
 
 
 def make_theme_analyzer_prompt(theme: str) -> str:
-    """
-    Create the theme analyzer prompt.
-
-    Args:
-        theme: The theme to analyze
-
-    Returns:
-        Formatted theme analyzer prompt
-    """
     return THEME_ANALYZER_PROMPT.format(theme=theme)
 
 
 def make_outline_generator_prompt(user_request: str, theme_analysis: str) -> str:
-    """
-    Create the outline generator prompt.
-
-    Args:
-        user_request: The user's novel request
-        theme_analysis: The analyzed theme
-
-    Returns:
-        Formatted outline generator prompt
-    """
     return OUTLINE_GENERATOR_PROMPT.format(
         user_request=user_request,
         theme_analysis=theme_analysis,
@@ -158,16 +129,6 @@ def make_outline_generator_prompt(user_request: str, theme_analysis: str) -> str
 
 
 def make_novel_writer_prompt(user_request: str, outline: str) -> str:
-    """
-    Create the novel writer prompt.
-
-    Args:
-        user_request: The user's novel request
-        outline: The story outline
-
-    Returns:
-        Formatted novel writer prompt
-    """
     return NOVEL_WRITER_PROMPT.format(
         user_request=user_request,
         outline=outline,
@@ -175,15 +136,6 @@ def make_novel_writer_prompt(user_request: str, outline: str) -> str:
 
 
 def make_user_request_prompt(user_request: str) -> str:
-    """
-    Create the user request prompt for novel generation.
-
-    Args:
-        user_request: The user's novel request
-
-    Returns:
-        Formatted user prompt
-    """
     return f"""Please create a short novel based on the following request:
 
 {user_request}
@@ -198,16 +150,6 @@ Take your time to think through each step carefully before writing the final nov
 
 
 def make_pacing_tips(tone: str, climax_guidance: str) -> list[str]:
-    """
-    Create pacing tips for plot structure.
-
-    Args:
-        tone: The story's tone
-        climax_guidance: The climax guidance text
-
-    Returns:
-        List of pacing tips
-    """
     return [
         "Vary sentence length for rhythm",
         "Use scene breaks to control time",

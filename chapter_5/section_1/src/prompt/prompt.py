@@ -54,25 +54,12 @@ to provide your final recommendation. Fill in all fields:
 
 
 def make_dinner_advisor_system_prompt() -> str:
-    """
-    Create the system prompt for the dinner advisor agent.
-
-    Returns:
-        System prompt string
-    """
+    """Create the system prompt for the dinner advisor agent."""
     return DINNER_ADVISOR_SYSTEM_PROMPT
 
 
 def make_user_request_prompt(user_request: str) -> str:
-    """
-    Create the user request prompt.
-
-    Args:
-        user_request: The user's dinner request
-
-    Returns:
-        Formatted user prompt
-    """
+    """Create the user request prompt."""
     return f"""以下のリクエストに基づいて、最適な夕食メニューを提案してください：
 
 {user_request}

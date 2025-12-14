@@ -3,7 +3,7 @@
 import json
 from typing import Literal
 
-from src.model.parallel_world_model import (
+from src.model.model import (
     ArticleHalf,
     ArticleOutline,
     ArticleReview,
@@ -12,16 +12,7 @@ from src.model.parallel_world_model import (
 
 
 def make_outline_generation_system_instruction(theme: str, language: Literal["en", "ja"]) -> tuple[str, str]:
-    """
-    Create system instruction for outline generation (for Gemini).
-
-    Args:
-        theme: The article theme
-        language: Target language ("en" or "ja")
-
-    Returns:
-        Tuple of (system_instruction, user_content)
-    """
+    """Create system instruction for outline generation."""
     lang_instruction = "in English" if language == "en" else "in Japanese (日本語)"
 
     schema_fields = {}
@@ -67,16 +58,7 @@ Create an engaging and well-structured outline that would result in a high-quali
 def make_first_half_generation_system_instruction(
     outline: ArticleOutline, language: Literal["en", "ja"]
 ) -> tuple[str, str]:
-    """
-    Create system instruction for first half generation (for Gemini).
-
-    Args:
-        outline: The article outline
-        language: Target language ("en" or "ja")
-
-    Returns:
-        Tuple of (system_instruction, user_content)
-    """
+    """Create system instruction for first half generation."""
     lang_instruction = "in English" if language == "en" else "in Japanese (日本語)"
 
     schema_fields = {}
@@ -187,17 +169,7 @@ def make_second_half_generation_system_instruction(
     first_half: str,
     language: Literal["en", "ja"],
 ) -> tuple[str, str]:
-    """
-    Create system instruction for second half generation (for Gemini).
-
-    Args:
-        outline: The article outline
-        first_half: The first half content
-        language: Target language ("en" or "ja")
-
-    Returns:
-        Tuple of (system_instruction, user_content)
-    """
+    """Create system instruction for second half generation."""
     lang_instruction = "in English" if language == "en" else "in Japanese (日本語)"
 
     schema_fields = {}
@@ -254,18 +226,7 @@ def make_article_review_system_instruction(
     outline: ArticleOutline,
     full_article: str,
 ) -> tuple[str, str]:
-    """
-    Create system instruction for article review (for Gemini).
-
-    Args:
-        theme: The original article theme
-        outline: The article outline
-        full_article: The complete article content
-        language: Article language
-
-    Returns:
-        Tuple of (system_instruction, user_content)
-    """
+    """Create system instruction for article review."""
     schema_fields = {}
     for field_name, field_info in ArticleReview.model_fields.items():
         field_type = field_info.annotation
@@ -331,18 +292,7 @@ def make_second_half_regeneration_system_instruction(
     language: Literal["en", "ja"],
     previous_attempts: list[tuple[str, ArticleReview]],
 ) -> tuple[str, str]:
-    """
-    Create system instruction for second half regeneration (for Gemini).
-
-    Args:
-        outline: The article outline
-        first_half: The first half content
-        language: Target language ("en" or "ja")
-        previous_attempts: List of (second_half_content, review) tuples from rejected attempts
-
-    Returns:
-        Tuple of (system_instruction, user_content)
-    """
+    """Create system instruction for second half regeneration based on feedback."""
     lang_instruction = "in English" if language == "en" else "in Japanese (日本語)"
 
     schema_fields = {}
