@@ -1,10 +1,7 @@
 import os
 
 from dotenv import load_dotenv
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
-
-if os.path.exists(".envrc"):
-    load_dotenv(".envrc")
+from pydantic import BaseModel, ConfigDict, Field, Secret
 
 
 class Config(BaseModel):
@@ -15,9 +12,10 @@ class Config(BaseModel):
         arbitrary_types_allowed=True,
     )
 
-    gemini_api_key: SecretStr = Field(
-        description="API key for Gemini",
-    )
+    if os.path.exists(".envrc"):
+        load_dotenv(".envrc")
+
+    anthropic_api_key: Secret[str] = Field(default=os.environ["ANTHROPIC_API_KEY"], description="API key for Anthropic")
 
 
-config = Config(gemini_api_key=os.environ.get("GEMINI_API_KEY", ""))
+config = Config()

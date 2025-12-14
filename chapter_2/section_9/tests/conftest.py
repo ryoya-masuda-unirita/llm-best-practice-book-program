@@ -1,76 +1,51 @@
-"""Pytest configuration and shared fixtures."""
-
-from unittest.mock import AsyncMock, Mock
+"""Shared pytest fixtures for all tests."""
 
 import pytest
-from fastapi.testclient import TestClient
+import yaml
 
 
 @pytest.fixture
-def test_client():
-    """FastAPI TestClient fixture."""
-    from src.api.app import app
+def temp_template_dir(tmp_path):
+    """Create a temporary directory with sample templates."""
+    templates_dir = tmp_path / "templates"
+    templates_dir.mkdir()
 
-    return TestClient(app)
-
-
-@pytest.fixture
-def mock_openai_client():
-    """Mock OpenAI client for testing."""
-    mock_client = Mock()
-
-    class MockDelta:
-        def __init__(self, content):
-            self.content = content
-
-    class MockChoice:
-        def __init__(self, content):
-            self.delta = MockDelta(content)
-
-    class MockChunk:
-        def __init__(self, content):
-            self.choices = [MockChoice(content)]
-
-    async def mock_stream_generator():
-        for content in ["Hello", " ", "World", "!"]:
-            yield MockChunk(content)
-
-    async def mock_create(*args, **kwargs):
-        return mock_stream_generator()
-
-    mock_client.chat.completions.create = AsyncMock(side_effect=mock_create)
-
-    return mock_client
-
-
-@pytest.fixture
-def mock_openai_client_with_error():
-    """Mock OpenAI client that raises an error."""
-    mock_client = Mock()
-
-    async def mock_create(*args, **kwargs):
-        raise Exception("OpenAI API error")
-
-    mock_client.chat.completions.create = mock_create
-
-    return mock_client
-
-
-@pytest.fixture
-def sample_stream_request():
-    """Sample streaming request data."""
-    return {
-        "prompt": "Hello, world!",
-        "provider": "openai",
-        "model": None,
+    simple_template = {
+        "system_prompt": "You are a helpful assistant.",
+        "user_prompt": "Hello {{ name }}!",
     }
+    (templates_dir / "simple.yaml").write_text(yaml.dump(simple_template))
+
+    loop_template = {
+        "system_prompt": "Process the following items.",
+        "user_prompt": "Items:\n{% for item in items %}\n- {{ item }}\n{% endfor %}",
+    }
+    (templates_dir / "with_loop.yaml").write_text(yaml.dump(loop_template))
+
+    conditional_template = {
+        "system_prompt": "System message",
+        "user_prompt": "Required: {{ required }}\n{% if optional %}Optional: {{ optional }}{% endif %}",
+    }
+    (templates_dir / "with_conditional.yaml").write_text(yaml.dump(conditional_template))
+
+    multi_var_template = {
+        "system_prompt": "You are a {{ role }}.",
+        "user_prompt": "Name: {{ name }}\nAge: {{ age }}\nCity: {{ city }}",
+    }
+    (templates_dir / "multi_var.yaml").write_text(yaml.dump(multi_var_template))
+
+    return templates_dir
 
 
 @pytest.fixture
-def sample_openai_request():
-    """Sample OpenAI request data."""
+def sample_variables():
+    """Sample variables for template rendering."""
     return {
-        "prompt": "What is AI?",
-        "provider": "openai",
-        "model": "gpt-4o-mini",
+        "name": "Alice",
+        "age": 30,
+        "city": "Tokyo",
+        "role": "data scientist",
+        "items": ["apple", "banana", "cherry"],
+        "required": "value",
+        "optional": "extra",
     }

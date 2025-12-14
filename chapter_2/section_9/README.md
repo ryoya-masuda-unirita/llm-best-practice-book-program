@@ -1,297 +1,302 @@
-# Chapter 2 Section 9: LLMストリーミング・非ストリーミングレスポンスの実装
+# Chapter 2 Section 9: プロンプトを構造的にテンプレート化する
 
 ## 概要
 
-このプロジェクトは、**FastAPI**を使用したLLM（大規模言語モデル）の**ストリーミング・非ストリーミングレスポンス**実装を示すサンプルコードです。OpenAI GPT-4o-miniに対応し、以下の2つのモードでテキスト生成結果をクライアントに配信します：
+このプロジェクトは、**構造化されたテンプレート化プロンプト（Structured Template Prompting）** の実装を示すサンプルコードです。プロンプトをソースコードから分離し、YAML形式のテンプレートファイルとして管理することで、再利用性、保守性、可読性を飛躍的に向上させます。Jinja2テンプレートエンジンを活用して動的に変数を注入し、最終的なプロンプトを生成します。
 
-- **ストリーミングモード**: Server-Sent Events (SSE)形式でリアルタイムにテキストを配信
-- **非ストリーミングモード**: 完全な応答を一度に返す従来型のレスポンス
-
-ストリーミング機能により、ユーザーは完全な応答を待つことなく、生成されたテキストを逐次的に受け取ることができ、より良いユーザーエクスペリエンスを提供できます。一方、非ストリーミングモードは、完全な応答が必要な場合や、シンプルな実装が求められる場合に適しています。
+キャラクター生成、商品説明文作成、メール文面生成といった複数のユースケースを通じて、プロンプトテンプレート化のベストプラクティスを学ぶことができます。
 
 ## 機能
 
-- **ストリーミングレスポンス**: Server-Sent Events (SSE)形式でリアルタイムにテキストを配信
-- **非ストリーミングレスポンス**: 完全な応答を一度に返すJSONレスポンス
-- **FastAPI統合**: 高性能な非同期WebフレームワークによるAPI実装
-- **OpenAI API対応**: GPT-4o-mini, GPT-4oなどのOpenAIモデルをサポート
-- **複数のエンドポイント**: ストリーミング (`/stream`) と非ストリーミング (`/completions`) を提供
-- **非同期処理**: async/awaitパターンによる効率的な処理
-- **CORS対応**: クロスオリジンリクエストのサポート
-- **エラーハンドリング**: 堅牢なエラー処理とロギング
-- **統合テストクライアント**: ストリーミング・非ストリーミング両方をサポートするCLIツール
-- **包括的なテスト**: pytestによるユニットテスト・統合テスト
+- **テンプレートベースのプロンプト管理**: YAMLファイルでプロンプト構造を定義
+- **動的変数注入**: Jinja2を使用した柔軟な変数置換とロジック（条件分岐、ループなど）
+- **テンプレートバリデーション**: 必須変数の存在チェックによる実行時エラーの防止
+- **複数テンプレートのサポート**: キャラクター生成、商品説明、メールなど多様なユースケース
+- **変数ファイル管理**: テンプレートとデータを完全に分離した設計
+- **OpenAI API対応**: OpenAI APIをサポート
+- **型安全な構造化出力**: Pydanticモデルによる厳密な型検証
+- **包括的なテストスイート**: TemplateEngineとプロンプト生成の網羅的テスト
+- **CLIインターフェース**: 使いやすいコマンドラインツール
+- **Makefileサポート**: 一般的なタスクを簡単に実行
 
 ## プロジェクト構成
 
 ### ディレクトリ構成
 
 ```
-chapter_2/section_9/
+chapter_2/section_6/
 ├── src/
 │   ├── __init__.py              # パッケージ初期化
 │   ├── config.py                # 設定管理（API キー読み込み）
 │   ├── logger.py                # ロギング設定
-│   ├── api/
-│   │   ├── __init__.py
-│   │   └── app.py               # FastAPIアプリケーション（メインAPI）
-│   ├── service/
-│   │   ├── __init__.py
-│   │   └── streaming_service.py # ストリーミング・非ストリーミングロジック
+│   ├── main.py                  # メインエントリーポイント
 │   ├── client/
 │   │   ├── __init__.py
 │   │   └── llm_client.py        # LLMクライアント初期化
-│   └── model/
+│   ├── model/
+│   │   ├── __init__.py
+│   │   └── model.py             # Pydanticデータモデル定義
+│   ├── prompt/
+│   │   ├── __init__.py
+│   │   └── prompt.py            # プロンプト生成ロジック
+│   └── service/
 │       ├── __init__.py
-│       └── model.py             # Pydanticデータモデル定義
-├── tests/
+│       ├── request_llm.py       # LLM APIリクエスト処理
+│       └── template_engine.py   # テンプレートエンジン実装
+├── templates/                    # プロンプトテンプレートファイル
+│   ├── character_generation.yaml # キャラクター生成テンプレート
+│   ├── product_description.yaml  # 商品説明文テンプレート
+│   ├── email_formal.yaml         # フォーマルメールテンプレート
+│   └── email_casual.yaml         # カジュアルメールテンプレート
+├── variables/                    # テンプレート変数定義ファイル
+│   ├── character_artist.yaml     # 芸術家キャラクター変数
+│   ├── character_detective.yaml  # 探偵キャラクター変数
+│   ├── product_electronics.yaml  # 家電商品変数
+│   ├── product_apparel.yaml      # アパレル商品変数
+│   ├── email_campaign_summer.yaml # サマーキャンペーン変数
+│   └── email_campaign_winter.yaml # ウィンターキャンペーン変数
+├── tests/                        # テストファイル
 │   ├── __init__.py
-│   ├── conftest.py              # pytestフィクスチャ設定
-│   ├── test_api.py              # APIエンドポイントのテスト
-│   ├── test_models.py           # データモデルのテスト
-│   └── test_streaming_service.py # ストリーミングサービスのテスト
-├── .envrc.example               # 環境変数設定のサンプル
-├── pyproject.toml               # プロジェクト依存関係
-├── pytest.ini                   # pytest設定ファイル
-├── run_server.py                # サーバー起動スクリプト
-├── example_client.py            # 統合テストクライアントCLI
-└── README.md                    # このファイル
+│   ├── conftest.py              # pytest設定とフィクスチャ
+│   ├── test_template_engine.py  # TemplateEngineのテスト
+│   └── test_prompt.py           # プロンプト生成のテスト
+├── outputs/                      # 生成結果の保存先（自動作成）
+├── .envrc.example                # 環境変数設定のサンプル
+├── pyproject.toml                # プロジェクト依存関係
+├── Makefile                      # タスク自動化
+├── README.md                     # このファイル
+└── CLAUDE.md                     # プロジェクト状態レポート
 ```
 
 ### アーキテクチャ
 
-このプロジェクトは、以下の4層アーキテクチャで構成されています：
+このプロジェクトは、テンプレート駆動型の4層アーキテクチャで構成されています：
 
 ```
-┌─────────────────────────────────────────┐
-│         API Layer (api/)                │
-│  - FastAPI アプリケーション              │
-│  - エンドポイント定義                    │
-│  - リクエスト/レスポンスハンドリング     │
-└─────────────────┬───────────────────────┘
-                  │
-┌─────────────────▼───────────────────────┐
-│      Service Layer (service/)           │
-│  - ストリーミングロジック                │
-│  - 非同期ジェネレータ実装                │
-└─────────────────┬───────────────────────┘
-                  │
-┌─────────────────▼───────────────────────┐
-│      Business Logic Layer               │
-│  - LLMクライアント管理 (client/)        │
-│  - データモデル (model/)                │
-└─────────────────┬───────────────────────┘
-                  │
-┌─────────────────▼───────────────────────┐
-│      Infrastructure Layer               │
-│  - 設定管理 (config.py)                 │
-│  - ログ管理 (logger.py)                 │
-│  - 外部API (OpenAI, Gemini)             │
-└─────────────────────────────────────────┘
+┌───────────────────────────────────────────────┐
+│         CLI Layer (main.py)                   │
+│     - コマンドライン引数解析                   │
+│     - 出力ディレクトリ管理                     │
+└──────────────────┬────────────────────────────┘
+                   │
+┌──────────────────▼────────────────────────────┐
+│      Business Logic Layer                     │
+│  - プロンプト生成 (prompt.py)                 │
+│  - LLMリクエスト処理 (request_llm.py)         │
+│  - データモデル (model.py)                    │
+└──────────────────┬────────────────────────────┘
+                   │
+┌──────────────────▼────────────────────────────┐
+│      Template Layer                           │
+│  - テンプレートエンジン (template_engine.py)  │
+│  - YAMLテンプレート (templates/)              │
+│  - 変数定義 (variables/)                      │
+└──────────────────┬────────────────────────────┘
+                   │
+┌──────────────────▼────────────────────────────┐
+│      Infrastructure Layer                     │
+│  - 設定管理 (config.py)                       │
+│  - ログ管理 (logger.py)                       │
+│  - 外部API (OpenAI)                           │
+└───────────────────────────────────────────────┘
 ```
 
 ### 実装の詳細
 
-#### 1. FastAPIアプリケーション (`src/api/app.py`)
+#### 1. テンプレートエンジン (`src/service/template_engine.py`)
 
-FastAPIを使用してRESTful APIを提供します：
+Jinja2を使用した構造化テンプレート管理の中核実装です：
 
 ```python
-app = FastAPI(
-    title="LLM Streaming API",
-    description="OpenAI APIを使用したストリーミング/非ストリーミングレスポンスのデモAPI",
-    version="1.0.0",
-)
+class TemplateEngine:
+    """
+    Template engine for loading and rendering YAML-based prompt templates.
 
-# CORS設定
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+    This class implements structured template prompting by:
+    1. Loading YAML templates from a designated directory
+    2. Rendering templates with dynamic variables using Jinja2
+    3. Validating that all required variables are provided
+    """
+
+    def __init__(self, template_dir: str | Path = "templates"):
+        """Initialize with template directory path."""
+        self.template_dir = Path(template_dir)
+        # Setup Jinja2 environment with proper settings
+        self.env = Environment(
+            loader=FileSystemLoader(str(self.template_dir)),
+            trim_blocks=True,
+            lstrip_blocks=True,
+            keep_trailing_newline=True,
+        )
 ```
 
-**提供されるエンドポイント**:
+**主要機能**:
 
-- `GET /health` - ヘルスチェックエンドポイント
-- `POST /stream` - ストリーミングエンドポイント（SSE形式）
-- `POST /completions` - 非ストリーミングエンドポイント（JSON形式）
+1. **`get_template_variables()`**: テンプレートで使用されている変数を抽出
+2. **`validate_variables()`**: 必須変数が全て提供されているか検証
+3. **`render_template()`**: テンプレートを変数でレンダリングしてYAMLをパース
+4. **`render_prompt_messages()`**: LLM API形式のメッセージリストを生成
 
-#### 2. ストリーミング・非ストリーミングサービス (`src/service/streaming_service.py`)
+**ポイント**:
+- `trim_blocks`と`lstrip_blocks`でYAMLインデントを適切に処理
+- `meta.find_undeclared_variables()`で必須変数を自動検出
+- テンプレート読み込み時のバリデーションで早期エラー検出
 
-非同期ジェネレータとawait呼び出しを使用して両方のレスポンス形式を実装します：
+#### 2. YAMLテンプレート (`templates/character_generation.yaml`)
 
-##### ストリーミング実装
+プロンプト構造をYAML形式で定義します：
+
+```yaml
+system_prompt: >-
+  あなたは創造的なキャラクタージェネレーターです。
+
+  あなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。
+
+  以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：
+
+  {{ response_schema | indent(2) }}
+
+  以下を確認してください：
+  1. 応答は有効なJSONであること
+  2. すべてのフィールドが含まれていること
+  3. 性別は指定された値であること
+  4. 年齢は指定された値であること
+  5. 正確に3つの性格特性が提供されていること
+
+user_prompt: >-
+  ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。
+
+  性別は「{{ gender }}」、年齢は「{{ age }}」歳です。
+{% if additional_instructions %}
+
+  {{ additional_instructions }}
+{% endif %}
+```
+
+**特徴**:
+- `{{ variable }}`形式でプレースホルダーを定義
+- `{% if %}...{% endif %}`で条件分岐
+- `{{ variable | filter }}`でJinja2フィルタを適用（例: `indent(2)`）
+- `>-`構文で複数行テキストを改行なしで結合
+
+#### 3. 変数ファイル (`variables/character_artist.yaml`)
+
+テンプレートに注入するデータを別ファイルで管理：
+
+```yaml
+# 芸術家キャラクター生成用変数設定
+gender: "female"
+age: 28
+additional_instructions: "このキャラクターは画家で、感受性が豊かです。情熱的で自由奔放な性格ですが、繊細な一面も持っています。"
+```
+
+**メリット**:
+- テンプレートとデータの完全な分離
+- 同じテンプレートで異なるデータセットを簡単に切り替え
+- 非エンジニアでも変数ファイルを編集可能
+
+#### 4. プロンプト生成 (`src/prompt/prompt.py`)
+
+テンプレートエンジンを使用してプロンプトを生成：
 
 ```python
-async def stream_openai_response(prompt: str, model: str = "gpt-4o-mini") -> AsyncIterator[str]:
-    """OpenAI APIからストリーミングで応答を取得"""
-    stream = await openai_client.chat.completions.create(
+# Initialize template engine with the templates directory
+_template_dir = Path(__file__).parent.parent.parent / "templates"
+_template_engine = TemplateEngine(template_dir=_template_dir)
+
+def make_prompt(character_request: CharacterRequest) -> list:
+    """
+    Generate a structured prompt using template-based approach.
+
+    This function demonstrates the structured template prompting practice by:
+    1. Separating prompt logic from code (templates stored in YAML)
+    2. Using Jinja2 for dynamic variable injection
+    3. Validating that all required variables are provided
+    """
+    # Prepare the response schema for the template
+    params = CharacterResponse.detailed_model()
+    response_schema = json.dumps(params, indent=2, ensure_ascii=False)
+
+    # Define variables to inject into the template
+    template_variables = {
+        "response_schema": response_schema,
+        "gender": character_request.gender.value,
+        "age": character_request.age,
+        "additional_instructions": character_request.additional_instructions or "",
+    }
+
+    # Render the template with validation
+    return _template_engine.render_prompt_messages(
+        template_name="character_generation.yaml",
+        variables=template_variables,
+        validate=True,  # Ensure all required variables are provided
+    )
+```
+
+**ポイント**:
+- テンプレートエンジンをモジュールレベルで初期化（効率化）
+- `validate=True`で必須変数の存在を保証
+- スキーマ情報を動的に生成してテンプレートに注入
+
+#### 5. データモデル (`src/model/model.py`)
+
+リクエストとレスポンスのPydanticモデル：
+
+```python
+class CharacterRequest(BaseModel):
+    """Request model for character generation."""
+    gender: Gender = Field(..., description="The gender of the character.")
+    age: int = Field(..., description="The age of the character.", ge=0, le=100)
+    additional_instructions: Optional[str] = Field(
+        ..., description="Additional instructions for character generation."
+    )
+
+class CharacterResponse(BaseModel):
+    """Response model for generated character."""
+    first_name: str = Field(..., description="The first name of the character.")
+    last_name: str = Field(..., description="The last name of the character.")
+    gender: Gender = Field(Gender.MALE, description="The gender of the character.")
+    age: int = Field(..., description="The age of the character.", ge=0, le=100)
+    personalities: list[CharacterPersonality] = Field(
+        ..., description="The three most important personality traits of the character."
+    )
+
+    @staticmethod
+    def detailed_model() -> dict:
+        """Generate a detailed schema for prompt inclusion."""
+        # Creates a human-readable schema representation for the prompt
+        ...
+```
+
+**特徴**:
+- `frozen=True`で不変オブジェクトを保証
+- `validate_assignment=True`で代入時のバリデーション
+- `detailed_model()`メソッドでプロンプト用のスキーマ説明を生成
+
+#### 6. LLM APIリクエスト (`src/service/request_llm.py`)
+
+OpenAI APIに対応したAPI呼び出し:
+
+```python
+async def request_openai(model: OpenAIModel) -> CharacterResponse:
+    character_request = CharacterRequest(
+        gender=Gender.MALE,
+        age=25,
+        additional_instructions="このキャラクターは冒険好きで、好奇心旺盛です。",
+    )
+    prompt = make_prompt(character_request)
+    result = await openai_client.beta.chat.completions.parse(
         model=model,
-        messages=[{"role": "user", "content": prompt}],
-        stream=True,
+        messages=prompt,  # Template-generated messages
+        response_format=CharacterResponse,
         temperature=1.0,
     )
-
-    async for chunk in stream:
-        if chunk.choices[0].delta.content:
-            content = chunk.choices[0].delta.content
-            yield content
-            await asyncio.sleep(0.01)  # イベントループのブロッキング防止
-```
-
-**特徴**:
-- `stream=True`でストリーミングモードを有効化
-- `async for`でチャンクを逐次処理
-- `yield`でクライアントにデータを送信
-
-##### 非ストリーミング実装
-
-```python
-async def get_openai_response(prompt: str, model: str = "gpt-4o-mini") -> str:
-    """OpenAI APIから非ストリーミングで完全な応答を取得"""
-    try:
-        response = await openai_client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            stream=False,
-            temperature=1.0,
-        )
-        return response.choices[0].message.content or ""
-    except Exception as e:
-        logger.error(f"Error in get_openai_response: {e}")
-        raise
-```
-
-**特徴**:
-- `stream=False`で非ストリーミングモードを使用
-- 完全な応答を文字列として返す
-- シンプルな実装で即座に完全な結果を取得
-
-#### 3. APIエンドポイント実装
-
-##### ストリーミングエンドポイント
-
-```python
-@app.post("/stream")
-async def stream_response(request: StreamRequest):
-    """ストリーミングエンドポイント"""
-    logger.info(f"Streaming request received: provider={request.provider}")
-
-    if request.provider == LLMProvider.OPENAI:
-        model = request.model or OpenAIModel.GPT_4O_MINI
-        return StreamingResponse(
-            stream_openai_response(request.prompt, model=model),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "X-Accel-Buffering": "no",  # nginxのバッファリング無効化
-            },
-        )
+    return result.choices[0].message.parsed
 ```
 
 **ポイント**:
-- `StreamingResponse`でSSE形式の応答を返す
-- 適切なヘッダーでキャッシュとバッファリングを制御
-- リアルタイムでテキストを配信
-
-##### 非ストリーミングエンドポイント
-
-```python
-@app.post("/completions", response_model=CompletionResponse)
-async def get_completion(request: StreamRequest):
-    """非ストリーミング完了エンドポイント"""
-    logger.info(f"Completion request received: provider={request.provider}")
-
-    if request.provider == LLMProvider.OPENAI:
-        model = request.model or OpenAIModel.GPT_4O_MINI
-        content = await get_openai_response(request.prompt, model=model)
-        return CompletionResponse(
-            content=content,
-            model=str(model),
-            provider="openai",
-        )
-```
-
-**ポイント**:
-- JSON形式で完全な応答を返す
-- Pydanticモデルによる型安全なレスポンス
-- シンプルで実装が容易
-
-#### 4. データモデル (`src/model/model.py`)
-
-Pydanticモデルでリクエスト/レスポンスを定義します：
-
-```python
-class StreamRequest(BaseModel):
-    """ストリーミング/非ストリーミングリクエストのモデル"""
-    prompt: str = Field(..., description="ユーザーのプロンプト", min_length=1)
-    provider: LLMProvider = Field(
-        default=LLMProvider.OPENAI,
-        description="使用するLLMプロバイダー (openai)",
-    )
-    model: OpenAIModel | None = Field(
-        default=None,
-        description="使用するモデル名（未指定の場合はデフォルトモデル）",
-    )
-
-class CompletionResponse(BaseModel):
-    """非ストリーミング完了レスポンスのモデル"""
-    content: str = Field(..., description="生成されたテキスト")
-    model: str = Field(..., description="使用されたモデル名")
-    provider: str = Field(..., description="使用されたプロバイダー")
-
-class HealthResponse(BaseModel):
-    """ヘルスチェックレスポンスのモデル"""
-    status: str = Field(..., description="サービスのステータス")
-    message: str = Field(..., description="メッセージ")
-```
-
-**特徴**:
-- 型安全なリクエスト・レスポンス検証
-- デフォルト値のサポート
-- 詳細なフィールド説明
-- `CompletionResponse`で非ストリーミング応答を構造化
-
-#### 5. 統合テストクライアント (`example_client.py`)
-
-ストリーミング・非ストリーミング両方をサポートするCLIツール：
-
-##### ストリーミングリクエスト
-
-```python
-async def stream_request(url: str, prompt: str, model: str | None = None):
-    """APIサーバーにストリーミングリクエストを送信"""
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, json=payload) as response:
-            # ストリーミングレスポンスを逐次的に表示
-            async for chunk in response.content.iter_any():
-                if chunk:
-                    text = chunk.decode("utf-8")
-                    print(text, end="", flush=True)
-```
-
-##### 非ストリーミングリクエスト
-
-```python
-async def completion_request(url: str, prompt: str, model: str | None = None):
-    """APIサーバーに非ストリーミングリクエストを送信"""
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, json=payload) as response:
-            # 完全なレスポンスをJSON形式で取得
-            response_data = await response.json()
-            print(response_data["content"])
-```
-
-**特徴**:
-- `aiohttp`を使用した非同期HTTPクライアント
-- ストリーミング・非ストリーミング両方のモードをサポート
-- `--mode`オプションでモード切り替え
-- リアルタイムでチャンクを表示（ストリーミング）
-- 使いやすいCLIインターフェース
+- テンプレート生成されたプロンプトをそのままAPI呼び出しに使用
+- プロンプトロジックはテンプレートに集約され、コードは簡潔
 
 ## 使い方
 
@@ -299,14 +304,12 @@ async def completion_request(url: str, prompt: str, model: str | None = None):
 
 - **Python**: 3.13.2以上
 - **依存ライブラリ**:
-  - fastapi>=0.119.0
-  - uvicorn>=0.37.0
-  - aiohttp>=3.11.17
-  - google-genai>=1.45.0
-  - openai>=2.4.0
-  - pydantic>=2.12.2
-  - python-dotenv>=1.1.1
-  - click>=8.3.0
+  - click>=8.3.0 (CLIインターフェース)
+  - jinja2>=3.1.6 (テンプレートエンジン)
+  - openai>=2.4.0 (OpenAI API)
+  - pydantic>=2.12.2 (データモデル)
+  - python-dotenv>=1.1.1 (環境変数管理)
+  - pyyaml>=6.0.3 (YAMLパーサー)
 
 ### セットアップ
 
@@ -319,7 +322,6 @@ cp .envrc.example .envrc
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
 ```
 
 2. **依存関係のインストール**
@@ -328,261 +330,106 @@ GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
 # uvを使用する場合（推奨）
 uv sync
 
+# または make コマンド
+make install
+
 # pipを使用する場合
 pip install -e .
 ```
 
-3. **開発ツール（オプション）**
-
-プロジェクトには開発タスクを簡素化するMakefileが含まれています：
-
-```bash
-# コードのリント（自動修正付き）
-make lint
-
-# コードのフォーマット
-make fmt
-
-# リントとフォーマットの両方を実行
-make fix
-
-# 型チェック
-make mypy
-```
-
 ### 使用方法、実行方法
 
-#### 1. サーバーの起動
+#### 基本的な使い方
 
 ```bash
-# デフォルト設定で起動（127.0.0.1:8000）
-python run_server.py
+# OpenAI APIを使用
+uv run python -m src.main --model gpt-4o
 
-# カスタムホストとポートを指定
-python run_server.py --host 0.0.0.0 --port 8080
+# Makefileを使用
+make run-openai
+```
 
-# 開発モード（自動リロード有効）
-python run_server.py --reload
+#### 出力先の指定
+
+```bash
+# カスタム出力ディレクトリを指定
+uv run python -m src.main -m gpt-4o-mini -od ./custom_output
+
+# 短縮オプション
+uv run python -m src.main -m gpt-4o -od ./my_characters
+```
+
+#### ヘルプの表示
+
+```bash
+uv run python -m src.main --help
 ```
 
 **出力例**:
 ```
-Starting LLM Streaming API server on 127.0.0.1:8000
-Press CTRL+C to quit
-INFO:     Started server process [12345]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+Usage: python -m src.main [OPTIONS]
+
+Options:
+  -m, --model TEXT                The OpenAI model to use for the request.  [required]
+  -od, --output-directory PATH    The directory to save output files.
+  --help                          Show this message and exit.
 ```
 
-#### 2. テストクライアントの使用
-
-別のターミナルでテストクライアントを実行します：
-
-##### ストリーミングモード（デフォルト）
+#### Makefileコマンド一覧
 
 ```bash
-# 基本的な使用方法
-python example_client.py --prompt "Pythonの非同期プログラミングについて説明してください"
+# ヘルプを表示
+make help
 
-# モデルを明示的に指定
-python example_client.py --model gpt-4o --prompt "AIの未来について教えて"
+# テストを実行
+make test               # 全テスト実行
+make pytest             # ユニットテストのみ
+make pytest-cov         # カバレッジレポート付き
+make test-templates     # テンプレートテストのみ
 
-# カスタムURLを指定
-python example_client.py --url http://localhost:8080/stream --prompt "こんにちは"
-```
+# コード品質チェック
+make lint               # リンター実行
+make fmt                # コードフォーマット
+make fix                # リントとフォーマットを両方実行
+make mypy               # 型チェック
 
-##### 非ストリーミングモード
-
-```bash
-# 非ストリーミングモードを使用
-python example_client.py --mode completion --prompt "Pythonについて教えてください"
-
-# カスタムモデルを指定
-python example_client.py --mode completion --model gpt-4o --prompt "こんにちは"
-
-# カスタムURLを指定
-python example_client.py --mode completion --url http://localhost:8080/completions --prompt "こんにちは"
-```
-
-#### 3. APIの直接利用
-
-##### curlを使用
-
-**ストリーミングエンドポイント**:
-
-```bash
-curl -X POST http://127.0.0.1:8000/stream \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "Pythonについて教えてください",
-    "provider": "openai"
-  }'
-
-# カスタムモデルを指定
-curl -X POST http://127.0.0.1:8000/stream \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "こんにちは",
-    "provider": "openai",
-    "model": "gpt-4o"
-  }'
-```
-
-**非ストリーミングエンドポイント**:
-
-```bash
-curl -X POST http://127.0.0.1:8000/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "Pythonについて教えてください",
-    "provider": "openai"
-  }'
-
-# カスタムモデルを指定
-curl -X POST http://127.0.0.1:8000/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "こんにちは",
-    "provider": "openai",
-    "model": "gpt-4o"
-  }'
-```
-
-##### Pythonスクリプトから利用
-
-**ストリーミングリクエスト**:
-
-```python
-import asyncio
-import aiohttp
-
-async def test_streaming():
-    url = "http://127.0.0.1:8000/stream"
-    payload = {
-        "prompt": "ストリーミングAPIの利点を教えてください",
-        "provider": "openai"
-    }
-
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, json=payload) as response:
-            async for chunk in response.content.iter_any():
-                if chunk:
-                    print(chunk.decode("utf-8"), end="", flush=True)
-
-asyncio.run(test_streaming())
-```
-
-**非ストリーミングリクエスト**:
-
-```python
-import asyncio
-import aiohttp
-
-async def test_completion():
-    url = "http://127.0.0.1:8000/completions"
-    payload = {
-        "prompt": "非ストリーミングAPIの利点を教えてください",
-        "provider": "openai"
-    }
-
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, json=payload) as response:
-            result = await response.json()
-            print(result["content"])
-            print(f"\nModel: {result['model']}")
-            print(f"Provider: {result['provider']}")
-
-asyncio.run(test_completion())
+# LLM実行
+make run-openai         # OpenAI APIで実行
 ```
 
 ### 出力例
 
-#### ストリーミングモードの実行結果
+実行すると、以下のような構造化されたJSONファイルが生成されます：
 
-```
-============================================================
-Provider: openai
-Prompt: Pythonの非同期プログラミングについて説明してください
-============================================================
+**ファイル名**: `outputs/openai_c5339cd3f7b240b3b6e7b113eeacd216.json`
 
-Response:
-------------------------------------------------------------
-Pythonの非同期プログラミングは、複数のタスクを並行して実行する
-ための強力な手法です。asyncioモジュールを使用することで、
-I/O待機時間を有効活用し、アプリケーションのパフォーマンスを
-大幅に向上させることができます。
-
-主要な概念：
-
-1. **async/await構文**: 非同期関数を定義し、await で非同期
-   処理を待機します。
-
-2. **イベントループ**: すべての非同期タスクを管理・実行する
-   中心的な機構です。
-
-3. **コルーチン**: async def で定義された特殊な関数で、
-   実行を一時停止・再開できます。
-
-非同期プログラミングは、Webスクレイピング、API呼び出し、
-データベースアクセスなど、I/Oバウンドな処理に特に効果的です。
-------------------------------------------------------------
-Stream completed successfully!
-```
-
-#### 非ストリーミングモードの実行結果
-
-```
-============================================================
-Provider: openai
-Prompt: Pythonについて教えてください
-============================================================
-
-Response:
-------------------------------------------------------------
-Pythonは、シンプルで読みやすい構文を持つ高水準プログラミング言語です。
-1991年にGuido van Rossumによって開発され、現在では世界中で広く使用されています。
-
-主な特徴：
-- 読みやすく書きやすい文法
-- 豊富な標準ライブラリとサードパーティパッケージ
-- データサイエンス、Web開発、自動化など幅広い用途
-- クロスプラットフォーム対応
-- 動的型付け
-
-Pythonは初心者にも学びやすく、同時にプロフェッショナルな開発にも
-適した強力な言語です。
-------------------------------------------------------------
-Completion request successful!
-Model used: gpt-4o-mini
-Provider: openai
-```
-
-#### ヘルスチェックの実行
-
-```bash
-curl http://127.0.0.1:8000/health
-```
-
-**レスポンス**:
 ```json
 {
-  "status": "healthy",
-  "message": "LLM Streaming API is running"
+    "first_name": "蒼",
+    "last_name": "雨宮",
+    "gender": "male",
+    "age": 25,
+    "personalities": [
+        {
+            "short_personality": "冒険心旺盛",
+            "description": "新しい場所や経験を求め、常に未知への挑戦を楽しむ。好奇心が強く、リスクを恐れず行動する。"
+        },
+        {
+            "short_personality": "社交的",
+            "description": "初対面の人とも打ち解けやすく、会話を楽しむ。多様なバックグラウンドを持つ人々との交流を大切にする。"
+        },
+        {
+            "short_personality": "楽観的",
+            "description": "困難な状況でもポジティブな側面を見つけ、前向きに対処する。失敗を学びの機会と捉える。"
+        }
+    ]
 }
 ```
 
-## ストリーミング vs 非ストリーミング
-
-### それぞれの特徴と使い分け
-
-| 特徴 | ストリーミング (`/stream`) | 非ストリーミング (`/completions`) |
-|------|---------------------------|----------------------------------|
-| **レスポンス形式** | Server-Sent Events (SSE) | JSON |
-| **配信方式** | リアルタイム・逐次配信 | 完全な応答を一度に返す |
-| **初回応答速度** | 速い（即座に開始） | 遅い（完全生成後） |
-| **ユーザー体験** | リアルタイム表示で待ち時間が短く感じる | 生成完了まで待機が必要 |
-| **実装の複雑さ** | 高い（チャンク処理が必要） | 低い（通常のHTTPリクエスト） |
-| **クライアント要件** | SSE対応が必要 | 標準的なHTTPクライアント |
-| **キャンセル** | 途中で接続を切断可能 | 完全生成まで待つ必要がある |
-| **適用場面** | チャットボット、リアルタイムUI | バッチ処理、API統合、完全な応答が必要な場合 |
+**実行ログ例**:
+```
+[2025-01-18 10:30:45] [INFO] [__main__] [main.py:53] [main] LLM provider: openai
+Model: gpt-4o
+Output directory: outputs
+[2025-01-18 10:30:47] [INFO] [__main__] [main.py:74] [main] File saved to outputs/openai_c5339cd3f7b240b3b6e7b113eeacd216.json
+```

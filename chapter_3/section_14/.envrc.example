@@ -1,3 +1,0 @@
-export OPENAI_API_KEY="sk-your-openai-api-key-here"
-BASIC_PREDICTION_MODEL="gpt-4o"
-HIGH_PREDICTION_MODEL="gpt-5"

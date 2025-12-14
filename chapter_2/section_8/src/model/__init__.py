@@ -1,4 +1,4 @@
-from src.model.llm_as_a_judge_model import EvaluationCriterion, EvaluationScore, JudgeRequest, JudgeResponse
+from src.model.llm_as_a_judge_model import EvaluationCriterion, JudgeRequest, JudgeResponse
 from src.model.model import CharacterPersonality, CharacterRequest, CharacterResponse, Gender
 
 __all__ = [
@@ -6,7 +6,6 @@ __all__ = [
     "CharacterResponse",
     "Gender",
     "CharacterRequest",
-    "EvaluationScore",
     "EvaluationCriterion",
     "JudgeRequest",
     "JudgeResponse",

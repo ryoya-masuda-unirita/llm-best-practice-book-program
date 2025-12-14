@@ -1,508 +1,398 @@
-# Chapter 3 Section 5: 状態変化と読み取りの責任分離（LLMシステムのCQRS）
+# Chapter 3 Section 5: 優先的リクエストと制御
 
 ## 概要
 
-このプロジェクトは、**CQRS（Command Query Responsibility Segregation）パターン**を用いたLLMシステムの実装サンプルです。状態を変更する処理（Command）とデータを読み取る処理（Query）を明確に分離することで、高スループットと低レイテンシを両立させるアーキテクチャを実現します。
+本プロジェクトは、LLMアプリケーションにおける**優先的リクエストと制御**の本番レベル実装を示しています。Redisを使用した3層のプライオリティキューシステムにより、異なるビジネス重要度を持つリクエストを管理し、プレミアムユーザーへのサービス品質を維持しながら、低優先度リクエストの「飢餓状態」を防ぎます。
 
-キャラクター生成システムを通じて、大規模なLLMアプリケーションにおける知識ベースの管理手法を学ぶことができます。生成されたキャラクター情報は、Gemini Embedding APIを使用してベクトル化され、ChromaDBに非同期で保存されます。ユーザーは保存された知識ベースに対して、セマンティック検索を用いて高速に情報を取得できます。
+実世界のLLMアプリケーションでは、すべてのリクエストが同等ではありません。高額を支払うエンタープライズ顧客は、無料ユーザーよりも速いレスポンスタイムを期待します。本実装は、**重み付きランダム選択アルゴリズム**を使用して、公平性と優先度のバランスを実現しています。
+
+Producer-Consumerパターンを採用し、FastAPI APIサーバーがリクエストを受け付けてRedisキューに投入し、バックグラウンドワーカーがタスクを処理します。
 
 ## 機能
 
-### コア機能
-- **CQRS実装**: Command（書き込み）とQuery（読み取り）の完全な責任分離
-- **非同期知識登録**: バックグラウンドでの高スループット書き込み処理
-- **同期知識検索**: 低レイテンシの検索API
-- **カスタムEmbedding**: Gemini APIによる高品質なベクトル生成（768次元）
-- **ベクトルデータベース**: ChromaDBを使用したセマンティック検索
-
-### LLM統合
-- **Gemini対応**: Google Gemini（2.5 Pro, 2.5 Flash, 2.5 Flash Lite）をサポート
-- **構造化出力**: Pydanticモデルによる型安全なLLM応答
-- **自動知識保存**: キャラクター生成時に自動的に知識ベースへ保存
-
-### インフラストラクチャ
-- **Docker Compose対応**: ChromaDB、LLMサーバー、知識ベースサーバーの統合デプロイ
-- **永続化**: Docker volumeによるデータ永続化
-- **ヘルスチェック**: サービス間の依存関係管理と健全性監視
-- **環境切り替え**: ローカル開発とDocker環境のシームレスな切り替え
+- **3層優先度システム**: ユーザーティア（ENTERPRISE/PREMIUM/FREE）から優先度（HIGH/MEDIUM/LOW）への自動マッピング
+- **重み付きスケジューリング**: 設定可能な処理比率（デフォルト: HIGH 70%, MEDIUM 20%, LOW 10%）
+- **非同期タスク処理**: タスクIDによるステータス追跡と結果取得
+- **リトライ機構**: 設定可能な最大リトライ回数（デフォルト: 3回）
+- **キュー統計**: リアルタイムのキューサイズと処理中タスク数の監視
+- **同期/非同期API**: キューをバイパスする同期処理と非同期キュー処理の両方をサポート
+- **型安全性**: Pydanticによる厳密な型検証とバリデーション
 
 ## プロジェクト構成
 
 ### ディレクトリ構成
 
 ```
-chapter_3/section_5/
-├── src/
-│   ├── __init__.py                 # パッケージ初期化、共有ThreadPoolExecutor
-│   ├── config.py                   # 設定管理（APIキー読み込み）
-│   ├── logger.py                   # ロギング設定
-│   ├── api/
-│   │   ├── __init__.py
-│   │   ├── llm_server.py           # LLM APIサーバー（Port 8000）
-│   │   └── knowledge_server.py     # 知識ベースAPIサーバー（Port 8001）
-│   ├── client/
-│   │   ├── __init__.py
-│   │   ├── llm_client.py           # Gemini APIクライアント初期化
-│   │   └── chromadb_client.py      # ChromaDBクライアント（ローカル/リモート対応）
-│   ├── model/
-│   │   ├── __init__.py
-│   │   ├── model.py                # LLMデータモデル定義
-│   │   └── knowledge.py            # 知識ベース用データモデル（Command/Query）
-│   ├── service/
-│   │   ├── __init__.py
-│   │   ├── request_llm.py          # LLMリクエストハンドラ
-│   │   ├── embedding_service.py    # Gemini Embedding生成サービス
-│   │   ├── knowledge_command.py    # Commandサイド（非同期書き込み）
-│   │   └── knowledge_query.py      # Queryサイド（同期読み取り）
-│   └── prompt/
-│       ├── __init__.py
-│       └── prompt.py               # プロンプト生成ロジック
-├── data/
-│   └── chromadb/                   # ローカル開発時のChromaDBデータ（自動作成）
-├── docker-compose.yml              # Docker Compose設定
-├── pyproject.toml                  # プロジェクト依存関係
-└── README.md                       # このファイル
+src/
+├── __init__.py
+├── config.py              # 環境変数ベースの設定管理
+├── logger.py              # ロギング設定
+├── api/
+│   ├── __init__.py
+│   └── llm_server.py      # FastAPI REST APIサーバー
+├── client/
+│   ├── __init__.py
+│   └── llm_client.py      # OpenAI APIクライアント
+├── model/
+│   ├── __init__.py
+│   └── model.py           # Pydanticデータモデル
+├── prompt/
+│   ├── __init__.py
+│   └── prompt.py          # プロンプト生成
+└── service/
+    ├── __init__.py
+    ├── queue_manager.py   # Redis優先度キュー管理
+    ├── request_llm.py     # LLM APIリクエスト処理
+    └── worker.py          # バックグラウンドワーカー
 ```
 
 ### アーキテクチャ
 
-このプロジェクトは、CQRSパターンに基づく3層アーキテクチャで構成されています：
-
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     ユーザーリクエスト                        │
-└──────────────────┬──────────────────────────────────────────┘
-                   │
-       ┌───────────┴────────────┐
-       │                        │
-       ▼                        ▼
-┌─────────────┐        ┌─────────────────┐
-│ LLMサーバー  │        │知識ベースサーバー│
-│  Port 8000  │        │   Port 8001     │
-│             │        │                 │
-│キャラクター  │        │  ┌───────────┐  │
-│    生成     │        │  │ Command   │  │
-│  (Gemini)   │        │  │  (書込)   │  │
-│             │        │  │  非同期   │  │
-└──────┬──────┘        │  └─────┬─────┘  │
-       │               │        │        │
-       │ バックグラウンド│        │        │
-       │   タスク      │◄───────┘        │
-       │               │                 │
-       │               │  ┌───────────┐  │
-       │               │  │  Query    │  │
-       │               │  │  (読取)   │  │
-       │               │  │   同期    │  │
-       │               │  └─────┬─────┘  │
-       └───────────────┴────────┴─────────┘
-                       │
-                       ▼
-              ┌─────────────────┐
-              │    ChromaDB     │
-              │  Vector Store   │
-              │  Port 8002      │
-              └─────────────────┘
-                       │
-                       ▼
-              ┌─────────────────┐
-              │  Gemini API     │
-              │  Embedding/LLM  │
-              └─────────────────┘
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   クライアント   │────▶│  FastAPI Server │────▶│     Redis       │
+│                 │     │  (Producer)     │     │  Priority Queue │
+└─────────────────┘     └─────────────────┘     └────────┬────────┘
+                                                         │
+                              ┌──────────────────────────┘
+                              ▼
+                        ┌─────────────────┐     ┌─────────────────┐
+                        │     Worker      │────▶│   OpenAI API    │
+                        │   (Consumer)    │     │                 │
+                        └─────────────────┘     └─────────────────┘
+
+Redis データ構造:
+┌─────────────────────────────────────────────────────────────────┐
+│  Sorted Set: llm:queue:high   (score=timestamp, member=task_id) │
+│  Sorted Set: llm:queue:medium (score=timestamp, member=task_id) │
+│  Sorted Set: llm:queue:low    (score=timestamp, member=task_id) │
+│  Key-Value:  llm:task:{id}    (JSON serialized QueuedTask)      │
+│  Set:        llm:processing   (task_ids currently processing)   │
+└─────────────────────────────────────────────────────────────────┘
 ```
-
-**処理フロー**:
-
-1. **キャラクター生成（LLMサーバー）**
-   - ユーザーがキャラクター生成をリクエスト
-   - Gemini を使用してキャラクター情報を生成
-   - レスポンスを即座にユーザーに返却
-   - バックグラウンドでCommand処理を実行
-
-2. **Command処理（非同期書き込み）**
-   - キャラクター情報からテキスト表現を生成
-   - Gemini Embedding APIでベクトル化（768次元）
-   - ChromaDBにベクトルとメタデータを保存
-   - 高スループット、結果整合性
-
-3. **Query処理（同期読み取り）**
-   - ユーザーが検索クエリを送信
-   - Gemini Embedding APIでクエリをベクトル化
-   - ChromaDBでベクトル類似度検索を実行
-   - 類似度スコア付きで結果を返却
-   - 低レイテンシ、即座に応答
 
 ### 実装の詳細
 
-#### 1. CQRS パターン実装
+#### 1. 優先度キュー管理 (`src/service/queue_manager.py`)
 
-**Command Side（書き込み）** - `src/service/knowledge_command.py`:
-
-```python
-async def register_knowledge_async(command: KnowledgeRegisterCommand) -> str:
-    """
-    知識を非同期で登録。
-
-    即座にjob_idを返し、実際の処理はバックグラウンドで実行。
-    高スループットを実現。
-    """
-    job_id = str(uuid.uuid4())
-
-    # バックグラウンドタスクとして実行
-    asyncio.create_task(_store_in_chromadb_async(command, job_id))
-
-    return job_id
-```
-
-**Query Side（読み取り）** - `src/service/knowledge_query.py`:
+Redis Sorted Setを使用してFIFO順序を保証しながら優先度キューを実装しています。
 
 ```python
-async def search_knowledge(query: KnowledgeSearchQuery) -> KnowledgeSearchResponse:
-    """
-    知識ベースを同期的に検索。
+class PriorityQueueManager:
+    QUEUE_PREFIX = "llm:queue"
+    TASK_PREFIX = "llm:task"
+    PROCESSING_SET = "llm:processing"
+    TERMINAL_STATUSES = frozenset({TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.TIMEOUT})
+    USER_TIER_PRIORITY_MAP = {
+        UserTier.ENTERPRISE: Priority.HIGH,
+        UserTier.PREMIUM: Priority.MEDIUM,
+        UserTier.FREE: Priority.LOW,
+    }
 
-    低レイテンシで結果を返却。
-    クエリのEmbeddingを生成し、ベクトル類似度検索を実行。
-    """
-    start_time = time.time()
+    async def enqueue_task(self, task: QueuedTask) -> QueuedTask:
+        """Add a task to the appropriate priority queue."""
+        redis = await self._ensure_connected()
 
-    # Gemini Embedding APIでクエリをベクトル化
-    query_embedding = await get_embedding(query.query_text)
+        if not task.priority:
+            task.priority = self.get_priority_for_user_tier(task.user_tier)
 
-    # ChromaDBで検索
-    results = await loop.run_in_executor(executor, _search_chromadb, query_embedding, query)
+        await redis.set(self._get_task_key(task.task_id), task.model_dump_json())
+        await redis.zadd(self._get_queue_key(task.priority), {task.task_id: task.created_at})
 
-    query_time = (time.time() - start_time) * 1000
-    return KnowledgeSearchResponse(results=items, total_count=len(items), query_time_ms=query_time)
-```
+        return task
 
-#### 2. Gemini Embedding 統合
+    async def dequeue_task(self, priority: Priority) -> Optional[QueuedTask]:
+        """Remove and return the oldest task from the specified priority queue."""
+        redis = await self._ensure_connected()
+        queue_key = self._get_queue_key(priority)
 
-**Embedding生成** - `src/service/embedding_service.py`:
+        task_ids = await redis.zrange(queue_key, 0, 0)
+        if not task_ids:
+            return None
 
-```python
-GEMINI_EMBEDDING_MODEL = "gemini-embedding-001"
-GEMINI_EMBEDDING_DIMENSION = 768
+        task_id = task_ids[0]
+        await redis.zrem(queue_key, task_id)
 
-async def get_embedding(text: str) -> list[float]:
-    """Gemini APIを使用して埋め込みベクトルを生成"""
-    loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _get_gemini_embedding_sync, text)
+        task_data = await redis.get(self._get_task_key(task_id))
+        task = QueuedTask.model_validate_json(task_data)
+        await redis.sadd(self.PROCESSING_SET, task_id)
+        task.status = TaskStatus.PROCESSING
 
-def _get_gemini_embedding_sync(text: str) -> list[float]:
-    result = google_genai_client.models.embed_content(
-        model=GEMINI_EMBEDDING_MODEL,
-        contents=text,
-    )
-    return result.embeddings[0].values
+        return task
 ```
 
 **ポイント**:
-- Gemini Embedding: 768次元、多言語（日本語含む）に最適化
-- キャラクター生成と検索で同じEmbeddingモデルを使用
+- Sorted Setのスコアにタイムスタンプを使用し、同一優先度内でのFIFO順序を保証
+- タスクデータは別途Key-Valueに保存し、キューのオーバーヘッドを削減
+- Processing Setでクラッシュリカバリ用の追跡を実現
 
-#### 3. ChromaDB クライアント
+#### 2. 重み付きスケジューラ (`src/service/worker.py`)
 
-**ローカル/リモート自動切り替え** - `src/client/chromadb_client.py`:
+飢餓状態を防ぎながら優先度を尊重するスケジューリングを実装しています。
 
 ```python
-# 環境変数でChromaDBの接続先を制御
-CHROMA_HOST = os.getenv("CHROMA_HOST", None)
+@dataclass
+class PriorityWeights:
+    high: float = field(default_factory=lambda: config.high_priority_ratio)
+    medium: float = field(default_factory=lambda: config.medium_priority_ratio)
+    low: float = field(default_factory=lambda: config.low_priority_ratio)
 
-if CHROMA_HOST:
-    # Docker環境: HTTPクライアント
-    chroma_client = chromadb.HttpClient(
-        host=CHROMA_HOST,
-        port=int(CHROMA_PORT),
-    )
-else:
-    # ローカル開発: 永続クライアント
-    chroma_client = chromadb.Client(
-        Settings(persist_directory="./data/chromadb")
-    )
+    def normalized(self) -> list[float]:
+        total = self.high + self.medium + self.low
+        return [w / total for w in self.as_list()]
+
+
+class WeightedPriorityScheduler:
+    PRIORITIES = [Priority.HIGH, Priority.MEDIUM, Priority.LOW]
+
+    def select_priority(self) -> Priority:
+        return random.choices(self.PRIORITIES, weights=self._weights.normalized(), k=1)[0]
 ```
 
 **ポイント**:
-- 同じコードでローカルとDockerの両方に対応
-- Docker Composeで自動的に環境変数が設定される
-- 開発時は `./data/chromadb` にデータを保存
+- 重み付きランダム選択により、長期的に設定比率に収束
+- LOW優先度も10%の処理機会を保証（飢餓状態を防止）
 
-#### 4. データモデル
+#### 3. REST API (`src/api/llm_server.py`)
 
-**Command モデル** - `src/model/knowledge.py`:
+FastAPIを使用した非同期APIサーバーを実装しています。
 
 ```python
-class KnowledgeRegisterCommand(BaseModel):
-    """知識登録のためのCommandモデル"""
-    character_request: CharacterRequest
-    character_response: CharacterResponse
+@app.post("/generate/queue", response_model=TaskSubmissionResponse, tags=["Queue"])
+async def queue_generate_character(request: LLMRequest):
+    """Queue a character generation request with priority based on user tier."""
+    validate_request(request)
+
+    priority = queue_manager.get_priority_for_user_tier(request.user_tier)
+
+    task = await queue_manager.enqueue_task(
+        QueuedTask(
+            priority=priority,
+            user_tier=request.user_tier,
+            provider=request.provider.value,
+            model=request.model,
+            character_request=request.character_request,
+        )
+    )
+
+    queue_position = await queue_manager.get_queue_position(task.task_id)
+    estimated_wait = queue_position * ESTIMATED_SECONDS_PER_TASK if queue_position is not None else None
+
+    return TaskSubmissionResponse(
+        task_id=task.task_id,
+        priority=priority,
+        status=TaskStatus.PENDING,
+        estimated_wait_time_seconds=estimated_wait,
+        message=f"Task queued with {priority.value} priority.",
+    )
+```
+
+#### 4. データモデル (`src/model/model.py`)
+
+Pydanticを使用した型安全なデータモデルを定義しています。
+
+```python
+class UserTier(StrEnum):
+    ENTERPRISE = "enterprise"  # HIGH priority
+    PREMIUM = "premium"        # MEDIUM priority
+    FREE = "free"              # LOW priority
+
+class TaskStatus(StrEnum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    TIMEOUT = "timeout"
+
+class QueuedTask(BaseModel):
+    task_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    priority: Priority
+    user_tier: UserTier
+    provider: str
     model: str
-    prompt: list[dict]
-    processing_time_ms: float
-    metadata: Optional[dict] = None
-```
-
-**Query モデル**:
-
-```python
-class KnowledgeSearchQuery(BaseModel):
-    """知識検索のためのQueryモデル"""
-    query_text: str
-    limit: int = Field(default=10, ge=1, le=100)
-    filter_metadata: Optional[dict] = None
+    character_request: CharacterRequest
+    status: TaskStatus = TaskStatus.PENDING
+    created_at: float = Field(default_factory=time.time)
+    started_at: Optional[float] = None
+    completed_at: Optional[float] = None
+    retry_count: int = 0
+    error_message: Optional[str] = None
+    result: Optional[dict[str, Any]] = None
 ```
 
 ## 使い方
 
 ### 環境構成
 
-- **Python**: 3.13.2以上
-- **Docker**: 20.10以上（Docker Compose使用時）
-- **依存ライブラリ**:
-  - chromadb >= 1.3.0
+- Python: 3.13.2以上
+- 依存ライブラリ:
   - fastapi >= 0.119.0
-  - google-genai >= 1.45.0
+  - redis >= 7.0.0
+  - openai >= 2.4.0
   - pydantic >= 2.12.2
   - uvicorn >= 0.37.0
+  - httpx >= 0.28.1
 
 ### セットアップ
 
-#### 方法1: ローカル開発
-
-1. **依存関係のインストール**
+1. 環境変数の設定
 
 ```bash
-# uvを使用する場合（推奨）
-uv sync
-
-# pipを使用する場合
-pip install -e .
-```
-
-2. **環境変数の設定**
-
-```bash
-export GEMINI_API_KEY="AIza..."
-```
-
-3. **サーバーの起動**
-
-```bash
-# ターミナル1: LLMサーバー
-uv run python -m src.api.llm_server
-
-# ターミナル2: 知識ベースサーバー
-uv run python -m src.api.knowledge_server
-```
-
-#### 方法2: Docker Compose
-
-1. **環境変数の設定**
-
-```bash
-# .envrc.exampleをコピーして.envrcを作成
+# .envrc.example をコピーして編集
 cp .envrc.example .envrc
 
-# エディタで.envrcを開き、APIキーを設定
-# .envrc
-export GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+# 必須の環境変数
+export OPENAI_API_KEY="your_openai_api_key"
+
+# Redis設定（デフォルト値あり）
+export REDIS_HOST="localhost"
+export REDIS_PORT="6379"
+export REDIS_DB="0"
+
+# キュー処理設定（合計1.0）
+export HIGH_PRIORITY_RATIO="0.7"
+export MEDIUM_PRIORITY_RATIO="0.2"
+export LOW_PRIORITY_RATIO="0.1"
+
+# タスク設定
+export MAX_RETRY_ATTEMPTS="3"
+export TASK_TIMEOUT_SECONDS="300"
 ```
 
-2. **サービスの起動**
+2. 依存関係のインストール
 
 ```bash
-# すべてのサービスを起動
-docker-compose up -d
-
-# サービスの状態確認
-docker-compose ps
+uv sync
 ```
 
-3. **ヘルスチェック**
+3. Redisの起動
 
 ```bash
-# LLMサーバー
-curl http://localhost:8000/health
-
-# 知識ベースサーバー
-curl http://localhost:8001/health
+docker run -d --name redis -p 6379:6379 redis:8-alpine
 ```
 
 ### 使用方法、実行方法
 
-#### 1. キャラクターの生成（自動的に知識ベースに保存）
+1. APIサーバーの起動
 
 ```bash
-curl -X POST "http://localhost:8000/generate" \
+uv run uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000
+```
+
+2. ワーカーの起動（別ターミナル）
+
+```bash
+uv run python -m src.service.worker
+```
+
+3. APIへのリクエスト
+
+```bash
+# 非同期キュー処理（ENTERPRISEユーザー = 高優先度）
+curl -X POST http://localhost:8000/generate/queue \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gemini-2.5-flash",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "user_tier": "enterprise",
     "character_request": {
       "gender": "female",
       "age": 25,
-      "additional_instructions": "勇敢な戦士キャラクターを作成してください"
+      "additional_instructions": "科学者のキャラクター"
     }
   }'
-```
 
-**レスポンス例**:
-```json
-{
-  "character": {
-    "first_name": "アリア",
-    "last_name": "ストームボーン",
-    "gender": "female",
-    "age": 25,
-    "personalities": [
-      {
-        "short_personality": "勇敢な戦士",
-        "description": "どんな困難にも立ち向かう不屈の精神を持つ..."
-      }
-    ]
-  },
-  "model": "gemini-2.5-flash",
-  "processing_time_ms": 1250.5
-}
-```
+# タスクステータス確認
+curl http://localhost:8000/task/{task_id}
 
-**処理フロー**:
-1. キャラクターが即座に生成され、レスポンスが返却される
-2. バックグラウンドでGemini Embedding APIでベクトル化（768次元）
-3. ChromaDBにベクトルとメタデータが保存される
+# キュー統計
+curl http://localhost:8000/queue/stats
 
-#### 2. 知識ベースの検索
-
-```bash
-# 数秒待ってから検索（非同期処理の完了を待つ）
-sleep 5
-
-curl -X POST "http://localhost:8001/query/search" \
+# 同期処理（キューをバイパス）
+curl -X POST http://localhost:8000/generate \
   -H "Content-Type: application/json" \
   -d '{
-    "query_text": "勇敢な戦士",
-    "limit": 5
-  }'
-```
-
-**レスポンス例**:
-```json
-{
-  "results": [
-    {
-      "id": "uuid-here",
-      "character_request": {...},
-      "character_response": {...},
-      "model": "gemini-2.5-flash",
-      "processing_time_ms": 1250.5,
-      "similarity_score": 0.95,
-      "created_at": 1234567890.0
-    }
-  ],
-  "total_count": 1,
-  "query_time_ms": 45.2
-}
-```
-
-#### 3. 統計情報の取得
-
-```bash
-curl http://localhost:8001/query/stats
-```
-
-**レスポンス例**:
-```json
-{
-  "total_items": 100,
-  "models_distribution": {
-    "gemini-2.5-flash": 80,
-    "gemini-2.5-pro": 20
-  },
-  "timestamp": 1234567890.0
-}
-```
-
-#### 4. 直接知識を登録（Command API）
-
-```bash
-curl -X POST "http://localhost:8001/command/register" \
-  -H "Content-Type: application/json" \
-  -d '{
+    "provider": "openai",
+    "model": "gpt-4o-mini",
     "character_request": {
       "gender": "male",
       "age": 30,
-      "additional_instructions": "冷静沈着"
-    },
-    "character_response": {
-      "first_name": "太郎",
-      "last_name": "山田",
-      "gender": "male",
-      "age": 30,
-      "personalities": [
-        {"short_personality": "冷静", "description": "どんな状況でも冷静さを保つ"},
-        {"short_personality": "論理的", "description": "論理的思考を重視する"},
-        {"short_personality": "誠実", "description": "約束を必ず守る"}
-      ]
-    },
-    "model": "gemini-2.5-flash",
-    "prompt": [],
-    "processing_time_ms": 1000.0
+      "additional_instructions": null
+    }
   }'
-```
-
-**レスポンス例**:
-```json
-{
-  "job_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "status": "accepted",
-  "message": "Knowledge registration queued for processing"
-}
 ```
 
 ### 出力例
 
-#### キャラクター生成のログ
+タスク投入レスポンス:
 
-```
-[2025-10-29 10:30:45] [INFO] [llm_server] Generating character with gemini/gemini-2.5-flash
-[2025-10-29 10:30:47] [INFO] [llm_server] Successfully generated character in 1250.50ms
-[2025-10-29 10:30:47] [INFO] [llm_server] Queued knowledge registration for background processing
-```
-
-#### Command処理（非同期）のログ
-
-```
-[2025-10-29 10:30:47] [INFO] [knowledge_command] Accepting knowledge registration command with job_id: a1b2c3d4-...
-[2025-10-29 10:30:47] [INFO] [knowledge_command] Generating Gemini embedding for job_id: a1b2c3d4-...
-[2025-10-29 10:30:48] [INFO] [knowledge_command] Successfully stored knowledge with job_id: a1b2c3d4-... (embedding dim: 768)
+```json
+{
+  "task_id": "550e8400-e29b-41d4-a716-446655440000",
+  "priority": "high",
+  "status": "pending",
+  "estimated_wait_time_seconds": 5.0,
+  "message": "Task queued with high priority. Use /task/{task_id} to check status."
+}
 ```
 
-#### Query処理（同期）のログ
+タスク完了レスポンス:
+
+```json
+{
+  "task_id": "550e8400-e29b-41d4-a716-446655440000",
+  "priority": "high",
+  "status": "completed",
+  "created_at": 1704067200.123,
+  "started_at": 1704067201.456,
+  "completed_at": 1704067204.789,
+  "result": {
+    "character": {
+      "first_name": "Yuki",
+      "last_name": "Tanaka",
+      "gender": "female",
+      "age": 25,
+      "personalities": [
+        {
+          "short_personality": "知的好奇心旺盛",
+          "description": "常に新しい知識を求め、未知の領域への探求を楽しむ"
+        },
+        {
+          "short_personality": "冷静沈着",
+          "description": "困難な状況でも落ち着いて論理的に対処する"
+        },
+        {
+          "short_personality": "内向的",
+          "description": "一人の時間を大切にし、深い思考に没頭することを好む"
+        }
+      ]
+    },
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "processing_time_ms": 3456.78
+  },
+  "error_message": null,
+  "queue_position": null
+}
+```
+
+キュー統計レスポンス:
+
+```json
+{
+  "high_priority_count": 2,
+  "medium_priority_count": 5,
+  "low_priority_count": 10,
+  "total_pending": 17,
+  "processing_count": 1
+}
+```
+
+ワーカーログの例:
 
 ```
-[2025-10-29 10:31:00] [INFO] [knowledge_query] Searching knowledge base with query: 勇敢な戦士...
-[2025-10-29 10:31:00] [INFO] [knowledge_query] Search completed in 45.20ms, found 3 results
+[INFO] Worker started with priority ratios - High: 70%, Medium: 20%, Low: 10%
+[INFO] Enqueued task a1b2c3d4-... to high priority queue
+[INFO] Processing task a1b2c3d4-... (priority: high, provider: openai/gpt-4o-mini)
+[INFO] Completed task a1b2c3d4-... in 3333.45ms (total: 1)
 ```
-
-## 注意点
-
-### 結果整合性（Eventual Consistency）
-
-Command処理は非同期で実行されるため、データが書き込まれてからQuery処理で参照可能になるまでに若干の遅延（2-5秒程度）が発生します。この特性を理解した上でシステムを設計してください。
-
-### ChromaDBの動作モード
-
-- **ローカルモード**: `CHROMA_HOST`環境変数が未設定の場合、`./data/chromadb`にデータを永続化
-- **リモートモード**: `CHROMA_HOST`と`CHROMA_PORT`を設定することで、外部のChromaDBサーバーに接続
-
-```bash
-# リモートChromaDBを使用する場合
-export CHROMA_HOST="chromadb-server"
-export CHROMA_PORT="8000"
-```
-
-### 利用可能なGeminiモデル
-
-| モデル | 用途 |
-|--------|------|
-| `gemini-2.5-pro` | 高精度なキャラクター生成 |
-| `gemini-2.5-flash` | バランスの取れた高速生成 |
-| `gemini-2.5-flash-lite` | 軽量で最速の生成 |

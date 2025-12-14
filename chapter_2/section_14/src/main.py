@@ -1,15 +1,12 @@
 import asyncio
-import json
-import os
 from functools import wraps
-from uuid import uuid4
+from pathlib import Path
 
 import click
-from google.genai.types import File
 
-from src.client.llm_client import GeminiModel, LLMProvider, google_genai_client
+from src.client.llm_client import AnthropicModel
 from src.logger import make_logger
-from src.service import request_gemini
+from src.service import extract_document_structure, save_extraction_results
 
 logger = make_logger(__name__)
 
@@ -26,16 +23,17 @@ def async_cmd(func):
 @click.option(
     "--model",
     "-m",
-    type=click.Choice(GeminiModel.list_str()),
+    type=click.Choice(AnthropicModel.list_str()),
     required=True,
-    help="The model to use for the request.",
+    help="The Anthropic model to use for analysis.",
 )
 @click.option(
-    "--image-path",
+    "--input",
     "-i",
+    "input_file",
     type=click.Path(exists=True),
     required=True,
-    help="The path to the input image file.",
+    help="Path to the input document (text or markdown).",
 )
 @click.option(
     "--output-directory",
@@ -48,31 +46,38 @@ def async_cmd(func):
 @async_cmd
 async def main(
     model: str,
-    image_path: str,
+    input_file: str,
     output_directory: str = "outputs",
 ):
-    logger.info(f"""
-Model: {model}
-Input image path: {image_path}
+    """Analyze and extract document structure using LLM-generated scripts."""
+    logger.info(f"""Model: {model}
+Input file: {input_file}
 Output directory: {output_directory}""")
 
-    if model not in GeminiModel.list_str():
+    if model not in AnthropicModel.list_str():
         raise ValueError(f"Invalid model '{model}'.")
 
-    os.makedirs(output_directory, exist_ok=True)
+    document_content = Path(input_file).read_text(encoding="utf-8")
+    logger.info(f"Document loaded: {len(document_content)} characters")
 
-    gemini_path: File = await google_genai_client.aio.files.upload(file=image_path)
-    result = await request_gemini(model=model, gemini_path=gemini_path)
+    extraction_result = await extract_document_structure(
+        model=model,
+        document_content=document_content,
+    )
 
-    file_name = f"{LLMProvider.GEMINI.value}_{uuid4().hex}.json"
-    file_path = os.path.join(output_directory, file_name)
-
-    with open(file_path, "w", encoding="utf-8") as f:
-        json.dump(result.model_dump(mode="json"), f, ensure_ascii=False, indent=2)
-
-    logger.info(f"""File saved to {file_path}""")
-
-    await google_genai_client.aio.aclose()
+    if extraction_result.success:
+        save_extraction_results(
+            extraction_result=extraction_result,
+            input_file=input_file,
+            output_directory=output_directory,
+            model=model,
+        )
+        logger.info("Document structure extraction completed successfully!")
+    else:
+        logger.error("Failed to extract document structure.")
+        if extraction_result.error:
+            logger.error(f"Last error: {extraction_result.error}")
+        raise click.ClickException("Document structure extraction failed.")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,97 @@
+{
+  "workflow_id": "checkpoint_workflow",
+  "checkpoint_id": "b0a4f1a9f4864045a717613ee5d9b3da",
+  "timestamp": "2025-12-07T09:34:47.417247",
+  "workflow_state": {
+    "workflow_id": "checkpoint_workflow",
+    "state": "running",
+    "started_at": "2025-12-07T09:34:47.413288",
+    "completed_at": null,
+    "current_node_id": "step3",
+    "node_records": {
+      "start": {
+        "node_id": "start",
+        "state": "completed",
+        "started_at": "2025-12-07T09:34:47.413393",
+        "completed_at": "2025-12-07T09:34:47.413583",
+        "error": null,
+        "output": {
+          "status": "started",
+          "initial_data": {
+            "counter": 0
+          }
+        },
+        "retry_count": 0
+      },
+      "step1": {
+        "node_id": "step1",
+        "state": "completed",
+        "started_at": "2025-12-07T09:34:47.415187",
+        "completed_at": "2025-12-07T09:34:47.415699",
+        "error": null,
+        "output": {
+          "step": 1,
+          "counter": 1
+        },
+        "retry_count": 0
+      },
+      "step2": {
+        "node_id": "step2",
+        "state": "completed",
+        "started_at": "2025-12-07T09:34:47.416519",
+        "completed_at": "2025-12-07T09:34:47.416616",
+        "error": null,
+        "output": {
+          "step": 2,
+          "counter": 1
+        },
+        "retry_count": 0
+      },
+      "step3": {
+        "node_id": "step3",
+        "state": "completed",
+        "started_at": "2025-12-07T09:34:47.417117",
+        "completed_at": "2025-12-07T09:34:47.417195",
+        "error": null,
+        "output": {
+          "step": 3,
+          "counter": 1
+        },
+        "retry_count": 0
+      }
+    },
+    "variables": {},
+    "error": null
+  },
+  "execution_context": {
+    "workflow_id": "checkpoint_workflow",
+    "variables": {
+      "counter": 0
+    },
+    "node_outputs": {
+      "start": {
+        "status": "started",
+        "initial_data": {
+          "counter": 0
+        }
+      },
+      "step1": {
+        "step": 1,
+        "counter": 1
+      },
+      "step2": {
+        "step": 2,
+        "counter": 1
+      },
+      "step3": {
+        "step": 3,
+        "counter": 1
+      }
+    },
+    "error": null
+  },
+  "metadata": {
+    "type": "auto",
+    "node": "step3"
+  }
+}

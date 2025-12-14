@@ -22,6 +22,14 @@ class CharacterRequest(BaseModel):
     age: int = Field(..., description="The age of the character.", ge=0, le=100)
     additional_instructions: Optional[str] = Field(..., description="Additional instructions for character generation.")
 
+    def to_str_dict(self) -> dict[str, str]:
+        """Convert all fields to string representation for prompt formatting."""
+        return {
+            "gender": self.gender,
+            "age": str(self.age),
+            "additional_instructions": self.additional_instructions or "",
+        }
+
 
 class CharacterPersonality(BaseModel):
     model_config = ConfigDict(
@@ -73,5 +81,7 @@ class CharacterResponse(BaseModel):
         return params
 
     def save_as_json(self, file_path: str) -> None:
+        """Save the character response as a JSON file."""
+
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(self.model_dump(), f, indent=4, ensure_ascii=False)

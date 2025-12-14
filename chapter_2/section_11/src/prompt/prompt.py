@@ -1,11 +1,11 @@
 import json
-from typing import Union
 
-from src.client.model import LLMProvider
-from src.model.model import CharacterResponse
+from src.client.llm_client import LLMProvider
+from src.model.model import CharacterRequest, CharacterResponse
 
 
-def make_openai_prompt() -> list:
+def make_openai_prompt(character: CharacterRequest) -> list:
+    data = character.to_str_dict()
     params = CharacterResponse.detailed_model()
     param_dump = json.dumps(params, indent=2, ensure_ascii=False)
     return [
@@ -19,11 +19,10 @@ def make_openai_prompt() -> list:
 
 以下を確認してください：
 1. 応答は有効なJSONであること
-2. すべてのフィールドが含まれていること
-3. 性別は「female」または「male」のいずれかであること
-4. 年齢は0から100の間であること
-5. 正確に3つの性格特性が提供されていること
-6. JSON構造の外に説明や追加のテキストを含めないこと
+2. JSON構造の外に説明や追加のテキストを含めないこと
+
+リクエストパラメータ：
+{data}
 """,
         },
         {
@@ -33,7 +32,8 @@ def make_openai_prompt() -> list:
     ]
 
 
-def make_gemini_prompt() -> tuple[str, str]:
+def make_gemini_prompt(character: CharacterRequest) -> tuple[str, str]:
+    data = character.to_str_dict()
     params = CharacterResponse.detailed_model()
     param_dump = json.dumps(params, indent=2, ensure_ascii=False)
     system_prompt = f"""あなたは創造的なキャラクタージェネレーターです。
@@ -44,17 +44,17 @@ def make_gemini_prompt() -> tuple[str, str]:
 
 以下を確認してください：
 1. 応答は有効なJSONであること
-2. すべてのフィールドが含まれていること
-3. 性別は「female」または「male」のいずれかであること
-4. 年齢は0から100の間であること
-5. 正確に3つの性格特性が提供されていること
-6. JSON構造の外に説明や追加のテキストを含めないこと
+2. JSON構造の外に説明や追加のテキストを含めないこと
+
+リクエストパラメータ：
+{data}
 """
     user_prompt = "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。"
     return system_prompt, user_prompt
 
 
-def make_anthropic_prompt() -> list:
+def make_anthropic_prompt(character: CharacterRequest) -> list:
+    data = character.to_str_dict()
     params = CharacterResponse.detailed_model()
     param_dump = json.dumps(params, indent=2, ensure_ascii=False)
     return [
@@ -68,11 +68,10 @@ def make_anthropic_prompt() -> list:
 
 以下を確認してください：
 1. 応答は有効なJSONであること
-2. すべてのフィールドが含まれていること
-3. 性別は「female」または「male」のいずれかであること
-4. 年齢は0から100の間であること
-5. 正確に3つの性格特性が提供されていること
-6. JSON構造の外に説明や追加のテキストを含めないこと
+2. JSON構造の外に説明や追加のテキストを含めないこと
+
+リクエストパラメータ：
+{data}
 
 ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。
 """,
@@ -80,13 +79,16 @@ def make_anthropic_prompt() -> list:
     ]
 
 
-def make_prompt(llm_provider: LLMProvider) -> Union[list[dict[str, str]], tuple[str, str]]:
-    """Generate provider-specific prompt."""
-    if llm_provider == LLMProvider.OPENAI:
-        return make_openai_prompt()
-    elif llm_provider == LLMProvider.GEMINI:
-        return make_gemini_prompt()
-    elif llm_provider == LLMProvider.ANTHROPIC:
-        return make_anthropic_prompt()
+def make_prompt(character: CharacterRequest, provider: LLMProvider | None = None) -> list | tuple[str, str]:
+    """Create a prompt for character generation based on the provider."""
+    if provider is None:
+        provider = LLMProvider.OPENAI
+
+    if provider == LLMProvider.OPENAI:
+        return make_openai_prompt(character)
+    elif provider == LLMProvider.GEMINI:
+        return make_gemini_prompt(character)
+    elif provider == LLMProvider.ANTHROPIC:
+        return make_anthropic_prompt(character)
     else:
-        raise ValueError(f"Unsupported provider: {llm_provider}")
+        raise ValueError(f"Unsupported provider: {provider}")

@@ -1,24 +1,19 @@
 from enum import StrEnum
 
-from google import genai
+from anthropic import AsyncAnthropic
 
 from src.config import config
 
 
-class LLMProvider(StrEnum):
-    """Enum for LLM providers."""
-
-    GEMINI = "gemini"
-
-
-class GeminiModel(StrEnum):
-    GEMINI_2_5_PRO = "gemini-2.5-pro"
-    GEMINI_2_5_FLASH = "gemini-2.5-flash"
-    GEMINI_2_5_FLASH_LITE = "gemini-2.5-flash-lite"
+class AnthropicModel(StrEnum):
+    CLAUDE_OPUS_4_5 = "claude-opus-4-5"
+    CLAUDE_HAIKU_4_5 = "claude-haiku-4-5"
+    CLAUDE_SONNET_4_5 = "claude-sonnet-4-5"
+    CLAUDE_OPUS_4_1 = "claude-opus-4-1"
 
     @staticmethod
     def list_str() -> list[str]:
-        return [model for model in GeminiModel]
+        return [model.value for model in AnthropicModel]
 
 
-google_genai_client = genai.Client(api_key=config.gemini_api_key.get_secret_value())
+anthropic_client = AsyncAnthropic(api_key=config.anthropic_api_key)

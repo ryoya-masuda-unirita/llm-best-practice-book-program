@@ -1,0 +1,260 @@
+{
+  "workflow_id": "content_pipeline",
+  "checkpoint_id": "237a5019655e4f1bbde3cc255be5ad3e",
+  "timestamp": "2025-12-07T09:16:47.407622",
+  "workflow_state": {
+    "workflow_id": "content_pipeline",
+    "state": "running",
+    "started_at": "2025-12-07T09:16:32.374035",
+    "completed_at": null,
+    "current_node_id": "store_quality",
+    "node_records": {
+      "start": {
+        "node_id": "start",
+        "state": "completed",
+        "started_at": "2025-12-07T09:16:32.374104",
+        "completed_at": "2025-12-07T09:16:32.374172",
+        "error": null,
+        "output": {
+          "status": "started",
+          "initial_data": {
+            "domain": "artificial intelligence",
+            "num_topics": 3,
+            "quality_threshold": 7
+          }
+        },
+        "retry_count": 0
+      },
+      "generate_topics": {
+        "node_id": "generate_topics",
+        "state": "completed",
+        "started_at": "2025-12-07T09:16:32.374244",
+        "completed_at": "2025-12-07T09:16:35.835568",
+        "error": null,
+        "output": {
+          "content": "The AI Revolution You're Already Living In: 5 Unseen Ways AI is Reshaping Your Daily Life, Beyond the Bots: Exploring the Ethical Minefield of AI Consciousness and Bias, Your New Creative Partner: How Generative AI Tools Can Supercharge Your Productivity and Innovation",
+          "model": "gemini-2.5-flash",
+          "usage": {
+            "prompt_tokens": 28,
+            "completion_tokens": 56,
+            "total_tokens": 554
+          },
+          "finish_reason": "STOP"
+        },
+        "retry_count": 0
+      },
+      "parse_topics": {
+        "node_id": "parse_topics",
+        "state": "completed",
+        "started_at": "2025-12-07T09:16:35.835759",
+        "completed_at": "2025-12-07T09:16:35.835919",
+        "error": null,
+        "output": {
+          "topics": [
+            "The AI Revolution You're Already Living In: 5 Unseen Ways AI is Reshaping Your Daily Life",
+            "Beyond the Bots: Exploring the Ethical Minefield of AI Consciousness and Bias",
+            "Your New Creative Partner: How Generative AI Tools Can Supercharge Your Productivity and Innovation"
+          ],
+          "topics_count": 3
+        },
+        "retry_count": 0
+      },
+      "select_topic": {
+        "node_id": "select_topic",
+        "state": "completed",
+        "started_at": "2025-12-07T09:16:35.836923",
+        "completed_at": "2025-12-07T09:16:35.836980",
+        "error": null,
+        "output": {
+          "selected_topic": "The AI Revolution You're Already Living In: 5 Unseen Ways AI is Reshaping Your Daily Life",
+          "remaining_topics": [
+            "Beyond the Bots: Exploring the Ethical Minefield of AI Consciousness and Bias",
+            "Your New Creative Partner: How Generative AI Tools Can Supercharge Your Productivity and Innovation"
+          ]
+        },
+        "retry_count": 0
+      },
+      "generate_content": {
+        "node_id": "generate_content",
+        "state": "completed",
+        "started_at": "2025-12-07T09:16:35.837013",
+        "completed_at": "2025-12-07T09:16:43.679585",
+        "error": null,
+        "output": {
+          "content": "The AI revolution isn't some far-off sci-fi fantasy; it's a silent, pervasive force already orchestrating countless aspects of your daily existence, often without you even realizing it. While robots making your coffee might still be a novelty, sophisticated artificial intelligence is deeply embedded in the digital fabric of our lives, working tirelessly behind the scenes. From the moment you wake up to when you lay your head down, AI is enhancing efficiency, personalizing experiences, and even anticipating your needs, transforming mundane interactions into seamless efficiencies that we now take for granted. You're not just observing the AI revolution; you are an active participant, navigating a world intelligently augmented in ways you might never suspect.\n\nConsider just a few of these \"unseen\" AI collaborators. Your morning routine likely kicks off with AI-powered personalized recommendations from streaming services or news aggregators, curating content specifically to your tastes before you even search. As you commute, navigation apps powered by AI analyze real-time traffic data, predicting congestion and suggesting optimal routes to save you precious minutes. Throughout your workday, AI-driven spam filters diligently protect your inbox, categorizing emails and sifting out junk, while predictive text on your phone or keyboard anticipates your next words, making communication faster and more fluid. Even your casual smartphone photography benefits from AI, which automatically optimizes settings, recognizes faces, and enhances images, turning ordinary snapshots into polished memories without any manual effort.\n\nThese aren't futuristic gadgets or niche applications; they are fundamental layers of convenience and functionality that underpin modern life. This constant, subtle integration means that AI isn't merely a tool we use; it's becoming an intrinsic part of how we perceive, interact with, and navigate our world. The cumulative effect of these unseen AI applications is a profound shift in human-computer interaction, evolving from explicit commands to intuitive, anticipatory partnerships. So the next time your phone suggests a word or your playlist curates the perfect mood, remember, you're not just using a tool \u2013 you're a participant in a silent, profound revolution that's redefining the contours of everyday existence.",
+          "model": "gemini-2.5-flash",
+          "usage": {
+            "prompt_tokens": 43,
+            "completion_tokens": 430,
+            "total_tokens": 1283
+          },
+          "finish_reason": "STOP"
+        },
+        "retry_count": 0
+      },
+      "store_content": {
+        "node_id": "store_content",
+        "state": "completed",
+        "started_at": "2025-12-07T09:16:43.679780",
+        "completed_at": "2025-12-07T09:16:43.679927",
+        "error": null,
+        "output": {
+          "stored": true
+        },
+        "retry_count": 0
+      },
+      "analyze_quality": {
+        "node_id": "analyze_quality",
+        "state": "completed",
+        "started_at": "2025-12-07T09:16:43.681005",
+        "completed_at": "2025-12-07T09:16:47.406729",
+        "error": null,
+        "output": {
+          "content": "Clarity: 9\nEngagement: 9\nAccuracy: 9",
+          "model": "gemini-2.5-flash",
+          "usage": {
+            "prompt_tokens": 466,
+            "completion_tokens": 15,
+            "total_tokens": 1015
+          },
+          "finish_reason": "STOP"
+        },
+        "retry_count": 0
+      },
+      "extract_quality_score": {
+        "node_id": "extract_quality_score",
+        "state": "completed",
+        "started_at": "2025-12-07T09:16:47.406926",
+        "completed_at": "2025-12-07T09:16:47.407081",
+        "error": null,
+        "output": {
+          "quality_score": 5
+        },
+        "retry_count": 0
+      },
+      "store_quality": {
+        "node_id": "store_quality",
+        "state": "completed",
+        "started_at": "2025-12-07T09:16:47.407161",
+        "completed_at": "2025-12-07T09:16:47.407277",
+        "error": null,
+        "output": {
+          "stored": true
+        },
+        "retry_count": 0
+      }
+    },
+    "variables": {},
+    "error": null
+  },
+  "execution_context": {
+    "workflow_id": "content_pipeline",
+    "variables": {
+      "domain": "artificial intelligence",
+      "num_topics": 3,
+      "quality_threshold": 7,
+      "generate_topics_output": {
+        "content": "The AI Revolution You're Already Living In: 5 Unseen Ways AI is Reshaping Your Daily Life, Beyond the Bots: Exploring the Ethical Minefield of AI Consciousness and Bias, Your New Creative Partner: How Generative AI Tools Can Supercharge Your Productivity and Innovation",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 28,
+          "completion_tokens": 56,
+          "total_tokens": 554
+        },
+        "finish_reason": "STOP"
+      },
+      "selected_topic": "The AI Revolution You're Already Living In: 5 Unseen Ways AI is Reshaping Your Daily Life",
+      "generate_content_output": {
+        "content": "The AI revolution isn't some far-off sci-fi fantasy; it's a silent, pervasive force already orchestrating countless aspects of your daily existence, often without you even realizing it. While robots making your coffee might still be a novelty, sophisticated artificial intelligence is deeply embedded in the digital fabric of our lives, working tirelessly behind the scenes. From the moment you wake up to when you lay your head down, AI is enhancing efficiency, personalizing experiences, and even anticipating your needs, transforming mundane interactions into seamless efficiencies that we now take for granted. You're not just observing the AI revolution; you are an active participant, navigating a world intelligently augmented in ways you might never suspect.\n\nConsider just a few of these \"unseen\" AI collaborators. Your morning routine likely kicks off with AI-powered personalized recommendations from streaming services or news aggregators, curating content specifically to your tastes before you even search. As you commute, navigation apps powered by AI analyze real-time traffic data, predicting congestion and suggesting optimal routes to save you precious minutes. Throughout your workday, AI-driven spam filters diligently protect your inbox, categorizing emails and sifting out junk, while predictive text on your phone or keyboard anticipates your next words, making communication faster and more fluid. Even your casual smartphone photography benefits from AI, which automatically optimizes settings, recognizes faces, and enhances images, turning ordinary snapshots into polished memories without any manual effort.\n\nThese aren't futuristic gadgets or niche applications; they are fundamental layers of convenience and functionality that underpin modern life. This constant, subtle integration means that AI isn't merely a tool we use; it's becoming an intrinsic part of how we perceive, interact with, and navigate our world. The cumulative effect of these unseen AI applications is a profound shift in human-computer interaction, evolving from explicit commands to intuitive, anticipatory partnerships. So the next time your phone suggests a word or your playlist curates the perfect mood, remember, you're not just using a tool \u2013 you're a participant in a silent, profound revolution that's redefining the contours of everyday existence.",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 43,
+          "completion_tokens": 430,
+          "total_tokens": 1283
+        },
+        "finish_reason": "STOP"
+      },
+      "content": "The AI revolution isn't some far-off sci-fi fantasy; it's a silent, pervasive force already orchestrating countless aspects of your daily existence, often without you even realizing it. While robots making your coffee might still be a novelty, sophisticated artificial intelligence is deeply embedded in the digital fabric of our lives, working tirelessly behind the scenes. From the moment you wake up to when you lay your head down, AI is enhancing efficiency, personalizing experiences, and even anticipating your needs, transforming mundane interactions into seamless efficiencies that we now take for granted. You're not just observing the AI revolution; you are an active participant, navigating a world intelligently augmented in ways you might never suspect.\n\nConsider just a few of these \"unseen\" AI collaborators. Your morning routine likely kicks off with AI-powered personalized recommendations from streaming services or news aggregators, curating content specifically to your tastes before you even search. As you commute, navigation apps powered by AI analyze real-time traffic data, predicting congestion and suggesting optimal routes to save you precious minutes. Throughout your workday, AI-driven spam filters diligently protect your inbox, categorizing emails and sifting out junk, while predictive text on your phone or keyboard anticipates your next words, making communication faster and more fluid. Even your casual smartphone photography benefits from AI, which automatically optimizes settings, recognizes faces, and enhances images, turning ordinary snapshots into polished memories without any manual effort.\n\nThese aren't futuristic gadgets or niche applications; they are fundamental layers of convenience and functionality that underpin modern life. This constant, subtle integration means that AI isn't merely a tool we use; it's becoming an intrinsic part of how we perceive, interact with, and navigate our world. The cumulative effect of these unseen AI applications is a profound shift in human-computer interaction, evolving from explicit commands to intuitive, anticipatory partnerships. So the next time your phone suggests a word or your playlist curates the perfect mood, remember, you're not just using a tool \u2013 you're a participant in a silent, profound revolution that's redefining the contours of everyday existence.",
+      "analyze_quality_output": {
+        "content": "Clarity: 9\nEngagement: 9\nAccuracy: 9",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 466,
+          "completion_tokens": 15,
+          "total_tokens": 1015
+        },
+        "finish_reason": "STOP"
+      },
+      "quality_score": 5
+    },
+    "node_outputs": {
+      "start": {
+        "status": "started",
+        "initial_data": {
+          "domain": "artificial intelligence",
+          "num_topics": 3,
+          "quality_threshold": 7
+        }
+      },
+      "generate_topics": {
+        "content": "The AI Revolution You're Already Living In: 5 Unseen Ways AI is Reshaping Your Daily Life, Beyond the Bots: Exploring the Ethical Minefield of AI Consciousness and Bias, Your New Creative Partner: How Generative AI Tools Can Supercharge Your Productivity and Innovation",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 28,
+          "completion_tokens": 56,
+          "total_tokens": 554
+        },
+        "finish_reason": "STOP"
+      },
+      "parse_topics": {
+        "topics": [
+          "The AI Revolution You're Already Living In: 5 Unseen Ways AI is Reshaping Your Daily Life",
+          "Beyond the Bots: Exploring the Ethical Minefield of AI Consciousness and Bias",
+          "Your New Creative Partner: How Generative AI Tools Can Supercharge Your Productivity and Innovation"
+        ],
+        "topics_count": 3
+      },
+      "select_topic": {
+        "selected_topic": "The AI Revolution You're Already Living In: 5 Unseen Ways AI is Reshaping Your Daily Life",
+        "remaining_topics": [
+          "Beyond the Bots: Exploring the Ethical Minefield of AI Consciousness and Bias",
+          "Your New Creative Partner: How Generative AI Tools Can Supercharge Your Productivity and Innovation"
+        ]
+      },
+      "generate_content": {
+        "content": "The AI revolution isn't some far-off sci-fi fantasy; it's a silent, pervasive force already orchestrating countless aspects of your daily existence, often without you even realizing it. While robots making your coffee might still be a novelty, sophisticated artificial intelligence is deeply embedded in the digital fabric of our lives, working tirelessly behind the scenes. From the moment you wake up to when you lay your head down, AI is enhancing efficiency, personalizing experiences, and even anticipating your needs, transforming mundane interactions into seamless efficiencies that we now take for granted. You're not just observing the AI revolution; you are an active participant, navigating a world intelligently augmented in ways you might never suspect.\n\nConsider just a few of these \"unseen\" AI collaborators. Your morning routine likely kicks off with AI-powered personalized recommendations from streaming services or news aggregators, curating content specifically to your tastes before you even search. As you commute, navigation apps powered by AI analyze real-time traffic data, predicting congestion and suggesting optimal routes to save you precious minutes. Throughout your workday, AI-driven spam filters diligently protect your inbox, categorizing emails and sifting out junk, while predictive text on your phone or keyboard anticipates your next words, making communication faster and more fluid. Even your casual smartphone photography benefits from AI, which automatically optimizes settings, recognizes faces, and enhances images, turning ordinary snapshots into polished memories without any manual effort.\n\nThese aren't futuristic gadgets or niche applications; they are fundamental layers of convenience and functionality that underpin modern life. This constant, subtle integration means that AI isn't merely a tool we use; it's becoming an intrinsic part of how we perceive, interact with, and navigate our world. The cumulative effect of these unseen AI applications is a profound shift in human-computer interaction, evolving from explicit commands to intuitive, anticipatory partnerships. So the next time your phone suggests a word or your playlist curates the perfect mood, remember, you're not just using a tool \u2013 you're a participant in a silent, profound revolution that's redefining the contours of everyday existence.",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 43,
+          "completion_tokens": 430,
+          "total_tokens": 1283
+        },
+        "finish_reason": "STOP"
+      },
+      "store_content": {
+        "stored": true
+      },
+      "analyze_quality": {
+        "content": "Clarity: 9\nEngagement: 9\nAccuracy: 9",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 466,
+          "completion_tokens": 15,
+          "total_tokens": 1015
+        },
+        "finish_reason": "STOP"
+      },
+      "extract_quality_score": {
+        "quality_score": 5
+      },
+      "store_quality": {
+        "stored": true
+      }
+    },
+    "error": null
+  },
+  "metadata": {
+    "type": "auto",
+    "node": "store_quality"
+  }
+}

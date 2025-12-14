@@ -1,282 +1,209 @@
-# 第10項　プロンプトを再利用するために分析する
+# Weather-Based Outfit Recommender with MCP
 
-## 概要
+## Overview
 
-LLMを活用したシステム開発において、優れたプロンプトは高品質な出力を生み出すための重要な資産です。このプラクティスは、システムで使用されたプロンプトとその結果を体系的に記録・評価し、有効なものを再利用可能な知見として蓄積する設計手法を解説します。成功したプロンプトをテンプレート化するだけでなく、失敗したプロンプトもアンチパターンとして記録し、将来の改善に活かします。このアプローチにより、プロンプトエンジニアリングの属人化を防ぎ、開発プロセス全体の効率と品質を継続的に向上させることが可能になります。
+A CLI application that provides outfit recommendations based on real-time weather data. Uses the Model Context Protocol (MCP) to connect LLMs (OpenAI, Google Gemini, Anthropic Claude) to the US National Weather Service API.
 
-本プロジェクトでは、キャラクター生成を具体例として、プロンプト管理システムの実装を示します。RPGゲーム開発における架空のシナリオを想定し、キャラクター生成プロンプトのログ記録、評価、テンプレート化、そして再利用までの一連のワークフローを実装しています。
+**Key Features**:
+- Multi-provider LLM support (OpenAI, Gemini, Anthropic)
+- Real-time weather data via MCP tool integration
+- Structured JSON output with Pydantic validation
+- Two MCP patterns: Manual (OpenAI/Anthropic) vs Native (Gemini)
 
-## 解決したい課題
+## Architecture
 
-LLMアプリケーションの品質はプロンプトに大きく依存しますが、その設計プロセスは試行錯誤に頼ることが多く、非効率になりがちです。一度限りの成功や失敗が、将来に活かされることなく忘れ去られてしまうケースは少なくありません。このような状況は、開発コストの増大やプロジェクトの遅延に直結する深刻な課題です。
-
-例えば、ある開発チームでは、特定のエンジニアが複雑な金融レポートからリスク要因を抽出するタスクにおいて、非常に効果的なプロンプトを発見しました。しかし、その知見は個人のローカル環境に保存されているだけで、チーム全体に共有されませんでした。結果として、他のメンバーは同じ課題に対してゼロから試行錯誤を繰り返し、チーム全体の生産性が著しく低下してしまいました。個人の発見が組織の資産にならないことは、大きな損失です。
-
-また、AIエージェントを活用した在庫最適化システムでは、より深刻な効率性の問題が発生していました。エージェントが需要予測のために自己生成するプロンプトの多くが失敗し、無駄なAPIコールとコンピューティングリソースを消費していました。過去の失敗パターンが記録されていなかったため、エージェントは毎回同じような失敗を繰り返し、月間のAPI利用料が当初予算の3倍に膨れ上がってしまいました。これは、成功体験がシステムにフィードバックされず、学習の機会が失われている典型的な例です。
-
-## 解決策の提案
-
-これらの課題を解決するため、本項ではLLMとの対話履歴を体系的に収集・分析し、プロンプトを再利用する仕組みを提案します。このアプローチは、DevOpsやMLOpsにおける継続的改善の思想をプロンプトエンジニアリングに応用するものです。これにより、プロンプト設計を属人的なスキルから、データに基づいた再現可能なプロセスへと進化させます。
-
-具体的な実践方法は、以下の3つのステップで構成されます。まず、システムがLLMに送信するすべてのプロンプト、それに対するLLMの応答、そしてその結果が成功だったか失敗だったかの判定をメタデータと共にログとして記録します。評価は、ユーザーからのフィードバック、出力の精度、タスク完了率といった事前に定義したメトリクスに基づいて行います。
-
-次に、高い評価を得たプロンプトは、再利用可能なテンプレートとして整理し、専用のデータベースやバージョン管理システムに保存します。その際、どのようなユースケースやドメインで有効だったかをタグ付けして分類し、チームの誰もが容易に検索・参照できるプロンプトカタログを構築します。最後に、期待した結果が得られなかったプロンプトとその文脈を分析し、失敗の原因を特定します。これらの知見は「アンチパターン」として記録し、将来同じ過ちを繰り返さないためのガイドラインとして活用します。
-
-## 適用するユースケース
-
-本プラクティスは、特にプロンプトが繰り返し利用されたり、徐々に最適化されたりするシステムで大きな効果を発揮します。代表的なユースケースは、自律型AIエージェントや`Chain of Thought`のように、LLMが自己回帰的に複数のプロンプトを生成して複雑な推論を行うシステムです。このようなシステムでは、成功した推論パターン、すなわちプロンプトの連鎖を記録・再利用することで、思考プロセスの効率と精度を大幅に向上させることができます。過去の成功例を参考にすることで、エージェントはより早く最適な解にたどり着けるようになります。
-
-また、法務部門の契約書レビューシステムのような、ドメイン特化型のアプリケーションにも適しています。この分野では、専門用語や特有の文脈を正しく扱えるプロンプトの価値が非常に高いです。運用を通じて得られた効果的なプロンプトのパターンを蓄積していくことで、システムの専門性と信頼性が時間と共に向上します。例えば、契約条項の抽出やリスク評価のプロンプトを継続的に分析・改善することで、新人弁護士でもベテランと同等の品質でレビューを行えるようになり、レビューの所要時間を平均40%短縮した事例があります。
-
-## 導入のポイント
-
-このプラクティスを効果的に導入するためには、いくつかの重要な設計上の考慮点があります。第一に、プロンプトを管理するためのメタデータ設計が極めて重要です。プロンプトのテキスト本体だけでなく、使用したLLMのモデル名、バージョン、各種パラメータ（`temperature`）、対象のユースケース、タイムスタンプといった情報を必ずセットで記録してください。これにより、後から「どの条件下で成功したのか」を正確に分析することが可能になります。
-
-第二に、成功と失敗を判断するための評価基準をタスクごとに明確に定義することが不可欠です。例えば、要約タスクであれば「元の文章の要点を網羅しているか」、コード生成タスクであれば「生成されたコードが構文エラーなく実行できるか」といった具体的な基準を設けます。この基準が曖昧だと、誤ったプロンプトを成功と判定してしまい、かえってシステムの品質を劣化させる原因となります。
-
-最後に、蓄積したプロンプト資産をチームで共有するための基盤を整備することも重要です。単純なデータベースだけでなく、各プロンプトの変更履歴を追跡できるバージョン管理システム（Git）を導入します。さらに、優れたプロンプトを議論・評価できるwikiのようなドキュメントツールを用意することで、ナレッジ共有が促進され、チーム全体のスキルアップに繋がります。
-
-## 注意点とトレードオフ
-
-プロンプトの分析と再利用は強力な手法ですが、導入にはいくつかのトレードオフが伴います。最大のトレードオフは、ログ収集・分析基盤の構築と運用にかかるコストです。すべてのプロンプトとレスポンスを保存するためには相応のストレージコストが発生しますし、それらを分析するためのデータパイプラインやダッシュボードの構築にも開発リソースが必要です。特に、ユーザーの入力を含むプロンプトを扱う場合は、個人情報保護の観点からデータの取り扱いに細心の注意を払う必要があり、セキュリティ対策のコストも考慮しなければなりません。
-
-また、成功したプロンプトを再利用することに固執しすぎると、システムの応答が画一的になり、創造性や柔軟性が損なわれるリスクがあります。例えば、マーケティングのキャッチコピーを生成するシステムで常に同じテンプレートを使い回していると、ブランドの独自性が失われ、ユーザーに飽きられてしまうかもしれません。ユースケースによっては、あえて多様な出力を許容するために、定型的なプロンプトから逸脱することも重要です。このため、目的に応じて再利用の度合いを調整する柔軟な設計が求められます。
-
-## まとめ
-
-プロンプトを分析し再利用可能にするプラクティスは、LLMアプリケーション開発における属人性を排し、品質を継続的に改善するためのデータ駆動型アプローチです。プロンプトとその結果を資産として体系的に蓄積・活用することで、開発効率とシステムの性能を同時に高めることができます。導入には評価基準の設計やインフラコストといったトレードオフが伴いますが、長期的な視点で見れば、それは十分に価値のある投資と言えるでしょう。
-
-## 実装の詳細
-
-本プロジェクトでは、上記のベストプラクティスを以下のように実装しています：
-
-### コアコンポーネント
-
-#### 1. プロンプトストレージ層（`src/service/prompt_storage.py`）
-
-ファイルベースのストレージシステムを実装し、以下のデータを永続化します：
-
-- **プロンプトログ**: 日付ごとにディレクトリを分けて管理（`prompt_storage/logs/YYYY-MM-DD/`）
-- **テンプレート**: 成功したプロンプトから生成されたテンプレート（`prompt_storage/templates/`）
-- **アンチパターン**: 失敗パターンの記録（`prompt_storage/antipatterns/`）
-
-各データはJSON形式で保存され、独自のIDで管理されます。
-
-#### 2. プロンプト分析器（`src/service/prompt_analyzer.py`）
-
-プロンプトの評価とパターン抽出を担当します：
-
-- 評価基準に基づく成功/失敗の判定
-- 成功したプロンプトからの変数抽出
-- テンプレート化のためのパターン分析
-- アンチパターンの検出と分類
-
-#### 3. プロンプトカタログ（`src/service/prompt_catalog.py`）
-
-テンプレートとアンチパターンの検索・管理機能を提供：
-
-- カテゴリ、タグ、成功率によるテンプレート検索
-- テンプレートの使用履歴追跡
-- 推奨テンプレートの抽出
-- テンプレートのエクスポート機能（チーム共有用）
-
-#### 4. プロンプト分析（`src/service/prompt_analytics.py`）
-
-データに基づく分析とレポート生成：
-
-- パフォーマンスサマリーの生成
-- カテゴリ別・モデル別の成功率分析
-- コスト分析（トークン使用量と費用）
-- 改善提案の自動生成
-- テンプレート使用レポート
-- アンチパターンレポート
-
-#### 5. 統合サービス（`src/service/prompt_service.py`）
-
-上記のすべてのコンポーネントを統合し、シンプルなAPIを提供：
-
-```python
-from src.service.prompt_service import PromptManagementService
-
-service = PromptManagementService()
-
-# プロンプト実行のログ記録
-log_id = service.log_prompt_execution(
-    prompt_text="...",
-    messages=[...],
-    response_text="...",
-    metadata=metadata,
-)
-
-# 評価
-service.evaluate_prompt(
-    log_id=log_id,
-    evaluation=evaluation,
-    status=EvaluationStatus.SUCCESS,
-)
-
-# テンプレート作成
-template = service.create_template_from_success(
-    log_id=log_id,
-    template_name="...",
-    description="...",
-)
-
-# 分析
-summary = service.get_performance_summary()
-suggestions = service.get_improvement_suggestions()
+```
+User Input (coordinates)
+        |
+        v
++-------------------+
+|   CLI (main.py)   |
++-------------------+
+        |
+        v
++------------------------+
+| Service (request_llm)  |
++------------------------+
+        |
+        +---> MCP Client Session
+        |           |
+        |           v
+        |    +------------------+
+        |    | MCP Weather Tool |
+        |    | (weather_server) |
+        |    +------------------+
+        |           |
+        |           v
+        |    NWS Weather API
+        |           |
+        v           v
++------------------------+
+|   LLM Provider API     |
+| (OpenAI/Gemini/Claude) |
++------------------------+
+        |
+        v
++------------------------+
+| Structured Output      |
+| (OutfitResponse)       |
++------------------------+
+        |
+        v
+JSON File + Console Output
 ```
 
-### データモデル
+### Directory Structure
 
-#### PromptLog（`src/model/prompt_log.py`）
-
-プロンプト実行の完全な記録：
-
-- `log_id`: 一意の識別子
-- `prompt_text`: プロンプトの全文
-- `messages`: システムプロンプトとユーザープロンプト
-- `response_text`: LLMからの応答
-- `metadata`: 実行に関するメタデータ
-  - モデル名、パラメータ（temperature等）
-  - 実行時間、トークン数、コスト
-  - ユースケース、カテゴリ、タグ
-  - ユーザーID、セッションID
-- `evaluation`: 評価結果
-  - accuracy, completeness, relevance
-  - task_completed, user_feedback
-  - error_count
-- `evaluation_status`: SUCCESS/PARTIAL/FAILURE
-
-#### PromptTemplate（`src/model/prompt_template.py`）
-
-再利用可能なテンプレート：
-
-- `template_id`: 一意の識別子
-- `name`: テンプレート名
-- `description`: 説明
-- `category`: カテゴリ（分類）
-- `tags`: タグリスト
-- `prompt_template`: プロンプトのテンプレート文字列
-- `required_variables`: 必須変数のリスト
-- `optional_variables`: オプション変数のリスト
-- `recommended_models`: 推奨モデル
-- `recommended_temperature`: 推奨temperature値
-- `success_count`: 成功回数
-- `failure_count`: 失敗回数
-- `average_score`: 平均スコア
-- `use_case_examples`: ユースケース例
-
-#### AntiPattern（`src/model/prompt_template.py`）
-
-失敗パターンの記録：
-
-- `pattern_id`: 一意の識別子
-- `name`: パターン名
-- `description`: 説明
-- `category`: カテゴリ
-- `tags`: タグリスト
-- `failure_reason`: 失敗の原因
-- `recommended_fix`: 推奨される修正方法
-- `severity`: 深刻度（low/medium/high）
-- `occurrence_count`: 発生回数
-- `example_prompts`: 失敗例
-
-### 実装例
-
-プロジェクトには3つの実装例が含まれています：
-
-#### 1. 基本例（`src/examples/basic_example.py`）
-
-基本的なワークフローを実演：
-
-```python
-# 1. キャラクター生成の実行
-result = await request_openai(...)
-
-# 2. ログ記録
-log_id = prompt_service.log_prompt_execution(...)
-
-# 3. 評価
-prompt_service.evaluate_prompt(log_id, evaluation, status)
-
-# 4. テンプレート作成
-template = prompt_service.create_template_from_success(log_id, ...)
-
-# 5. 検索と再利用
-templates = prompt_service.search_templates(category, tags)
+```
+chapter_3/section_10/
+|-- src/
+|   |-- main.py              # CLI entry point (Click-based)
+|   |-- config.py            # Environment config (API keys)
+|   |-- logger.py            # Logging configuration
+|   |-- client/
+|   |   |-- llm_client.py    # LLM provider clients and model enums
+|   |-- model/
+|   |   |-- model.py         # Pydantic models (OutfitResponse, etc.)
+|   |-- prompt/
+|   |   |-- prompt.py        # Prompt templates for each provider
+|   |-- service/
+|       |-- request_llm.py   # Business logic for LLM requests
+|-- tool_server/
+|   |-- weather_server.py    # MCP server with weather tools
+|-- outputs/                 # Generated outfit JSON files
+|-- .envrc.example           # Environment variable template
+|-- pyproject.toml           # Project dependencies
+|-- Makefile                 # Development commands
 ```
 
-#### 2. 統合例（`src/examples/integration_example.py`）
+## Key Components
 
-既存のCLIアプリケーションへの非侵襲的な統合：
+### LLM Providers (`src/client/llm_client.py`)
 
-- オプションフラグによるロギングの有効/無効切り替え
-- 自動評価機能
-- 統計情報の表示
-- 後方互換性の維持
+| Provider   | Models                                          | MCP Pattern    |
+|------------|------------------------------------------------|----------------|
+| OpenAI     | gpt-5, gpt-5-mini, gpt-5-nano, gpt-4.1, gpt-4o | Manual         |
+| Gemini     | gemini-2.5-pro, gemini-2.5-flash               | Native         |
+| Anthropic  | claude-sonnet-4-5, claude-opus-4-1             | Manual         |
 
-#### 3. 高度な例（`src/examples/advanced_example.py`）
+### Data Models (`src/model/model.py`)
 
-自律型AIエージェントのシミュレーション：
+- `WeatherCondition`: Temperature, wind, forecast summary
+- `ClothingRecommendation`: Clothing type, item, reason
+- `OutfitResponse`: Location, weather, 3+ recommendations, advice
 
-- 在庫最適化エージェントの実装
-- 複数の需要予測プロンプトの実行（成功と失敗）
-- パターン分析とテンプレート/アンチパターンの生成
-- 詳細な分析レポートとコスト最適化提案
+### MCP Server (`tool_server/weather_server.py`)
 
-### テンプレートエンジン
+Tools exposed via FastMCP:
+- `get_forecast(latitude, longitude)`: Fetch weather forecast from NWS API
+- `get_alerts(state)`: Get weather alerts for US state (available but unused)
 
-Jinja2を使用したテンプレートシステム（`src/service/template_engine.py`）：
+## Dependencies
 
-```yaml
-# templates/character_generation.yaml
-system_prompt: >-
-  あなたは創造的なキャラクタージェネレーターです。
-  {{ response_schema | indent(2) }}
+| Package       | Purpose                                |
+|---------------|----------------------------------------|
+| openai        | OpenAI API client (v2.4.0+)            |
+| google-genai  | Google Gemini API client (v1.45.0+)    |
+| anthropic     | Anthropic Claude API client            |
+| mcp[cli]      | Model Context Protocol implementation  |
+| pydantic      | Data validation and structured output  |
+| click         | CLI framework                          |
+| httpx         | Async HTTP client for NWS API          |
 
-user_prompt: >-
-  性別は「{{ gender }}」、年齢は「{{ age }}」歳です。
-  {% if additional_instructions %}
-  {{ additional_instructions }}
-  {% endif %}
-```
+## Usage
 
-変数ファイル（`variables/warrior.yaml`）：
-
-```yaml
-gender: "male"
-age: 25
-additional_instructions: "This character is a brave warrior..."
-```
-
-この設計により、プロンプトの構造（テンプレート）と具体的な値（変数）を分離し、再利用性とテスト容易性を向上させています。
-
-### 継続的改善サイクル
-
-実装は以下のサイクルをサポートします：
-
-1. **実行**: LLMへのプロンプト送信
-2. **記録**: 全データの永続化
-3. **評価**: 多面的な評価基準による判定
-4. **分析**: パターン抽出と分類
-5. **学習**: テンプレート化またはアンチパターン記録
-6. **再利用**: カタログからの検索と適用
-7. **最適化**: データ駆動の改善
-
-このサイクルにより、システムは使用するほど賢くなり、コストと品質の両面で継続的に改善されます。
-
-### 使用方法
-
-詳細な使用方法とコマンド例については、README.mdを参照してください。
+### Setup
 
 ```bash
-# 基本的なワークフローの実行
-uv run python -m src.examples.basic_example
+# Install dependencies
+uv sync
 
-# 既存システムとの統合例
-uv run python -m src.examples.integration_example -m gpt-4o-mini --show-stats
+# Configure environment variables
+cp .envrc.example .envrc
+# Edit .envrc with your API keys:
+# - OPENAI_API_KEY
+# - GEMINI_API_KEY
+# - ANTHROPIC_API_KEY
 
-# 高度な分析例
-uv run python -m src.examples.advanced_example
+# Load environment
+direnv allow
 ```
+
+### Run
+
+```bash
+# Basic usage with Gemini
+uv run python -m src.main -lp GEMINI -m gemini-2.5-flash -lat 39.7456 -lon -97.0892
+
+# With OpenAI
+uv run python -m src.main -lp OPENAI -m gpt-4o-mini -lat 39.7456 -lon -97.0892
+
+# With Anthropic Claude
+uv run python -m src.main -lp ANTHROPIC -m claude-sonnet-4-5 -lat 39.7456 -lon -97.0892
+
+# Custom output directory
+uv run python -m src.main -lp GEMINI -m gemini-2.5-flash -lat 39.7456 -lon -97.0892 -od ./my_outputs
+```
+
+### CLI Options
+
+| Option              | Short | Required | Description                        |
+|---------------------|-------|----------|------------------------------------|
+| --llm-provider      | -lp   | Yes      | OPENAI, GEMINI, or ANTHROPIC       |
+| --model             | -m    | Yes      | Model name (provider-specific)     |
+| --latitude          | -lat  | Yes      | Latitude (US coordinates only)     |
+| --longitude         | -lon  | Yes      | Longitude (US coordinates only)    |
+| --output-directory  | -od   | No       | Output dir (default: outputs)      |
+
+## Development Commands
+
+```bash
+# Lint code
+make lint
+
+# Format code
+make fmt
+
+# Lint + format
+make fix
+
+# Type check
+make mypy
+```
+
+## Implementation Notes
+
+### MCP Integration Patterns
+
+**Manual Pattern (OpenAI/Anthropic)**:
+1. Initialize MCP session
+2. Explicitly call `get_forecast` tool
+3. Extract weather data from response
+4. Pass weather data to LLM prompt
+5. Use structured output parsing
+
+**Native Pattern (Gemini)**:
+1. Initialize MCP session
+2. Pass session as `tools=[session]` to LLM
+3. LLM autonomously decides to call tools
+4. Parse JSON from text response (no structured output with tools)
+
+### Geographic Constraints
+
+- **US coordinates only**: NWS API serves only US territories
+- Non-US coordinates return clear error with example coordinates
+- Example: Kansas, USA - lat=39.7456, lon=-97.0892
+
+### Structured Output
+
+- All providers return `OutfitResponse` Pydantic model
+- Minimum 3 outfit recommendations enforced
+- Frozen models prevent accidental mutation
+- JSON files saved with UUID-based naming
+
+### Error Handling
+
+- Provider/model validation at CLI level
+- Geographic constraint validation with actionable messages
+- JSON parsing errors with detailed logging
+- HTTP timeout handling (30s for NWS API)

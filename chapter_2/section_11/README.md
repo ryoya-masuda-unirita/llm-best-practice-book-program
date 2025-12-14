@@ -1,390 +1,252 @@
-# Chapter 2 Section 11: LLM APIのためのアダプターとファクトリーパターン
+# Chapter 2 Section 11: プロンプトパフォーマンスのプロファイリング
 
 ## 概要
 
-このプロジェクトは、**AdapterパターンとFactoryパターン**を用いた複数LLMプロバイダの統一的な管理手法を示すサンプルコードです。OpenAI、Anthropic Claude、Google Geminiの3つのプロバイダに対応し、各プロバイダのAPI仕様の違いを吸収しながら、共通のインターフェースを通じて柔軟にLLMを切り替えられる設計を実現しています。
+本プロジェクトは、LLMへのプロンプト実行を定量的に計測・分析し、品質、コスト、応答速度の最適化を科学的に実現するプロファイリングシステムの実装例です。
 
-フィクションのキャラクター情報（名前、性別、年齢、性格特性）を生成するユースケースを通じて、ベンダーロックインを回避し、保守性と拡張性を両立させるプラクティスを学ぶことができます。
+従来の「勘と経験」に頼った感覚的なプロンプト調整から脱却し、データドリブンな改善サイクルを確立することで、プロンプトエンジニアリングを工学的な営みへと昇華させます。各プロンプトの実行に伴うメトリクス（レイテンシ、トークン使用量、コスト、品質スコア）を収集し、時系列分析や比較評価を通じてボトルネックの特定と継続的な最適化を可能にします。
+
+本実装では、キャラクター生成タスクを題材に、3層アーキテクチャ（収集層・分析層・可視化層）によるプロファイリングシステムを構築しています。生成されたキャラクターはLLM-as-a-Judgeによって品質評価され、その結果もプロファイリングデータとして統合されます。
 
 ## 機能
 
-- **Adapterパターン**: 各LLMプロバイダの差異を吸収する統一インターフェース
-- **Factoryパターン**: プロバイダとモデルに基づいたクライアント生成の一元管理
-- **マルチプロバイダー対応**: OpenAI、Anthropic Claude、Google Gemini APIの3つをサポート
-- **型安全性**: Pydanticによる厳密な型検証とバリデーション
-- **プロバイダー切り替え**: コマンドライン引数で簡単にプロバイダー/モデルを変更可能
-- **構造化出力**: 各プロバイダの最新構造化出力APIを活用した型安全なLLM応答
-- **包括的なテスト**: 包括的なユニットテストによる品質保証
-- **非同期処理**: async/awaitパターンによる効率的なAPI呼び出し
-- **リソース管理**: 各アダプターに`aclose()`メソッドを実装し適切なクリーンアップを実現
-- **CLIインターフェース**: Clickライブラリを使用した使いやすいコマンドラインツール
-- **環境変数管理**: python-dotenvによる安全なAPIキー管理
-- **ログ出力**: 詳細なログ機能による実行状況の可視化
+- **マルチプロバイダー対応**: OpenAI、Google Gemini、Anthropic の3つのLLMプロバイダーをサポート
+- **パフォーマンスプロファイリング**: リクエストごとのレイテンシ、トークン使用量、推定コストを自動計測
+- **LLM-as-a-Judge統合**: 生成結果の品質を自動評価し、品質スコアをメトリクスに統合
+- **異常検出とアラート**: 設定可能な閾値に基づく警告・クリティカルアラートの自動生成
+- **多角的分析**: プロンプト別、モデル別、プロバイダー別、時系列での集計と比較
+- **複数形式でのレポート出力**: JSON、HTML、テキスト形式でのレポート生成
 
 ## プロジェクト構成
 
 ### ディレクトリ構成
 
 ```
-chapter_2/section_11/
+chapter_3/section_8/
+├── CLAUDE.md                 # プロジェクト仕様書
+├── README.md                 # 本ファイル
+├── pyproject.toml            # 依存関係定義
+├── .envrc.example            # 環境変数テンプレート
+├── Makefile                  # ビルドコマンド
 ├── src/
-│   ├── __init__.py              # パッケージ初期化
-│   ├── config.py                # 設定管理（API キー読み込み）
-│   ├── logger.py                # ロギング設定
-│   ├── main.py                  # メインエントリーポイント
-│   ├── client/                  # LLMクライアント関連
-│   │   ├── __init__.py
-│   │   ├── base.py              # 抽象基底クラス（LLMClient）
-│   │   ├── adapters.py          # 具体的なAdapter実装（OpenAI, Anthropic, Gemini）
-│   │   ├── factory.py           # Factoryパターン実装
-│   │   └── model.py             # プロバイダー・モデル定義
-│   ├── model/                   # データモデル
-│   │   ├── __init__.py
-│   │   └── model.py             # Pydanticデータモデル定義
-│   ├── prompt/                  # プロンプト管理
-│   │   ├── __init__.py
-│   │   └── prompt.py            # プロンプト生成ロジック
-│   └── service/                 # サービス層
-│       ├── __init__.py
-│       └── request_llm.py       # 統一されたLLMリクエスト処理
-├── tests/                       # テストコード
 │   ├── __init__.py
-│   ├── test_adapters.py         # Adapterのテスト
-│   └── test_factory.py          # Factoryのテスト
-├── outputs/                     # 生成結果の保存先（自動作成）
-├── .envrc.example               # 環境変数設定のサンプル
-├── Makefile                     # 開発用タスク定義
-├── pyproject.toml               # プロジェクト依存関係
-├── README.md                    # このファイル
-└── CLAUDE.md                    # 設計ドキュメント
+│   ├── main.py               # CLIエントリーポイント
+│   ├── config.py             # 設定管理
+│   ├── logger.py             # ロギング設定
+│   ├── client/
+│   │   ├── __init__.py
+│   │   └── llm_client.py     # LLMクライアント定義
+│   ├── model/
+│   │   ├── __init__.py
+│   │   ├── model.py          # キャラクターモデル
+│   │   ├── llm_as_a_judge_model.py  # 評価モデル
+│   │   └── profiler_metrics.py      # プロファイラーメトリクスモデル
+│   ├── prompt/
+│   │   ├── __init__.py
+│   │   ├── prompt.py         # キャラクター生成プロンプト
+│   │   └── llm_as_a_judge_prompt.py  # 評価プロンプト
+│   └── service/
+│       ├── __init__.py
+│       ├── request_llm.py    # 標準LLMリクエスト
+│       ├── llm_as_a_judge.py # 評価サービス
+│       ├── prompt_profiler.py      # 収集層
+│       ├── metrics_analyzer.py     # 分析層
+│       ├── profiler_reporter.py    # 可視化層
+│       └── profiled_request_llm.py # プロファイリング付きリクエスト
+└── tests/
+    ├── __init__.py
+    ├── conftest.py
+    ├── test_prompt_profiler.py
+    ├── test_metrics_analyzer.py
+    └── test_profiler_reporter.py
 ```
 
 ### アーキテクチャ
 
-このプロジェクトは、以下の4層アーキテクチャで構成されています：
-
 ```
-┌─────────────────────────────────────────────┐
-│         CLI Layer (main.py)                 │
-│     - コマンドライン引数解析                │
-│     - 出力ディレクトリ管理                  │
-│     - プロバイダー/モデル検証               │
-└─────────────────┬───────────────────────────┘
-                  │
-┌─────────────────▼───────────────────────────┐
-│      Service Layer (service/)               │
-│  - 統一されたLLMリクエスト処理              │
-│  - プロンプト生成とレスポンス処理           │
-└─────────────────┬───────────────────────────┘
-                  │
-┌─────────────────▼───────────────────────────┐
-│      Adapter/Factory Layer (client/)        │
-│  - LLMClient抽象インターフェース (base.py)  │
-│  - プロバイダー別Adapter (adapters.py)      │
-│  - クライアント生成Factory (factory.py)    │
-└─────────────────┬───────────────────────────┘
-                  │
-┌─────────────────▼───────────────────────────┐
-│      Infrastructure Layer                   │
-│  - 設定管理 (config.py)                     │
-│  - ログ管理 (logger.py)                     │
-│  - データモデル (model/)                    │
-│  - 外部API (OpenAI, Gemini)                 │
-└─────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              CLIエントリーポイント                           │
+│                              (src/main.py)                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                    ┌─────────────────┴─────────────────┐
+                    ▼                                   ▼
+        ┌─────────────────────┐             ┌─────────────────────┐
+        │   標準リクエスト     │             │  プロファイリング付き │
+        │  (request_llm.py)   │             │ (profiled_request_  │
+        │                     │             │      llm.py)        │
+        └─────────────────────┘             └─────────────────────┘
+                    │                                   │
+                    │                       ┌───────────┴───────────┐
+                    │                       ▼                       ▼
+                    │           ┌─────────────────────┐   ┌─────────────────┐
+                    │           │   【収集層】         │   │                 │
+                    │           │  PromptProfiler     │   │  LLM-as-a-Judge │
+                    │           │ (prompt_profiler.py)│   │                 │
+                    │           └─────────────────────┘   └─────────────────┘
+                    │                       │
+                    │                       ▼
+                    │           ┌─────────────────────┐
+                    │           │   【分析層】         │
+                    │           │  MetricsAnalyzer    │
+                    │           │(metrics_analyzer.py)│
+                    │           └─────────────────────┘
+                    │                       │
+                    │                       ▼
+                    │           ┌─────────────────────┐
+                    │           │   【可視化層】       │
+                    │           │  ProfilerReporter   │
+                    │           │(profiler_reporter.py)│
+                    │           └─────────────────────┘
+                    │                       │
+                    ▼                       ▼
+        ┌─────────────────────────────────────────────────────────────────────┐
+        │                         LLMクライアント                              │
+        │                      (llm_client.py)                                │
+        │  ┌─────────────┐   ┌─────────────┐   ┌─────────────────────────┐   │
+        │  │   OpenAI    │   │   Gemini    │   │       Anthropic         │   │
+        │  └─────────────┘   └─────────────┘   └─────────────────────────┘   │
+        └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 実装の詳細
 
-#### 1. 抽象基底クラス (`src/client/base.py`)
+#### 1. 収集層: PromptProfiler (`src/service/prompt_profiler.py`)
 
-すべてのLLMプロバイダが実装すべき共通インターフェースを定義します：
+LLM API呼び出しをラップし、パフォーマンスメトリクスを透過的に収集します。
+
+**ポイント**: 非同期コンテキストマネージャを使用し、メインの処理フローへの影響を最小限に抑えています。
 
 ```python
-class LLMClient(ABC):
-    """LLMクライアントの共通インターフェース"""
-
-    @abstractmethod
-    async def chat(
-        self,
-        messages: list[dict[str, str]],
-        response_format: type,
-        **kwargs: Any,
-    ) -> BaseModel:
-        """チャット完了を生成"""
-        pass
-
-    @abstractmethod
-    def get_provider_name(self) -> str:
-        """プロバイダー名を取得"""
-        pass
-
-    @abstractmethod
-    def get_model_name(self) -> str:
-        """モデル名を取得"""
-        pass
+async with profiler.profile(
+    prompt_id="character_generation",
+    model="gpt-4o-mini",
+    provider="openai",
+) as ctx:
+    response = await llm_client.generate(...)
+    ctx["input_tokens"] = response.usage.input_tokens
+    ctx["output_tokens"] = response.usage.output_tokens
 ```
 
-**ポイント**:
-- すべてのプロバイダーで統一されたメソッドシグネチャ
-- Pydantic BaseModelによる型安全な戻り値
-- 非同期処理（async/await）をサポート
+収集されるメトリクス:
+- `latency_ms`: リクエストの実行時間（ミリ秒）
+- `input_tokens`: 入力トークン数
+- `output_tokens`: 出力トークン数
+- `estimated_cost_usd`: 推定コスト（USD）
+- `quality_score`: LLM-as-a-Judgeによる品質スコア（1.0-5.0）
 
-#### 2. Adapter実装 (`src/client/adapters.py`)
+#### 2. 分析層: MetricsAnalyzer (`src/service/metrics_analyzer.py`)
 
-各プロバイダー固有のAPIを共通インターフェースに変換します：
-
-##### OpenAIAdapter
+収集したメトリクスを多次元で解析し、異常検出とアラート生成を行います。
 
 ```python
-class OpenAIAdapter(LLMClient):
-    """OpenAI API用のAdapter"""
+analyzer = MetricsAnalyzer()
 
-    def __init__(self, model: str):
-        self._client = AsyncOpenAI(api_key=config.openai_api_key)
-        self._model = model
+# プロンプト別に集計
+by_prompt = analyzer.aggregate_by_prompt(metrics)
 
-    async def chat(
-        self,
-        messages: list[dict[str, str]],
-        response_format: type,
-        **kwargs: Any,
-    ) -> BaseModel:
-        result = await self._client.responses.parse(
-            model=self._model,
-            input=messages,
-            text_format=response_format,
-            **kwargs,
-        )
-        return result.output_parsed
+# 時系列分析
+time_series = analyzer.aggregate_by_time_bucket(metrics, bucket_minutes=60)
+trend = analyzer.detect_trend(time_series, "latency_mean_ms")
 
-    async def aclose(self) -> None:
-        await self._client.close()
+# 異常検出とアラート生成
+alerts = analyzer.generate_alerts(metric)
 ```
 
-##### AnthropicAdapter
+分析機能:
+- 統計的集計（平均、中央値、P95、P99、標準偏差）
+- プロンプト/モデル/プロバイダー別グループ化
+- 時系列バケット化とトレンド検出
+- 閾値ベースの異常検出
+- アラート生成
+
+#### 3. 可視化層: ProfilerReporter (`src/service/profiler_reporter.py`)
+
+分析結果を様々な形式でレポート出力します。
 
 ```python
-class AnthropicAdapter(LLMClient):
-    """Anthropic Claude API用のAdapter"""
+reporter = ProfilerReporter(analyzer)
 
-    def __init__(self, model: str):
-        self._client = AsyncAnthropic(api_key=config.anthropic_api_key)
-        self._model = model
+# テキストサマリー
+reporter.print_summary(metrics)
 
-    async def chat(
-        self,
-        messages: list[dict[str, str]],
-        response_format: type,
-        **kwargs: Any,
-    ) -> BaseModel:
-        result = await self._client.beta.messages.parse(
-            model=self._model,
-            max_tokens=kwargs.get("max_tokens", 1024),
-            betas=["structured-outputs-2025-11-13"],
-            messages=messages,
-            output_format=response_format,
-            **{k: v for k, v in kwargs.items() if k != "max_tokens"},
-        )
-        return result.parsed_output
-
-    async def aclose(self) -> None:
-        await self._client.close()
+# JSON/HTML/テキストファイル出力
+reporter.save_report(metrics, "report.json", format="json")
+reporter.save_report(metrics, "report.html", format="html")
 ```
 
-##### GeminiAdapter
+レポート形式:
+- **テキスト形式**: ターミナル出力向けのフォーマット
+- **JSON形式**: プログラマティックな消費やGrafana/Kibana連携用
+- **HTML形式**: ビジュアルダッシュボード
+
+#### 4. メトリクスモデル (`src/model/profiler_metrics.py`)
+
+プロファイリングデータの構造を定義します。
 
 ```python
-class GeminiAdapter(LLMClient):
-    """Google Gemini API用のAdapter"""
-
-    def __init__(self, model: str):
-        self._client = genai.Client(api_key=config.gemini_api_key)
-        self._model = model
-
-    async def chat(
-        self,
-        messages: list[dict[str, str]] | tuple[str, str],
-        response_format: type,
-        **kwargs: Any,
-    ) -> BaseModel:
-        # システムメッセージとユーザーメッセージを分離
-        if isinstance(messages, tuple):
-            system_instruction, user_content = messages
-        else:
-            system_instruction = None
-            user_content = None
-            for msg in messages:
-                if msg["role"] == "system":
-                    system_instruction = msg["content"]
-                elif msg["role"] == "user":
-                    user_content = msg["content"]
-
-        # Gemini固有の設定
-        config = GenerateContentConfig(response_mime_type="application/json")
-        if system_instruction:
-            config.system_instruction = system_instruction
-        if response_format:
-            config.response_schema = response_format
-
-        result = await self._client.aio.models.generate_content(
-            model=self._model,
-            contents=user_content,
-            config=config,
-            **kwargs,
-        )
-        return result.parsed
-
-    async def aclose(self) -> None:
-        await self._client.aio.aclose()
+class ProfilerMetrics(BaseModel):
+    prompt_id: str           # プロンプト識別子
+    request_id: str          # リクエスト識別子
+    timestamp: str           # ISO 8601タイムスタンプ
+    latency_ms: float        # レイテンシ（ミリ秒）
+    input_tokens: int        # 入力トークン数
+    output_tokens: int       # 出力トークン数
+    total_tokens: int        # 合計トークン数
+    model: str               # モデル名
+    provider: str            # プロバイダー名
+    status: MetricStatus     # ステータス（success/error/timeout）
+    quality_score: float     # 品質スコア（1.0-5.0）
+    estimated_cost_usd: float  # 推定コスト（USD）
 ```
 
-**ポイント**:
-- 各プロバイダーのAPI仕様の違いをAdapter内で吸収
-- 共通インターフェースを通じて同じ方法で呼び出し可能
-- プロバイダー固有の設定は各Adapter内で処理
-- 各Adapterに`aclose()`メソッドを実装し、適切なリソース解放を実現
-- OpenAIは最新の`responses.parse()`API、Anthropicはbeta版の`messages.parse()`、Geminiは`generate_content()`を使用
-
-#### 3. Factory実装 (`src/client/factory.py`)
-
-プロバイダーとモデルに基づいて適切なAdapterインスタンスを生成します：
+アラート閾値の設定:
 
 ```python
-class LLMClientFactory:
-    """LLMクライアントを生成するFactory"""
-
-    # プロバイダーとサポートモデルのマッピング
-    PROVIDER_MODELS = {
-        LLMProvider.OPENAI: OpenAIModel.list_str(),
-        LLMProvider.GEMINI: GeminiModel.list_str(),
-        LLMProvider.ANTHROPIC: AnthropicModel.list_str(),
-    }
-
-    @staticmethod
-    def create_client(
-        provider: LLMProvider,
-        model: OpenAIModel | GeminiModel | AnthropicModel,
-    ) -> LLMClient:
-        """プロバイダーとモデルに基づいてクライアントを生成"""
-        provider_lower = provider.lower()
-
-        # プロバイダーとモデルの組み合わせを検証
-        if not LLMClientFactory.is_valid_combination(provider_lower, model):
-            raise ValueError(f"Invalid combination: {provider} and {model}")
-
-        # 適切なAdapterを生成
-        if provider_lower == LLMProvider.OPENAI:
-            return OpenAIAdapter(model=model)
-        elif provider_lower == LLMProvider.GEMINI:
-            return GeminiAdapter(model=model)
-        elif provider_lower == LLMProvider.ANTHROPIC:
-            return AnthropicAdapter(model=model)
-        else:
-            raise ValueError(f"Unknown provider: {provider}")
-
-    @staticmethod
-    def is_valid_combination(provider: str, model: str) -> bool:
-        """プロバイダーとモデルの組み合わせが有効かチェック"""
-        provider_lower = provider.lower()
-        if provider_lower not in LLMClientFactory.PROVIDER_MODELS:
-            return False
-        return model in LLMClientFactory.PROVIDER_MODELS[provider_lower]
-```
-
-**ポイント**:
-- プロバイダーとモデルの組み合わせを事前検証
-- クライアント生成ロジックを一元管理
-- ビジネスロジックから具体的なAdapter実装を隠蔽
-
-#### 4. サービス層 (`src/service/request_llm.py`)
-
-Factoryを使用して統一されたLLMリクエスト処理を提供します：
-
-```python
-async def request_llm(
-    client: LLMClient,
-    model: str,
-) -> CharacterResponse:
-    """統一されたインターフェースでLLMリクエストを実行"""
-
-    # プロンプトを生成
-    prompt = make_prompt()
-
-    # 共通インターフェースを通じてリクエスト
-    result = await client.chat(
-        messages=prompt,
-        response_format=CharacterResponse,
-    )
-
-    return result
-```
-
-**ポイント**:
-- プロバイダーに依存しない統一されたインターフェース
-- どのプロバイダーでも同じコードで処理可能
-- 新しいプロバイダーの追加が容易
-
-#### 5. データモデル (`src/model/model.py`)
-
-Pydanticを使用して厳密に型付けされたデータモデルを定義します：
-
-```python
-class Gender(StrEnum):
-    FEMALE = "female"
-    MALE = "male"
-
-class CharacterPersonality(BaseModel):
-    short_personality: str
-    description: str
-
-class CharacterResponse(BaseModel):
-    first_name: str
-    last_name: str
-    gender: Gender
-    age: int  # 0-100
-    personalities: list[CharacterPersonality]  # 3つの性格特性
+class AlertThreshold(BaseModel):
+    latency_warning_ms: float = 5000.0    # レイテンシ警告閾値
+    latency_critical_ms: float = 10000.0  # レイテンシクリティカル閾値
+    token_warning: int = 8000             # トークン警告閾値
+    token_critical: int = 16000           # トークンクリティカル閾値
+    quality_warning: float = 3.0          # 品質警告閾値
+    quality_critical: float = 2.0         # 品質クリティカル閾値
+    cost_warning_usd: float = 0.1         # コスト警告閾値
+    cost_critical_usd: float = 0.5        # コストクリティカル閾値
 ```
 
 ## 使い方
 
 ### 環境構成
 
-- **Python**: 3.13.2以上
-- **依存ライブラリ**:
-  - click>=8.3.0
-  - google-genai>=1.45.0
-  - openai>=2.4.0
-  - anthropic>=0.42.0
-  - pydantic>=2.12.2
-  - python-dotenv>=1.1.1
-- **開発依存関係**:
-  - pytest>=8.4.2
-  - pytest-asyncio>=1.2.0
-  - pytest-mock>=3.15.1
+- Python: 3.13.2以上
+- 依存ライブラリ:
+  - `anthropic>=0.74.1`
+  - `click>=8.3.0`
+  - `google-genai>=1.45.0`
+  - `openai>=2.4.0`
+  - `pydantic>=2.12.2`
+  - `python-dotenv>=1.1.1`
 
 ### セットアップ
 
-1. **環境変数ファイルの作成**
+1. 環境変数を設定:
 
 ```bash
-# .envrc.exampleをコピーして.envrcを作成
 cp .envrc.example .envrc
-
-# エディタで.envrcを開き、APIキーを設定
-# .envrc
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
-ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
 ```
 
-2. **依存関係のインストール**
+`.envrc` を編集し、各LLMプロバイダーのAPIキーを設定:
 
 ```bash
-# uvを使用する場合（推奨）
-uv sync
+OPENAI_API_KEY=<your_openai_api_key_here>
+GEMINI_API_KEY=<your_gemini_api_key_here>
+ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
+```
 
-# pipを使用する場合
-pip install -e .
+2. 依存関係のインストール:
+
+```bash
+uv sync
 ```
 
 ### 使用方法、実行方法
@@ -392,106 +254,146 @@ pip install -e .
 #### 基本的な使い方
 
 ```bash
-# OpenAI GPT-4oを使用
-uv run python -m src.main --llm-provider openai --model gpt-4o
+# Gemini でキャラクター生成（プロファイリングなし）
+python -m src.main \
+  --gender FEMALE \
+  --age 25 \
+  --llm-provider GEMINI \
+  --model GEMINI_2_5_FLASH
 
-# 短縮オプション
-uv run python -m src.main -lp openai -m gpt-4o
+# OpenAI でキャラクター生成（プロファイリング有効）
+python -m src.main \
+  --gender MALE \
+  --age 30 \
+  --llm-provider OPENAI \
+  --model GPT_4O_MINI \
+  --enable-profiling
 
-# Anthropic Claude Sonnet 4.5を使用
-uv run python -m src.main -lp anthropic -m claude-sonnet-4-5
-
-# Gemini 2.5 Proを使用
-uv run python -m src.main -lp gemini -m gemini-2.5-pro
-
-# Gemini 2.5 Flash（デフォルト）
-uv run python -m src.main -lp gemini -m gemini-2.5-flash
+# 異なるプロバイダーで生成と評価を分離
+python -m src.main \
+  --gender FEMALE \
+  --age 22 \
+  --llm-provider GEMINI \
+  --model GEMINI_2_5_FLASH \
+  --judge-provider ANTHROPIC \
+  --judge-model CLAUDE_SONNET_4_5 \
+  --enable-profiling \
+  --profiler-report-format html
 ```
 
-#### 出力先の指定
+#### CLIオプション一覧
 
-```bash
-# カスタム出力ディレクトリを指定
-uv run python -m src.main -lp openai -m gpt-4o --output-directory ./custom_output
-
-# 短縮オプション
-uv run python -m src.main -lp gemini -m gemini-2.5-pro -od ./my_characters
-```
-
-#### プロバイダーとモデルの組み合わせ例
-
-```bash
-# OpenAI の各モデル
-uv run python -m src.main -lp openai -m gpt-5
-uv run python -m src.main -lp openai -m gpt-4o
-uv run python -m src.main -lp openai -m gpt-4o-mini
-
-# Anthropic の各モデル
-uv run python -m src.main -lp anthropic -m claude-sonnet-4-5
-uv run python -m src.main -lp anthropic -m claude-opus-4-1
-
-# Gemini の各モデル
-uv run python -m src.main -lp gemini -m gemini-2.5-pro
-uv run python -m src.main -lp gemini -m gemini-2.5-flash
-uv run python -m src.main -lp gemini -m gemini-2.5-flash-lite
-```
-
-#### ヘルプの表示
-
-```bash
-uv run python -m src.main --help
-```
-
-**出力例**:
-```
-Usage: python -m src.main [OPTIONS]
-
-Options:
-  -lp, --llm-provider [openai|anthropic|gemini]
-                                  The LLM provider to use (openai, anthropic, or gemini).
-  -m, --model [gpt-5|gpt-4o|claude-sonnet-4-5|gemini-2.5-pro|...]
-                                  The model to use for the request.
-  -od, --output-directory PATH    The directory to save output files.
-  --help                          Show this message and exit.
-```
+| オプション | 短縮形 | 説明 | 必須 | デフォルト |
+|-----------|--------|------|------|-----------|
+| `--gender` | `-g` | キャラクターの性別 (`FEMALE`, `MALE`) | Yes | `FEMALE` |
+| `--age` | `-a` | キャラクターの年齢 (0-100) | Yes | `25` |
+| `--additional-instructions` | `-ai` | 追加の生成指示 | No | - |
+| `--llm-provider` | `-lp` | LLMプロバイダー (`OPENAI`, `GEMINI`, `ANTHROPIC`) | Yes | `GEMINI` |
+| `--model` | `-m` | 使用するモデル | Yes | - |
+| `--output-directory` | `-od` | 出力ディレクトリ | No | `outputs` |
+| `--judge-provider` | `-jp` | 評価用LLMプロバイダー | No | 生成と同じ |
+| `--judge-model` | `-jm` | 評価用モデル | No | 生成と同じ |
+| `--enable-profiling` | `-p` | プロファイリングを有効化 | No | `False` |
+| `--profiler-report-format` | `-prf` | レポート形式 (`json`, `html`, `txt`) | No | `json` |
 
 ### 出力例
 
-実行すると、以下のような構造化されたJSONファイルが生成されます：
+#### プロファイリングサマリー（ターミナル出力）
 
-**ファイル名**: `outputs/openai_gpt-4o_a1b2c3d4.json`
+```
+============================================================
+PERFORMANCE PROFILING SUMMARY
+============================================================
+Prompt Performance Summary
+==========================
+
+Report Generated: 2025-01-15T10:30:45.123456+00:00
+Sample Count: 3
+Time Range: 2025-01-15T10:30:40.000000+00:00 to 2025-01-15T10:30:45.000000+00:00
+
+LATENCY
+----------------------------------------
+  Mean:    2,543.21 ms
+  Median:  2,345.67 ms
+  P95:     3,456.78 ms
+  P99:     3,456.78 ms
+  Min:     1,234.56 ms
+  Max:     3,456.78 ms
+  Std Dev: 567.89 ms
+
+TOKEN USAGE
+----------------------------------------
+  Total Input:   1,234
+  Total Output:  567
+  Total:         1,801
+  Avg Input:     411.3
+  Avg Output:    189.0
+
+SUCCESS RATE
+----------------------------------------
+  Successful:  3
+  Failed:      0
+  Rate:        100.0%
+
+QUALITY SCORES
+----------------------------------------
+  Average: 4.25 / 5.0
+  Min:     3.80 / 5.0
+  Max:     4.70 / 5.0
+
+COST ESTIMATE
+----------------------------------------
+  Total: $0.0045
+  Avg:   $0.0015 per request
+```
+
+#### 生成されたキャラクター（JSON）
 
 ```json
 {
-    "first_name": "蒼",
-    "last_name": "雨宮",
-    "gender": "male",
-    "age": 28,
+    "first_name": "美咲",
+    "last_name": "桜井",
+    "gender": "female",
+    "age": 25,
     "personalities": [
         {
-            "short_personality": "内向的な思索家",
-            "description": "常に深く物事を考え、静かな場所を好む。表面的な会話よりも、哲学的な議論に心を開く。"
+            "short_personality": "好奇心旺盛",
+            "description": "新しいことへの興味が尽きず、常に学びの機会を探している。"
         },
         {
-            "short_personality": "完璧主義者",
-            "description": "すべてのタスクに最高の基準を求め、細部にこだわる。しばしば自分自身に対して厳しすぎることがある。"
+            "short_personality": "思いやりがある",
+            "description": "周囲の人々の気持ちに敏感で、困っている人を放っておけない性格。"
         },
         {
-            "short_personality": "忠実な友人",
-            "description": "一度信頼関係を築くと、どんな困難な状況でも友人を支える。約束を何よりも大切にする。"
+            "short_personality": "芯が強い",
+            "description": "一度決めたことは最後までやり遂げる強い意志を持っている。"
         }
     ]
 }
 ```
 
-**実行ログ例**:
-```
-[2025-10-19 10:30:45] [INFO] [__main__] [main.py:76] [main] LLM provider: openai
-Model: gpt-4o
-Output directory: outputs
-[2025-10-19 10:30:46] [INFO] [src.service.request_llm] [request_llm.py:41] [request_llm] Making LLM request: provider=openai, model=gpt-4o
-[2025-10-19 10:30:48] [INFO] [src.service.request_llm] [request_llm.py:52] [request_llm] Successfully received response from openai
-[2025-10-19 10:30:48] [INFO] [__main__] [main.py:102] [main] Character generated successfully!
-[2025-10-19 10:30:48] [INFO] [__main__] [main.py:103] [main] File saved to: outputs/openai_gpt-4o_a1b2c3d4.json
-[2025-10-19 10:30:48] [INFO] [__main__] [main.py:104] [main] Character: 蒼 雨宮, 28 years old
+#### 評価結果（JSON）
+
+```json
+{
+    "evaluations": [
+        {
+            "reasoning": "指定された性別と年齢に一致しており、名前も適切。",
+            "criterion_name": "accuracy",
+            "score": 5
+        },
+        {
+            "reasoning": "3つの性格特性が詳細に記述されており、十分な情報量がある。",
+            "criterion_name": "comprehensiveness",
+            "score": 4
+        },
+        {
+            "reasoning": "各性格特性の説明が明確で理解しやすい。",
+            "criterion_name": "clarity",
+            "score": 4
+        }
+    ],
+    "overall_score": 4.33,
+    "summary": "リクエストに忠実なキャラクター生成が行われており、全体的に高品質な出力。"
+}
 ```

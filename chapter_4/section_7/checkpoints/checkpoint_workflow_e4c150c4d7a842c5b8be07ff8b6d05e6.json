@@ -1,0 +1,113 @@
+{
+  "workflow_id": "checkpoint_workflow",
+  "checkpoint_id": "e4c150c4d7a842c5b8be07ff8b6d05e6",
+  "timestamp": "2025-11-09T15:14:49.186376",
+  "workflow_state": {
+    "workflow_id": "checkpoint_workflow",
+    "state": "running",
+    "started_at": "2025-11-09T15:14:49.181070",
+    "completed_at": null,
+    "current_node_id": "end",
+    "node_records": {
+      "start": {
+        "node_id": "start",
+        "state": "completed",
+        "started_at": "2025-11-09T15:14:49.181101",
+        "completed_at": "2025-11-09T15:14:49.181129",
+        "error": null,
+        "output": {
+          "status": "started",
+          "initial_data": {
+            "counter": 0
+          }
+        },
+        "retry_count": 0
+      },
+      "step1": {
+        "node_id": "step1",
+        "state": "completed",
+        "started_at": "2025-11-09T15:14:49.182600",
+        "completed_at": "2025-11-09T15:14:49.182683",
+        "error": null,
+        "output": {
+          "step": 1,
+          "counter": 1
+        },
+        "retry_count": 0
+      },
+      "step2": {
+        "node_id": "step2",
+        "state": "completed",
+        "started_at": "2025-11-09T15:14:49.183057",
+        "completed_at": "2025-11-09T15:14:49.183094",
+        "error": null,
+        "output": {
+          "step": 2,
+          "counter": 1
+        },
+        "retry_count": 0
+      },
+      "step3": {
+        "node_id": "step3",
+        "state": "completed",
+        "started_at": "2025-11-09T15:14:49.185211",
+        "completed_at": "2025-11-09T15:14:49.185338",
+        "error": null,
+        "output": {
+          "step": 3,
+          "counter": 1
+        },
+        "retry_count": 0
+      },
+      "end": {
+        "node_id": "end",
+        "state": "completed",
+        "started_at": "2025-11-09T15:14:49.186293",
+        "completed_at": "2025-11-09T15:14:49.186324",
+        "error": null,
+        "output": {
+          "status": "completed",
+          "workflow_id": "checkpoint_workflow"
+        },
+        "retry_count": 0
+      }
+    },
+    "variables": {},
+    "error": null
+  },
+  "execution_context": {
+    "workflow_id": "checkpoint_workflow",
+    "variables": {
+      "counter": 0
+    },
+    "node_outputs": {
+      "start": {
+        "status": "started",
+        "initial_data": {
+          "counter": 0
+        }
+      },
+      "step1": {
+        "step": 1,
+        "counter": 1
+      },
+      "step2": {
+        "step": 2,
+        "counter": 1
+      },
+      "step3": {
+        "step": 3,
+        "counter": 1
+      },
+      "end": {
+        "status": "completed",
+        "workflow_id": "checkpoint_workflow"
+      }
+    },
+    "error": null
+  },
+  "metadata": {
+    "type": "auto",
+    "node": "end"
+  }
+}

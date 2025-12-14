@@ -1,26 +1,39 @@
-"""
-CLI entry point for the Contract Risk Compliance Pipeline.
-
-This module provides a command-line interface for evaluating contract
-documents for risk compliance using a pipeline AI agent architecture.
-"""
+"""Main entry point for running workflow examples."""
 
 import asyncio
-import os
+import sys
 from functools import wraps
-from pathlib import Path
+from typing import Optional
 
 import click
 
-from src.client.llm_client import OpenAIModel
+from src.client.llm_client import (
+    LLMProvider,
+)
+from src.examples import (
+    example_1_manual_di,
+    example_2_di_container_singleton,
+    example_3_swapping_providers,
+    example_4_multi_stage_pipeline,
+    example_5_structured_output,
+    example_6_testing_pattern,
+)
 from src.logger import make_logger
-from src.service.contract_pipeline_service import run_contract_compliance_pipeline
 
 logger = make_logger(__name__)
 
+WORKFLOWS = {
+    "example_1_manual_di": example_1_manual_di,
+    "example_2_di_container_singleton": example_2_di_container_singleton,
+    "example_3_swapping_providers": example_3_swapping_providers,
+    "example_4_multi_stage_pipeline": example_4_multi_stage_pipeline,
+    "example_5_structured_output": example_5_structured_output,
+    "example_6_testing_pattern": example_6_testing_pattern,
+}
+
 
 def async_cmd(func):
-    """Decorator to run async click commands."""
+    """Decorator to run async functions with click."""
 
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -31,83 +44,91 @@ def async_cmd(func):
 
 @click.command()
 @click.option(
-    "--model",
-    "-m",
-    type=click.Choice(OpenAIModel.list_str()),
+    "--llm-provider",
+    "-lp",
+    type=click.Choice(LLMProvider),
     required=False,
-    default=OpenAIModel.GPT_4O_MINI,
-    help="The model to use for the request.",
+    default=None,
+    help="The LLM provider to use.",
 )
 @click.option(
-    "--output-directory",
-    "-od",
-    type=click.Path(),
+    "--workflow",
+    "-w",
+    type=click.Choice(list(WORKFLOWS.keys()) + ["all"]),
     required=False,
-    default="outputs",
-    help="The directory to save output files.",
-)
-@click.option(
-    "--contract-file",
-    "-c",
-    type=click.Path(exists=True),
-    required=True,
-    help="Path to the contract document file (markdown or text).",
+    default="example_1_manual_di",
+    help="The workflow example to run. Use 'all' to run all workflows.",
 )
 @async_cmd
 async def main(
-    model: str,
-    output_directory: str,
-    contract_file: str,
+    llm_provider: Optional[LLMProvider],
+    workflow: str,
 ):
     """
-    Contract Risk Compliance Pipeline - A Pipeline AI Agent System
+    Run Dependency Injection workflow examples.
 
-    This system evaluates contract documents for risk compliance using a
-    pipeline AI agent architecture with three stages:
-
-    \b
-    1. Extraction Stage: Parse contract structure (chapters, sections)
-    2. Risk Scoring Stage: Evaluate risk for each section
-    3. Report Stage: Generate comprehensive compliance report
-
-    The pipeline processes each stage sequentially, with each stage's output
-    becoming the input for the next stage.
+    This command allows you to run different workflow examples that demonstrate
+    the LLM workflow orchestration engine with Dependency Injection patterns.
 
     Examples:
+        # Run example 1 (manual DI)
+        python -m src.main --workflow example_1_manual_di
 
-    \b
-        # Evaluate a contract file
-        python -m src.main -c data/contract_0.md
+        # Run example 4 (multi-stage pipeline)
+        python -m src.main --workflow example_4_multi_stage_pipeline
 
-        # With custom model
-        python -m src.main -c data/contract_0.md -m gpt-4o
+        # Run all workflows
+        python -m src.main --workflow all
 
-        # With custom output directory
-        python -m src.main -c data/contract_0.md -od reports
     """
-    logger.info(
-        f"Contract Risk Compliance Pipeline\n"
-        f"Model: {model}\n"
-        f"Contract file: {contract_file}\n"
-        f"Output directory: {output_directory}"
-    )
 
-    os.makedirs(output_directory, exist_ok=True)
+    try:
+        if workflow == "all":
+            logger.info("Running all workflow examples...\n")
 
-    report = await run_contract_compliance_pipeline(
-        contract_file_path=contract_file,
-        model=model,
-    )
+            for name, workflow_func in WORKFLOWS.items():
+                logger.info(f"\n{'=' * 60}")
+                logger.info(f"Running workflow: {name}")
+                logger.info(f"{'=' * 60}\n")
 
-    if report is None:
-        raise ValueError("Contract pipeline failed. Check logs for details.")
+                result = await workflow_func(llm_provider=llm_provider)
 
-    output_path = Path(output_directory) / f"compliance_report_{report.report_id}.md"
-    output_path.write_text(report.to_markdown(), encoding="utf-8")
-    logger.info(f"Report saved: {output_path}")
-    logger.info(f"\nCompliance report saved to: {output_path}")
-    logger.info(f"Overall Status: {report.executive_summary.overall_status}")
-    logger.info(f"Risk Score: {report.executive_summary.overall_risk_score}/100")
+                logger.info(f"\n✓ Workflow '{name}' completed successfully")
+                logger.info(f"  Status: {result.get('status', 'unknown')}")
+                logger.info(f"  Nodes executed: {result.get('nodes_executed', 0)}")
+
+                await asyncio.sleep(1)  # Brief pause between workflows
+
+            logger.info("\n" + "=" * 60)
+            logger.info("ALL WORKFLOWS COMPLETED SUCCESSFULLY")
+            logger.info("=" * 60)
+
+        else:
+            if workflow not in WORKFLOWS:
+                logger.error(f"Unknown workflow: {workflow}")
+                logger.info(f"Available workflows: {', '.join(WORKFLOWS.keys())}, all")
+                sys.exit(1)
+
+            logger.info(f"Running workflow: {workflow}\n")
+
+            workflow_func = WORKFLOWS[workflow]
+            result = await workflow_func(llm_provider=llm_provider)
+
+            logger.info("\n✓ Workflow completed successfully")
+            logger.info(f"  Status: {result.get('status', 'unknown')}")
+            logger.info(f"  Nodes executed: {result.get('nodes_executed', 0)}")
+
+            if "outputs" in result and result["outputs"]:
+                logger.info("\n  Final outputs:")
+                for node_id, output in result["outputs"].items():
+                    logger.info(f"    {node_id}: {str(output)}...")
+
+    except KeyboardInterrupt:
+        logger.info("\n\nWorkflow execution interrupted by user")
+        sys.exit(0)
+    except Exception as e:
+        logger.error(f"\n✗ Workflow execution failed: {e}", exc_info=True)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

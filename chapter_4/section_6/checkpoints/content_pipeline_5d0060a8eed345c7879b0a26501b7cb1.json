@@ -1,0 +1,117 @@
+{
+  "workflow_id": "content_pipeline",
+  "checkpoint_id": "5d0060a8eed345c7879b0a26501b7cb1",
+  "timestamp": "2025-11-09T11:17:27.451254",
+  "workflow_state": {
+    "workflow_id": "content_pipeline",
+    "state": "running",
+    "started_at": "2025-11-09T11:17:24.046898",
+    "completed_at": null,
+    "current_node_id": "parse_topics",
+    "node_records": {
+      "start": {
+        "node_id": "start",
+        "state": "completed",
+        "started_at": "2025-11-09T11:17:24.046933",
+        "completed_at": "2025-11-09T11:17:24.046962",
+        "error": null,
+        "output": {
+          "status": "started",
+          "initial_data": {
+            "domain": "artificial intelligence",
+            "num_topics": 3,
+            "quality_threshold": 7
+          }
+        },
+        "retry_count": 0
+      },
+      "generate_topics": {
+        "node_id": "generate_topics",
+        "state": "completed",
+        "started_at": "2025-11-09T11:17:24.047019",
+        "completed_at": "2025-11-09T11:17:27.450765",
+        "error": null,
+        "output": {
+          "content": "From Brushstrokes to Bytes: How AI is Redefining Creativity (and Your Next Masterpiece), Beyond Skynet: Navigating the Real Ethical Headaches of Artificial Intelligence, AI Isn't Just for Robots: 7 Mind-Blowing Ways It's Already Changing Your Daily Life",
+          "model": "gemini-2.5-flash",
+          "usage": {
+            "prompt_tokens": 28,
+            "completion_tokens": 58,
+            "total_tokens": 529
+          },
+          "finish_reason": "STOP"
+        },
+        "retry_count": 0
+      },
+      "parse_topics": {
+        "node_id": "parse_topics",
+        "state": "completed",
+        "started_at": "2025-11-09T11:17:27.450923",
+        "completed_at": "2025-11-09T11:17:27.451112",
+        "error": null,
+        "output": {
+          "topics": [
+            "From Brushstrokes to Bytes: How AI is Redefining Creativity (and Your Next Masterpiece)",
+            "Beyond Skynet: Navigating the Real Ethical Headaches of Artificial Intelligence",
+            "AI Isn't Just for Robots: 7 Mind-Blowing Ways It's Already Changing Your Daily Life"
+          ],
+          "topics_count": 3
+        },
+        "retry_count": 0
+      }
+    },
+    "variables": {},
+    "error": null
+  },
+  "execution_context": {
+    "workflow_id": "content_pipeline",
+    "variables": {
+      "domain": "artificial intelligence",
+      "num_topics": 3,
+      "quality_threshold": 7,
+      "generate_topics_output": {
+        "content": "From Brushstrokes to Bytes: How AI is Redefining Creativity (and Your Next Masterpiece), Beyond Skynet: Navigating the Real Ethical Headaches of Artificial Intelligence, AI Isn't Just for Robots: 7 Mind-Blowing Ways It's Already Changing Your Daily Life",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 28,
+          "completion_tokens": 58,
+          "total_tokens": 529
+        },
+        "finish_reason": "STOP"
+      }
+    },
+    "node_outputs": {
+      "start": {
+        "status": "started",
+        "initial_data": {
+          "domain": "artificial intelligence",
+          "num_topics": 3,
+          "quality_threshold": 7
+        }
+      },
+      "generate_topics": {
+        "content": "From Brushstrokes to Bytes: How AI is Redefining Creativity (and Your Next Masterpiece), Beyond Skynet: Navigating the Real Ethical Headaches of Artificial Intelligence, AI Isn't Just for Robots: 7 Mind-Blowing Ways It's Already Changing Your Daily Life",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 28,
+          "completion_tokens": 58,
+          "total_tokens": 529
+        },
+        "finish_reason": "STOP"
+      },
+      "parse_topics": {
+        "topics": [
+          "From Brushstrokes to Bytes: How AI is Redefining Creativity (and Your Next Masterpiece)",
+          "Beyond Skynet: Navigating the Real Ethical Headaches of Artificial Intelligence",
+          "AI Isn't Just for Robots: 7 Mind-Blowing Ways It's Already Changing Your Daily Life"
+        ],
+        "topics_count": 3
+      }
+    },
+    "error": null
+  },
+  "metadata": {
+    "type": "auto",
+    "node": "parse_topics"
+  }
+}

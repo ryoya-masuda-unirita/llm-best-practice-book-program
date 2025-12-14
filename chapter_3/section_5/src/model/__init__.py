@@ -2,7 +2,6 @@ from src.model.model import (
     CharacterPersonality,
     CharacterRequest,
     CharacterResponse,
-    FrozenModel,
     Gender,
     HealthResponse,
     LLMRequest,
@@ -11,11 +10,10 @@ from src.model.model import (
 
 __all__ = [
     "CharacterPersonality",
-    "CharacterRequest",
     "CharacterResponse",
-    "FrozenModel",
     "Gender",
-    "HealthResponse",
     "LLMRequest",
     "LLMResponse",
+    "HealthResponse",
+    "CharacterRequest",
 ]

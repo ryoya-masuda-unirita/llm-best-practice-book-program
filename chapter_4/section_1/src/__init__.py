@@ -1,1 +1,1 @@
-"""Chapter 4, Section 1: ReAct AI Agent."""
+"""Chapter 3, Section 2: Separating Storage and Execution Layers in LLM Systems."""

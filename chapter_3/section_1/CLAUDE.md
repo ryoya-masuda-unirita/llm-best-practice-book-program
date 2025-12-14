@@ -1,500 +1,878 @@
-# Chapter 3 Section 1: Controlling LLM Request Volume - Project Status Report
+# CLAUDE.md - LLM Adapter and Factory Pattern Implementation
 
 ## Project Overview
 
-This project implements a **proxy server architecture for controlling LLM API request volume** to address rate limiting challenges in production LLM applications. The implementation demonstrates a practical approach to managing API rate limits through a dedicated reverse proxy that sits between client applications and LLM API backends.
+This project demonstrates **Adapter and Factory design patterns** for managing multiple LLM providers through a unified interface. It showcases best practices for avoiding vendor lock-in while maintaining code maintainability and extensibility.
 
-**Status**: ✅ Implementation Complete
+**Core Objective**: Generate fictional character data (name, gender, age, personality traits) using OpenAI, Anthropic Claude, or Google Gemini APIs through a common interface.
 
-The project consists of two FastAPI-based servers:
-1. **LLM API Server** (Port 8000): Provides character generation endpoints using Google Gemini API
-2. **Proxy Server** (Port 8080): Implements traffic control mechanisms including rate limiting, circuit breaker, request queuing, and automatic retry
+**Key Patterns**:
+- **Adapter Pattern**: Abstracts provider-specific API differences
+- **Factory Pattern**: Centralizes client instantiation logic
+- **Dependency Injection**: Promotes testability and flexibility
 
-## Problem Statement
-
-LLM APIs impose rate limits (Requests Per Second, Tokens Per Minute) on API keys, which creates operational challenges when:
-- Multiple teams or services share a single API contract
-- Burst traffic from one consumer affects all other consumers
-- Unexpected load spikes cause cascading failures across the system
-- 429 (Too Many Requests) errors impact user experience
-
-**Real-world scenarios addressed**:
-1. **Multi-team organizations**: Preventing one team's bulk processing from blocking others' development work
-2. **E-commerce platforms**: Handling peak traffic during sales events without service degradation
-3. **Batch processing**: Ensuring overnight data pipelines complete successfully within rate limits
-
-## Implementation Architecture
-
-### System Architecture
+## Project Structure
 
 ```
-Client Applications
-        ↓
-    [Proxy Server - Port 8080]
-        ├── Request Queue (max: 100, timeout: 300s)
-        ├── Rate Limiter (Token Bucket: 10 req/sec)
-        ├── Circuit Breaker (failure threshold: 5, timeout: 60s)
-        └── Retry Logic (max: 3, exponential backoff)
-        ↓
-    [LLM API Server - Port 8000]
-        ├── /generate endpoint
-        └── /health endpoint
-        ↓
-    External LLM APIs
-        └── Google Gemini (gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite)
+src/
+├── client/                    # Adapter and Factory implementation
+│   ├── base.py               # Abstract base class (LLMClient)
+│   ├── adapters.py           # Concrete adapters (OpenAI, Anthropic, Gemini)
+│   ├── factory.py            # Factory for creating clients
+│   └── model.py              # Provider/model enums
+├── model/                    # Domain models
+│   └── model.py              # Pydantic data models
+├── prompt/                   # Prompt management
+│   └── prompt.py             # Prompt generation logic
+├── service/                  # Business logic layer
+│   └── request_llm.py        # Unified LLM request handling
+├── config.py                 # Configuration management
+├── logger.py                 # Logging setup
+└── main.py                   # CLI entry point
+
+tests/
+├── test_adapters.py          # Adapter tests
+└── test_factory.py           # Factory tests
 ```
 
-### Component Overview
+## Architecture
 
-#### 1. Proxy Server (`src/proxy/proxy_server.py`)
+### Layer Architecture
 
-**Purpose**: Central traffic control and coordination layer
+```
++---------------------------------------------+
+|         CLI Layer (main.py)                 |
+|  - Command-line argument parsing            |
+|  - Output directory management              |
+|  - Provider/model validation                |
++-----------------+---------------------------+
+                  |
+                  v
++-----------------+---------------------------+
+|      Service Layer (service/)               |
+|  - Unified LLM request processing           |
+|  - Prompt generation and response handling  |
++-----------------+---------------------------+
+                  |
+                  v
++-----------------+---------------------------+
+|      Adapter/Factory Layer (client/)        |
+|  - LLMClient abstract interface (base.py)   |
+|  - Provider-specific adapters (adapters.py) |
+|  - Client creation factory (factory.py)     |
++-----------------+---------------------------+
+                  |
+                  v
++-----------------+---------------------------+
+|      Infrastructure Layer                   |
+|  - Configuration (config.py)                |
+|  - Logging (logger.py)                      |
+|  - Data models (model/)                     |
+|  - External APIs (OpenAI, Anthropic, Gemini)|
++---------------------------------------------+
+```
+
+### Design Patterns in Detail
+
+#### 1. Adapter Pattern (`client/base.py`, `client/adapters.py`)
+
+**Purpose**: Translate different provider APIs into a common interface.
+
+**Abstract Interface** (`base.py`):
+```python
+class LLMClient(ABC):
+    @abstractmethod
+    async def chat(
+        self,
+        messages: list[dict[str, str]],
+        response_format: type,
+        **kwargs: Any,
+    ) -> BaseModel:
+        """Generate chat completion with structured output."""
+        pass
+
+    @abstractmethod
+    def get_provider_name(self) -> str:
+        """Return provider name."""
+        pass
+
+    @abstractmethod
+    def get_model_name(self) -> str:
+        """Return model identifier."""
+        pass
+
+    @abstractmethod
+    async def aclose(self) -> None:
+        """Close the client and release resources."""
+        pass
+```
+
+**Key Design Decisions**:
+- **Async interface**: All chat methods are async for efficient I/O handling
+- **Pydantic integration**: `response_format` ensures type-safe responses
+- **Flexible kwargs**: Allows provider-specific parameters without breaking the interface
+- **Provider identification**: Methods for runtime introspection
+- **Resource management**: `aclose()` method ensures proper cleanup of resources
+
+**OpenAI Adapter** (`adapters.py`):
+- Uses `AsyncOpenAI` client
+- Leverages latest `responses.parse()` API for structured output
+- Returns `result.output_parsed` (Pydantic model)
+- Implements `aclose()` to properly close the client
+
+**Anthropic Adapter** (`adapters.py`):
+- Uses `AsyncAnthropic` client
+- Leverages beta `messages.parse()` API with structured outputs
+- Uses `betas=["structured-outputs-2025-11-13"]` for latest features
+- Returns `result.parsed_output` (Pydantic model)
+- Implements `aclose()` to properly close the client
+
+**Gemini Adapter** (`adapters.py`):
+- Uses `genai.Client` with async methods
+- Separates system instructions from user messages (Gemini requirement)
+- Supports both tuple `(system, user)` and list message formats
+- Uses `GenerateContentConfig` with `response_schema` for structured output
+- Returns `result.parsed` directly
+- Implements `aclose()` to properly close the async client
+
+**Provider Differences Handled**:
+- Message format: OpenAI uses standard chat format; Anthropic uses standard chat format; Gemini separates system/user
+- Structured output: OpenAI uses `text_format`; Anthropic uses `output_format` with betas; Gemini uses `response_schema`
+- Client initialization: Different SDK patterns and API endpoints
+- Resource cleanup: Different close methods across providers
+
+#### 2. Factory Pattern (`client/factory.py`)
+
+**Purpose**: Centralize client creation and validation logic.
 
 **Key Features**:
-- Integrates all control mechanisms (queue, rate limiter, circuit breaker, retry)
-- Exposes monitoring endpoints (`/metrics`, `/proxy-health`, `/circuit-breaker/reset`)
-- Adds proxy metadata to all responses for observability
-- Implements background queue processor for async request handling
 
-**Configuration**:
-- Backend URL: `http://localhost:8000`
-- Max retries: 3
-- Retry backoff base: 2.0 seconds
-
-#### 2. Rate Limiter (`src/proxy/rate_limiter.py`)
-
-**Algorithm**: Token Bucket
-
-**Implementation Details**:
-- **Capacity**: 10 requests per second (configurable)
-- **Refill rate**: Tokens replenished continuously at calculated rate
-- **Behavior**: Requests wait (blocking) when tokens unavailable
-- **Timeout**: Configurable maximum wait time (default: 30s)
-
-**Key Methods**:
-- `acquire()`: Consume one token, wait if unavailable
-- `get_available_tokens()`: Return current token count for monitoring
-
-**Code Reference**: `src/proxy/rate_limiter.py:20-98`
-
-#### 3. Circuit Breaker (`src/proxy/circuit_breaker.py`)
-
-**Pattern**: Three-state circuit breaker (CLOSED → OPEN → HALF_OPEN)
-
-**State Transitions**:
-- **CLOSED → OPEN**:
-  - Consecutive failures reach threshold (5) OR
-  - Error rate exceeds 50% (after minimum 10 requests)
-- **OPEN → HALF_OPEN**: Timeout period elapses (60 seconds)
-- **HALF_OPEN → CLOSED**: Consecutive successes reach threshold (2)
-- **HALF_OPEN → OPEN**: Any failure during half-open state
-
-**Metrics Tracked**:
-- Total requests and failed requests
-- Error rate calculation
-- Failure/success counters
-- Last failure timestamp
-
-**Code Reference**: `src/proxy/circuit_breaker.py:38-191`
-
-#### 4. Request Queue (`src/proxy/request_queue.py`)
-
-**Purpose**: Absorb burst traffic and prevent request rejection
-
-**Implementation Details**:
-- **Queue type**: `asyncio.Queue` for async/await compatibility
-- **Max size**: 100 requests
-- **Request timeout**: 300 seconds
-- **Behavior**: Returns 503 when full, 504 on timeout
-
-**Queueing Mechanism**:
-- Uses `asyncio.Future` for async result waiting
-- Background processor continuously dequeues and processes requests
-- Tracks metrics: total queued, processed, timeouts
-
-**Code Reference**: `src/proxy/request_queue.py:26-132`
-
-#### 5. Retry Logic (`src/proxy/proxy_server.py:100`)
-
-**Library**: `httpx-retries` for robust retry handling
-
-**Retry Policy**:
-- **Total attempts**: 3
-- **Backoff factor**: 1.0 (results in 1s, 2s, 4s intervals)
-- **Status codes triggering retry**:
-  - 429 Too Many Requests
-  - 500-599 Server Errors
-
-**Implementation**:
+1. **Provider-Model Mapping**:
 ```python
-retry_policy = Retry(
-    total=3,
-    backoff_factor=1.0,
-    status_forcelist=[429, 500, 501, 502, 503, 504, ...]
+PROVIDER_MODELS = {
+    LLMProvider.OPENAI: OpenAIModel.list_str(),
+    LLMProvider.GEMINI: GeminiModel.list_str(),
+    LLMProvider.ANTHROPIC: AnthropicModel.list_str(),
+}
+```
+
+2. **Validation Before Creation**:
+- Checks if provider exists
+- Verifies model is supported for that provider
+- Raises descriptive `ValueError` with supported options
+
+3. **Client Instantiation**:
+- Single source of truth for creating adapters
+- Hides concrete adapter classes from business logic
+- Enables easy addition of new providers
+- Returns appropriate adapter (OpenAI, Anthropic, or Gemini) based on provider parameter
+
+**Benefits**:
+- **Single Responsibility**: One place to manage client creation
+- **Open/Closed Principle**: Add new providers without modifying existing code
+- **Validation**: Catch errors early with clear messages
+- **Testability**: Easy to mock factory in tests
+
+#### 3. Service Layer (`service/request_llm.py`)
+
+**Purpose**: Provide business logic abstraction over adapters.
+
+**Implementation** (`request_llm.py`):
+```python
+async def request_llm(
+    client: LLMClient,
+    model: str,
+) -> CharacterResponse:
+    # Get prompt
+    prompt = make_prompt()
+
+    # Make request using unified interface
+    result = await client.chat(
+        messages=prompt,
+        response_format=CharacterResponse,
+    )
+
+    return result
+```
+
+**Key Points**:
+- **Provider-agnostic**: Same code works for any provider (OpenAI, Anthropic, Gemini)
+- **Dependency injection**: Client is injected, promoting testability
+- **Separation of concerns**: Prompt generation separate from API calls
+- **Error handling**: Propagates exceptions with context
+- **Clean interface**: Service layer doesn't need to know about factory or provider details
+
+## Data Models
+
+### Character Models (`model/model.py`)
+
+**Design Philosophy**: Strict validation, immutability, type safety.
+
+```python
+class Gender(StrEnum):
+    FEMALE = "female"
+    MALE = "male"
+
+class CharacterPersonality(BaseModel):
+    model_config = ConfigDict(
+        validate_assignment=True,  # Validate on assignment
+        frozen=True,               # Immutable after creation
+        extra="ignore",            # Ignore unknown fields
+    )
+
+    short_personality: str
+    description: str
+
+class CharacterResponse(BaseModel):
+    first_name: str
+    last_name: str
+    gender: Gender
+    age: int = Field(ge=0, le=100)  # Constrained integer
+    personalities: list[CharacterPersonality]
+```
+
+**Pydantic Features Used**:
+- **Field constraints**: `ge=0, le=100` ensures valid age range
+- **Frozen models**: Prevents accidental mutations
+- **StrEnum**: Type-safe gender values
+- **Nested models**: Complex structures with validation
+- **Extra ignore**: Robust against API response changes
+
+## Provider and Model Enums (`client/model.py`)
+
+**Purpose**: Type-safe provider and model identifiers.
+
+```python
+class LLMProvider(StrEnum):
+    OPENAI = "openai"
+    GEMINI = "gemini"
+    ANTHROPIC = "anthropic"
+
+class OpenAIModel(StrEnum):
+    GPT_5 = "gpt-5"
+    GPT_5_MINI = "gpt-5-mini"
+    GPT_4O = "gpt-4o"
+    # ... more models
+
+    @staticmethod
+    def list_str() -> list[str]:
+        return [model for model in OpenAIModel]
+
+class AnthropicModel(StrEnum):
+    CLAUDE_SONNET_4_5 = "claude-sonnet-4-5"
+    CLAUDE_OPUS_4_1 = "claude-opus-4-1"
+
+    @staticmethod
+    def list_str() -> list[str]:
+        return [model for model in AnthropicModel]
+```
+
+**Benefits**:
+- **Autocomplete**: IDE suggestions for valid values
+- **Type checking**: Catch typos at development time
+- **String compatibility**: `StrEnum` works with string comparisons
+- **Enumeration**: `list_str()` provides all valid values
+
+## Configuration Management (`config.py`)
+
+Expected structure:
+```python
+from pydantic_settings import BaseSettings
+
+class Config(BaseSettings):
+    openai_api_key: str
+    gemini_api_key: str
+    anthropic_api_key: str
+
+    class Config:
+        env_file = ".env"
+
+config = Config()
+```
+
+**Best Practices**:
+- Use `pydantic-settings` for type-safe environment variables
+- Never commit `.env` files
+- Provide `.envrc.example` as template
+- Validate required keys at startup
+
+## Testing Strategy
+
+### Test Coverage
+
+#### Adapter Tests (`tests/test_adapters.py`)
+
+**What to Test**:
+1. **Interface compliance**: Verify adapters implement `LLMClient`
+2. **Initialization**: Check correct client and model setup for OpenAI, Anthropic, and Gemini
+3. **Chat functionality**: Mock API calls and verify response parsing for all three providers
+4. **Error handling**: Test API failures, invalid responses
+5. **Provider/model metadata**: Verify `get_provider_name()`, `get_model_name()`
+6. **Resource cleanup**: Test `aclose()` method for proper resource release
+
+**Example Test Pattern**:
+```python
+@pytest.mark.asyncio
+async def test_openai_chat_success(self, mocker):
+    # Mock the API client
+    mock_client = mocker.patch('openai.AsyncOpenAI')
+    mock_response = mocker.Mock()
+    mock_response.output_parsed = CharacterResponse(...)
+
+    # Test the adapter
+    adapter = OpenAIAdapter(model="gpt-4o")
+    result = await adapter.chat(messages, CharacterResponse)
+
+    # Verify
+    assert isinstance(result, CharacterResponse)
+    mock_client.responses.parse.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_anthropic_chat_success(self, mocker):
+    # Mock the API client
+    mock_client = mocker.patch('anthropic.AsyncAnthropic')
+    mock_response = mocker.Mock()
+    mock_response.parsed_output = CharacterResponse(...)
+
+    # Test the adapter
+    adapter = AnthropicAdapter(model="claude-sonnet-4-5")
+    result = await adapter.chat(messages, CharacterResponse)
+
+    # Verify
+    assert isinstance(result, CharacterResponse)
+    mock_client.beta.messages.parse.assert_called_once()
+```
+
+#### Factory Tests (`tests/test_factory.py`)
+
+**What to Test**:
+1. **Provider enumeration**: `get_supported_providers()`
+2. **Model enumeration**: `get_supported_models(provider)`
+3. **Validation**: `is_valid_combination(provider, model)`
+4. **Client creation**: Correct adapter type returned
+5. **Error cases**: Invalid provider, invalid model, wrong combination
+6. **Case insensitivity**: Provider names should work regardless of case
+
+**Example Test Pattern**:
+```python
+def test_create_client_openai(self):
+    client = LLMClientFactory.create_client(
+        provider=LLMProvider.OPENAI,
+        model=OpenAIModel.GPT_4O
+    )
+    assert isinstance(client, OpenAIAdapter)
+    assert client.get_provider_name() == LLMProvider.OPENAI
+
+def test_invalid_combination(self):
+    with pytest.raises(ValueError):
+        LLMClientFactory.create_client(
+            provider=LLMProvider.OPENAI,
+            model=GeminiModel.GEMINI_2_5_PRO  # Wrong!
+        )
+
+def test_create_client_anthropic(self):
+    client = LLMClientFactory.create_client(
+        provider=LLMProvider.ANTHROPIC,
+        model=AnthropicModel.CLAUDE_SONNET_4_5
+    )
+    assert isinstance(client, AnthropicAdapter)
+    assert client.get_provider_name() == LLMProvider.ANTHROPIC
+```
+
+### Testing Best Practices
+
+1. **Mock external APIs**: Never call real APIs in unit tests
+2. **Test boundaries**: Validate input validation logic
+3. **Test both paths**: Success and failure scenarios
+4. **Async tests**: Use `pytest-asyncio` for async code
+5. **Fixtures**: Share common setup (mock clients, sample data)
+
+## Extending the System
+
+### Adding a New Provider
+
+This project already includes three providers (OpenAI, Anthropic, Gemini). Here's how Anthropic was added as an example:
+
+**Example: How Anthropic Claude Was Added**
+
+1. **Define model enum** (`client/model.py`):
+```python
+class AnthropicModel(StrEnum):
+    CLAUDE_SONNET = "claude-sonnet-4-5"
+    CLAUDE_HAIKU = "claude-haiku-4-5"
+
+    @staticmethod
+    def list_str() -> list[str]:
+        return [model for model in AnthropicModel]
+```
+
+2. **Create adapter** (`client/adapters.py`):
+```python
+class AnthropicAdapter(LLMClient):
+    def __init__(self, model: str):
+        self._client = AsyncAnthropic(api_key=config.anthropic_api_key)
+        self._model = model
+
+    async def chat(
+        self,
+        messages: list[dict[str, str]],
+        response_format: type,
+        **kwargs: Any,
+    ) -> BaseModel:
+        # Use beta structured outputs API
+        result = await self._client.beta.messages.parse(
+            model=self._model,
+            max_tokens=kwargs.get("max_tokens", 1024),
+            betas=["structured-outputs-2025-11-13"],
+            messages=messages,
+            output_format=response_format,
+            **{k: v for k, v in kwargs.items() if k != "max_tokens"},
+        )
+        return result.parsed_output
+
+    def get_provider_name(self) -> str:
+        return LLMProvider.ANTHROPIC
+
+    def get_model_name(self) -> str:
+        return self._model
+
+    async def aclose(self) -> None:
+        await self._client.close()
+```
+
+3. **Update factory** (`client/factory.py`):
+```python
+PROVIDER_MODELS = {
+    LLMProvider.OPENAI: OpenAIModel.list_str(),
+    LLMProvider.GEMINI: GeminiModel.list_str(),
+    LLMProvider.ANTHROPIC: AnthropicModel.list_str(),  # Add this
+}
+
+# In create_client method:
+elif provider_lower == LLMProvider.ANTHROPIC:
+    return AnthropicAdapter(model=model)
+```
+
+4. **Update configuration** (`config.py`):
+```python
+class Config(BaseSettings):
+    openai_api_key: str
+    gemini_api_key: str
+    anthropic_api_key: str  # Add this
+```
+
+5. **Write tests** (`tests/test_adapters.py`, `tests/test_factory.py`):
+- Add `TestAnthropicAdapter` class
+- Test all interface methods
+- Add factory tests for Anthropic
+
+**That's it!** Minimal changes needed to:
+- Service layer (`service/request_llm.py`) - already uses dependency injection, no changes needed
+- CLI layer (`main.py`) - update to include Anthropic in choices
+- Data models (`model/model.py`) - no changes needed
+
+### Adding a New Model to Existing Provider
+
+Simply add to the appropriate enum:
+```python
+class OpenAIModel(StrEnum):
+    # Existing models...
+    GPT_6 = "gpt-6"  # New model
+```
+
+The factory's `PROVIDER_MODELS` mapping will automatically include it.
+
+## Common Pitfalls and Solutions
+
+### 1. API Key Management
+
+**Pitfall**: Hardcoding API keys or committing them to git.
+
+**Solution**:
+- Use environment variables
+- Add `.env` to `.gitignore`
+- Provide `.envrc.example` template
+- Use `pydantic-settings` for validation
+
+### 2. Error Handling
+
+**Pitfall**: Generic exception catching loses context.
+
+**Solution**:
+```python
+try:
+    result = await client.chat(messages, response_format)
+except Exception as e:
+    logger.error(f"LLM request failed: {provider}/{model} - {str(e)}")
+    raise
+```
+
+### 3. Async/Await Confusion
+
+**Pitfall**: Forgetting `await` on async methods.
+
+**Solution**:
+- Always mark functions that call async code as `async`
+- Use `await` when calling async methods
+- Use `asyncio.run()` for top-level entry points
+- Type hints help: `async def chat(...) -> BaseModel`
+
+### 4. Type Safety
+
+**Pitfall**: Using strings for providers/models leads to typos.
+
+**Solution**:
+- Use `StrEnum` for all identifiers
+- Leverage type hints: `provider: LLMProvider`
+- Factory validates combinations
+
+### 5. Testing Real APIs
+
+**Pitfall**: Tests calling real APIs are slow and flaky.
+
+**Solution**:
+- Mock all external calls with `pytest-mock`
+- Separate integration tests from unit tests
+- Use fixtures for common mocks
+
+## Best Practices Demonstrated
+
+### 1. SOLID Principles
+
+- **Single Responsibility**: Each class has one job
+  - `LLMClient`: Define interface
+  - `OpenAIAdapter`: Implement OpenAI integration
+  - `LLMClientFactory`: Create clients
+  - `request_llm`: Business logic
+
+- **Open/Closed**: Open for extension, closed for modification
+  - Add new providers without changing existing code
+  - Factory pattern enables this
+
+- **Liskov Substitution**: Any `LLMClient` can replace another
+  - Same interface for all providers
+  - Polymorphism enables provider swapping
+
+- **Interface Segregation**: Minimal interface
+  - Only three methods required
+  - No unnecessary dependencies
+
+- **Dependency Inversion**: Depend on abstractions
+  - Service layer depends on `LLMClient` interface, not concrete adapters
+  - Factory injects appropriate implementation
+
+### 2. Type Safety
+
+- **Pydantic models**: Runtime validation and type checking
+- **StrEnum**: Type-safe identifiers
+- **Type hints**: `-> CharacterResponse`, `list[dict[str, str]]`
+- **Generic types**: `response_format: type`
+
+### 3. Separation of Concerns
+
+- **Layers**: CLI -> Service -> Adapter -> Infrastructure
+- **Prompt management**: Separate module for prompt logic
+- **Configuration**: Centralized in `config.py`
+- **Logging**: Consistent across all modules
+
+### 4. Testability
+
+- **Dependency injection**: Factory provides clients
+- **Async support**: Full async/await for better performance
+- **Mocking**: All external dependencies mockable
+- **Comprehensive tests**: Full test coverage for all three providers
+
+### 5. Documentation
+
+- **Docstrings**: All public methods documented
+- **Type hints**: Self-documenting interfaces
+- **Examples**: README with usage examples
+- **This file**: Architectural documentation
+
+## Performance Considerations
+
+### Async I/O
+
+All LLM calls are async, enabling:
+- Concurrent requests to different providers
+- Efficient I/O handling
+- Better resource utilization
+
+Example concurrent usage:
+```python
+async def compare_providers():
+    # Create clients
+    openai_client = LLMClientFactory.create_client(
+        LLMProvider.OPENAI, OpenAIModel.GPT_4O
+    )
+    anthropic_client = LLMClientFactory.create_client(
+        LLMProvider.ANTHROPIC, AnthropicModel.CLAUDE_SONNET_4_5
+    )
+    gemini_client = LLMClientFactory.create_client(
+        LLMProvider.GEMINI, GeminiModel.GEMINI_2_5_PRO
+    )
+
+    # Run requests concurrently
+    openai_task = request_llm(openai_client, "gpt-4o")
+    anthropic_task = request_llm(anthropic_client, "claude-sonnet-4-5")
+    gemini_task = request_llm(gemini_client, "gemini-2.5-pro")
+
+    results = await asyncio.gather(
+        openai_task, anthropic_task, gemini_task
+    )
+
+    # Clean up
+    await asyncio.gather(
+        openai_client.aclose(),
+        anthropic_client.aclose(),
+        gemini_client.aclose()
+    )
+
+    return results
+```
+
+### Caching Considerations
+
+For production systems, consider:
+- **Client reuse**: Don't recreate clients for each request
+- **Response caching**: Cache identical prompts (with TTL)
+- **Connection pooling**: Reuse HTTP connections
+
+Example client singleton:
+```python
+class LLMClientFactory:
+    _clients: dict[tuple[str, str], LLMClient] = {}
+
+    @classmethod
+    def create_client(cls, provider, model):
+        key = (provider, model)
+        if key not in cls._clients:
+            # Create client as before
+            cls._clients[key] = new_client
+        return cls._clients[key]
+```
+
+## Security Considerations
+
+1. **API Key Protection**:
+   - Never log API keys
+   - Use environment variables
+   - Rotate keys regularly
+
+2. **Input Validation**:
+   - Validate all user inputs (CLI args)
+   - Use Pydantic for automatic validation
+   - Sanitize prompts if user-generated
+
+3. **Output Validation**:
+   - Pydantic models ensure valid responses
+   - Handle parsing errors gracefully
+   - Log validation failures
+
+4. **Rate Limiting**:
+   - Implement retry logic with backoff
+   - Respect provider rate limits
+   - Consider async semaphores for concurrency control
+
+## Monitoring and Observability
+
+### Logging Strategy
+
+Current implementation logs:
+- Adapter initialization (`adapters.py:38, 92`)
+- Request start/completion (`request_llm.py:41, 52`)
+- Factory client creation (`factory.py:66`)
+
+**Recommended additions**:
+- Request latency metrics
+- Error rates by provider
+- Token usage tracking
+- Cost monitoring
+
+### Example Enhanced Logging:
+```python
+import time
+
+async def request_llm(provider, model):
+    start_time = time.time()
+    try:
+        client = LLMClientFactory.create_client(provider, model)
+        result = await client.chat(messages, response_format)
+
+        duration = time.time() - start_time
+        logger.info(
+            f"LLM request completed",
+            extra={
+                "provider": provider,
+                "model": model,
+                "duration_ms": duration * 1000,
+                "status": "success"
+            }
+        )
+        return result
+    except Exception as e:
+        duration = time.time() - start_time
+        logger.error(
+            f"LLM request failed",
+            extra={
+                "provider": provider,
+                "model": model,
+                "duration_ms": duration * 1000,
+                "error": str(e),
+                "status": "error"
+            }
+        )
+        raise
+```
+
+## Deployment Considerations
+
+### Environment-Specific Configuration
+
+Use different configurations for dev/staging/prod:
+```python
+class Config(BaseSettings):
+    env: str = "development"
+    openai_api_key: str
+    gemini_api_key: str
+    anthropic_api_key: str
+    log_level: str = "INFO"
+
+    class Config:
+        env_file = f".env.{os.getenv('ENV', 'development')}"
+```
+
+### Docker Deployment
+
+Example `Dockerfile`:
+
+```dockerfile
+FROM python:3.13-slim
+
+WORKDIR /app
+COPY pyproject.toml .
+RUN pip install -e .
+
+COPY src src/
+COPY .env .env
+
+CMD ["python", "-m", "src.main"]
+```
+
+### Health Checks
+
+Add health check endpoint for monitoring:
+```python
+async def health_check() -> dict:
+    """Verify all configured providers are accessible."""
+    results = {}
+    for provider in LLMProvider:
+        try:
+            # Simple test request
+            results[provider] = "healthy"
+        except Exception as e:
+            results[provider] = f"unhealthy: {str(e)}"
+    return results
+```
+
+## Future Enhancements
+
+### 1. Retry Logic with Exponential Backoff
+
+```python
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10)
 )
+async def chat_with_retry(client, messages, response_format):
+    return await client.chat(messages, response_format)
 ```
 
-**Code Reference**: `src/proxy/proxy_server.py:100-188`
+### 2. Response Streaming
 
-#### 6. LLM API Server (`src/api/llm_server.py`)
-
-**Purpose**: Backend service exposing LLM functionality
-
-**Endpoints**:
-- `POST /generate`: Generate character descriptions
-- `GET /health`: Health check endpoint
-
-**Supported Models**:
-- **Gemini**: gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite
-
-**Request Model**:
+Support streaming for real-time responses:
 ```python
-{
-    "model": "gemini-2.5-flash",
-    "character_request": {
-        "gender": "male" | "female",
-        "age": 0-100,
-        "additional_instructions": "..."
-    }
-}
+class LLMClient(ABC):
+    @abstractmethod
+    async def chat_stream(
+        self,
+        messages: list[dict[str, str]],
+        **kwargs: Any,
+    ) -> AsyncIterator[str]:
+        """Stream chat completion chunks."""
+        pass
 ```
 
-**Code Reference**: `src/api/llm_server.py:1-92`
+### 3. Cost Tracking
 
-## Key Features Implemented
-
-### 1. Multi-Layer Traffic Control
-
-All requests flow through four sequential control layers:
-1. **Queue** → Prevents immediate rejection during bursts
-2. **Rate Limiter** → Enforces throughput limits
-3. **Circuit Breaker** → Protects against cascading failures
-4. **Retry Logic** → Handles transient errors automatically
-
-### 2. Comprehensive Monitoring
-
-**Metrics Endpoint** (`GET /metrics`):
-```json
-{
-    "rate_limiter": {
-        "available_tokens": 8.5,
-        "max_requests": 10,
-        "window_seconds": 1.0
-    },
-    "circuit_breaker": {
-        "state": "closed",
-        "total_requests": 1523,
-        "failed_requests": 12,
-        "error_rate": 0.00788
-    },
-    "request_queue": {
-        "current_size": 3,
-        "max_size": 100,
-        "total_queued": 1523,
-        "total_processed": 1520,
-        "total_timeouts": 0
-    }
-}
-```
-
-### 3. Response Metadata Enrichment
-
-All proxy responses include metadata for observability:
-```json
-{
-    "_proxy_metadata": {
-        "processing_time_ms": 1456.78,
-        "circuit_state": "closed",
-        "queue_size": 2
-    }
-}
-```
-
-### 4. Structured Logging
-
-Comprehensive logging at all layers:
-- Request queuing and dequeuing events
-- Token acquisition and waiting
-- Circuit state transitions
-- Retry attempts with backoff timing
-- Error conditions with context
-
-**Example Log Output**:
-```
-[INFO] Rate limiter initialized: 10 requests per 1.0s (refill rate: 10.00 tokens/s)
-[INFO] Request queued. Queue size: 1/100
-[INFO] Token acquired. Remaining tokens: 9.00
-[INFO] Generate request completed successfully in 1456.78ms (queue size: 0)
-```
-
-### 5. Manual Circuit Breaker Control
-
-**Endpoint**: `POST /circuit-breaker/reset`
-
-Allows operators to manually reset circuit breaker to CLOSED state during maintenance or after resolving backend issues.
-
-## Technology Stack
-
-### Core Framework
-- **FastAPI**: High-performance async web framework for both servers
-- **Uvicorn**: ASGI server for production deployment
-- **Pydantic**: Data validation and settings management
-
-### HTTP Client
-- **httpx**: Modern async HTTP client
-- **httpx-retries**: Automatic retry logic with exponential backoff
-
-### LLM SDKs
-- **Google GenAI SDK**: Native Pydantic schema support for structured outputs
-
-### Development Tools
-- **python-dotenv**: Environment variable management
-- **click**: CLI interface (if needed)
-- **pytest**: Testing framework (configured in dev dependencies)
-
-## Data Flow Example
-
-**Scenario**: Client sends character generation request
-
-```
-1. Client → POST http://localhost:8080/generate
-   {
-       "model": "gemini-2.5-flash",
-       "character_request": {...}
-   }
-
-2. Proxy → Queue.enqueue(request_data)
-   - Creates asyncio.Future for result
-   - Waits in queue if multiple requests pending
-
-3. Queue Processor → Dequeues next request
-   - Background task continuously processes queue
-
-4. Rate Limiter → acquire()
-   - Checks token availability
-   - Waits if insufficient tokens
-   - Consumes 1 token on success
-
-5. Circuit Breaker → call(make_request_with_retry, ...)
-   - Checks state (CLOSED/OPEN/HALF_OPEN)
-   - Allows request if CLOSED or HALF_OPEN
-   - Raises error if OPEN
-
-6. Retry Logic → POST http://localhost:8000/generate
-   - Attempts request with exponential backoff on failure
-   - Max 3 attempts for 429/5xx errors
-
-7. LLM API Server → request_gemini()
-   - Calls Gemini API with structured output
-   - Returns CharacterResponse model
-
-8. Response Path (reverse direction)
-   - Circuit Breaker records success/failure
-   - Queue marks Future as complete
-   - Proxy adds metadata
-   - Client receives response with proxy_metadata
-```
-
-## Configuration
-
-### Environment Variables
-
-For local execution, use `.env`:
-```bash
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
-```
-
-For Docker execution, use `.envrc`:
-```bash
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
-```
-
-### Proxy Configuration (`src/proxy/proxy_server.py:20-48`)
-
+Track token usage and costs:
 ```python
-# Rate Limiter
-max_requests=10          # 10 requests per window
-window_seconds=1.0       # 1 second window
+class UsageMetrics(BaseModel):
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    estimated_cost: float
 
-# Circuit Breaker
-failure_threshold=5      # Open after 5 consecutive failures
-success_threshold=2      # Close after 2 consecutive successes in half-open
-timeout_seconds=60.0     # Wait 60s before half-open
-error_rate_threshold=0.5 # Open if error rate > 50%
-min_requests=10          # Minimum requests before error rate check
-
-# Request Queue
-max_queue_size=100       # Maximum 100 pending requests
-request_timeout=300.0    # 5 minutes maximum wait
-
-# Retry
-MAX_RETRIES=3            # Maximum retry attempts
-RETRY_BACKOFF_BASE=2.0   # Exponential backoff base
+class LLMClient(ABC):
+    @abstractmethod
+    async def chat(
+        self, ...
+    ) -> tuple[BaseModel, UsageMetrics]:
+        pass
 ```
 
-## Testing and Validation
+### 4. Multi-Model Ensemble
 
-### Manual Testing Approaches
+Combine responses from multiple providers:
+```python
+async def ensemble_request(prompt, provider_configs):
+    """
+    provider_configs: list of (provider, model) tuples
+    e.g., [(LLMProvider.OPENAI, "gpt-4o"),
+           (LLMProvider.ANTHROPIC, "claude-sonnet-4-5"),
+           (LLMProvider.GEMINI, "gemini-2.5-pro")]
+    """
+    clients = [
+        LLMClientFactory.create_client(provider, model)
+        for provider, model in provider_configs
+    ]
 
-**1. Rate Limiting Test**:
-```bash
-# Send 20 requests rapidly (limit: 10/sec)
-for i in {1..20}; do
-  curl -X POST http://localhost:8080/generate ... &
-done
+    tasks = [
+        request_llm(client, model)
+        for client, (_, model) in zip(clients, provider_configs)
+    ]
 
-# Expected: First 10 process immediately, remaining 10 queue and process over ~2 seconds
+    results = await asyncio.gather(*tasks)
+
+    # Clean up clients
+    await asyncio.gather(*[client.aclose() for client in clients])
+
+    return consensus(results)  # Voting or averaging logic
 ```
-
-**2. Circuit Breaker Test**:
-```bash
-# Stop backend server
-# Send 10 requests
-
-# Expected:
-# - First 5 requests fail
-# - Circuit opens
-# - Remaining 5 get immediate 503 errors
-# - After 60s, circuit moves to half-open
-```
-
-**3. Queue Overflow Test**:
-```bash
-# Send 150 requests simultaneously (queue max: 100)
-
-# Expected:
-# - First 100 queue successfully
-# - Remaining 50 receive 503 Queue Full errors
-```
-
-### Metrics Validation
-
-Monitor real-time metrics during testing:
-```bash
-watch -n 1 'curl -s http://localhost:8080/metrics | jq'
-```
-
-Observe:
-- Token depletion and replenishment
-- Queue size fluctuations
-- Circuit state transitions
-- Error rate calculations
-
-## Current Limitations and Future Work
-
-### Current Limitations
-
-1. **No Caching**: Repeated identical requests all hit the backend
-2. **Single Instance**: No horizontal scaling or load balancing
-3. **No Priority Queuing**: All requests treated equally (FIFO)
-4. **Fixed Configuration**: Rate limits hard-coded, not dynamic
-5. **Limited Metrics**: No Prometheus/Grafana integration
-
-### Potential Enhancements
-
-1. **Response Caching**:
-   - Implement Redis-based cache for identical prompts
-   - Configurable TTL based on use case
-   - Cache invalidation mechanisms
-
-2. **Distributed Deployment**:
-   - Multiple proxy instances with shared state (Redis)
-   - Distributed rate limiting using Redis sorted sets
-   - Load balancer in front of proxy cluster
-
-3. **Priority Queuing**:
-   - Multiple queues with different priorities
-   - User/service tier-based queue assignment
-   - Weighted fair queuing algorithm
-
-4. **Dynamic Rate Limiting**:
-   - Auto-adjust limits based on backend performance
-   - Per-user/service rate limits
-   - Time-based limit schedules (higher during off-peak)
-
-5. **Advanced Monitoring**:
-   - Prometheus metrics export
-   - Grafana dashboards
-   - Alerting on high error rates or queue backlog
-   - Distributed tracing with OpenTelemetry
-
-6. **Cost Optimization**:
-   - Token usage tracking per user/service
-   - Budget-based throttling
-   - Cost attribution and chargebacks
-
-## Running the Project
-
-### Setup
-
-```bash
-# Install dependencies
-uv sync
-
-# Configure environment (choose one)
-cp .env.example .env           # For local execution
-cp .envrc.example .envrc       # For Docker execution
-# Edit the file with your API key
-
-# Start servers locally (two terminals)
-uv run uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000 --reload
-uv run uvicorn src.proxy.proxy_server:app --host 0.0.0.0 --port 8080 --reload
-
-# Or use Docker Compose
-make docker-build && make docker-up
-```
-
-### API Usage
-
-**Generate Character**:
-```bash
-curl -X POST http://localhost:8080/generate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "gemini-2.5-flash",
-    "character_request": {
-      "gender": "male",
-      "age": 25,
-      "additional_instructions": "Make them adventurous"
-    }
-  }'
-```
-
-**Check Metrics**:
-```bash
-curl http://localhost:8080/metrics
-```
-
-**View API Docs**:
-- Proxy: http://localhost:8080/docs
-- Backend: http://localhost:8000/docs
-
-## Key Learnings
-
-### Architectural Insights
-
-1. **Separation of Concerns**: Proxy handles all traffic control; backend focuses on LLM integration
-2. **Defense in Depth**: Multiple layers (queue → rate limit → circuit breaker → retry) provide robust protection
-3. **Observability First**: Rich metrics and metadata enable effective operations
-
-### Implementation Decisions
-
-1. **Token Bucket over Leaky Bucket**: Allows burst traffic within limits, better UX
-2. **Async Queue over Synchronous**: Enables non-blocking operations, better scalability
-3. **httpx-retries over Manual Retry**: Leverages battle-tested library, reduces bugs
-4. **Pydantic Throughout**: Type safety from API to LLM response parsing
-
-### Operational Considerations
-
-1. **Circuit Breaker Tuning**: Balance between protection and availability
-2. **Queue Size**: Trade-off between memory usage and burst absorption
-3. **Timeout Values**: Coordinate queue timeout, rate limiter timeout, and HTTP timeout
-4. **Logging Volume**: Detailed logs help debugging but increase storage costs
 
 ## Conclusion
 
-This implementation demonstrates a production-ready pattern for controlling LLM API request volume through a proxy architecture. The combination of rate limiting, circuit breaking, queuing, and automatic retry provides robust protection against rate limit errors while maintaining good user experience during burst traffic.
+This implementation demonstrates production-ready practices for LLM integration:
 
-The modular design allows each component to be tuned independently based on specific requirements, and the comprehensive monitoring enables data-driven optimization. While current implementation is single-instance, the architecture can be extended to distributed deployment with shared state for larger-scale applications.
+**Key Takeaways**:
+1. **Abstraction**: Hide provider differences behind common interface
+2. **Flexibility**: Easily swap or add providers
+3. **Type Safety**: Leverage Python's type system and Pydantic
+4. **Testability**: Comprehensive test coverage with mocking
+5. **Maintainability**: Clear separation of concerns
+6. **Extensibility**: Open/closed principle enables growth
 
-**Status**: Ready for educational use and adaptation to production environments with appropriate hardening and scaling considerations.
+**When to Use This Pattern**:
+- Multi-provider LLM applications
+- Systems requiring provider flexibility
+- Production applications needing reliability
+- Projects with long-term maintenance needs
+
+**When NOT to Use**:
+- Simple scripts with single provider
+- Prototypes with no production plans
+- Provider-specific feature requirements (may need custom logic)
+
+This architecture balances pragmatism with best practices, providing a solid foundation for production LLM applications.

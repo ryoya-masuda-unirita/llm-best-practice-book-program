@@ -1,342 +1,348 @@
-# Chapter 3 Section 1: LLMのリクエスト量を制御する
+# Chapter 3 Section 1: LLM APIのためのアダプターとファクトリーパターン
 
 ## 概要
 
-このプロジェクトは、**プロキシサーバーによるLLM APIリクエスト制御**の実装サンプルです。LLM APIのレートリミット（利用制限）に対処するため、アプリケーションとLLM APIの間に専用のプロキシサーバーを設置し、システム全体の安定性を確保します。
+このプロジェクトは、**AdapterパターンとFactoryパターン**を用いた複数LLMプロバイダの統一的な管理手法を示すサンプルコードです。OpenAI、Anthropic Claude、Google Geminiの3つのプロバイダに対応し、各プロバイダのAPI仕様の違いを吸収しながら、共通のインターフェースを通じて柔軟にLLMを切り替えられる設計を実現しています。
 
-プロキシサーバーは、流量制御（スロットリング）、サーキットブレーカー、リクエストキューイング、自動リトライといった機能を一元的に提供します。これにより、レートリミット超過によるエラーを防ぎ、複数のユーザーやサービスが共通のAPI契約を安定的に利用できるようになります。
-
-このサンプルでは、FastAPIを用いた2つのサーバー（LLM APIサーバーとプロキシサーバー）を実装し、実践的なレート制御パターンを学ぶことができます。
+フィクションのキャラクター情報（名前、性別、年齢、性格特性）を生成するユースケースを通じて、ベンダーロックインを回避し、保守性と拡張性を両立させるプラクティスを学ぶことができます。
 
 ## 機能
 
-- **流量制御（Rate Limiting）**: トークンバケットアルゴリズムによる秒間リクエスト数の制限
-- **サーキットブレーカー**: エラー多発時の自動遮断で連鎖障害を防止（Closed/Open/Half-Open状態管理）
-- **リクエストキューイング**: バーストトラフィックの吸収と順次処理
-- **自動リトライ**: 指数バックオフによる429エラーと5xxエラーの自動再試行
-- **メトリクス収集**: リアルタイムな稼働状況の可視化（キューサイズ、エラー率、処理時間など）
-- **Gemini API対応**: Google Gemini APIによるキャラクター生成
-- **FastAPI実装**: RESTful APIエンドポイントによる使いやすいインターフェース
-- **非同期処理**: async/awaitパターンによる高効率なリクエスト処理
-- **構造化ログ**: 詳細なログ出力による運用監視とトラブルシューティング
+- **Adapterパターン**: 各LLMプロバイダの差異を吸収する統一インターフェース
+- **Factoryパターン**: プロバイダとモデルに基づいたクライアント生成の一元管理
+- **マルチプロバイダー対応**: OpenAI、Anthropic Claude、Google Gemini APIの3つをサポート
+- **型安全性**: Pydanticによる厳密な型検証とバリデーション
+- **プロバイダー切り替え**: コマンドライン引数で簡単にプロバイダー/モデルを変更可能
+- **構造化出力**: 各プロバイダの最新構造化出力APIを活用した型安全なLLM応答
+- **包括的なテスト**: 包括的なユニットテストによる品質保証
+- **非同期処理**: async/awaitパターンによる効率的なAPI呼び出し
+- **リソース管理**: 各アダプターに`aclose()`メソッドを実装し適切なクリーンアップを実現
+- **CLIインターフェース**: Clickライブラリを使用した使いやすいコマンドラインツール
+- **環境変数管理**: python-dotenvによる安全なAPIキー管理
+- **ログ出力**: 詳細なログ機能による実行状況の可視化
 
 ## プロジェクト構成
 
 ### ディレクトリ構成
 
 ```
-chapter_3/section_1/
+chapter_2/section_11/
 ├── src/
 │   ├── __init__.py              # パッケージ初期化
-│   ├── config.py                # 設定管理（APIキー読み込み）
+│   ├── config.py                # 設定管理（API キー読み込み）
 │   ├── logger.py                # ロギング設定
-│   ├── proxy/
+│   ├── main.py                  # メインエントリーポイント
+│   ├── client/                  # LLMクライアント関連
 │   │   ├── __init__.py
-│   │   ├── proxy_server.py      # プロキシサーバー本体（FastAPI）
-│   │   ├── rate_limiter.py      # レート制限（トークンバケット）
-│   │   ├── circuit_breaker.py   # サーキットブレーカー
-│   │   └── request_queue.py     # リクエストキュー
-│   ├── api/
-│   │   ├── __init__.py
-│   │   └── llm_server.py        # LLM APIサーバー（FastAPI）
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py        # Geminiクライアント初期化
-│   ├── model/
+│   │   ├── base.py              # 抽象基底クラス（LLMClient）
+│   │   ├── adapters.py          # 具体的なAdapter実装（OpenAI, Anthropic, Gemini）
+│   │   ├── factory.py           # Factoryパターン実装
+│   │   └── model.py             # プロバイダー・モデル定義
+│   ├── model/                   # データモデル
 │   │   ├── __init__.py
 │   │   └── model.py             # Pydanticデータモデル定義
-│   ├── prompt/
+│   ├── prompt/                  # プロンプト管理
 │   │   ├── __init__.py
 │   │   └── prompt.py            # プロンプト生成ロジック
-│   └── service/
+│   └── service/                 # サービス層
 │       ├── __init__.py
-│       └── request_llm.py       # LLMリクエスト処理
-├── .env.example                 # 環境変数設定のサンプル（ローカル用）
-├── .envrc.example               # 環境変数設定のサンプル（Docker/direnv用）
-├── .dockerignore                # Docker ビルド除外ファイル
-├── Dockerfile.web               # LLM APIサーバー用Dockerfile
-├── Dockerfile.proxy             # プロキシサーバー用Dockerfile
-├── docker-compose.yml           # Docker Compose設定
-├── Makefile                     # 開発・実行用コマンド
+│       └── request_llm.py       # 統一されたLLMリクエスト処理
+├── tests/                       # テストコード
+│   ├── __init__.py
+│   ├── test_adapters.py         # Adapterのテスト
+│   └── test_factory.py          # Factoryのテスト
+├── outputs/                     # 生成結果の保存先（自動作成）
+├── .envrc.example               # 環境変数設定のサンプル
+├── Makefile                     # 開発用タスク定義
 ├── pyproject.toml               # プロジェクト依存関係
 ├── README.md                    # このファイル
-├── CLAUDE.md                    # プロジェクト状態レポート（英語）
-└── DOCKER.md                    # Docker詳細ガイド（英語）
+└── CLAUDE.md                    # 設計ドキュメント
 ```
 
 ### アーキテクチャ
 
-このプロジェクトは、以下の3層アーキテクチャで構成されています：
+このプロジェクトは、以下の4層アーキテクチャで構成されています：
 
 ```
-┌──────────────────────────────────────────────────┐
-│          Client Applications                      │
-│     (ブラウザ、CLI、他のサービス)                  │
-└──────────────────┬───────────────────────────────┘
-                   │ HTTP Requests
-┌──────────────────▼───────────────────────────────┐
-│         Proxy Server (Port 8080)                  │
-│  ┌─────────────────────────────────────────────┐ │
-│  │  Request Queue (max: 100)                   │ │
-│  │  - バーストトラフィックの吸収               │ │
-│  │  - タイムアウト管理（300秒）                │ │
-│  └────────────────┬────────────────────────────┘ │
-│  ┌────────────────▼────────────────────────────┐ │
-│  │  Rate Limiter (Token Bucket)                │ │
-│  │  - 10 requests/sec                          │ │
-│  │  - トークン補充による流量制御               │ │
-│  └────────────────┬────────────────────────────┘ │
-│  ┌────────────────▼────────────────────────────┐ │
-│  │  Circuit Breaker                            │ │
-│  │  - 状態管理（CLOSED/OPEN/HALF_OPEN）        │ │
-│  │  - エラー率監視（閾値: 50%）                │ │
-│  └────────────────┬────────────────────────────┘ │
-│  ┌────────────────▼────────────────────────────┐ │
-│  │  Retry Logic (Exponential Backoff)         │ │
-│  │  - 最大3回リトライ                          │ │
-│  │  - バックオフ: 1s, 2s, 4s                   │ │
-│  └────────────────┬────────────────────────────┘ │
-└───────────────────┼───────────────────────────────┘
-                    │ Controlled Requests
-┌───────────────────▼───────────────────────────────┐
-│         LLM API Server (Port 8000)                │
-│  - キャラクター生成エンドポイント (/generate)     │
-│  - ヘルスチェック (/health)                       │
-└───────────────────┬───────────────────────────────┘
-                    │ LLM API Calls
-┌───────────────────▼───────────────────────────────┐
-│         External LLM APIs                         │
-│  - Google Gemini API                              │
-│    (gemini-2.5-pro, gemini-2.5-flash,            │
-│     gemini-2.5-flash-lite)                        │
-└───────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────┐
+│         CLI Layer (main.py)                 │
+│     - コマンドライン引数解析                │
+│     - 出力ディレクトリ管理                  │
+│     - プロバイダー/モデル検証               │
+└─────────────────┬───────────────────────────┘
+                  │
+┌─────────────────▼───────────────────────────┐
+│      Service Layer (service/)               │
+│  - 統一されたLLMリクエスト処理              │
+│  - プロンプト生成とレスポンス処理           │
+└─────────────────┬───────────────────────────┘
+                  │
+┌─────────────────▼───────────────────────────┐
+│      Adapter/Factory Layer (client/)        │
+│  - LLMClient抽象インターフェース (base.py)  │
+│  - プロバイダー別Adapter (adapters.py)      │
+│  - クライアント生成Factory (factory.py)    │
+└─────────────────┬───────────────────────────┘
+                  │
+┌─────────────────▼───────────────────────────┐
+│      Infrastructure Layer                   │
+│  - 設定管理 (config.py)                     │
+│  - ログ管理 (logger.py)                     │
+│  - データモデル (model/)                    │
+│  - 外部API (OpenAI, Gemini)                 │
+└─────────────────────────────────────────────┘
 ```
-
-**データフロー**:
-1. クライアントからプロキシサーバー（Port 8080）へリクエスト送信
-2. プロキシがリクエストをキューに追加
-3. キューから取り出したリクエストがレート制限を通過
-4. サーキットブレーカーが正常状態なら転送を許可
-5. リトライロジックがLLM APIサーバー（Port 8000）へリクエスト
-6. LLM APIサーバーが外部LLM APIを呼び出し
-7. レスポンスがプロキシを経由してクライアントへ返却（メトリクス付加）
 
 ### 実装の詳細
 
-#### 1. レート制限（Token Bucket Algorithm） (`src/proxy/rate_limiter.py`)
+#### 1. 抽象基底クラス (`src/client/base.py`)
 
-トークンバケット方式を用いた流量制御を実装します：
+すべてのLLMプロバイダが実装すべき共通インターフェースを定義します：
 
 ```python
-class TokenBucketRateLimiter:
-    """
-    トークンバケットアルゴリズムによるレート制限
-    - 一定速度でトークンを補充
-    - リクエストごとに1トークン消費
-    - トークン不足時は待機
-    """
+class LLMClient(ABC):
+    """LLMクライアントの共通インターフェース"""
 
-    def __init__(self, config: RateLimiterConfig):
-        self.config = config
-        self.tokens = float(config.max_requests)  # 初期トークン数
-        self.refill_rate = config.max_requests / config.window_seconds  # 補充速度
+    @abstractmethod
+    async def chat(
+        self,
+        messages: list[dict[str, str]],
+        response_format: type,
+        **kwargs: Any,
+    ) -> BaseModel:
+        """チャット完了を生成"""
+        pass
 
-    async def acquire(self, timeout: float | None = None) -> bool:
-        # トークンを時間経過に応じて補充
-        elapsed = now - self.last_update
-        self.tokens = min(self.config.max_requests,
-                         self.tokens + elapsed * self.refill_rate)
+    @abstractmethod
+    def get_provider_name(self) -> str:
+        """プロバイダー名を取得"""
+        pass
 
-        # トークンがあれば消費して許可
-        if self.tokens >= 1.0:
-            self.tokens -= 1.0
-            return True
-
-        # トークン不足時は待機
-        wait_time = (1.0 - self.tokens) / self.refill_rate
-        await asyncio.sleep(wait_time)
+    @abstractmethod
+    def get_model_name(self) -> str:
+        """モデル名を取得"""
+        pass
 ```
 
 **ポイント**:
-- 設定例: 10 requests/sec → 毎秒10トークン補充
-- トークン不足時は自動的に待機（ブロッキング）
-- タイムアウト設定で最大待機時間を制限可能
+- すべてのプロバイダーで統一されたメソッドシグネチャ
+- Pydantic BaseModelによる型安全な戻り値
+- 非同期処理（async/await）をサポート
 
-#### 2. サーキットブレーカー (`src/proxy/circuit_breaker.py`)
+#### 2. Adapter実装 (`src/client/adapters.py`)
 
-障害の連鎖を防ぐための3状態管理を実装します：
+各プロバイダー固有のAPIを共通インターフェースに変換します：
 
-```python
-class CircuitState(Enum):
-    CLOSED = "closed"        # 正常動作（リクエスト通過）
-    OPEN = "open"            # 遮断状態（リクエスト即座に拒否）
-    HALF_OPEN = "half_open"  # 回復試行中（限定的に通過）
-
-class CircuitBreaker:
-    async def call(self, func, *args, **kwargs):
-        # OPEN状態なら即座に拒否
-        if self.state == CircuitState.OPEN:
-            # タイムアウト経過後にHALF_OPENへ遷移
-            if elapsed >= self.config.timeout_seconds:
-                self.state = CircuitState.HALF_OPEN
-            else:
-                raise CircuitBreakerOpenError()
-
-        # 実行と結果に応じた状態遷移
-        try:
-            result = await func(*args, **kwargs)
-            await self._on_success()  # HALF_OPEN → CLOSED
-            return result
-        except Exception:
-            await self._on_failure()  # CLOSED/HALF_OPEN → OPEN
-            raise
-```
-
-**状態遷移**:
-- **CLOSED → OPEN**: 連続5回失敗 または エラー率50%超
-- **OPEN → HALF_OPEN**: 60秒経過後に自動遷移
-- **HALF_OPEN → CLOSED**: 連続2回成功
-- **HALF_OPEN → OPEN**: 1回でも失敗
-
-#### 3. リクエストキュー (`src/proxy/request_queue.py`)
-
-バーストトラフィックを吸収する非同期キューを実装します：
+##### OpenAIAdapter
 
 ```python
-class RequestQueue:
-    """
-    asyncio.Queueベースのリクエスト管理
-    - 最大100件まで待機可能
-    - 300秒でタイムアウト
-    """
+class OpenAIAdapter(LLMClient):
+    """OpenAI API用のAdapter"""
 
-    async def enqueue(self, request_data: Any) -> Any:
-        if self.queue.full():
-            raise RequestQueueFullError()
+    def __init__(self, model: str):
+        self._client = AsyncOpenAI(api_key=config.openai_api_key)
+        self._model = model
 
-        # Futureを使った非同期待機
-        future = asyncio.Future()
-        await self.queue.put({"data": request_data, "future": future})
-
-        # 処理完了まで待機（タイムアウト付き）
-        result = await asyncio.wait_for(future, timeout=self.config.request_timeout)
-        return result
-
-    async def dequeue(self) -> dict:
-        # バックグラウンドプロセッサが順次取り出し
-        return await self.queue.get()
-```
-
-**ポイント**:
-- キューフル時は503エラーを即座に返却
-- タイムアウト時は504エラーを返却
-- メトリクスで待機状況を監視可能
-
-#### 4. 自動リトライ（指数バックオフ） (`src/proxy/proxy_server.py`)
-
-httpx-retriesライブラリを用いた自動再試行を実装します：
-
-```python
-async def make_request_with_retry(method: str, url: str,
-                                   json_data: dict | None = None,
-                                   max_retries: int = 3) -> dict:
-    # リトライポリシーの設定
-    retry_policy = Retry(
-        total=max_retries,
-        backoff_factor=1.0,  # 1s, 2s, 4s, 8s...
-        status_forcelist=[429] + list(range(500, 600)),  # 429, 5xx
-    )
-
-    retry_transport = RetryTransport(
-        transport=httpx.AsyncHTTPTransport(),
-        retry=retry_policy
-    )
-
-    async with httpx.AsyncClient(transport=retry_transport) as client:
-        response = await client.post(url, json=json_data)
-        response.raise_for_status()
-        return response.json()
-```
-
-**リトライ対象**:
-- 429 Too Many Requests（レート制限）
-- 5xx Server Errors（サーバーエラー）
-
-**リトライ間隔**:
-- 1回目: 1秒後
-- 2回目: 2秒後
-- 3回目: 4秒後
-
-#### 5. プロキシサーバー統合 (`src/proxy/proxy_server.py`)
-
-すべての制御機能を統合したFastAPIアプリケーション：
-
-```python
-app = FastAPI(title="LLM Proxy Server")
-
-# 各コンポーネントの初期化
-rate_limiter = TokenBucketRateLimiter(
-    RateLimiterConfig(max_requests=10, window_seconds=1.0)
-)
-circuit_breaker = CircuitBreaker(
-    CircuitBreakerConfig(failure_threshold=5, timeout_seconds=60.0)
-)
-request_queue = RequestQueue(
-    QueueConfig(max_queue_size=100, request_timeout=300.0)
-)
-
-@app.post("/generate")
-async def backend_generate_character(request: LLMRequest):
-    # 1. キューへ追加
-    queue_item = await request_queue.enqueue(request_data)
-
-    # 2. レート制限取得（バックグラウンド処理）
-    acquired = await rate_limiter.acquire(timeout=30.0)
-
-    # 3. サーキットブレーカー経由で実行
-    result = await circuit_breaker.call(
-        make_request_with_retry,
-        method="POST",
-        url=backend_url,
-        json_data=request_body
-    )
-
-    # 4. メトリクス付きレスポンス返却
-    return ProxiedLLMResponse(
-        character=result["character"],
-        _proxy_metadata=ProxyMetadata(
-            processing_time_ms=processing_time,
-            circuit_state=await circuit_breaker.get_state(),
-            queue_size=request_queue.get_size()
+    async def chat(
+        self,
+        messages: list[dict[str, str]],
+        response_format: type,
+        **kwargs: Any,
+    ) -> BaseModel:
+        result = await self._client.responses.parse(
+            model=self._model,
+            input=messages,
+            text_format=response_format,
+            **kwargs,
         )
-    )
+        return result.output_parsed
+
+    async def aclose(self) -> None:
+        await self._client.close()
 ```
 
-#### 6. メトリクス監視エンドポイント
+##### AnthropicAdapter
 
 ```python
-@app.get("/metrics")
-async def get_metrics():
-    """プロキシの稼働状況を取得"""
-    return ProxyMetrics(
-        rate_limiter={
-            "available_tokens": await rate_limiter.get_available_tokens(),
-            "max_requests": 10,
-            "window_seconds": 1.0
-        },
-        circuit_breaker={
-            "state": "closed",
-            "total_requests": 1234,
-            "failed_requests": 5,
-            "error_rate": 0.004
-        },
-        request_queue={
-            "current_size": 3,
-            "total_queued": 5678,
-            "total_processed": 5670,
-            "total_timeouts": 5
-        }
+class AnthropicAdapter(LLMClient):
+    """Anthropic Claude API用のAdapter"""
+
+    def __init__(self, model: str):
+        self._client = AsyncAnthropic(api_key=config.anthropic_api_key)
+        self._model = model
+
+    async def chat(
+        self,
+        messages: list[dict[str, str]],
+        response_format: type,
+        **kwargs: Any,
+    ) -> BaseModel:
+        result = await self._client.beta.messages.parse(
+            model=self._model,
+            max_tokens=kwargs.get("max_tokens", 1024),
+            betas=["structured-outputs-2025-11-13"],
+            messages=messages,
+            output_format=response_format,
+            **{k: v for k, v in kwargs.items() if k != "max_tokens"},
+        )
+        return result.parsed_output
+
+    async def aclose(self) -> None:
+        await self._client.close()
+```
+
+##### GeminiAdapter
+
+```python
+class GeminiAdapter(LLMClient):
+    """Google Gemini API用のAdapter"""
+
+    def __init__(self, model: str):
+        self._client = genai.Client(api_key=config.gemini_api_key)
+        self._model = model
+
+    async def chat(
+        self,
+        messages: list[dict[str, str]] | tuple[str, str],
+        response_format: type,
+        **kwargs: Any,
+    ) -> BaseModel:
+        # システムメッセージとユーザーメッセージを分離
+        if isinstance(messages, tuple):
+            system_instruction, user_content = messages
+        else:
+            system_instruction = None
+            user_content = None
+            for msg in messages:
+                if msg["role"] == "system":
+                    system_instruction = msg["content"]
+                elif msg["role"] == "user":
+                    user_content = msg["content"]
+
+        # Gemini固有の設定
+        config = GenerateContentConfig(response_mime_type="application/json")
+        if system_instruction:
+            config.system_instruction = system_instruction
+        if response_format:
+            config.response_schema = response_format
+
+        result = await self._client.aio.models.generate_content(
+            model=self._model,
+            contents=user_content,
+            config=config,
+            **kwargs,
+        )
+        return result.parsed
+
+    async def aclose(self) -> None:
+        await self._client.aio.aclose()
+```
+
+**ポイント**:
+- 各プロバイダーのAPI仕様の違いをAdapter内で吸収
+- 共通インターフェースを通じて同じ方法で呼び出し可能
+- プロバイダー固有の設定は各Adapter内で処理
+- 各Adapterに`aclose()`メソッドを実装し、適切なリソース解放を実現
+- OpenAIは最新の`responses.parse()`API、Anthropicはbeta版の`messages.parse()`、Geminiは`generate_content()`を使用
+
+#### 3. Factory実装 (`src/client/factory.py`)
+
+プロバイダーとモデルに基づいて適切なAdapterインスタンスを生成します：
+
+```python
+class LLMClientFactory:
+    """LLMクライアントを生成するFactory"""
+
+    # プロバイダーとサポートモデルのマッピング
+    PROVIDER_MODELS = {
+        LLMProvider.OPENAI: OpenAIModel.list_str(),
+        LLMProvider.GEMINI: GeminiModel.list_str(),
+        LLMProvider.ANTHROPIC: AnthropicModel.list_str(),
+    }
+
+    @staticmethod
+    def create_client(
+        provider: LLMProvider,
+        model: OpenAIModel | GeminiModel | AnthropicModel,
+    ) -> LLMClient:
+        """プロバイダーとモデルに基づいてクライアントを生成"""
+        provider_lower = provider.lower()
+
+        # プロバイダーとモデルの組み合わせを検証
+        if not LLMClientFactory.is_valid_combination(provider_lower, model):
+            raise ValueError(f"Invalid combination: {provider} and {model}")
+
+        # 適切なAdapterを生成
+        if provider_lower == LLMProvider.OPENAI:
+            return OpenAIAdapter(model=model)
+        elif provider_lower == LLMProvider.GEMINI:
+            return GeminiAdapter(model=model)
+        elif provider_lower == LLMProvider.ANTHROPIC:
+            return AnthropicAdapter(model=model)
+        else:
+            raise ValueError(f"Unknown provider: {provider}")
+
+    @staticmethod
+    def is_valid_combination(provider: str, model: str) -> bool:
+        """プロバイダーとモデルの組み合わせが有効かチェック"""
+        provider_lower = provider.lower()
+        if provider_lower not in LLMClientFactory.PROVIDER_MODELS:
+            return False
+        return model in LLMClientFactory.PROVIDER_MODELS[provider_lower]
+```
+
+**ポイント**:
+- プロバイダーとモデルの組み合わせを事前検証
+- クライアント生成ロジックを一元管理
+- ビジネスロジックから具体的なAdapter実装を隠蔽
+
+#### 4. サービス層 (`src/service/request_llm.py`)
+
+Factoryを使用して統一されたLLMリクエスト処理を提供します：
+
+```python
+async def request_llm(
+    client: LLMClient,
+    model: str,
+) -> CharacterResponse:
+    """統一されたインターフェースでLLMリクエストを実行"""
+
+    # プロンプトを生成
+    prompt = make_prompt()
+
+    # 共通インターフェースを通じてリクエスト
+    result = await client.chat(
+        messages=prompt,
+        response_format=CharacterResponse,
     )
+
+    return result
+```
+
+**ポイント**:
+- プロバイダーに依存しない統一されたインターフェース
+- どのプロバイダーでも同じコードで処理可能
+- 新しいプロバイダーの追加が容易
+
+#### 5. データモデル (`src/model/model.py`)
+
+Pydanticを使用して厳密に型付けされたデータモデルを定義します：
+
+```python
+class Gender(StrEnum):
+    FEMALE = "female"
+    MALE = "male"
+
+class CharacterPersonality(BaseModel):
+    short_personality: str
+    description: str
+
+class CharacterResponse(BaseModel):
+    first_name: str
+    last_name: str
+    gender: Gender
+    age: int  # 0-100
+    personalities: list[CharacterPersonality]  # 3つの性格特性
 ```
 
 ## 使い方
@@ -345,43 +351,33 @@ async def get_metrics():
 
 - **Python**: 3.13.2以上
 - **依存ライブラリ**:
-  - fastapi>=0.119.0
-  - uvicorn>=0.37.0
-  - httpx>=0.28.1
-  - httpx-retries>=0.2.0
-  - google-genai>=1.45.0
-  - pydantic>=2.12.2
-  - python-dotenv>=1.0.0
   - click>=8.3.0
+  - google-genai>=1.45.0
+  - openai>=2.4.0
+  - anthropic>=0.42.0
+  - pydantic>=2.12.2
+  - python-dotenv>=1.1.1
+- **開発依存関係**:
+  - pytest>=8.4.2
+  - pytest-asyncio>=1.2.0
+  - pytest-mock>=3.15.1
 
 ### セットアップ
 
-#### クイックスタート比較
-
-| 実行方法 | 準備時間 | 用途 | コマンド |
-|---------|---------|------|---------|
-| **Docker Compose** | ⚡ 最速 | 本番・デモ | `make docker-build && make docker-up` |
-| **ローカル実行** | 🔧 中程度 | 開発・デバッグ | `uv sync && uvicorn ...` |
-| **Docker個別** | 🎛️ 時間かかる | 詳細制御 | 個別にdockerコマンド実行 |
-
-#### 共通セットアップ手順
-
-**1. 環境変数ファイルの作成**
+1. **環境変数ファイルの作成**
 
 ```bash
-# ローカル実行の場合: .env.exampleをコピーして.envを作成
-cp .env.example .env
-
-# Docker実行の場合: .envrc.exampleをコピーして.envrcを作成
+# .envrc.exampleをコピーして.envrcを作成
 cp .envrc.example .envrc
 
-# エディタでファイルを開き、APIキーを設定
+# エディタで.envrcを開き、APIキーを設定
+# .envrc
+OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
 GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
 ```
 
-#### ローカル実行の場合の追加手順
-
-**2. 依存関係のインストール**
+2. **依存関係のインストール**
 
 ```bash
 # uvを使用する場合（推奨）
@@ -391,298 +387,111 @@ uv sync
 pip install -e .
 ```
 
-#### Docker実行の場合の追加手順
-
-**2. Dockerイメージのビルド**
-
-```bash
-# 両方のイメージを一度にビルド
-make docker-build
-
-# または個別にビルド
-make docker-build-web    # LLM APIサーバー
-make docker-build-proxy  # プロキシサーバー
-```
-
 ### 使用方法、実行方法
 
-#### サーバーの起動
-
-プロジェクトを実行する方法は3つあります：ローカル実行、Docker個別起動、Docker Compose一括起動。
-
-**方法1: Docker Compose（最も簡単・推奨）**
-
-両方のサーバーをコンテナとして一括起動します：
+#### 基本的な使い方
 
 ```bash
-# イメージのビルド
-make docker-build
+# OpenAI GPT-4oを使用
+uv run python -m src.main --llm-provider openai --model gpt-4o
 
-# サーバーの起動（バックグラウンド）
-make docker-up
+# 短縮オプション
+uv run python -m src.main -lp openai -m gpt-4o
 
-# ログの確認
-make docker-logs
+# Anthropic Claude Sonnet 4.5を使用
+uv run python -m src.main -lp anthropic -m claude-sonnet-4-5
 
-# サーバーの停止
-make docker-down
+# Gemini 2.5 Proを使用
+uv run python -m src.main -lp gemini -m gemini-2.5-pro
+
+# Gemini 2.5 Flash（デフォルト）
+uv run python -m src.main -lp gemini -m gemini-2.5-flash
 ```
 
-これにより以下が起動します：
-- LLM APIサーバー: http://localhost:8000
-- プロキシサーバー: http://localhost:8080
-
-**方法2: ローカル実行（開発向け・ホットリロード対応）**
-
-uvを使用してローカルで直接実行します：
+#### 出力先の指定
 
 ```bash
-# ターミナル1: LLM APIサーバー
-uv run uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000 --reload
+# カスタム出力ディレクトリを指定
+uv run python -m src.main -lp openai -m gpt-4o --output-directory ./custom_output
 
-# ターミナル2: プロキシサーバー
-uv run uvicorn src.proxy.proxy_server:app --host 0.0.0.0 --port 8080 --reload
+# 短縮オプション
+uv run python -m src.main -lp gemini -m gemini-2.5-pro -od ./my_characters
 ```
 
-**方法3: Docker個別起動（上級者向け）**
-
-コンテナを個別に制御したい場合：
+#### プロバイダーとモデルの組み合わせ例
 
 ```bash
-# イメージのビルド
-docker build -t shibui/llm-best-practice:chapter3_section1_web -f Dockerfile.web .
-docker build -t shibui/llm-best-practice:chapter3_section1_proxy -f Dockerfile.proxy .
+# OpenAI の各モデル
+uv run python -m src.main -lp openai -m gpt-5
+uv run python -m src.main -lp openai -m gpt-4o
+uv run python -m src.main -lp openai -m gpt-4o-mini
 
-# LLM APIサーバーの起動
-docker run -d \
-  --name llm-api-server \
-  -p 8000:8000 \
-  --env-file .envrc \
-  shibui/llm-best-practice:chapter3_section1_web
+# Anthropic の各モデル
+uv run python -m src.main -lp anthropic -m claude-sonnet-4-5
+uv run python -m src.main -lp anthropic -m claude-opus-4-1
 
-# プロキシサーバーの起動
-docker run -d \
-  --name llm-proxy-server \
-  -p 8080:8080 \
-  --env-file .envrc \
-  --link llm-api-server \
-  -e BACKEND_URL=http://llm-api-server:8000 \
-  shibui/llm-best-practice:chapter3_section1_proxy
-
-# コンテナの停止と削除
-docker stop llm-api-server llm-proxy-server
-docker rm llm-api-server llm-proxy-server
+# Gemini の各モデル
+uv run python -m src.main -lp gemini -m gemini-2.5-pro
+uv run python -m src.main -lp gemini -m gemini-2.5-flash
+uv run python -m src.main -lp gemini -m gemini-2.5-flash-lite
 ```
 
-#### APIエンドポイントの利用
-
-**1. ヘルスチェック（プロキシ経由）**
+#### ヘルプの表示
 
 ```bash
-# プロキシ自身の状態確認
-curl http://localhost:8080/proxy-health
-
-# バックエンドのヘルスチェック（制御機能を通過）
-curl http://localhost:8080/health
+uv run python -m src.main --help
 ```
 
-**2. キャラクター生成（Gemini）**
-
-```bash
-curl -X POST http://localhost:8080/generate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "gemini-2.5-flash",
-    "character_request": {
-      "gender": "male",
-      "age": 25,
-      "additional_instructions": "冒険好きな性格にしてください"
-    }
-  }'
+**出力例**:
 ```
+Usage: python -m src.main [OPTIONS]
 
-利用可能なモデル: `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`
-
-**3. メトリクス確認**
-
-```bash
-# プロキシの稼働状況を確認
-curl http://localhost:8080/metrics
+Options:
+  -lp, --llm-provider [openai|anthropic|gemini]
+                                  The LLM provider to use (openai, anthropic, or gemini).
+  -m, --model [gpt-5|gpt-4o|claude-sonnet-4-5|gemini-2.5-pro|...]
+                                  The model to use for the request.
+  -od, --output-directory PATH    The directory to save output files.
+  --help                          Show this message and exit.
 ```
-
-**4. サーキットブレーカーのリセット**
-
-```bash
-# 手動でCLOSED状態に戻す
-curl -X POST http://localhost:8080/circuit-breaker/reset
-```
-
-#### API ドキュメント
-
-FastAPIの自動生成ドキュメントを利用できます：
-
-- プロキシサーバー: http://localhost:8080/docs
-- LLM APIサーバー: http://localhost:8000/docs
 
 ### 出力例
 
-**成功レスポンス例（プロキシメタデータ付き）**:
+実行すると、以下のような構造化されたJSONファイルが生成されます：
+
+**ファイル名**: `outputs/openai_gpt-4o_a1b2c3d4.json`
 
 ```json
 {
-  "character": {
-    "first_name": "太郎",
-    "last_name": "山田",
+    "first_name": "蒼",
+    "last_name": "雨宮",
     "gender": "male",
-    "age": 25,
+    "age": 28,
     "personalities": [
-      {
-        "short_personality": "冒険家",
-        "description": "未知の場所を探索することに情熱を持ち、リスクを恐れず新しい経験を求める。"
-      },
-      {
-        "short_personality": "楽観主義者",
-        "description": "困難な状況でも前向きに考え、周囲の人々を励ます力を持っている。"
-      },
-      {
-        "short_personality": "社交的",
-        "description": "初対面の人ともすぐに打ち解け、多様な人脈を築くのが得意。"
-      }
+        {
+            "short_personality": "内向的な思索家",
+            "description": "常に深く物事を考え、静かな場所を好む。表面的な会話よりも、哲学的な議論に心を開く。"
+        },
+        {
+            "short_personality": "完璧主義者",
+            "description": "すべてのタスクに最高の基準を求め、細部にこだわる。しばしば自分自身に対して厳しすぎることがある。"
+        },
+        {
+            "short_personality": "忠実な友人",
+            "description": "一度信頼関係を築くと、どんな困難な状況でも友人を支える。約束を何よりも大切にする。"
+        }
     ]
-  },
-  "provider": "gemini",
-  "model": "gemini-2.5-flash",
-  "processing_time_ms": 1234.56,
-  "_proxy_metadata": {
-    "processing_time_ms": 1456.78,
-    "circuit_state": "closed",
-    "queue_size": 2
-  }
-}
-```
-
-**メトリクスレスポンス例**:
-
-```json
-{
-  "rate_limiter": {
-    "available_tokens": 8.5,
-    "max_requests": 10,
-    "window_seconds": 1.0
-  },
-  "circuit_breaker": {
-    "state": "closed",
-    "total_requests": 1523,
-    "failed_requests": 12,
-    "error_rate": 0.00788,
-    "failure_count": 1,
-    "success_count": 0
-  },
-  "request_queue": {
-    "current_size": 3,
-    "max_size": 100,
-    "total_queued": 1523,
-    "total_processed": 1520,
-    "total_timeouts": 0,
-    "active_requests": 0
-  },
-  "timestamp": 1703001234.567
 }
 ```
 
 **実行ログ例**:
-
 ```
-[2025-10-25 10:30:45] [INFO] Rate limiter initialized: 10 requests per 1.0s (refill rate: 10.00 tokens/s)
-[2025-10-25 10:30:45] [INFO] Circuit breaker initialized: failure_threshold=5, timeout=60.0s
-[2025-10-25 10:30:45] [INFO] Request queue initialized: max_size=100, timeout=300.0s
-[2025-10-25 10:30:50] [INFO] Proxying POST request to http://localhost:8000/generate (with access controls)
-[2025-10-25 10:30:50] [INFO] Request queued. Queue size: 1/100
-[2025-10-25 10:30:51] [INFO] Token acquired. Remaining tokens: 9.00
-[2025-10-25 10:30:52] [INFO] Generate request completed successfully in 1456.78ms (queue size: 0)
+[2025-10-19 10:30:45] [INFO] [__main__] [main.py:76] [main] LLM provider: openai
+Model: gpt-4o
+Output directory: outputs
+[2025-10-19 10:30:46] [INFO] [src.service.request_llm] [request_llm.py:41] [request_llm] Making LLM request: provider=openai, model=gpt-4o
+[2025-10-19 10:30:48] [INFO] [src.service.request_llm] [request_llm.py:52] [request_llm] Successfully received response from openai
+[2025-10-19 10:30:48] [INFO] [__main__] [main.py:102] [main] Character generated successfully!
+[2025-10-19 10:30:48] [INFO] [__main__] [main.py:103] [main] File saved to: outputs/openai_gpt-4o_a1b2c3d4.json
+[2025-10-19 10:30:48] [INFO] [__main__] [main.py:104] [main] Character: 蒼 雨宮, 28 years old
 ```
-
-### Docker デプロイメント
-
-#### Docker の利点
-
-Dockerを使用することで、以下の利点が得られます：
-
-1. **環境の一貫性**: 開発、ステージング、本番環境で同じ環境を保証
-2. **依存関係の分離**: システムにPythonや依存ライブラリをインストール不要
-3. **スケーラビリティ**: 複数インスタンスの起動が容易
-4. **ポータビリティ**: どのプラットフォームでも同じように動作
-
-#### Dockerfile の構成
-
-このプロジェクトには2つのDockerfileがあります：
-
-**Dockerfile.web** (LLM APIサーバー):
-- ベースイメージ: `ghcr.io/astral-sh/uv:python3.13-bookworm` (Builder)
-- ランタイム: `python:3.13-slim` (最小サイズ)
-- ポート: 8000
-- マルチステージビルドで最適化（最終イメージサイズ削減）
-
-**Dockerfile.proxy** (プロキシサーバー):
-- 同様のマルチステージビルド構成
-- ポート: 8080
-- レート制限、サーキットブレーカー、リトライ機能を含む
-
-#### Docker Compose の設定
-
-`docker-compose.yml`は両方のサービスを統合管理します：
-
-```yaml
-services:
-  llm-server:
-    image: shibui/llm-best-practice:chapter3_section1_web
-    ports: ["8000:8000"]
-    networks: [llm-network]
-
-  proxy-server:
-    image: shibui/llm-best-practice:chapter3_section1_proxy
-    ports: ["8080:8080"]
-    environment:
-      - BACKEND_URL=http://llm-server:8000
-    networks: [llm-network]
-```
-
-#### Docker 利用時の注意点
-
-1. **環境変数**: `.envrc`ファイルが必要（APIキーを含む）
-2. **ネットワーク**: コンテナ間通信用に`llm-network`ブリッジネットワークを使用
-3. **ポート競合**: ローカル実行中のサーバーを停止してからDockerを起動
-4. **ログ確認**: `make docker-logs`でリアルタイムログを確認可能
-
-#### 本番環境でのDocker利用
-
-本番環境では以下の設定を追加することを推奨します：
-
-```yaml
-# docker-compose.prod.yml
-services:
-  llm-server:
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 2G
-    restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-```
-
-#### Docker トラブルシューティング
-
-| 問題 | 原因 | 解決方法 |
-|-----|------|---------|
-| ポート競合エラー | 8000/8080が使用中 | `lsof -i :8000` でプロセス確認後、停止 |
-| 環境変数が読み込まれない | `.envrc`ファイルが無い | `cp .envrc.example .envrc` で作成 |
-| イメージビルド失敗 | キャッシュ問題 | `docker builder prune` でキャッシュクリア |
-| コンテナ起動失敗 | ログ確認不足 | `make docker-logs` でエラー詳細確認 |
-| プロキシがバックエンドに接続できない | ネットワーク設定 | `docker network inspect llm-network` で確認 |
-
-詳細なDocker利用ガイドは `DOCKER.md` を参照してください。

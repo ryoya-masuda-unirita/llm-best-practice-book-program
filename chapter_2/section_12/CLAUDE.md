@@ -1,447 +1,282 @@
-# LLM Pipeline Implementation with LangGraph
+# 第10項　プロンプトを再利用するために分析する
 
-## Project Overview
+## 概要
 
-This project demonstrates a **production-ready LLM pipeline** implementation using LangGraph, showcasing best practices for building complex multi-stage LLM applications. It implements a document analysis system that processes Japanese technical documents through multiple stages, evaluates output quality using the LLM-as-a-Judge pattern, and automatically retries with feedback to improve results.
+LLMを活用したシステム開発において、優れたプロンプトは高品質な出力を生み出すための重要な資産です。このプラクティスは、システムで使用されたプロンプトとその結果を体系的に記録・評価し、有効なものを再利用可能な知見として蓄積する設計手法を解説します。成功したプロンプトをテンプレート化するだけでなく、失敗したプロンプトもアンチパターンとして記録し、将来の改善に活かします。このアプローチにより、プロンプトエンジニアリングの属人化を防ぎ、開発プロセス全体の効率と品質を継続的に向上させることが可能になります。
 
-### Key Concepts Demonstrated
+本プロジェクトでは、キャラクター生成を具体例として、プロンプト管理システムの実装を示します。RPGゲーム開発における架空のシナリオを想定し、キャラクター生成プロンプトのログ記録、評価、テンプレート化、そして再利用までの一連のワークフローを実装しています。
 
-1. **LLM Pipeline Pattern**: Breaking down complex tasks into discrete stages with clear responsibilities
-2. **LLM-as-a-Judge**: Using a separate LLM call to evaluate the quality of generated outputs
-3. **Feedback Loop**: Automatically retrying analysis with constructive feedback when quality is below threshold
-4. **Multi-Provider Support**: Abstraction layer supporting both OpenAI and Google Gemini APIs
-5. **Type-Safe Structured Outputs**: Using Pydantic models for reliable, validated data structures
-6. **State Management**: LangGraph's StateGraph for managing complex pipeline state
+## 解決したい課題
 
-## Architecture
+LLMアプリケーションの品質はプロンプトに大きく依存しますが、その設計プロセスは試行錯誤に頼ることが多く、非効率になりがちです。一度限りの成功や失敗が、将来に活かされることなく忘れ去られてしまうケースは少なくありません。このような状況は、開発コストの増大やプロジェクトの遅延に直結する深刻な課題です。
 
-### System Components
+例えば、ある開発チームでは、特定のエンジニアが複雑な金融レポートからリスク要因を抽出するタスクにおいて、非常に効果的なプロンプトを発見しました。しかし、その知見は個人のローカル環境に保存されているだけで、チーム全体に共有されませんでした。結果として、他のメンバーは同じ課題に対してゼロから試行錯誤を繰り返し、チーム全体の生産性が著しく低下してしまいました。個人の発見が組織の資産にならないことは、大きな損失です。
 
-```
-+-------------------------------------------------------------+
-|                    CLI Layer (main.py)                      |
-|  - Argument parsing (Click)                                 |
-|  - Pipeline orchestration                                   |
-|  - Output persistence (JSON/Markdown)                       |
-+------------------------+------------------------------------+
-                         |
-                         v
-+------------------------+------------------------------------+
-|            LangGraph Pipeline Service                       |
-|                                                             |
-|  +--------------+    +--------------+    +--------------+   |
-|  |     Read     |--->|   Analyze    |--->|    Judge     |   |
-|  |   Document   |    |   Document   |    |   Quality    |   |
-|  +--------------+    +--------------+    +------+-------+   |
-|                              ^                  |           |
-|                              |                  |           |
-|                              |   Grade < 4?     |           |
-|                              +------------------+           |
-|                           (Retry with Feedback)             |
-|                                                             |
-|  Maximum 3 attempts (1 initial + 2 retries)                 |
-+-------------------------------------------------------------+
-```
+また、AIエージェントを活用した在庫最適化システムでは、より深刻な効率性の問題が発生していました。エージェントが需要予測のために自己生成するプロンプトの多くが失敗し、無駄なAPIコールとコンピューティングリソースを消費していました。過去の失敗パターンが記録されていなかったため、エージェントは毎回同じような失敗を繰り返し、月間のAPI利用料が当初予算の3倍に膨れ上がってしまいました。これは、成功体験がシステムにフィードバックされず、学習の機会が失われている典型的な例です。
 
-### Pipeline Flow
+## 解決策の提案
 
-1. **Document Reading** (`read_document_node`)
-   - Load markdown document from file system
-   - Validate file exists and is readable
-   - Store content in pipeline state
+これらの課題を解決するため、本項ではLLMとの対話履歴を体系的に収集・分析し、プロンプトを再利用する仕組みを提案します。このアプローチは、DevOpsやMLOpsにおける継続的改善の思想をプロンプトエンジニアリングに応用するものです。これにより、プロンプト設計を属人的なスキルから、データに基づいた再現可能なプロセスへと進化させます。
 
-2. **Document Analysis** (`analyze_document_[openai|gemini]_node`)
-   - Extract theme (1-2 sentences)
-   - Assess value (2-3 sentences)
-   - Generate improvement requests (3-5 items)
-   - On retry: incorporate feedback from judge
+具体的な実践方法は、以下の3つのステップで構成されます。まず、システムがLLMに送信するすべてのプロンプト、それに対するLLMの応答、そしてその結果が成功だったか失敗だったかの判定をメタデータと共にログとして記録します。評価は、ユーザーからのフィードバック、出力の精度、タスク完了率といった事前に定義したメトリクスに基づいて行います。
 
-3. **Quality Evaluation** (`judge_analysis_[openai|gemini]_node`)
-   - Evaluate analysis against 5 criteria
-   - Assign grade from 1-5
-   - Provide detailed reasoning
-   - Generate specific improvements if grade < 4
+次に、高い評価を得たプロンプトは、再利用可能なテンプレートとして整理し、専用のデータベースやバージョン管理システムに保存します。その際、どのようなユースケースやドメインで有効だったかをタグ付けして分類し、チームの誰もが容易に検索・参照できるプロンプトカタログを構築します。最後に、期待した結果が得られなかったプロンプトとその文脈を分析し、失敗の原因を特定します。これらの知見は「アンチパターン」として記録し、将来同じ過ちを繰り返さないためのガイドラインとして活用します。
 
-4. **Routing Logic** (`route_after_judge`)
-   - Grade >= 4: Accept and end pipeline
-   - Grade < 4 and retries < 2: Retry with feedback
-   - Max retries reached: Accept current result
+## 適用するユースケース
 
-### Data Models
+本プラクティスは、特にプロンプトが繰り返し利用されたり、徐々に最適化されたりするシステムで大きな効果を発揮します。代表的なユースケースは、自律型AIエージェントや`Chain of Thought`のように、LLMが自己回帰的に複数のプロンプトを生成して複雑な推論を行うシステムです。このようなシステムでは、成功した推論パターン、すなわちプロンプトの連鎖を記録・再利用することで、思考プロセスの効率と精度を大幅に向上させることができます。過去の成功例を参考にすることで、エージェントはより早く最適な解にたどり着けるようになります。
 
-#### DocumentAnalysis (src/model/llm_pipeline_model.py:35-79)
+また、法務部門の契約書レビューシステムのような、ドメイン特化型のアプリケーションにも適しています。この分野では、専門用語や特有の文脈を正しく扱えるプロンプトの価値が非常に高いです。運用を通じて得られた効果的なプロンプトのパターンを蓄積していくことで、システムの専門性と信頼性が時間と共に向上します。例えば、契約条項の抽出やリスク評価のプロンプトを継続的に分析・改善することで、新人弁護士でもベテランと同等の品質でレビューを行えるようになり、レビューの所要時間を平均40%短縮した事例があります。
+
+## 導入のポイント
+
+このプラクティスを効果的に導入するためには、いくつかの重要な設計上の考慮点があります。第一に、プロンプトを管理するためのメタデータ設計が極めて重要です。プロンプトのテキスト本体だけでなく、使用したLLMのモデル名、バージョン、各種パラメータ（`temperature`）、対象のユースケース、タイムスタンプといった情報を必ずセットで記録してください。これにより、後から「どの条件下で成功したのか」を正確に分析することが可能になります。
+
+第二に、成功と失敗を判断するための評価基準をタスクごとに明確に定義することが不可欠です。例えば、要約タスクであれば「元の文章の要点を網羅しているか」、コード生成タスクであれば「生成されたコードが構文エラーなく実行できるか」といった具体的な基準を設けます。この基準が曖昧だと、誤ったプロンプトを成功と判定してしまい、かえってシステムの品質を劣化させる原因となります。
+
+最後に、蓄積したプロンプト資産をチームで共有するための基盤を整備することも重要です。単純なデータベースだけでなく、各プロンプトの変更履歴を追跡できるバージョン管理システム（Git）を導入します。さらに、優れたプロンプトを議論・評価できるwikiのようなドキュメントツールを用意することで、ナレッジ共有が促進され、チーム全体のスキルアップに繋がります。
+
+## 注意点とトレードオフ
+
+プロンプトの分析と再利用は強力な手法ですが、導入にはいくつかのトレードオフが伴います。最大のトレードオフは、ログ収集・分析基盤の構築と運用にかかるコストです。すべてのプロンプトとレスポンスを保存するためには相応のストレージコストが発生しますし、それらを分析するためのデータパイプラインやダッシュボードの構築にも開発リソースが必要です。特に、ユーザーの入力を含むプロンプトを扱う場合は、個人情報保護の観点からデータの取り扱いに細心の注意を払う必要があり、セキュリティ対策のコストも考慮しなければなりません。
+
+また、成功したプロンプトを再利用することに固執しすぎると、システムの応答が画一的になり、創造性や柔軟性が損なわれるリスクがあります。例えば、マーケティングのキャッチコピーを生成するシステムで常に同じテンプレートを使い回していると、ブランドの独自性が失われ、ユーザーに飽きられてしまうかもしれません。ユースケースによっては、あえて多様な出力を許容するために、定型的なプロンプトから逸脱することも重要です。このため、目的に応じて再利用の度合いを調整する柔軟な設計が求められます。
+
+## まとめ
+
+プロンプトを分析し再利用可能にするプラクティスは、LLMアプリケーション開発における属人性を排し、品質を継続的に改善するためのデータ駆動型アプローチです。プロンプトとその結果を資産として体系的に蓄積・活用することで、開発効率とシステムの性能を同時に高めることができます。導入には評価基準の設計やインフラコストといったトレードオフが伴いますが、長期的な視点で見れば、それは十分に価値のある投資と言えるでしょう。
+
+## 実装の詳細
+
+本プロジェクトでは、上記のベストプラクティスを以下のように実装しています：
+
+### コアコンポーネント
+
+#### 1. プロンプトストレージ層（`src/service/prompt_storage.py`）
+
+ファイルベースのストレージシステムを実装し、以下のデータを永続化します：
+
+- **プロンプトログ**: 日付ごとにディレクトリを分けて管理（`prompt_storage/logs/YYYY-MM-DD/`）
+- **テンプレート**: 成功したプロンプトから生成されたテンプレート（`prompt_storage/templates/`）
+- **アンチパターン**: 失敗パターンの記録（`prompt_storage/antipatterns/`）
+
+各データはJSON形式で保存され、独自のIDで管理されます。
+
+#### 2. プロンプト分析器（`src/service/prompt_analyzer.py`）
+
+プロンプトの評価とパターン抽出を担当します：
+
+- 評価基準に基づく成功/失敗の判定
+- 成功したプロンプトからの変数抽出
+- テンプレート化のためのパターン分析
+- アンチパターンの検出と分類
+
+#### 3. プロンプトカタログ（`src/service/prompt_catalog.py`）
+
+テンプレートとアンチパターンの検索・管理機能を提供：
+
+- カテゴリ、タグ、成功率によるテンプレート検索
+- テンプレートの使用履歴追跡
+- 推奨テンプレートの抽出
+- テンプレートのエクスポート機能（チーム共有用）
+
+#### 4. プロンプト分析（`src/service/prompt_analytics.py`）
+
+データに基づく分析とレポート生成：
+
+- パフォーマンスサマリーの生成
+- カテゴリ別・モデル別の成功率分析
+- コスト分析（トークン使用量と費用）
+- 改善提案の自動生成
+- テンプレート使用レポート
+- アンチパターンレポート
+
+#### 5. 統合サービス（`src/service/prompt_service.py`）
+
+上記のすべてのコンポーネントを統合し、シンプルなAPIを提供：
+
 ```python
-class DocumentAnalysis(BaseModel):
-    theme: str  # Main theme (1-2 sentences)
-    value: str  # Document value (2-3 sentences)
-    improvement_requests: list[str]  # 3-5 improvement suggestions
-```
+from src.service.prompt_service import PromptManagementService
 
-**Key Features**:
-- Immutable (`frozen=True`)
-- Assignment validation enabled
-- Built-in JSON and Markdown serialization
-- Min/max constraints on improvement requests
+service = PromptManagementService()
 
-#### AnalysisEvaluation (src/model/llm_pipeline_model.py:7-33)
-```python
-class AnalysisEvaluation(BaseModel):
-    grade: Literal[1, 2, 3, 4, 5]  # Quality grade
-    reasoning: str  # 3-5 sentences explaining grade
-    specific_improvements: list[str]  # Concrete suggestions for improvement
-```
-
-**Key Features**:
-- Literal type for grade ensures valid values
-- `is_acceptable()` helper method (grade >= 4)
-- Structured feedback for retry loop
-
-#### PipelineState (src/model/llm_pipeline_model.py:81-90)
-```python
-class PipelineState(TypedDict):
-    document_path: str
-    document_content: str
-    analysis_result: DocumentAnalysis | None
-    evaluation_result: AnalysisEvaluation | None
-    retry_count: int
-    error: str | None
-```
-
-**Purpose**: Type-safe state management for LangGraph
-
-**Note**: Additional fields `llm_provider` and `model` are added at runtime in `run_document_analysis_pipeline()` (line 491-492) with type ignore comments:
-```python
-"llm_provider": llm_provider,  # type: ignore
-"model": model,  # type: ignore
-```
-These fields are accessed throughout the pipeline but aren't in the TypedDict definition to maintain type safety for the core state fields.
-
-## Implementation Details
-
-### Prompt Engineering (src/prompt/llm_pipeline_prompt.py)
-
-The project implements 4 prompt generation functions:
-
-1. **`make_document_analysis_prompt()`** - For OpenAI analysis (returns messages list)
-2. **`make_document_analysis_system_instruction()`** - For Gemini analysis (returns system_instruction + user_content tuple)
-3. **`make_judge_prompt()`** - For OpenAI evaluation (returns messages list)
-4. **`make_judge_system_instruction()`** - For Gemini evaluation (returns system_instruction + user_content tuple)
-
-#### Analysis Prompt Strategy
-- Clear role definition ("excellent document analyst")
-- Structured output requirements with JSON schema dynamically generated from Pydantic model
-- Explicit constraints (sentence counts, item counts)
-- Language specification (Japanese markdown with explicit instruction)
-- Objective and constructive tone
-- **IMPORTANT**: All responses must be in Japanese
-
-#### Judge Prompt Strategy
-- Expert evaluator persona
-- 5 weighted evaluation criteria:
-  - Theme Accuracy (20%)
-  - Value Assessment (30%)
-  - Improvement Quality (30%)
-  - Completeness (10%)
-  - Clarity (10%)
-- Clear grading rubric (1-5 scale with descriptions):
-  - 5 (Excellent): Outstanding analysis with highly valuable insights
-  - 4 (Good): Solid analysis with minor improvements needed
-  - 3 (Acceptable): Adequate but missing some aspects or depth
-  - 2 (Poor): Significant issues with accuracy/completeness
-  - 1 (Very Poor): Fails to capture document's essence
-- Requirement to provide actionable feedback (3-5 specific improvements if grade < 4)
-- **IMPORTANT**: All evaluations must be in Japanese
-
-### LLM Provider Abstraction
-
-#### OpenAI Implementation (src/service/llm_pipeline_service.py:55-112, 175-218)
-```python
-result = await openai_client.responses.parse(
-    model=model,
-    input=prompt,
-    text_format=DocumentAnalysis,  # Structured output
+# プロンプト実行のログ記録
+log_id = service.log_prompt_execution(
+    prompt_text="...",
+    messages=[...],
+    response_text="...",
+    metadata=metadata,
 )
-analysis_result = result.output_parsed
-```
 
-#### Gemini Implementation (src/service/llm_pipeline_service.py:113-173, 220-268)
-```python
-result = await google_genai_client.aio.models.generate_content(
-    model=model,
-    contents=user_content,
-    config=GenerateContentConfig(
-        system_instruction=system_instruction,
-        response_mime_type="application/json",
-        response_schema=DocumentAnalysis,
-    ),
+# 評価
+service.evaluate_prompt(
+    log_id=log_id,
+    evaluation=evaluation,
+    status=EvaluationStatus.SUCCESS,
 )
-analysis_result = result.parsed
+
+# テンプレート作成
+template = service.create_template_from_success(
+    log_id=log_id,
+    template_name="...",
+    description="...",
+)
+
+# 分析
+summary = service.get_performance_summary()
+suggestions = service.get_improvement_suggestions()
 ```
 
-**Key Differences**:
-- OpenAI uses `input` parameter with messages array; Gemini uses `system_instruction` + `contents`
-- OpenAI uses `text_format` parameter; Gemini uses `response_schema` with `response_mime_type`
-- OpenAI result is accessed via `result.output_parsed`; Gemini via `result.parsed`
-- Both support structured output with Pydantic models
-- Temperature configuration removed in current implementation (using defaults)
+### データモデル
 
-### Error Handling Strategy
+#### PromptLog（`src/model/prompt_log.py`）
 
-1. **Node-Level Error Handling**
-   - Each node wraps operations in try/except
-   - Errors stored in state.error
-   - Pipeline can gracefully terminate on errors
+プロンプト実行の完全な記録：
 
-2. **Routing-Level Error Handling**
-   - Route functions check for errors in state
-   - Automatic routing to END on error conditions
-   - No silent failures
+- `log_id`: 一意の識別子
+- `prompt_text`: プロンプトの全文
+- `messages`: システムプロンプトとユーザープロンプト
+- `response_text`: LLMからの応答
+- `metadata`: 実行に関するメタデータ
+  - モデル名、パラメータ（temperature等）
+  - 実行時間、トークン数、コスト
+  - ユースケース、カテゴリ、タグ
+  - ユーザーID、セッションID
+- `evaluation`: 評価結果
+  - accuracy, completeness, relevance
+  - task_completed, user_feedback
+  - error_count
+- `evaluation_status`: SUCCESS/PARTIAL/FAILURE
 
-3. **Retry Logic**
-   - Maximum 2 retries (3 total attempts)
-   - Retry only when grade < 4
-   - Each retry includes previous feedback in Japanese:
-     ```
-     前回の分析は {grade}/5 の評価を受けました。
-     評価フィードバック: {reasoning}
-     改善が必要な具体的な点: {specific_improvements}
-     このフィードバックに基づいて分析を改善してください。
-     ```
-   - Graceful acceptance after max retries
+#### PromptTemplate（`src/model/prompt_template.py`）
 
-## Working with This Codebase
+再利用可能なテンプレート：
 
-### When Making Changes
+- `template_id`: 一意の識別子
+- `name`: テンプレート名
+- `description`: 説明
+- `category`: カテゴリ（分類）
+- `tags`: タグリスト
+- `prompt_template`: プロンプトのテンプレート文字列
+- `required_variables`: 必須変数のリスト
+- `optional_variables`: オプション変数のリスト
+- `recommended_models`: 推奨モデル
+- `recommended_temperature`: 推奨temperature値
+- `success_count`: 成功回数
+- `failure_count`: 失敗回数
+- `average_score`: 平均スコア
+- `use_case_examples`: ユースケース例
 
-1. **Adding New Analysis Fields**
-   - Update `DocumentAnalysis` model in `src/model/llm_pipeline_model.py`
-   - Update prompts in `src/prompt/llm_pipeline_prompt.py`
-   - Update tests to cover new fields
-   - Consider impact on evaluation criteria
+#### AntiPattern（`src/model/prompt_template.py`）
 
-2. **Modifying Evaluation Logic**
-   - Update `AnalysisEvaluation` model if changing grade scale
-   - Modify `route_after_judge` if changing acceptance threshold
-   - Update judge prompts to reflect new criteria
-   - Update MAX_RETRIES constant if needed
+失敗パターンの記録：
 
-3. **Adding New LLM Providers**
-   - Add provider to `LLMProvider` enum in `src/client/llm_client.py`
-   - Create model enum (e.g., `ClaudeModel`)
-   - Implement analyze and judge nodes
-   - Update routing functions
-   - Add CLI option validation
+- `pattern_id`: 一意の識別子
+- `name`: パターン名
+- `description`: 説明
+- `category`: カテゴリ
+- `tags`: タグリスト
+- `failure_reason`: 失敗の原因
+- `recommended_fix`: 推奨される修正方法
+- `severity`: 深刻度（low/medium/high）
+- `occurrence_count`: 発生回数
+- `example_prompts`: 失敗例
 
-4. **Modifying Pipeline Structure**
-   - Edit `create_document_analysis_graph()` in `src/service/llm_pipeline_service.py`
-   - Add new nodes with `graph.add_node()`
-   - Define routing logic with `add_conditional_edges()` or `add_edge()`
-   - Update `PipelineState` TypedDict if adding state fields
-   - Update tests to cover new flow paths
+### 実装例
 
-### Testing Strategy
+プロジェクトには3つの実装例が含まれています：
 
-#### Unit Tests (tests/test_models.py)
-- Pydantic model validation
-- Serialization/deserialization
-- Helper method behavior
+#### 1. 基本例（`src/examples/basic_example.py`）
 
-#### Service Tests (tests/test_llm_pipeline_service.py)
-- Individual node behavior with mocked LLM calls
-- Routing function logic
-- Error handling scenarios
+基本的なワークフローを実演：
 
-**Running Tests**:
-```bash
-# All tests
-uv run pytest
-
-# With coverage
-uv run pytest --cov=src --cov-report=html
-
-# Verbose output
-uv run pytest -v --tb=short
-```
-
-### Configuration
-
-#### Environment Variables (.envrc)
-```bash
-OPENAI_API_KEY=sk-...
-GEMINI_API_KEY=AIzaSy...
-```
-
-**Note**: The project uses `python-dotenv` for loading environment variables. Create `.envrc` from `.envrc.example`.
-
-#### Model Selection
-- OpenAI models: gpt-4o, gpt-4o-mini, gpt-5, etc.
-- Gemini models: gemini-2.5-flash, gemini-2.5-pro, etc.
-- Models are validated against provider in main.py:67-70
-
-### Common Operations
-
-#### Running Analysis
-```bash
-# Using Gemini (default)
-uv run python -m src.main \
-  -lp gemini \
-  -m gemini-2.5-flash \
-  -dp dataset/document_0.md
-
-# Using OpenAI
-uv run python -m src.main \
-  -lp openai \
-  -m gpt-4o \
-  -dp dataset/document_1.md
-
-# Custom output directory
-uv run python -m src.main \
-  -lp gemini \
-  -m gemini-2.5-flash \
-  -dp dataset/document_0.md \
-  -od custom_outputs
-```
-
-#### Makefile Shortcuts
-```bash
-make run-gemini    # Run with Gemini
-make run-openai    # Run with OpenAI
-make test          # Run all tests
-make format        # Format code
-```
-
-### Expected Behavior
-
-1. **First Analysis Attempt**
-   - Document is analyzed based on prompt
-   - Analysis sent to judge
-   - If grade >= 4: Pipeline ends successfully
-   - If grade < 4: Proceed to retry
-
-2. **Retry with Feedback**
-   - Previous evaluation feedback added to prompt
-   - Analysis regenerated with improvements
-   - New analysis sent to judge
-   - Process repeats up to MAX_RETRIES (2)
-
-3. **Output Files**
-   - JSON: `{provider}_analysis_{uuid}.json`
-   - Markdown: `{provider}_analysis_{uuid}.md`
-   - Both contain the same DocumentAnalysis data
-
-### Debugging Tips
-
-1. **Enable Detailed Logging**
-   - Logs are configured in `src/logger.py`
-   - Default level: INFO
-   - Look for "attempt X" in logs to track retries
-
-2. **Check State at Each Node**
-   - Each node logs its actions
-   - Look for "Successfully analyzed" or "Evaluation complete"
-   - Error messages include node name and error details
-
-3. **Verify Structured Output**
-   - Check JSON files are valid and match schema
-   - Use `jq` to inspect: `cat output.json | jq .`
-   - Validate with model: `DocumentAnalysis(**json.load(f))`
-
-4. **Test Retry Mechanism**
-   - Watch logs for "grade X/5 is below threshold"
-   - Confirm feedback is added to retry prompts
-   - Verify max retries are respected
-
-## Design Patterns and Best Practices
-
-### 1. Single Responsibility Principle
-- Each node has one clear purpose
-- Routing logic separated from business logic
-- Prompt generation isolated in dedicated module
-
-### 2. Type Safety
-- Pydantic models enforce schema at runtime
-- TypedDict for state provides editor support
-- Literal types for enums (e.g., grade values)
-
-### 3. Error Handling
-- Never silently fail
-- Errors stored in state for inspection
-- Graceful degradation (accept after max retries)
-
-### 4. Testability
-- Async functions can be mocked
-- State-based testing (pure functions)
-- Integration tests cover full pipeline
-
-### 5. Extensibility
-- Easy to add new providers
-- Pipeline structure defined declaratively
-- Prompts externalized from logic
-
-## Potential Improvements
-
-When extending this project, consider:
-
-1. **Parallel Processing**
-   - Use LangGraph's parallel edges for independent tasks
-   - Example: Analyze multiple documents concurrently
-
-2. **Caching**
-   - Cache analysis results by document hash
-   - Reduce redundant API calls during testing
-
-3. **Metrics and Monitoring**
-   - Track average retry count
-   - Monitor grade distribution
-   - Measure latency per stage
-
-4. **Human-in-the-Loop**
-   - Add approval step before accepting low-grade results
-   - Allow manual feedback injection
-
-5. **Advanced Routing**
-   - Dynamic model selection based on document complexity
-   - Escalate to stronger model after failed retries
-
-6. **Streaming Output**
-   - Stream analysis results as they're generated
-   - Provide real-time progress feedback
-
-## File Modification Guidelines
-
-### High-Change Areas
-- `src/prompt/llm_pipeline_prompt.py` - Frequently tuned for quality
-- `tests/` - Updated when adding features
-- `dataset/` - Sample documents for testing
-
-### Medium-Change Areas
-- `src/model/llm_pipeline_model.py` - When adding fields
-- `src/service/llm_pipeline_service.py` - When modifying pipeline structure
-
-### Low-Change Areas
-- `src/client/llm_client.py` - Stable provider abstraction (defines enums and initializes clients)
-- `src/config.py` - Simple configuration loader
-- `src/logger.py` - Logging configuration
-- `src/main.py` - CLI interface
-
-**Note**: The `llm_client.py` module initializes both API clients at import time:
 ```python
-google_genai_client = genai.Client(api_key=config.gemini_api_key)
-openai_client = AsyncOpenAI(api_key=config.openai_api_key)
+# 1. キャラクター生成の実行
+result = await request_openai(...)
+
+# 2. ログ記録
+log_id = prompt_service.log_prompt_execution(...)
+
+# 3. 評価
+prompt_service.evaluate_prompt(log_id, evaluation, status)
+
+# 4. テンプレート作成
+template = prompt_service.create_template_from_success(log_id, ...)
+
+# 5. 検索と再利用
+templates = prompt_service.search_templates(category, tags)
 ```
 
-### Protected Areas
-- Do not modify generated outputs in `outputs/` directory
-- Do not commit `.envrc` (API keys)
-- Do not change `pyproject.toml` without testing dependencies
+#### 2. 統合例（`src/examples/integration_example.py`）
 
-## Conclusion
+既存のCLIアプリケーションへの非侵襲的な統合：
 
-This project exemplifies production-grade LLM application development with:
-- Clear separation of concerns
-- Type-safe implementations
-- Comprehensive error handling
-- Testable architecture
-- Multi-provider flexibility
+- オプションフラグによるロギングの有効/無効切り替え
+- 自動評価機能
+- 統計情報の表示
+- 後方互換性の維持
 
-When working with this codebase, prioritize maintaining these qualities while extending functionality.
+#### 3. 高度な例（`src/examples/advanced_example.py`）
+
+自律型AIエージェントのシミュレーション：
+
+- 在庫最適化エージェントの実装
+- 複数の需要予測プロンプトの実行（成功と失敗）
+- パターン分析とテンプレート/アンチパターンの生成
+- 詳細な分析レポートとコスト最適化提案
+
+### テンプレートエンジン
+
+Jinja2を使用したテンプレートシステム（`src/service/template_engine.py`）：
+
+```yaml
+# templates/character_generation.yaml
+system_prompt: >-
+  あなたは創造的なキャラクタージェネレーターです。
+  {{ response_schema | indent(2) }}
+
+user_prompt: >-
+  性別は「{{ gender }}」、年齢は「{{ age }}」歳です。
+  {% if additional_instructions %}
+  {{ additional_instructions }}
+  {% endif %}
+```
+
+変数ファイル（`variables/warrior.yaml`）：
+
+```yaml
+gender: "male"
+age: 25
+additional_instructions: "This character is a brave warrior..."
+```
+
+この設計により、プロンプトの構造（テンプレート）と具体的な値（変数）を分離し、再利用性とテスト容易性を向上させています。
+
+### 継続的改善サイクル
+
+実装は以下のサイクルをサポートします：
+
+1. **実行**: LLMへのプロンプト送信
+2. **記録**: 全データの永続化
+3. **評価**: 多面的な評価基準による判定
+4. **分析**: パターン抽出と分類
+5. **学習**: テンプレート化またはアンチパターン記録
+6. **再利用**: カタログからの検索と適用
+7. **最適化**: データ駆動の改善
+
+このサイクルにより、システムは使用するほど賢くなり、コストと品質の両面で継続的に改善されます。
+
+### 使用方法
+
+詳細な使用方法とコマンド例については、README.mdを参照してください。
+
+```bash
+# 基本的なワークフローの実行
+uv run python -m src.examples.basic_example
+
+# 既存システムとの統合例
+uv run python -m src.examples.integration_example -m gpt-4o-mini --show-stats
+
+# 高度な分析例
+uv run python -m src.examples.advanced_example
+```

@@ -1,4 +1,4 @@
-# Chapter 2 Section 5: Batch APIを用いた大量リクエスト処理
+# Chapter 2 Section 5: LLMのバッチ処理
 
 ## 概要
 

@@ -1,56 +1,81 @@
-from google.genai.types import File, GenerateContentConfig
-
 from src.client.llm_client import (
-    GeminiModel,
-    google_genai_client,
+    AnthropicModel,
+    anthropic_client,
 )
 from src.logger import make_logger
-from src.model.model import Diagram, DiagramType, Invoice, Slide
-from src.prompt.prompt import make_diagram_identification_prompt, make_invoice_prompt, make_slide_prompt
+from src.model.model import GeneratedScript, SampledSentences
+from src.prompt.prompt import (
+    make_error_correction_prompt,
+    make_sampling_prompt,
+    make_script_generation_prompt,
+    make_validation_correction_prompt,
+)
 
 logger = make_logger(__name__)
 
 
-async def request_identify_diagram_type(model: GeminiModel, gemini_path: File) -> Diagram:
-    system_prompt, user_prompt = make_diagram_identification_prompt()
-
-    result = await google_genai_client.aio.models.generate_content(
+async def sample_document(model: AnthropicModel, document_content: str) -> SampledSentences:
+    prompt = make_sampling_prompt(document_content)
+    result = await anthropic_client.beta.messages.parse(
         model=model,
-        contents=[gemini_path, user_prompt],
-        config=GenerateContentConfig(
-            system_instruction=system_prompt,
-            response_mime_type="application/json",
-            response_schema=Diagram,
-        ),
+        max_tokens=2048,
+        betas=["structured-outputs-2025-11-13"],
+        messages=prompt,
+        output_format=SampledSentences,
     )
-    logger.info(result)
-    return result.parsed
+    logger.info(f"Sampled document info: {result.parsed_output}")
+    return result.parsed_output
 
 
-async def extract_from_image(model: GeminiModel, gemini_path: File, diagram_type: DiagramType) -> Invoice | Slide:
-    system_prompt, user_prompt = make_invoice_prompt() if diagram_type == DiagramType.INVOICE else make_slide_prompt()
-    response_schema = Invoice if diagram_type == DiagramType.INVOICE else Slide
-
-    result = await google_genai_client.aio.models.generate_content(
+async def generate_extraction_script(
+    model: AnthropicModel,
+    document_content: str,
+    sampled_info: dict,
+) -> GeneratedScript:
+    prompt = make_script_generation_prompt(document_content, sampled_info)
+    result = await anthropic_client.beta.messages.parse(
         model=model,
-        contents=[gemini_path, user_prompt],
-        config=GenerateContentConfig(
-            system_instruction=system_prompt,
-            response_mime_type="application/json",
-            response_schema=response_schema,
-        ),
+        max_tokens=4096,
+        betas=["structured-outputs-2025-11-13"],
+        messages=prompt,
+        output_format=GeneratedScript,
     )
-    logger.info(result)
-    return result.parsed
+    logger.info(f"Generated script explanation: {result.parsed_output.explanation}")
+    return result.parsed_output
 
 
-async def request_gemini(model: str, gemini_path: File) -> Invoice | Slide:
-    logger.info(f"Processing image with model: {model}")
+async def correct_script(
+    model: AnthropicModel,
+    original_script: str,
+    error_message: str,
+    document_content: str,
+) -> GeneratedScript:
+    prompt = make_error_correction_prompt(original_script, error_message, document_content)
+    result = await anthropic_client.beta.messages.parse(
+        model=model,
+        max_tokens=4096,
+        betas=["structured-outputs-2025-11-13"],
+        messages=prompt,
+        output_format=GeneratedScript,
+    )
+    logger.info(f"Corrected script explanation: {result.parsed_output.explanation}")
+    return result.parsed_output
 
-    diagram = await request_identify_diagram_type(model=model, gemini_path=gemini_path)
-    logger.info(f"Identified diagram type: {diagram.diagram_type}")
 
-    result = await extract_from_image(model=model, gemini_path=gemini_path, diagram_type=diagram.diagram_type)
-    logger.info(f"Extracted data: {result}")
-
-    return result
+async def correct_script_from_validation(
+    model: AnthropicModel,
+    original_script: str,
+    validation_reasoning: str,
+    fix_proposal: str,
+    document_content: str,
+) -> GeneratedScript:
+    prompt = make_validation_correction_prompt(original_script, validation_reasoning, fix_proposal, document_content)
+    result = await anthropic_client.beta.messages.parse(
+        model=model,
+        max_tokens=4096,
+        betas=["structured-outputs-2025-11-13"],
+        messages=prompt,
+        output_format=GeneratedScript,
+    )
+    logger.info(f"Validation-corrected script explanation: {result.parsed_output.explanation}")
+    return result.parsed_output

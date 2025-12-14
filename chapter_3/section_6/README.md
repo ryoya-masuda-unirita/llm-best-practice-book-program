@@ -1,285 +1,390 @@
-# Chapter 3 Section 6: 非同期バッチ処理
+# Chapter 3 Section 6: LLM APIゲートウェイ
 
 ## 概要
 
-本プロジェクトは、LLMアプリケーションにおける**非同期バッチ処理**の実装例です。Redisをメッセージキューとして使用し、大量のLLMリクエストを効率的に処理するアーキテクチャを示しています。
+このプロジェクトは、**LLM APIゲートウェイ**の実装例を示すサンプルコードです。OpenAI GPT-4o-miniとGoogle Gemini 2.5 Flashへのアクセスを一元管理するゲートウェイサーバーを構築し、複数のアプリケーションサービスが安全かつ効率的にLLMを利用できる環境を提供します。
 
-リアルタイム応答が不要な大規模タスク（ドキュメント要約、データ分析、コンテンツ生成など）において、リクエストの受付と処理を分離することで、システムのスケーラビリティと耐障害性を向上させます。クライアントはジョブを登録後、ジョブIDを使って非同期に進捗確認と結果取得を行います。
-
-本実装では、架空のキャラクター生成をユースケースとして採用しています。ユーザーは複数のキャラクター生成リクエスト（性別、年齢、性格特性など）をバッチで投入し、バックグラウンドワーカーがGemini Batch APIを呼び出して処理を実行します。
+ゲートウェイパターンを採用することで、APIキーの一元管理、構造化ログによる監視、統一されたエラーハンドリング、そしてLLMプロバイダの変更に対する柔軟性を実現します。マイクロサービスアーキテクチャや複数チームでLLMを活用する環境において、セキュリティとガバナンスを強化するベストプラクティスを学ぶことができます。
 
 ## 機能
 
-- **バッチジョブ登録API**: 複数のキャラクター生成リクエストを一括登録し、即座にジョブIDを返却
-- **ジョブステータス追跡**: リアルタイムで処理進捗（完了数、失敗数、保留数）を確認
-- **結果取得API**: 完了したジョブの結果を取得
-- **バックグラウンドワーカー**: Redisキューを監視し、Gemini Batch APIでジョブを並行処理
-- **水平スケーリング**: ワーカーを複数起動することでスループットを向上
-- **自動クリーンアップ**: TTL（24時間）によりジョブデータを自動削除
+- **一元的なAPIキー管理**: APIキーをゲートウェイサーバーに集約し、クライアントアプリケーションから完全に隠蔽
+- **マルチプロバイダー対応**: OpenAIとGoogle Gemini APIの両方を統一インターフェースで利用可能
+- **構造化ログと監視**: 全てのLLM APIリクエスト・レスポンスを詳細にログ記録
+- **一意なリクエストID**: UUIDベースのリクエストIDによる追跡可能性の確保
+- **統一的なエラーハンドリング**: プロバイダ固有のエラーを抽象化し、一貫したエラーレスポンスを提供
+- **FastAPI実装**: 高パフォーマンスな非同期APIサーバー
+- **Docker対応**: Gateway・Backendサーバーをコンテナ化し、容易なデプロイを実現
+- **ヘルスチェックエンドポイント**: サービスの死活監視をサポート
+- **型安全性**: Pydanticによる厳密なリクエスト・レスポンスのバリデーション
+- **JSON Schema変換**: クライアントから送信されたJSON SchemaをPydanticモデルに動的変換
 
 ## プロジェクト構成
 
 ### ディレクトリ構成
 
 ```
-chapter_3/section_6/
+chapter_3/section_4/
 ├── src/
+│   ├── __init__.py
+│   ├── config.py                      # 設定管理（環境変数、API キー）
+│   ├── logger.py                      # ロギング設定
 │   ├── api/
-│   │   ├── batch_server.py    # バッチジョブ管理API（ポート8001）
-│   │   └── llm_server.py      # 同期LLM API（ポート8000）
-│   ├── worker/
-│   │   └── batch_worker.py    # バックグラウンドワーカー
+│   │   ├── __init__.py
+│   │   └── llm_server.py              # バックエンドLLM APIサーバー
+│   ├── api_gateway/
+│   │   ├── __init__.py
+│   │   ├── gateway_server.py          # ゲートウェイサーバー（FastAPIアプリケーション）
+│   │   ├── gateway_service.py         # ゲートウェイコアサービス
+│   │   ├── api_key_manager.py         # APIキー管理
+│   │   ├── monitoring.py              # 監視・ロギング
+│   │   └── models.py                  # ゲートウェイ用Pydanticモデル
 │   ├── client/
-│   │   ├── llm_client.py      # Geminiクライアント
-│   │   └── redis_client.py    # Redisクライアント
+│   │   ├── __init__.py
+│   │   ├── llm_client.py              # LLMプロバイダー定義
+│   │   └── gateway_client.py          # ゲートウェイクライアント
 │   ├── model/
-│   │   ├── model.py           # キャラクターモデル
-│   │   └── batch_model.py     # バッチジョブモデル
-│   ├── service/
-│   │   └── request_llm.py     # Gemini Batch API呼び出し
+│   │   ├── __init__.py
+│   │   └── model.py                   # データモデル定義
 │   ├── prompt/
-│   │   └── prompt.py          # プロンプト生成
-│   ├── config.py              # 設定管理
-│   └── logger.py              # ロガー
-├── docker-compose.yml
-├── Dockerfile
-├── Makefile
-├── pyproject.toml
-└── .env.example
+│   │   ├── __init__.py
+│   │   └── prompt.py                  # プロンプト生成ロジック
+│   └── service/
+│       ├── __init__.py
+│       └── request_llm.py             # LLMリクエスト処理
+├── .envrc.example                      # 環境変数設定のサンプル
+├── docker-compose.yml                  # Docker Compose設定
+├── Dockerfile.backend                  # バックエンドサーバー用Dockerfile
+├── Dockerfile.gateway                  # ゲートウェイサーバー用Dockerfile
+├── Makefile                            # 開発・デプロイコマンド
+├── pyproject.toml                      # プロジェクト依存関係
+├── README.md                           # このファイル
+└── CLAUDE.md                           # プロジェクト設計ドキュメント
 ```
 
 ### アーキテクチャ
 
+このプロジェクトは、**ゲートウェイパターン**を採用した3層アーキテクチャで構成されています：
+
 ```
-+------------------+
-|     Clients      |
-+--------+---------+
-         |
-         +------------------+----------------------+
-         |                  |                      |
-+--------v--------+  +------v-------+  +-----------v----------+
-|   LLM Server    |  | Batch Server |  |    Batch Worker      |
-|   (Port 8000)   |  | (Port 8001)  |  |    (Background)      |
-|                 |  |              |  |                      |
-| POST /generate  |  | POST /submit |  | - ジョブ取得ループ     |
-|                 |  | GET /status  |  | - ポーリングループ     |
-|                 |  | GET /result  |  | - Gemini API送信      |
-+--------+--------+  +------+-------+  +-----------+----------+
-         |                  |                      |
-         +------------------+----------------------+
-                            |
-                     +------v------+
-                     |    Redis    |
-                     | (Port 6379) |
-                     |             |
-                     | - ジョブキュー |
-                     | - ステータス  |
-                     | - 結果       |
-                     +-------------+
+┌───────────────────────────────────────────────────────────┐
+│                  Client Applications                       │
+│         (Frontend, Microservices, etc.)                    │
+└─────────────────────┬─────────────────────────────────────┘
+                      │ HTTP Requests
+                      │ (No API Keys Required)
+                      ▼
+┌───────────────────────────────────────────────────────────┐
+│              LLM Backend Server (Port 8000)                │
+│  - Character generation API                                │
+│  - Business logic layer                                    │
+│  - Uses Gateway Client to request LLM                      │
+└─────────────────────┬─────────────────────────────────────┘
+                      │ Internal HTTP Requests
+                      │ (via Gateway Client)
+                      ▼
+┌───────────────────────────────────────────────────────────┐
+│              LLM API Gateway (Port 8080)                   │
+│  ┌─────────────────────────────────────────────────────┐  │
+│  │  Gateway Server (gateway_server.py)                 │  │
+│  │  - FastAPI endpoints (/health, /v1/generate)        │  │
+│  │  - Request validation                               │  │
+│  │  - JSON Schema → Pydantic conversion                │  │
+│  └───────────────────┬─────────────────────────────────┘  │
+│                      │                                     │
+│  ┌───────────────────▼─────────────────────────────────┐  │
+│  │  Gateway Service (gateway_service.py)               │  │
+│  │  - Request routing by provider                      │  │
+│  │  - LLM API calls (OpenAI, Gemini)                   │  │
+│  │  - Response parsing                                 │  │
+│  └───────────────────┬─────────────────────────────────┘  │
+│                      │                                     │
+│  ┌───────────────────▼─────────────────────────────────┐  │
+│  │  API Key Manager (api_key_manager.py)               │  │
+│  │  - Centralized API key storage                      │  │
+│  │  - Provider validation                              │  │
+│  │  - Secure key retrieval                             │  │
+│  └───────────────────┬─────────────────────────────────┘  │
+│                      │                                     │
+│  ┌───────────────────▼─────────────────────────────────┐  │
+│  │  Gateway Monitor (monitoring.py)                    │  │
+│  │  - Request/response logging                         │  │
+│  │  - Performance metrics                              │  │
+│  │  - Error tracking                                   │  │
+│  └─────────────────────────────────────────────────────┘  │
+└─────────────────────┬─────────────────────────────────────┘
+                      │ External API Calls
+                      │ (with API Keys)
+                      ▼
+┌───────────────────────────────────────────────────────────┐
+│              External LLM Providers                        │
+│         OpenAI API         │         Gemini API            │
+└───────────────────────────────────────────────────────────┘
 ```
+
+**主要な設計原則**:
+1. **関心の分離**: APIキー管理、監視、ビジネスロジックを明確に分離
+2. **セキュリティバイデザイン**: APIキーは常にゲートウェイ内部に隠蔽
+3. **拡張性**: 新しいLLMプロバイダの追加が容易
+4. **監視可能性**: 全てのリクエストが構造化ログで追跡可能
 
 ### 実装の詳細
 
-#### 1. バッチジョブ登録API (`src/api/batch_server.py`)
+#### 1. APIキー管理 (`src/api_gateway/api_key_manager.py`)
 
-ユーザーからのリクエストを受け付け、Redisキューにジョブを登録して即座にジョブIDを返却します。
-
-```python
-@app.post("/batch/submit", response_model=BatchJobResponse)
-async def submit_batch_job(request: BatchJobRequest) -> BatchJobResponse:
-    job_id = str(uuid.uuid4())
-    total_tasks = len(request.character_requests)
-    submitted_at = time.time()
-
-    job_data = InternalJobData(
-        job_id=job_id,
-        provider=request.provider,
-        model=request.model,
-        character_requests=[req.model_dump() for req in request.character_requests],
-    )
-
-    # ジョブステータスを初期化（進捗追跡用）
-    status_data = {
-        "job_id": job_id, "status": JobStatus.PENDING,
-        "total_tasks": total_tasks, "completed_tasks": 0, "failed_tasks": 0,
-    }
-    await redis_client.set_job_status(job_id, status_data)
-    await redis_client.enqueue_job(QUEUE_NAME, job_data.model_dump())
-
-    return BatchJobResponse(job_id=job_id, status=JobStatus.PENDING, total_tasks=total_tasks)
-```
-
-**ポイント**:
-- ユニークなジョブIDをUUIDで生成し、クライアントに即座に返却
-- ジョブステータスとジョブデータを別々にRedisに保存（ステータスはポーリング用）
-- `RPUSH`でキューの末尾に追加し、FIFO順序を保証
-
-#### 2. バックグラウンドワーカー (`src/worker/batch_worker.py`)
-
-キューを監視し、ジョブを取得次第Gemini Batch APIに送信します。2つの非同期ループを並行実行することで、新規ジョブの受付と既存ジョブのステータス監視を同時に行います。
+APIキーを一元的に管理し、クライアントアプリケーションから完全に隠蔽します：
 
 ```python
-class BatchWorker:
-    def __init__(self) -> None:
-        self.running = False
-        self.active_jobs: dict[str, ActiveJob] = {}  # 処理中ジョブを追跡
+class APIKeyManager:
+    """APIキーを一元管理するクラス"""
 
-    async def start(self) -> None:
-        self.running = True
-        await redis_client.connect()
-        # ジョブ取得ループとポーリングループを並行実行
-        pickup_task = asyncio.create_task(self._job_pickup_loop())
-        poll_task = asyncio.create_task(self._poll_active_jobs_loop())
-        await asyncio.gather(pickup_task, poll_task)
-
-    async def _job_pickup_loop(self) -> None:
-        """キューから新規ジョブを取得し、即座にGemini APIに送信"""
-        while self.running:
-            job_data = await redis_client.dequeue_job(QUEUE_NAME, timeout=POLL_TIMEOUT)
-            if job_data:
-                await self._submit_job_to_gemini(job_data)
-
-    async def _poll_active_jobs_loop(self) -> None:
-        """処理中の全ジョブのステータスを並行してポーリング"""
-        while self.running:
-            jobs_to_check = list(self.active_jobs.values())
-            await asyncio.gather(*[self._check_job_status(job) for job in jobs_to_check])
-            await asyncio.sleep(BATCH_POLL_INTERVAL)
-```
-
-**ポイント**:
-- `asyncio.gather()`で複数のタスクを並行実行
-- `active_jobs`辞書でGemini APIに送信済みのジョブを追跡
-- `BLPOP`によるブロッキングポップでCPU負荷を抑制
-
-#### 3. Redisキュークライアント (`src/client/redis_client.py`)
-
-ジョブのエンキュー・デキューとステータス管理を担う非同期Redisクライアントです。
-
-```python
-class RedisClient:
-    async def enqueue_job(self, queue_name: str, job_data: dict) -> None:
-        """ジョブをキューの末尾に追加（FIFO順序を保証）"""
-        await self.redis.rpush(queue_name, json.dumps(job_data))
-
-    async def dequeue_job(self, queue_name: str, timeout: int = 0) -> dict | None:
-        """キューの先頭からジョブを取得（ブロッキングポップ）"""
-        result = await self.redis.blpop(queue_name, timeout=timeout)
-        return json.loads(result[1]) if result else None
-
-    async def set_job_status(self, job_id: str, status_data: dict, ttl: int = 86400) -> None:
-        """ジョブステータスをTTL付きで保存（24時間で自動削除）"""
-        await self.redis.setex(f"job:{job_id}:status", ttl, json.dumps(status_data))
-
-    async def get_job_status(self, job_id: str) -> dict | None:
-        data = await self.redis.get(f"job:{job_id}:status")
-        return json.loads(data) if data else None
-```
-
-**ポイント**:
-- `SETEX`でTTL（24時間）を設定し、古いデータを自動削除
-- `BLPOP`はジョブがない場合にタイムアウトまでブロックし、ビジーウェイトを回避
-- `ensure_connected`デコレータで自動接続を保証
-
-#### 4. Gemini Batch API呼び出し (`src/service/request_llm.py`)
-
-Gemini Batch APIにリクエストを送信し、結果を取得する関数群です。
-
-```python
-def submit_gemini_batch(model: GeminiModel, prompts: list[tuple[str, str]]) -> str:
-    """バッチジョブをGeminiに送信し、ジョブ名を返却"""
-    inline_requests = [
-        {
-            "contents": [{"parts": [{"text": user_prompt}], "role": "user"}],
-            "config": {
-                "system_instruction": system_prompt,
-                "response_mime_type": "application/json",
-                "response_schema": CharacterResponse,
-            },
+    def __init__(self):
+        self._provider_keys: Dict[str, Secret[str]] = {
+            "openai": config.openai_api_key,
+            "gemini": config.gemini_api_key,
         }
-        for system_prompt, user_prompt in prompts
-    ]
 
-    inline_batch_job = google_genai_client.batches.create(
-        model=f"models/{model}",
-        src=inline_requests,
-        config={"display_name": "character-generation-batch"},
-    )
-    return inline_batch_job.name
-
-
-def get_gemini_batch_status(batch_job_name: str) -> str:
-    """バッチジョブのステータスを取得"""
-    batch_job = google_genai_client.batches.get(name=batch_job_name)
-    return batch_job.state.name  # "JOB_STATE_SUCCEEDED", "JOB_STATE_FAILED" など
+    def get_api_key(self, provider: str) -> str:
+        """指定されたプロバイダのAPIキーを取得"""
+        provider_lower = provider.lower()
+        if provider_lower not in self._provider_keys:
+            raise ValueError(f"Unsupported LLM provider: {provider}")
+        return self._provider_keys[provider_lower]
 ```
 
 **ポイント**:
-- `response_mime_type="application/json"`でJSON出力を強制
-- `response_schema=CharacterResponse`でPydanticモデルによる出力検証
+- `Secret[str]`型でAPIキーを保護（ログ出力時に自動マスキング）
+- プロバイダの存在チェックと統一的なエラーハンドリング
+- APIキーのローテーションは設定ファイルの1箇所のみで完結
 
-#### 5. バッチジョブモデル (`src/model/batch_model.py`)
+#### 2. ゲートウェイサーバー (`src/api_gateway/gateway_server.py`)
+
+FastAPIベースのゲートウェイサーバーで、全てのLLM APIリクエストを受け付けます：
 
 ```python
-class JobStatus(StrEnum):
-    PENDING = "pending"       # キュー待ち
-    PROCESSING = "processing" # 処理中
-    COMPLETED = "completed"   # 完了
-    FAILED = "failed"         # 失敗
+@app.post("/v1/generate", response_model=GatewayResponse)
+async def generate(request: GatewayRequest):
+    """LLMコンテンツ生成のゲートウェイエンドポイント"""
 
-class BatchJobStatusResponse(BaseModel):
-    job_id: str
-    status: JobStatus
-    total_tasks: int
-    completed_tasks: int = 0
-    failed_tasks: int = 0
-    pending_tasks: int = 0
-    submitted_at: float
-    started_at: Optional[float] = None
-    completed_at: Optional[float] = None
+    # 一意なリクエストIDを生成
+    request_id = gateway_monitor.generate_request_id()
+
+    try:
+        # JSON SchemaをPydanticモデルに変換
+        response_format_model = None
+        if request.response_format:
+            response_format_model = json_schema_to_pydantic(request.response_format)
+
+        # ゲートウェイサービス経由でリクエスト処理
+        content, processing_time_ms = await gateway_service.process_request(
+            request_id=request_id,
+            provider=request.provider,
+            model=request.model,
+            prompt=request.prompt,
+            response_format=response_format_model,
+            client_id=request.client_id,
+        )
+
+        return GatewayResponse(
+            content=content,
+            provider=request.provider,
+            model=request.model,
+            processing_time_ms=processing_time_ms,
+            request_id=request_id,
+        )
+    except ValueError as e:
+        # バリデーションエラー
+        raise HTTPException(status_code=400, detail=...)
+    except Exception as e:
+        # その他のエラー
+        raise HTTPException(status_code=500, detail=...)
 ```
+
+**ポイント**:
+- UUIDベースの一意なリクエストIDで全リクエストを追跡
+- JSON SchemaをPydanticモデルに動的変換
+- 統一的なエラーハンドリングとHTTPステータスコード
+
+#### 3. ゲートウェイサービス (`src/api_gateway/gateway_service.py`)
+
+プロバイダごとにLLM APIを呼び出すコアロジックです：
+
+```python
+class GatewayService:
+    """LLMリクエストをプロバイダにルーティングするサービス"""
+
+    async def process_request(
+        self,
+        request_id: str,
+        provider: str,
+        model: str,
+        prompt: list[dict],
+        response_format: BaseModel,
+        client_id: Optional[str] = None,
+    ) -> tuple[Any, float]:
+        """ゲートウェイ経由でLLMリクエストを処理"""
+
+        # リクエストをログ記録
+        gateway_monitor.log_request(request_id, provider, model, client_id)
+
+        # プロバイダの検証
+        if not api_key_manager.is_provider_supported(provider):
+            raise ValueError(f"Unsupported provider: {provider}")
+
+        start_time = time.time()
+
+        try:
+            # プロバイダにルーティング
+            if provider.lower() == "openai":
+                content = await self._call_openai(model, prompt, response_format)
+            elif provider.lower() == "gemini":
+                content = await self._call_gemini(model, prompt, response_format)
+
+            processing_time_ms = (time.time() - start_time) * 1000
+            gateway_monitor.log_response(request_id, provider, model, processing_time_ms, True)
+
+            return content, processing_time_ms
+        except Exception as e:
+            gateway_monitor.log_error(request_id, type(e).__name__, str(e))
+            raise
+```
+
+**ポイント**:
+- プロバイダごとの差異を抽象化
+- 処理時間の自動計測とログ記録
+- エラー発生時の詳細なログ出力
+
+#### 4. 監視とロギング (`src/api_gateway/monitoring.py`)
+
+全てのリクエスト、レスポンス、エラーを構造化ログとして記録します：
+
+```python
+class GatewayMonitor:
+    """ゲートウェイの監視とログ記録"""
+
+    def log_request(self, request_id: str, provider: str, model: str, client_id: Optional[str] = None):
+        """リクエストをログ記録"""
+        logger.info(
+            f"[REQUEST] id={request_id} | provider={provider} | "
+            f"model={model} | client={client_id}"
+        )
+
+    def log_response(self, request_id: str, provider: str, model: str,
+                     processing_time_ms: float, success: bool, error: Optional[str] = None):
+        """レスポンスをログ記録"""
+        status = "SUCCESS" if success else "FAILURE"
+        log_msg = (
+            f"[RESPONSE] id={request_id} | status={status} | "
+            f"provider={provider} | model={model} | time={processing_time_ms:.2f}ms"
+        )
+        if error:
+            log_msg += f" | error={error}"
+        logger.info(log_msg) if success else logger.error(log_msg)
+```
+
+**ポイント**:
+- 構造化ログフォーマットで検索・分析が容易
+- リクエストIDによる追跡可能性
+- 処理時間、成功/失敗、エラー詳細を記録
+
+#### 5. ゲートウェイクライアント (`src/client/gateway_client.py`)
+
+バックエンドサービスがゲートウェイを利用するためのクライアントライブラリです：
+
+```python
+class GatewayClient:
+    """ゲートウェイサーバーへのリクエストを行うクライアント"""
+
+    def __init__(self, gateway_url: Optional[str] = None):
+        self.gateway_url = gateway_url or config.gateway_url
+        self.client = httpx.AsyncClient(timeout=60.0)
+
+    async def generate(
+        self,
+        provider: str,
+        model: str,
+        prompt: list[dict],
+        response_format: Optional[dict] = None,
+        client_id: Optional[str] = None,
+    ) -> tuple[Any, float, str]:
+        """ゲートウェイ経由でコンテンツを生成"""
+
+        request_data = {
+            "provider": provider,
+            "model": model,
+            "prompt": prompt,
+            "response_format": response_format,
+            "client_id": client_id,
+        }
+
+        response = await self.client.post(
+            f"{self.gateway_url}/v1/generate",
+            json=request_data,
+        )
+        response.raise_for_status()
+
+        result = response.json()
+        return (
+            result["content"],
+            result["processing_time_ms"],
+            result["request_id"],
+        )
+```
+
+**ポイント**:
+- シンプルなAPIでゲートウェイの複雑さを隠蔽
+- バックエンドサービスはAPIキーを一切必要としない
+- httpxによる堅牢なHTTP通信
 
 ## 使い方
 
 ### 環境構成
 
 - **Python**: 3.13.2以上
-- **Redis**: 7.0以上
+- **Docker**: 20.10以上（Docker Composeを使用する場合）
 - **依存ライブラリ**:
-  - `redis>=7.0.0`
-  - `fastapi>=0.115.0`
-  - `uvicorn>=0.30.0`
-  - `pydantic>=2.10.0`
-  - `google-genai>=1.0.0`
+  - fastapi>=0.119.0
+  - uvicorn>=0.37.0
+  - pydantic>=2.12.2
+  - httpx>=0.28.1
+  - openai>=2.4.0
+  - google-genai>=1.45.0
+  - click>=8.3.0
+  - python-dotenv>=1.1.1
 
 ### セットアップ
 
-1. **環境変数の設定**
+1. **環境変数ファイルの作成**
 
 ```bash
-cp .env.example .env
-# .envファイルを編集してAPIキーを設定
-```
+# .envrc.exampleをコピーして.envrcを作成
+cp .envrc.example .envrc
 
-```bash
-# .env
-GEMINI_API_KEY=<your_gemini_api_key>
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_DB=0
+# エディタで.envrcを開き、APIキーを設定
+# .envrc
+OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
+GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+GATEWAY_URL=http://localhost:8080
+BACKEND_URL=http://localhost:8000
+GATEWAY_TIMEOUT=30.0
 ```
 
 2. **依存関係のインストール**
 
 ```bash
+# uvを使用する場合（推奨）
 uv sync
+
+# pipを使用する場合
+pip install -e .
 ```
 
-### 実行方法
-
-#### Docker Composeを使用する場合
+### 使用方法、実行方法
 
 ```bash
+# Dockerイメージをビルド
+make docker-build
+
 # サービスを起動
 make docker-up
 
@@ -290,165 +395,128 @@ make docker-logs
 make docker-down
 ```
 
-#### ローカルで実行する場合
+#### API利用例
+
+**1. ヘルスチェック**
 
 ```bash
-# Redisを起動（別ターミナル）
-redis-server
+# ゲートウェイのヘルスチェック
+curl http://localhost:8080/health
 
-# Batch Serverを起動（別ターミナル）
-uvicorn src.api.batch_server:app --host 0.0.0.0 --port 8001
-
-# Batch Workerを起動（別ターミナル）
-python -m src.worker.batch_worker
+# バックエンドのヘルスチェック
+curl http://localhost:8000/health
 ```
 
-### APIエンドポイント
-
-| エンドポイント | メソッド | 説明 |
-|--------------|---------|------|
-| `/health` | GET | ヘルスチェック |
-| `/batch/submit` | POST | バッチジョブを登録 |
-| `/batch/{job_id}/status` | GET | ジョブステータスを取得 |
-| `/batch/{job_id}/result` | GET | ジョブ結果を取得 |
-| `/batch/queue/stats` | GET | キュー統計を取得 |
-| `/batch/jobs` | GET | 全ジョブIDを取得 |
-
-### 使用例
-
-#### 1. バッチジョブの登録
+**2. キャラクター生成（バックエンドAPI経由）**
 
 ```bash
-curl -X POST http://localhost:8001/batch/submit \
+curl -X POST http://localhost:8000/generate \
   -H "Content-Type: application/json" \
   -d '{
     "provider": "gemini",
     "model": "gemini-2.5-flash",
-    "character_requests": [
-      {"gender": "female", "age": 25, "additional_instructions": "明るい性格"},
-      {"gender": "male", "age": 30, "additional_instructions": "知的な性格"}
-    ]
+    "character_request": {
+      "gender": "male",
+      "age": 28,
+      "additional_instructions": "Create a mysterious character"
+    }
   }'
 ```
 
-レスポンス:
-```json
-{
-  "job_id": "550e8400-e29b-41d4-a716-446655440000",
-  "status": "pending",
-  "total_tasks": 2,
-  "submitted_at": 1699999999.123
-}
-```
-
-#### 2. ジョブステータスの確認
+**3. 直接ゲートウェイAPI経由でLLMを呼び出す**
 
 ```bash
-curl http://localhost:8001/batch/550e8400-e29b-41d4-a716-446655440000/status
-```
-
-レスポンス:
-```json
-{
-  "job_id": "550e8400-e29b-41d4-a716-446655440000",
-  "status": "processing",
-  "total_tasks": 2,
-  "completed_tasks": 1,
-  "failed_tasks": 0,
-  "pending_tasks": 1,
-  "submitted_at": 1699999999.123,
-  "started_at": 1699999999.456,
-  "completed_at": null
-}
-```
-
-#### 3. 結果の取得
-
-```bash
-curl http://localhost:8001/batch/550e8400-e29b-41d4-a716-446655440000/result
-```
-
-レスポンス:
-```json
-{
-  "job_id": "550e8400-e29b-41d4-a716-446655440000",
-  "status": "completed",
-  "provider": "gemini",
-  "model": "gemini-2.5-flash",
-  "tasks": [
-    {
-      "task_index": 0,
-      "status": "completed",
-      "character": {
-        "first_name": "Sakura",
-        "last_name": "Tanaka",
-        "gender": "female",
-        "age": 25,
-        "personalities": [
-          {"short_personality": "陽気", "description": "常に明るく周囲を笑顔にする"},
-          {"short_personality": "好奇心旺盛", "description": "新しいことに挑戦するのが大好き"},
-          {"short_personality": "思いやり", "description": "他者の気持ちに寄り添える優しさを持つ"}
-        ]
+curl -X POST http://localhost:8080/v1/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "prompt": [
+      {"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "Write a haiku about programming."}
+    ],
+    "response_format": {
+      "type": "object",
+      "properties": {
+        "haiku": {"type": "string"}
       },
-      "processing_time_ms": 1234.56
-    }
-  ],
-  "submitted_at": 1699999999.123,
-  "completed_at": 1700000005.789
-}
-```
-
-#### 4. キュー統計の取得
-
-```bash
-curl http://localhost:8001/batch/queue/stats
-```
-
-レスポンス:
-```json
-{
-  "queue_name": "llm_batch_jobs",
-  "pending_jobs": 5
-}
-```
-
-#### 5. 全ジョブIDの取得
-
-```bash
-curl http://localhost:8001/batch/jobs
-```
-
-レスポンス:
-```json
-{
-  "job_ids": ["550e8400-e29b-41d4-a716-446655440000", "..."],
-  "count": 3
-}
-```
-
-### Makeコマンド
-
-```bash
-make lint          # リントチェック
-make fmt           # コードフォーマット
-make fix           # lint + fmt
-make mypy          # 型チェック
-make docker-build  # Dockerイメージをビルド
-make docker-up     # Docker Composeでサービスを起動
-make docker-down   # サービスを停止
-make docker-logs   # ログを表示
-make docker-restart # サービスを再起動
+      "required": ["haiku"]
+    },
+    "client_id": "my-app"
+  }'
 ```
 
 ### 出力例
 
-#### ワーカーログ
+#### 1. ゲートウェイのヘルスチェック
+
+**リクエスト**:
+```bash
+curl http://localhost:8080/health
+```
+
+**レスポンス**:
+```json
+{
+  "status": "healthy",
+  "timestamp": 1729123456.789,
+  "providers_available": {
+    "openai": true,
+    "gemini": true
+  }
+}
+```
+
+#### 2. キャラクター生成のレスポンス
+
+**リクエスト**:
+```bash
+curl -X POST http://localhost:8000/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "character_request": {
+      "gender": "male",
+      "age": 28,
+      "additional_instructions": null
+    }
+  }'
+```
+
+**レスポンス**:
+```json
+{
+  "character": {
+    "first_name": "蒼",
+    "last_name": "雨宮",
+    "gender": "male",
+    "age": 28,
+    "personalities": [
+      {
+        "short_personality": "内向的な思索家",
+        "description": "常に深く物事を考え、静かな場所を好む。表面的な会話よりも、哲学的な議論に心を開く。"
+      },
+      {
+        "short_personality": "完璧主義者",
+        "description": "すべてのタスクに最高の基準を求め、細部にこだわる。しばしば自分自身に対して厳しすぎることがある。"
+      },
+      {
+        "short_personality": "忠実な友人",
+        "description": "一度信頼関係を築くと、どんな困難な状況でも友人を支える。約束を何よりも大切にする。"
+      }
+    ]
+  },
+  "provider": "gemini",
+  "model": "gemini-2.5-flash",
+  "processing_time_ms": 1234.56
+}
+```
+
+#### 3. ゲートウェイのログ出力例
 
 ```
-[INFO] [batch_worker] Batch worker started, waiting for jobs...
-[INFO] [batch_worker] Submitting job 550e8400-... with 2 tasks to Gemini
-[INFO] [batch_worker] Job 550e8400-... submitted to Gemini as batches/xxx
-[INFO] [batch_worker] Gemini batch job succeeded: batches/xxx
-[INFO] [batch_worker] Batch API completed in 5234.56ms for 2 tasks
-[INFO] [batch_worker] Job 550e8400-... completed: 2 succeeded, 0 failed
+[2025-10-26 10:30:45] [INFO] [src.api_gateway.monitoring] [REQUEST] id=a1b2c3d4-e5f6-7890-abcd-ef1234567890 | provider=gemini | model=gemini-2.5-flash | client=llm_server
+[2025-10-26 10:30:47] [INFO] [src.api_gateway.gateway_service] Gemini client initialized
+[2025-10-26 10:30:48] [INFO] [src.api_gateway.monitoring] [RESPONSE] id=a1b2c3d4-e5f6-7890-abcd-ef1234567890 | status=SUCCESS | provider=gemini | model=gemini-2.5-flash | time=1234.56ms
 ```

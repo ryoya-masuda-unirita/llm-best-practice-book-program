@@ -1,192 +1,222 @@
-# Chapter 2 Section 14: Unstructured Data Structuring
+# LLM Script Generation and Execution
 
 ## Overview
 
-This project is a CLI tool that uses LLM (Large Language Model) multimodal recognition to extract structured data from unstructured image data such as invoices and presentation slides.
+This project demonstrates a practice where LLM generates Python scripts to handle tasks that LLMs struggle with (numerical calculations, complex data processing) and executes them in a sandboxed environment. Instead of asking the LLM to compute results directly, the system has the LLM generate extraction scripts, executes them safely, and uses the deterministic output.
 
-The tool leverages Gemini API's multimodal input and structured output capabilities to convert images into machine-processable JSON format, replacing traditional multi-step processes (OCR, text analysis, rule-based extraction) with a single LLM call.
+The application takes documents (contracts, reports, etc.) as input, generates Python scripts to extract document structure, and outputs results in JSON format. If script execution fails, the system uses LLM-based self-correction to automatically fix and retry. Additionally, LLM-as-a-Judge validates extraction quality and triggers re-correction when scores are low.
 
 ## Architecture
 
 ```
-+-----------------------------------------------------------------------+
-|                          CLI (main.py)                                |
-|  - Image file path input                                              |
-|  - Model selection                                                    |
-|  - Output directory specification                                     |
-+-----------------------------------------------------------------------+
-                                    |
-                                    v
-+-----------------------------------------------------------------------+
-|                    Service Layer (request_llm.py)                     |
-|  +---------------------------------------------------------------+   |
-|  | Step 1: request_identify_diagram_type()                        |   |
-|  | - Identify document type (invoice / slide)                     |   |
-|  +---------------------------------------------------------------+   |
-|                              |                                        |
-|                              v                                        |
-|  +---------------------------------------------------------------+   |
-|  | Step 2: extract_from_image()                                   |   |
-|  | - Extract structured data based on identified type             |   |
-|  +---------------------------------------------------------------+   |
-+-----------------------------------------------------------------------+
-                                    |
-                    +---------------+---------------+
-                    v                               v
-        +-------------------+           +-------------------+
-        |  Invoice Model    |           |   Slide Model     |
-        |  - issue_date     |           |  - title          |
-        |  - issuer_name    |           |  - main_message   |
-        |  - recipient      |           |  - diagrams[]     |
-        |  - totals         |           |    - bar_chart    |
-        |  - line_items[]   |           |    - line_chart   |
-        |  - bank_details   |           |    - pie_chart    |
-        +-------------------+           +-------------------+
-                                    |
-                                    v
-                        +-------------------+
-                        |   JSON Output     |
-                        |   (outputs/*.json)|
-                        +-------------------+
++-------------------------------------------------------------------------+
+|                           CLI (main.py)                                  |
+|                      Load document file                                  |
++----------------------------------+--------------------------------------+
+                                   |
+                                   v
++-------------------------------------------------------------------------+
+|                  Document Processor (service layer)                      |
+|  +----------------------------------------------------------------+     |
+|  | Step 1: sample_document()                                       |     |
+|  |   - Identify document type (contract, report, manual, etc.)     |     |
+|  |   - Identify key sections                                       |     |
+|  |   - Sample representative sentences                             |     |
+|  +----------------------------------------------------------------+     |
+|                                   |                                      |
+|                                   v                                      |
+|  +----------------------------------------------------------------+     |
+|  | Step 2: generate_extraction_script()                            |     |
+|  |   - Generate Python script suited for document structure        |     |
+|  |   - Specify security requirements in prompt                     |     |
+|  +----------------------------------------------------------------+     |
+|                                   |                                      |
+|                                   v                                      |
+|  +----------------------------------------------------------------+     |
+|  | Step 3: execute_script_with_retry()                             |     |
+|  |   - Validate script (forbidden patterns/module check)           |     |
+|  |   - Sandbox execution (empty PATH/PYTHONPATH, timeout)          |     |
+|  |   - On error: correct_script() and retry (up to 3 times)        |     |
+|  +----------------------------------------------------------------+     |
+|                                   |                                      |
+|                                   v                                      |
+|  +----------------------------------------------------------------+     |
+|  | Step 4: validate_extraction_result()                            |     |
+|  |   - LLM-as-a-Judge evaluates extraction quality (score 1-5)     |     |
+|  |   - Low score triggers fix_proposal and script re-correction    |     |
+|  +----------------------------------------------------------------+     |
++----------------------------------+--------------------------------------+
+                                   |
+                                   v
++-------------------------------------------------------------------------+
+|                          Output Files                                    |
+|  - {filename}_{run_id}_structure.json  # Extracted document structure    |
+|  - {filename}_{run_id}_script.py       # Generated Python script         |
+|  - {filename}_{run_id}_metadata.json   # Processing metadata             |
++-------------------------------------------------------------------------+
 ```
 
 ### Directory Structure
 
 ```
-chapter_2/section_14/
-|-- CLAUDE.md              # This file - project documentation
-|-- README.md              # User-facing documentation (Japanese)
-|-- Makefile               # Development commands
-|-- pyproject.toml         # Project configuration and dependencies
-|-- .envrc.example         # Environment variable template
-|-- data/                  # Sample image data
-|   |-- 001_*.png          # Invoice sample images
-|   |-- 002_*.png
-|   +-- 003_*.png
-|-- outputs/               # Output directory for extracted JSON
-+-- src/
-    |-- __init__.py
-    |-- main.py            # CLI entry point
-    |-- config.py          # Configuration management
-    |-- logger.py          # Logging setup
-    |-- client/
-    |   |-- __init__.py
-    |   +-- llm_client.py  # Gemini API client initialization
-    |-- model/
-    |   |-- __init__.py
-    |   +-- model.py       # Pydantic data model definitions
-    |-- prompt/
-    |   |-- __init__.py
-    |   +-- prompt.py      # Prompt generation functions
-    +-- service/
-        |-- __init__.py
-        +-- request_llm.py # LLM request handling
+section_16/
+|-- src/
+|   |-- __init__.py
+|   |-- main.py              # CLI entry point
+|   |-- config.py            # Configuration management
+|   |-- logger.py            # Logging setup
+|   |-- client/
+|   |   |-- __init__.py
+|   |   +-- llm_client.py    # Anthropic API client
+|   |-- model/
+|   |   |-- __init__.py
+|   |   +-- model.py         # Pydantic data models
+|   |-- prompt/
+|   |   |-- __init__.py
+|   |   +-- prompt.py        # LLM prompt definitions
+|   +-- service/
+|       |-- __init__.py
+|       |-- document_processor.py  # Document processing orchestration
+|       |-- request_llm.py         # LLM request handling
+|       |-- script_executor.py     # Script execution and validation
+|       +-- validator.py           # LLM-as-a-Judge quality evaluation
+|-- data/                     # Sample input documents
+|   |-- contract_0.md
+|   |-- report_0.md
+|   +-- python_blog_0.md
+|-- outputs/                  # Output files
+|-- pyproject.toml
+|-- .envrc.example
++-- README.md
 ```
 
 ## Key Components
 
-### Data Models (`src/model/model.py`)
+### document_processor.py
+- `extract_document_structure()`: Main orchestration function for the 4-step pipeline
+- `_execute_script_with_retry()`: Handles retry loop with self-correction
+- `save_extraction_results()`: Saves structure, script, and metadata files
+- `ExtractionResult`: Dataclass containing extraction results
 
-- **DiagramType**: Enum for document types (invoice, slide)
-- **Invoice**: Complete invoice data structure with line items, totals, bank details
-- **Slide**: Presentation slide with diagrams and chart data
-- **SlideDiagram**: Individual diagram with type-specific data points
-- **ChartDataPoint**: Data point for charts with label, value, unit, series
+### script_executor.py
+- `validate_script()`: Checks for forbidden patterns and imports
+- `execute_script()`: Runs script in sandboxed subprocess
+- `FORBIDDEN_PATTERNS`: Regex patterns for dangerous operations (open, os, subprocess, etc.)
+- `ALLOWED_IMPORTS`: Whitelist of safe modules (sys, json, re)
 
-### Service Layer (`src/service/request_llm.py`)
+### request_llm.py
+- `sample_document()`: Extracts document type and key sections using LLM
+- `generate_extraction_script()`: Generates Python extraction script
+- `correct_script()`: Fixes failed scripts based on error messages
+- `correct_script_from_validation()`: Fixes scripts based on validation feedback
 
-- **request_identify_diagram_type()**: Identifies document type from image
-- **extract_from_image()**: Extracts structured data based on document type
-- **request_gemini()**: Main orchestration function (2-step process)
+### validator.py
+- `validate_extraction_result()`: LLM-as-a-Judge evaluates extraction quality (score 1-5)
+- Returns `ValidationResult` with score, reasoning, and fix_proposal
 
-### Prompt Generation (`src/prompt/prompt.py`)
-
-- **make_diagram_identification_prompt()**: Prompt for document type classification
-- **make_invoice_prompt()**: Prompt for invoice data extraction
-- **make_slide_prompt()**: Prompt for slide data extraction with combination graph handling
+### model.py
+- `SampledSentences`: Document sampling results
+- `GeneratedScript`: Script and explanation from LLM
+- `DocumentStructure`: Hierarchical document structure
+- `DocumentSection`: Individual section with title, level, content, subsections
+- `ScriptExecutionResult`: Execution status and output
+- `ValidationResult`: Quality evaluation with score, reasoning, fix_proposal
 
 ## Dependencies
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| click | >=8.3.0 | CLI framework |
-| google-genai | >=1.45.0 | Gemini API client |
-| pydantic | >=2.12.2 | Data validation and models |
-| python-dotenv | >=1.1.1 | Environment variable management |
+| Package | Purpose |
+|---------|---------|
+| anthropic>=0.74.1 | Anthropic API client for Claude models |
+| click>=8.3.0 | CLI framework |
+| pydantic>=2.12.2 | Data validation and models |
+| python-dotenv>=1.1.1 | Environment variable management |
 
 ## Usage
 
 ### Setup
 
-1. Create environment file:
 ```bash
-cp .envrc.example .envrc
-# Edit .envrc and set GEMINI_API_KEY
-```
-
-2. Install dependencies:
-```bash
+# Install dependencies
 uv sync
-# or
-pip install -e .
+
+# Configure environment
+cp .envrc.example .envrc
+# Edit .envrc and set ANTHROPIC_API_KEY
 ```
 
 ### Run
 
 ```bash
 # Basic usage
-python -m src.main -m GEMINI_2_5_FLASH -i data/001_*.png
+python -m src.main -m claude-sonnet-4-5 -i data/contract_0.md
 
 # With custom output directory
-python -m src.main -m GEMINI_2_5_FLASH -i data/001_*.png -od outputs/
+python -m src.main -m claude-sonnet-4-5 -i data/contract_0.md -od outputs
+
+# Show help
+python -m src.main --help
 ```
 
 ### CLI Options
 
-| Option | Short | Required | Description |
-|--------|-------|----------|-------------|
-| --model | -m | Yes | Gemini model (GEMINI_2_5_PRO, GEMINI_2_5_FLASH, GEMINI_2_5_FLASH_LITE) |
-| --image-path | -i | Yes | Path to input image file |
-| --output-directory | -od | No | Output directory (default: outputs) |
+| Option | Short | Required | Default | Description |
+|--------|-------|----------|---------|-------------|
+| --model | -m | Yes | - | Model to use (claude-sonnet-4-5 or claude-opus-4-1) |
+| --input | -i | Yes | - | Path to input document file |
+| --output-directory | -od | No | outputs | Directory to save output files |
 
 ## Development Commands
 
-| Command | Description |
-|---------|-------------|
-| make lint | Run ruff linter with auto-fix |
-| make fmt | Format code with ruff |
-| make fix | Run both lint and format |
-| make mypy | Run type checking with mypy |
+```bash
+# Lint code
+make lint
+
+# Format code
+make fmt
+
+# Run both lint and format
+make fix
+
+# Type checking
+make mypy
+```
 
 ## Implementation Notes
 
-### Two-Step Processing
+### Security Mechanisms
 
-The tool uses a 2-step LLM call approach:
-1. First call: Identify document type (invoice vs slide)
-2. Second call: Extract data using type-specific schema
+The script executor implements multiple layers of security:
 
-This separation improves accuracy by keeping prompts focused.
+1. **Pattern-based validation**: Blocks dangerous patterns like `open()`, `os.*`, `subprocess`, `eval()`, `exec()`
+2. **Import whitelist**: Only allows `sys`, `json`, `re` modules
+3. **Environment isolation**: Runs with empty PATH, HOME, PYTHONPATH
+4. **Timeout**: Default 30-second execution limit
+5. **Temporary file cleanup**: Script files are deleted after execution
 
-### Gemini API Constraints
+### Self-Correction Loop
 
-- **No `additionalProperties`**: Gemini API does not support `dict` types in response schemas. Use explicitly typed Pydantic models instead.
-- **SecretStr for API keys**: Use `SecretStr` type for secure API key handling with `get_secret_value()` method.
+When script execution fails:
+1. Error message is captured
+2. LLM receives original script + error message + document context
+3. LLM generates corrected script
+4. Process retries up to 3 times (configurable via DEFAULT_MAX_CORRECTION_ATTEMPTS)
 
-### Combination Graph Handling
+### LLM-as-a-Judge Quality Evaluation
 
-For slides with combination graphs (e.g., bar chart + line chart):
-- Each sub-graph is extracted as a separate `SlideDiagram` object
-- Data points are separated by chart type
-- This allows accurate data extraction without mixing different metrics
+After successful script execution:
+1. Extraction result is evaluated by LLM with a 1-5 score
+2. If score <= 3 (VALIDATION_THRESHOLD), fix_proposal is generated
+3. Script is re-corrected based on validation feedback
+4. Process retries up to 3 times (configurable via DEFAULT_MAX_VALIDATION_ATTEMPTS)
 
-### Supported Diagram Types
+### Structured Outputs
 
-| Type | Description |
-|------|-------------|
-| bar_chart | Bar/column charts |
-| line_chart | Line graphs |
-| pie_chart | Pie/donut charts |
-| flow_chart | Process flow diagrams |
-| system_diagram | Architecture/network diagrams |
-| image_diagram | Photos, illustrations, other images |
+Uses Anthropic's beta Structured Outputs feature:
+```python
+result = await anthropic_client.beta.messages.parse(
+    model=model,
+    betas=["structured-outputs-2025-11-13"],
+    messages=prompt,
+    output_format=PydanticModel,  # Type-safe response
+)
+```

@@ -1,175 +1,246 @@
-# Chapter 4 Section 2: Deep Think Novel Writer Agent
+# CQRS Knowledge Base Implementation
 
 ## Overview
 
-This project implements a **Deep Think Novel Writer Agent** using LangGraph and Google Gemini's extended thinking capabilities. The agent follows the ReAct (Reasoning + Acting) pattern with deep thinking to generate high-quality short novels based on user requests.
+This project implements the **CQRS (Command Query Responsibility Segregation)** pattern for LLM-based knowledge management systems. It separates write operations (Commands) from read operations (Queries), achieving high throughput for writes and low latency for reads.
 
-The agent leverages Gemini's thinking mode (`thinking_budget=10000`) to perform careful reasoning at each step, using specialized tools for theme analysis, character generation, plot structuring, and prose refinement.
+The system uses Google Gemini for both character generation and embedding creation, with ChromaDB as the vector database for semantic search.
 
 ## Architecture
 
-### ReAct Agent Flow
-
 ```
 +-------------------------------------------------------------+
-|                      User Request                           |
-|       "Write a story about a lonely lighthouse keeper"      |
-+-----------------------------+-------------------------------+
+|                      User Requests                          |
++-------------------------------------------------------------+
+              |                           |
+              v                           v
++---------------------------+   +---------------------------+
+|      LLM Server           |   |   Knowledge Server        |
+|      Port 8000            |   |   Port 8001               |
+|                           |   |                           |
+|  POST /generate           |   |  POST /command/register   |
+|   - Character generation  |   |   - Async write (Command) |
+|   - Auto-store knowledge  |   |                           |
+|                           |   |  POST /query/search       |
+|                           |   |   - Sync read (Query)     |
+|                           |   |                           |
+|                           |   |  GET /query/stats         |
+|                           |   |   - Statistics (Query)    |
++-------------+-------------+   +-------------+-------------+
+              |                               |
+              +---------------+---------------+
                               |
                               v
-+-------------------------------------------------------------+
-|                 Agent Node (Deep Think)                     |
-|    - Gemini 2.5 with thinking_budget=10000                  |
-|    - Extended reasoning before action                       |
-|    - Decides: use tool OR output final novel                |
-+-----------------------------+-------------------------------+
-                              |
-              +---------------+---------------+
+              +-------------------------------+
+              |          ChromaDB             |
+              |       Vector Database         |
               |                               |
-              v                               v
-+---------------------+           +---------------------+
-|     Tools Node      |           |   Finalize Node     |
-|  - analyze_theme    |           |  - Extract novel    |
-|  - generate_chars   |           |  - Return result    |
-|  - create_plot      |           +---------------------+
-|  - refine_prose     |
-+---------+-----------+
-          |
-          +-----------> Back to Agent Node
+              |  - Cosine similarity search   |
+              |  - Custom Gemini embeddings   |
+              |  - Metadata filtering         |
+              +---------------+---------------+
+                              |
+                              v
+              +-------------------------------+
+              |        Gemini API             |
+              |  - gemini-2.5-pro/flash/lite  |
+              |  - gemini-embedding-001       |
+              +-------------------------------+
 ```
 
 ### Directory Structure
 
 ```
-chapter_4/section_2/
-|-- src/
+src/
+|-- __init__.py              # Package init, shared ThreadPoolExecutor
+|-- config.py                # Configuration (GEMINI_API_KEY)
+|-- logger.py                # Logging utility
+|-- api/
 |   |-- __init__.py
-|   |-- main.py                      # CLI entry point
-|   |-- config.py                    # Configuration (API keys)
-|   |-- logger.py                    # Logging setup
-|   |-- client/
-|   |   |-- __init__.py
-|   |   +-- llm_client.py            # LLM client and model enums
-|   |-- model/
-|   |   |-- __init__.py
-|   |   +-- llm_pipeline_model.py    # Pydantic models and tool data
-|   |-- prompt/
-|   |   |-- __init__.py
-|   |   +-- llm_pipeline_prompt.py   # Prompt templates
-|   +-- service/
-|       |-- __init__.py
-|       +-- llm_pipeline_service.py  # LangGraph agent implementation
-|-- outputs/                         # Generated novels (auto-created)
-|-- .envrc.example                   # Environment variable template
-|-- pyproject.toml                   # Project dependencies
-|-- Makefile                         # Development commands
-+-- CLAUDE.md                        # This file
+|   |-- llm_server.py        # LLM API server (Port 8000)
+|   +-- knowledge_server.py  # CQRS API server (Port 8001)
+|-- client/
+|   |-- __init__.py
+|   |-- llm_client.py        # Gemini API client
+|   +-- chromadb_client.py   # ChromaDB client (local/remote)
+|-- model/
+|   |-- __init__.py
+|   |-- model.py             # LLM data models (FrozenModel base)
+|   +-- knowledge.py         # CQRS models (Command/Query)
+|-- service/
+|   |-- __init__.py
+|   |-- request_llm.py       # Gemini LLM request handler
+|   |-- embedding_service.py # Gemini embedding service
+|   |-- knowledge_command.py # Command service (async writes)
+|   +-- knowledge_query.py   # Query service (sync reads)
++-- prompt/
+    |-- __init__.py
+    +-- prompt.py            # Prompt generation
 ```
 
 ## Key Components
 
-### 1. Agent Service (`src/service/llm_pipeline_service.py`)
+### CQRS Services
 
-The core ReAct agent implementation using LangGraph:
+| Component | File | Purpose |
+|-----------|------|---------|
+| Command Service | `src/service/knowledge_command.py` | Async knowledge registration |
+| Query Service | `src/service/knowledge_query.py` | Sync knowledge search |
+| Embedding Service | `src/service/embedding_service.py` | Gemini embedding generation |
 
-- **`call_model`**: Invokes Gemini with deep thinking enabled
-- **`tool_node`**: Executes tools and returns observations
-- **`should_continue`**: Conditional routing (tools vs. end)
-- **`extract_final_novel`**: Extracts the completed novel
-- **`create_novel_writer_graph`**: Builds the LangGraph state machine
-- **`run_novel_writer`**: Main entry point for novel generation
+### Data Models
 
-### 2. Tools (`src/service/llm_pipeline_service.py`)
+| Model | File | Purpose |
+|-------|------|---------|
+| `FrozenModel` | `src/model/model.py` | Base Pydantic model with frozen config |
+| `KnowledgeRegisterCommand` | `src/model/knowledge.py` | Command input model |
+| `KnowledgeSearchQuery` | `src/model/knowledge.py` | Query input model |
+| `KnowledgeSearchResponse` | `src/model/knowledge.py` | Query response with results |
 
-Four specialized tools for creative writing:
+### API Servers
 
-| Tool | Purpose |
-|------|---------|
-| `analyze_theme` | Extract literary elements, symbolism, and emotional undertones |
-| `generate_characters` | Create character profiles with roles and development arcs |
-| `create_plot_structure` | Build story structure with tone-specific guidance |
-| `refine_prose` | Analyze and suggest improvements for prose style |
-
-### 3. Data Models (`src/model/llm_pipeline_model.py`)
-
-- **`AgentState`**: TypedDict for LangGraph state management
-- **`NovelOutline`**: Pydantic model for story outlines
-- **`NovelResult`**: Pydantic model for final novel output
-- **Tool Data**: Predefined templates for themes, characters, tones, and styles
-
-### 4. Prompts (`src/prompt/llm_pipeline_prompt.py`)
-
-System prompts and writing tips that guide the agent's creative process.
+| Server | Port | Endpoints |
+|--------|------|-----------|
+| LLM Server | 8000 | `GET /health`, `POST /generate` |
+| Knowledge Server | 8001 | `GET /health`, `POST /command/register`, `POST /query/search`, `GET /query/stats` |
 
 ## Dependencies
 
-- **LangGraph** (>=1.0.0): Agent orchestration framework
-- **LangChain Google GenAI** (>=3.2.0): Gemini integration with thinking support
-- **Google GenAI** (>=1.45.0): Direct Gemini API access
-- **Pydantic** (>=2.12.2): Data validation and models
-- **Click** (>=8.3.0): CLI framework
+```toml
+[dependencies]
+chromadb = ">=1.3.0"
+fastapi = ">=0.119.0"
+google-genai = ">=1.45.0"
+pydantic = ">=2.12.2"
+uvicorn = ">=0.37.0"
+```
 
 ## Usage
 
 ### Setup
 
+1. Set environment variable:
 ```bash
-# Copy environment template and set your Gemini API key
-cp .envrc.example .envrc
-# Edit .envrc: GEMINI_API_KEY=your-api-key
+export GEMINI_API_KEY="your-api-key"
+```
 
-# Install dependencies
+2. Install dependencies:
+```bash
 uv sync
 ```
 
 ### Run
 
+**Local Development:**
 ```bash
-# Basic usage
-uv run python -m src.main -r "Write a story about finding hope in darkness"
+# Terminal 1: LLM Server
+uv run python -m src.api.llm_server
 
-# With specific model
-uv run python -m src.main -m gemini-2.5-pro -r "A tale of friendship between unlikely companions"
-
-# Custom output directory
-uv run python -m src.main -od ./my_novels -r "A mystery in a small coastal town"
+# Terminal 2: Knowledge Server
+uv run python -m src.api.knowledge_server
 ```
 
-### CLI Options
+**Docker Compose:**
+```bash
+docker-compose up -d
+```
 
-| Option | Short | Description |
-|--------|-------|-------------|
-| `--model` | `-m` | Gemini model (gemini-2.5-flash, gemini-2.5-pro, gemini-2.5-flash-lite) |
-| `--output-directory` | `-od` | Directory for output files (default: `outputs`) |
-| `--request` | `-r` | Novel request in natural language (required) |
+### API Examples
+
+**Generate Character:**
+```bash
+curl -X POST http://localhost:8000/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gemini-2.5-flash",
+    "character_request": {
+      "gender": "female",
+      "age": 25,
+      "additional_instructions": "brave warrior"
+    }
+  }'
+```
+
+**Search Knowledge:**
+```bash
+curl -X POST http://localhost:8001/query/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query_text": "brave warrior",
+    "limit": 5
+  }'
+```
+
+**Get Statistics:**
+```bash
+curl http://localhost:8001/query/stats
+```
+
+### Available Gemini Models
+
+| Model | Use Case |
+|-------|----------|
+| `gemini-2.5-pro` | High quality generation |
+| `gemini-2.5-flash` | Balanced speed/quality |
+| `gemini-2.5-flash-lite` | Fastest generation |
 
 ## Development Commands
 
 ```bash
-make lint    # Run ruff linter with auto-fix
-make fmt     # Format code with ruff
-make fix     # Run both lint and format
-make mypy    # Run type checking
+# Install dependencies
+uv sync
+
+# Run LLM server
+uv run python -m src.api.llm_server
+
+# Run Knowledge server
+uv run python -m src.api.knowledge_server
+
+# Syntax check all files
+python -m py_compile src/**/*.py
+
+# Docker operations
+docker-compose up -d      # Start all services
+docker-compose ps         # Check status
+docker-compose logs -f    # View logs
+docker-compose down       # Stop all services
 ```
 
 ## Implementation Notes
 
-### Deep Thinking Configuration
+### CQRS Pattern
 
-The agent uses Gemini's extended thinking mode:
-- `thinking_budget=10000`: Allows up to 10,000 tokens for reasoning
-- `temperature=1.0`: Required for thinking mode
-- `include_thoughts=True`: Includes thinking process in response
+- **Command (Write)**: Async processing via `asyncio.create_task()`, returns job ID immediately
+- **Query (Read)**: Sync processing, optimized for low latency (<300ms)
+- **Eventual Consistency**: 2-5 second delay between write and read availability
 
-### Safety Mechanisms
+### Embedding Configuration
 
-- **MAX_ITERATIONS=15**: Prevents infinite tool-calling loops
-- Tool results are validated before being passed back to the agent
-- Structured error handling throughout the pipeline
+- Model: `gemini-embedding-001`
+- Dimensions: 768
+- Distance Metric: Cosine similarity
 
-### Output Format
+### ChromaDB Modes
 
-Generated novels are saved as Markdown files with UUID-based names:
-```
-outputs/novel_{uuid}.md
-```
+- **Local Mode**: Uses `./data/chromadb` when `CHROMA_HOST` is not set
+- **Remote Mode**: Connects via HTTP when `CHROMA_HOST` and `CHROMA_PORT` are set
+
+### Shared Resources
+
+- `src/__init__.py` contains shared `ThreadPoolExecutor(max_workers=4)`
+- Used by both Command and Query services for blocking ChromaDB operations
+
+### Error Handling
+
+- All API endpoints return appropriate HTTP status codes
+- Background tasks log errors without crashing the main server
+- ChromaDB operations wrapped in try-except blocks
+
+### Performance Characteristics
+
+| Operation | Latency |
+|-----------|---------|
+| Character Generation | 1-2 seconds |
+| Background Storage | +2-5 seconds |
+| Query Search | 100-300 ms |
+| Stats Retrieval | 50-100 ms |

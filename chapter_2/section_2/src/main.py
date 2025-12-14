@@ -1,17 +1,55 @@
 import asyncio
 import os
 from functools import wraps
-from uuid import uuid4
 
 import click
-
-from src.client.llm_client import AnthropicModel, GeminiModel, LLMProvider, OpenAIModel
+from src.client.llm_client import OpenAIModel, openai_client
+from src.examples.advanced_examples import (
+    example_1_nested_objects,
+    example_2_complex_article,
+    example_3_array_of_objects,
+    example_4_deep_nesting,
+    example_5_anyof_union_types,
+    example_6_validation_constraints,
+)
+from src.examples.basic_usage import (
+    example_1_simple_user_model,
+    example_2_product_with_enum,
+    example_3_optional_fields,
+    example_4_array_fields,
+    example_5_datetime_fields,
+)
+from src.examples.high_reasoning_examples import (
+    example_1_customer_feedback_analysis,
+    example_2_meeting_summary,
+    example_3_research_paper_metadata,
+    example_4_job_application_evaluation,
+    example_5_financial_transaction_analysis,
+    example_6_high_reasoning,
+)
 from src.logger import make_logger
-from src.model.llmops_log import StorageType
-from src.service import request_anthropic, request_gemini, request_openai
-from src.service.llmops_logger import create_llmops_logger
 
 logger = make_logger(__name__)
+
+examples = {
+    "example_1_simple_user_model": example_1_simple_user_model,
+    "example_2_product_with_enum": example_2_product_with_enum,
+    "example_3_optional_fields": example_3_optional_fields,
+    "example_4_array_fields": example_4_array_fields,
+    "example_5_datetime_fields": example_5_datetime_fields,
+    "example_1_nested_objects": example_1_nested_objects,
+    "example_2_complex_article": example_2_complex_article,
+    "example_3_array_of_objects": example_3_array_of_objects,
+    "example_4_deep_nesting": example_4_deep_nesting,
+    "example_5_anyof_union_types": example_5_anyof_union_types,
+    "example_6_validation_constraints": example_6_validation_constraints,
+    "example_1_customer_feedback_analysis": example_1_customer_feedback_analysis,
+    "example_2_meeting_summary": example_2_meeting_summary,
+    "example_3_research_paper_metadata": example_3_research_paper_metadata,
+    "example_4_job_application_evaluation": example_4_job_application_evaluation,
+    "example_5_financial_transaction_analysis": example_5_financial_transaction_analysis,
+    "example_6_high_reasoning": example_6_high_reasoning,
+}
 
 
 def async_cmd(func):
@@ -24,79 +62,47 @@ def async_cmd(func):
 
 @click.command()
 @click.option(
-    "--llm-provider",
-    "-lp",
-    type=click.Choice(LLMProvider),
-    default=LLMProvider.GEMINI,
-    required=True,
-    help="The LLM provider to use.",
-)
-@click.option(
     "--model",
     "-m",
-    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str() + AnthropicModel.list_str()),
+    type=click.Choice(OpenAIModel.list_str()),
     required=True,
     help="The model to use for the request.",
+)
+@click.option(
+    "--example",
+    "-e",
+    type=click.Choice(list(examples.keys())),
+    required=False,
+    help="The example to run.",
 )
 @click.option(
     "--output-directory",
     "-od",
     type=click.Path(),
-    default="outputs",
     required=False,
+    default="outputs",
     help="The directory to save output files.",
-)
-@click.option(
-    "--user-id",
-    "-u",
-    type=str,
-    default="default_user",
-    help="User ID for logging purposes.",
-)
-@click.option(
-    "--storage-type",
-    "-st",
-    type=click.Choice(StorageType),
-    default=StorageType.LOCAL,
-    help="The storage type for prompt logging.",
 )
 @async_cmd
 async def main(
-    llm_provider: LLMProvider,
     model: str,
+    example: str,
     output_directory: str = "outputs",
-    user_id: str = "default_user",
-    storage_type: StorageType = StorageType.LOCAL,
 ):
-    logger.info(f"""LLM provider: {llm_provider.value}
-Model: {model}
-Output directory: {output_directory}
-User ID: {user_id}
-Storage type: {storage_type.value}""")
+    """Run auto-structured output examples
 
-    if llm_provider == LLMProvider.OPENAI and model not in OpenAIModel.list_str():
-        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
-    if llm_provider == LLMProvider.GEMINI and model not in GeminiModel.list_str():
-        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
-    if llm_provider == LLMProvider.ANTHROPIC and model not in AnthropicModel.list_str():
-        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
+    This command executes examples from src/examples/ directory.
+    Each example demonstrates the two-step auto-structured output approach.
+    """
 
     os.makedirs(output_directory, exist_ok=True)
 
-    llmops_logger = create_llmops_logger(logger_name="llmops", storage_type=storage_type)
-    if llm_provider == LLMProvider.OPENAI:
-        result = await request_openai(model=model, llmops_logger=llmops_logger, user_id=user_id)
-    elif llm_provider == LLMProvider.GEMINI:
-        result = await request_gemini(model=model, llmops_logger=llmops_logger, user_id=user_id)
-    elif llm_provider == LLMProvider.ANTHROPIC:
-        result = await request_anthropic(model=model, llmops_logger=llmops_logger, user_id=user_id)
-    else:
-        raise ValueError(f"Unsupported LLM provider: {llm_provider.value}")
-
-    file_name = f"{llm_provider.value}_{uuid4().hex}.json"
-    file_path = os.path.join(output_directory, file_name)
-    result.save_as_json(file_path)
-    logger.info(f"""File saved to {file_path}""")
+    logger.info(f"Executing example: {example}")
+    examples[example](
+        llm_client=openai_client,
+        model=model,
+        output_directory=output_directory,
+    )
 
 
 if __name__ == "__main__":

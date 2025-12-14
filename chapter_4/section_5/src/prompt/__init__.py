@@ -1,31 +1,3 @@
-from src.prompt.llm_pipeline_prompt import (
-    format_learned_patterns_context,
-    make_content_system_prompt,
-    make_content_user_prompt,
-    make_learning_system_prompt,
-    make_learning_user_prompt,
-    make_progress_system_prompt,
-    make_progress_user_prompt,
-    make_quiz_system_prompt,
-    make_quiz_user_prompt,
-    make_strategy_system_prompt,
-    make_strategy_user_prompt,
-    make_tactics_system_prompt,
-    make_tactics_user_prompt,
-)
+from src.prompt.llm_pipeline_prompt import make_document_analysis_prompt, make_document_analysis_system_instruction
 
-__all__ = [
-    "format_learned_patterns_context",
-    "make_content_system_prompt",
-    "make_content_user_prompt",
-    "make_learning_system_prompt",
-    "make_learning_user_prompt",
-    "make_progress_system_prompt",
-    "make_progress_user_prompt",
-    "make_quiz_system_prompt",
-    "make_quiz_user_prompt",
-    "make_strategy_system_prompt",
-    "make_strategy_user_prompt",
-    "make_tactics_system_prompt",
-    "make_tactics_user_prompt",
-]
+__all__ = ["make_document_analysis_prompt", "make_document_analysis_system_instruction"]

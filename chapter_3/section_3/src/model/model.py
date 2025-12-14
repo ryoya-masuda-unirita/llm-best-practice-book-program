@@ -1,16 +1,9 @@
 import json
-import time
 from enum import StrEnum
-from typing import Literal, Optional
+from typing import Optional
 
+import yaml
 from pydantic import BaseModel, ConfigDict, Field
-
-
-class UserPlan(StrEnum):
-    """User subscription plan types."""
-
-    FREE = "free"
-    STANDARD = "standard"
 
 
 class Gender(StrEnum):
@@ -28,9 +21,26 @@ class CharacterRequest(BaseModel):
 
     gender: Gender = Field(..., description="The gender of the character.")
     age: int = Field(..., description="The age of the character.", ge=0, le=100)
-    additional_instructions: Optional[str] = Field(
-        None, description="Additional instructions for character generation."
+    additional_instructions: Optional[str] = Field(..., description="Additional instructions for character generation.")
+
+
+class CharacterRequests(BaseModel):
+    model_config = ConfigDict(
+        validate_assignment=True,
+        frozen=True,
+        extra="ignore",
+        arbitrary_types_allowed=True,
     )
+
+    requests: list[CharacterRequest] = Field(..., description="A list of character generation requests.")
+
+    @staticmethod
+    def load_from_yaml(file_path: str) -> "CharacterRequests":
+        """Load character requests from a YAML file."""
+
+        with open(file_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+        return CharacterRequests.model_validate(data)
 
 
 class CharacterPersonality(BaseModel):
@@ -72,79 +82,18 @@ class CharacterResponse(BaseModel):
             elif k == "age":
                 params[k] = f"number; {v.description}; 0-100"
             elif k == "personalities":
-                params[k] = [
-                    {
-                        "short_personality": f"string; {v.description} (personality {i + 1})",
-                        "description": f"string; {v.description} (detailed description for personality {i + 1})",
-                    }
-                    for i in range(3)
-                ]
+                params[k] = []
+                for i in range(3):
+                    params[k].append(
+                        {
+                            "short_personality": f"string; {v.description} (personality {i + 1})",
+                            "description": f"string; {v.description} (detailed description for personality {i + 1})",
+                        }
+                    )
         return params
 
     def save_as_json(self, file_path: str) -> None:
         """Save the character response as a JSON file."""
+
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(self.model_dump(), f, indent=4, ensure_ascii=False)
-
-
-class LLMRequest(BaseModel):
-    """Request model for character generation API."""
-
-    model: str = Field(..., description="The model name to use for generation")
-    character_request: CharacterRequest = Field(..., description="Character generation request parameters")
-    user_plan: UserPlan = Field(default=UserPlan.FREE, description="User's subscription plan")
-
-
-class LLMResponse(BaseModel):
-    """Response model for character generation API."""
-
-    character: CharacterResponse = Field(..., description="Generated character information")
-    model: str = Field(..., description="Model used")
-    processing_time_ms: float = Field(..., description="Processing time in milliseconds")
-
-
-class HealthResponse(BaseModel):
-    """Health check response."""
-
-    status: Literal["healthy"] = "healthy"
-    timestamp: float = Field(default_factory=time.time)
-
-
-class TextClassificationRequest(BaseModel):
-    """Request model for text classification."""
-
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-        arbitrary_types_allowed=True,
-    )
-
-    text: str = Field(..., description="The text to classify")
-    categories: list[str] = Field(..., description="List of possible categories", min_length=2)
-    model: str = Field(..., description="The model to use for classification")
-    user_plan: UserPlan = Field(default=UserPlan.FREE, description="User's subscription plan")
-
-
-class ClassificationResult(BaseModel):
-    """Classification result from LLM - structured output model."""
-
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-        arbitrary_types_allowed=True,
-    )
-
-    reasoning: str = Field(None, description="Brief explanation for the classification")
-    category: str = Field(..., description="The predicted category from the provided list")
-    confidence: Optional[str] = Field(None, description="Optional confidence level: high, medium, or low")
-
-
-class TextClassificationResponse(BaseModel):
-    """Response model for text classification API."""
-
-    category: str = Field(..., description="The predicted category")
-    model: str = Field(..., description="Model used")
-    processing_time_ms: float = Field(..., description="Processing time in milliseconds")
-    classification_result: ClassificationResult = Field(..., description="Detailed classification result")

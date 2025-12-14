@@ -1,0 +1,49 @@
+{
+  "workflow_id": "checkpoint_workflow",
+  "checkpoint_id": "c9593d92e195478ea24c61103961e1e0",
+  "timestamp": "2025-11-09T15:14:49.181222",
+  "workflow_state": {
+    "workflow_id": "checkpoint_workflow",
+    "state": "running",
+    "started_at": "2025-11-09T15:14:49.181070",
+    "completed_at": null,
+    "current_node_id": "start",
+    "node_records": {
+      "start": {
+        "node_id": "start",
+        "state": "completed",
+        "started_at": "2025-11-09T15:14:49.181101",
+        "completed_at": "2025-11-09T15:14:49.181129",
+        "error": null,
+        "output": {
+          "status": "started",
+          "initial_data": {
+            "counter": 0
+          }
+        },
+        "retry_count": 0
+      }
+    },
+    "variables": {},
+    "error": null
+  },
+  "execution_context": {
+    "workflow_id": "checkpoint_workflow",
+    "variables": {
+      "counter": 0
+    },
+    "node_outputs": {
+      "start": {
+        "status": "started",
+        "initial_data": {
+          "counter": 0
+        }
+      }
+    },
+    "error": null
+  },
+  "metadata": {
+    "type": "auto",
+    "node": "start"
+  }
+}

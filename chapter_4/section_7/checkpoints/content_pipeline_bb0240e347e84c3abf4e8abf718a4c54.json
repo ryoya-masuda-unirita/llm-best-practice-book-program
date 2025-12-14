@@ -1,0 +1,290 @@
+{
+  "workflow_id": "content_pipeline",
+  "checkpoint_id": "bb0240e347e84c3abf4e8abf718a4c54",
+  "timestamp": "2025-11-09T15:15:12.091837",
+  "workflow_state": {
+    "workflow_id": "content_pipeline",
+    "state": "running",
+    "started_at": "2025-11-09T15:14:52.215494",
+    "completed_at": null,
+    "current_node_id": "store_quality",
+    "node_records": {
+      "start": {
+        "node_id": "start",
+        "state": "completed",
+        "started_at": "2025-11-09T15:14:52.215556",
+        "completed_at": "2025-11-09T15:14:52.215614",
+        "error": null,
+        "output": {
+          "status": "started",
+          "initial_data": {
+            "domain": "artificial intelligence",
+            "num_topics": 3,
+            "quality_threshold": 7
+          }
+        },
+        "retry_count": 0
+      },
+      "generate_topics": {
+        "node_id": "generate_topics",
+        "state": "completed",
+        "started_at": "2025-11-09T15:14:52.215674",
+        "completed_at": "2025-11-09T15:14:57.123488",
+        "error": null,
+        "output": {
+          "content": "Beyond the Buzzwords: How AI is Already Changing Your Daily Life (and What's Next), The Ethical Tightrope: Navigating AI's Biggest Questions (and Why You Should Care), Unleashing Creativity: How Generative AI is Empowering Artists, Writers, and Innovators",
+          "model": "gemini-2.5-flash",
+          "usage": {
+            "prompt_tokens": 28,
+            "completion_tokens": 57,
+            "total_tokens": 725
+          },
+          "finish_reason": "STOP"
+        },
+        "retry_count": 0
+      },
+      "parse_topics": {
+        "node_id": "parse_topics",
+        "state": "completed",
+        "started_at": "2025-11-09T15:14:57.123746",
+        "completed_at": "2025-11-09T15:14:57.123923",
+        "error": null,
+        "output": {
+          "topics": [
+            "Beyond the Buzzwords: How AI is Already Changing Your Daily Life (and What's Next)",
+            "The Ethical Tightrope: Navigating AI's Biggest Questions (and Why You Should Care)",
+            "Unleashing Creativity: How Generative AI is Empowering Artists"
+          ],
+          "topics_count": 5
+        },
+        "retry_count": 0
+      },
+      "select_topic": {
+        "node_id": "select_topic",
+        "state": "completed",
+        "started_at": "2025-11-09T15:14:57.125151",
+        "completed_at": "2025-11-09T15:14:57.125267",
+        "error": null,
+        "output": {
+          "selected_topic": "Beyond the Buzzwords: How AI is Already Changing Your Daily Life (and What's Next)",
+          "remaining_topics": [
+            "The Ethical Tightrope: Navigating AI's Biggest Questions (and Why You Should Care)",
+            "Unleashing Creativity: How Generative AI is Empowering Artists"
+          ]
+        },
+        "retry_count": 0
+      },
+      "generate_content": {
+        "node_id": "generate_content",
+        "state": "completed",
+        "started_at": "2025-11-09T15:14:57.125330",
+        "completed_at": "2025-11-09T15:15:07.749321",
+        "error": null,
+        "output": {
+          "content": "### Beyond the Buzzwords: How AI is Already Changing Your Daily Life (and What's Next)\n\nArtificial Intelligence has arguably become the most discussed technology of the 21st century, often reduced to a collection of buzzwords like \"machine learning,\" \"deep learning,\" and \"natural language processing.\" However, AI's impact on our daily lives is tangible and profound, extending far beyond these terms. From enhancing personalized shopping experiences to streamlining mundane tasks, AI is seamlessly woven into the fabric of our routines. For instance, algorithms analyze vast amounts of data to recommend products that cater to our tastes on platforms like Amazon and Netflix, making it easier than ever to discover our next favorite book or movie. Additionally, AI-powered virtual assistants like Siri and Alexa manage our schedules, control smart home devices, and provide information at our command, freeing up precious time that can be reallocated to the things we love most.\n\nAs we look to the future, the potential for AI to reshape our lives continues to grow. Developments in health analytics are paving the way for improvements in personalized medicine, where machine learning algorithms analyze medical records and genetic information to predict patient outcomes and tailor treatments accordingly. In the workplace, AI tools are being utilized to enhance productivity by automating repetitive tasks, enabling employees to focus on more creative and strategic endeavors. Moreover, advancements in AI-driven solutions for environmental issues can transform how we address climate change, through better resource management and predictive analytics for energy consumption. These innovations signal that AI is not just a tool for efficiency but is evolving into a transformative force that can drive societal progress.\n\nHowever, with these advancements comes the responsibility to navigate ethical considerations surrounding AI deployment. Concerns about data privacy, algorithmic bias, and job displacement must be front and center as we embrace AI's potential. The road ahead requires a collaboration between technologists, ethicists, and policymakers to ensure that AI serves humanity's best interests rather than reinforces existing disparities. As we continue to integrate AI into our lives, fostering an inclusive dialogue around its benefits and limitations will be crucial. Only then can we fully realize an AI-powered future where technology amplifies human creativity, fosters equitable opportunities, and ultimately enhances our quality of life.",
+          "model": "gpt-4o-mini-2024-07-18",
+          "usage": {
+            "completion_tokens": 439,
+            "prompt_tokens": 36,
+            "total_tokens": 475,
+            "completion_tokens_details": {
+              "accepted_prediction_tokens": 0,
+              "audio_tokens": 0,
+              "reasoning_tokens": 0,
+              "rejected_prediction_tokens": 0
+            },
+            "prompt_tokens_details": {
+              "audio_tokens": 0,
+              "cached_tokens": 0
+            }
+          },
+          "finish_reason": "stop"
+        },
+        "retry_count": 0
+      },
+      "store_content": {
+        "node_id": "store_content",
+        "state": "completed",
+        "started_at": "2025-11-09T15:15:07.749421",
+        "completed_at": "2025-11-09T15:15:07.749480",
+        "error": null,
+        "output": {
+          "stored": true
+        },
+        "retry_count": 0
+      },
+      "analyze_quality": {
+        "node_id": "analyze_quality",
+        "state": "completed",
+        "started_at": "2025-11-09T15:15:07.750075",
+        "completed_at": "2025-11-09T15:15:12.091351",
+        "error": null,
+        "output": {
+          "content": "9",
+          "model": "gemini-2.5-flash",
+          "usage": {
+            "prompt_tokens": 481,
+            "completion_tokens": 1,
+            "total_tokens": 1175
+          },
+          "finish_reason": "STOP"
+        },
+        "retry_count": 0
+      },
+      "extract_quality_score": {
+        "node_id": "extract_quality_score",
+        "state": "completed",
+        "started_at": "2025-11-09T15:15:12.091494",
+        "completed_at": "2025-11-09T15:15:12.091603",
+        "error": null,
+        "output": {
+          "quality_score": 9
+        },
+        "retry_count": 0
+      },
+      "store_quality": {
+        "node_id": "store_quality",
+        "state": "completed",
+        "started_at": "2025-11-09T15:15:12.091654",
+        "completed_at": "2025-11-09T15:15:12.091720",
+        "error": null,
+        "output": {
+          "stored": true
+        },
+        "retry_count": 0
+      }
+    },
+    "variables": {},
+    "error": null
+  },
+  "execution_context": {
+    "workflow_id": "content_pipeline",
+    "variables": {
+      "domain": "artificial intelligence",
+      "num_topics": 3,
+      "quality_threshold": 7,
+      "generate_topics_output": {
+        "content": "Beyond the Buzzwords: How AI is Already Changing Your Daily Life (and What's Next), The Ethical Tightrope: Navigating AI's Biggest Questions (and Why You Should Care), Unleashing Creativity: How Generative AI is Empowering Artists, Writers, and Innovators",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 28,
+          "completion_tokens": 57,
+          "total_tokens": 725
+        },
+        "finish_reason": "STOP"
+      },
+      "selected_topic": "Beyond the Buzzwords: How AI is Already Changing Your Daily Life (and What's Next)",
+      "generate_content_output": {
+        "content": "### Beyond the Buzzwords: How AI is Already Changing Your Daily Life (and What's Next)\n\nArtificial Intelligence has arguably become the most discussed technology of the 21st century, often reduced to a collection of buzzwords like \"machine learning,\" \"deep learning,\" and \"natural language processing.\" However, AI's impact on our daily lives is tangible and profound, extending far beyond these terms. From enhancing personalized shopping experiences to streamlining mundane tasks, AI is seamlessly woven into the fabric of our routines. For instance, algorithms analyze vast amounts of data to recommend products that cater to our tastes on platforms like Amazon and Netflix, making it easier than ever to discover our next favorite book or movie. Additionally, AI-powered virtual assistants like Siri and Alexa manage our schedules, control smart home devices, and provide information at our command, freeing up precious time that can be reallocated to the things we love most.\n\nAs we look to the future, the potential for AI to reshape our lives continues to grow. Developments in health analytics are paving the way for improvements in personalized medicine, where machine learning algorithms analyze medical records and genetic information to predict patient outcomes and tailor treatments accordingly. In the workplace, AI tools are being utilized to enhance productivity by automating repetitive tasks, enabling employees to focus on more creative and strategic endeavors. Moreover, advancements in AI-driven solutions for environmental issues can transform how we address climate change, through better resource management and predictive analytics for energy consumption. These innovations signal that AI is not just a tool for efficiency but is evolving into a transformative force that can drive societal progress.\n\nHowever, with these advancements comes the responsibility to navigate ethical considerations surrounding AI deployment. Concerns about data privacy, algorithmic bias, and job displacement must be front and center as we embrace AI's potential. The road ahead requires a collaboration between technologists, ethicists, and policymakers to ensure that AI serves humanity's best interests rather than reinforces existing disparities. As we continue to integrate AI into our lives, fostering an inclusive dialogue around its benefits and limitations will be crucial. Only then can we fully realize an AI-powered future where technology amplifies human creativity, fosters equitable opportunities, and ultimately enhances our quality of life.",
+        "model": "gpt-4o-mini-2024-07-18",
+        "usage": {
+          "completion_tokens": 439,
+          "prompt_tokens": 36,
+          "total_tokens": 475,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 0,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cached_tokens": 0
+          }
+        },
+        "finish_reason": "stop"
+      },
+      "content": "### Beyond the Buzzwords: How AI is Already Changing Your Daily Life (and What's Next)\n\nArtificial Intelligence has arguably become the most discussed technology of the 21st century, often reduced to a collection of buzzwords like \"machine learning,\" \"deep learning,\" and \"natural language processing.\" However, AI's impact on our daily lives is tangible and profound, extending far beyond these terms. From enhancing personalized shopping experiences to streamlining mundane tasks, AI is seamlessly woven into the fabric of our routines. For instance, algorithms analyze vast amounts of data to recommend products that cater to our tastes on platforms like Amazon and Netflix, making it easier than ever to discover our next favorite book or movie. Additionally, AI-powered virtual assistants like Siri and Alexa manage our schedules, control smart home devices, and provide information at our command, freeing up precious time that can be reallocated to the things we love most.\n\nAs we look to the future, the potential for AI to reshape our lives continues to grow. Developments in health analytics are paving the way for improvements in personalized medicine, where machine learning algorithms analyze medical records and genetic information to predict patient outcomes and tailor treatments accordingly. In the workplace, AI tools are being utilized to enhance productivity by automating repetitive tasks, enabling employees to focus on more creative and strategic endeavors. Moreover, advancements in AI-driven solutions for environmental issues can transform how we address climate change, through better resource management and predictive analytics for energy consumption. These innovations signal that AI is not just a tool for efficiency but is evolving into a transformative force that can drive societal progress.\n\nHowever, with these advancements comes the responsibility to navigate ethical considerations surrounding AI deployment. Concerns about data privacy, algorithmic bias, and job displacement must be front and center as we embrace AI's potential. The road ahead requires a collaboration between technologists, ethicists, and policymakers to ensure that AI serves humanity's best interests rather than reinforces existing disparities. As we continue to integrate AI into our lives, fostering an inclusive dialogue around its benefits and limitations will be crucial. Only then can we fully realize an AI-powered future where technology amplifies human creativity, fosters equitable opportunities, and ultimately enhances our quality of life.",
+      "analyze_quality_output": {
+        "content": "9",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 481,
+          "completion_tokens": 1,
+          "total_tokens": 1175
+        },
+        "finish_reason": "STOP"
+      },
+      "quality_score": 9
+    },
+    "node_outputs": {
+      "start": {
+        "status": "started",
+        "initial_data": {
+          "domain": "artificial intelligence",
+          "num_topics": 3,
+          "quality_threshold": 7
+        }
+      },
+      "generate_topics": {
+        "content": "Beyond the Buzzwords: How AI is Already Changing Your Daily Life (and What's Next), The Ethical Tightrope: Navigating AI's Biggest Questions (and Why You Should Care), Unleashing Creativity: How Generative AI is Empowering Artists, Writers, and Innovators",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 28,
+          "completion_tokens": 57,
+          "total_tokens": 725
+        },
+        "finish_reason": "STOP"
+      },
+      "parse_topics": {
+        "topics": [
+          "Beyond the Buzzwords: How AI is Already Changing Your Daily Life (and What's Next)",
+          "The Ethical Tightrope: Navigating AI's Biggest Questions (and Why You Should Care)",
+          "Unleashing Creativity: How Generative AI is Empowering Artists"
+        ],
+        "topics_count": 5
+      },
+      "select_topic": {
+        "selected_topic": "Beyond the Buzzwords: How AI is Already Changing Your Daily Life (and What's Next)",
+        "remaining_topics": [
+          "The Ethical Tightrope: Navigating AI's Biggest Questions (and Why You Should Care)",
+          "Unleashing Creativity: How Generative AI is Empowering Artists"
+        ]
+      },
+      "generate_content": {
+        "content": "### Beyond the Buzzwords: How AI is Already Changing Your Daily Life (and What's Next)\n\nArtificial Intelligence has arguably become the most discussed technology of the 21st century, often reduced to a collection of buzzwords like \"machine learning,\" \"deep learning,\" and \"natural language processing.\" However, AI's impact on our daily lives is tangible and profound, extending far beyond these terms. From enhancing personalized shopping experiences to streamlining mundane tasks, AI is seamlessly woven into the fabric of our routines. For instance, algorithms analyze vast amounts of data to recommend products that cater to our tastes on platforms like Amazon and Netflix, making it easier than ever to discover our next favorite book or movie. Additionally, AI-powered virtual assistants like Siri and Alexa manage our schedules, control smart home devices, and provide information at our command, freeing up precious time that can be reallocated to the things we love most.\n\nAs we look to the future, the potential for AI to reshape our lives continues to grow. Developments in health analytics are paving the way for improvements in personalized medicine, where machine learning algorithms analyze medical records and genetic information to predict patient outcomes and tailor treatments accordingly. In the workplace, AI tools are being utilized to enhance productivity by automating repetitive tasks, enabling employees to focus on more creative and strategic endeavors. Moreover, advancements in AI-driven solutions for environmental issues can transform how we address climate change, through better resource management and predictive analytics for energy consumption. These innovations signal that AI is not just a tool for efficiency but is evolving into a transformative force that can drive societal progress.\n\nHowever, with these advancements comes the responsibility to navigate ethical considerations surrounding AI deployment. Concerns about data privacy, algorithmic bias, and job displacement must be front and center as we embrace AI's potential. The road ahead requires a collaboration between technologists, ethicists, and policymakers to ensure that AI serves humanity's best interests rather than reinforces existing disparities. As we continue to integrate AI into our lives, fostering an inclusive dialogue around its benefits and limitations will be crucial. Only then can we fully realize an AI-powered future where technology amplifies human creativity, fosters equitable opportunities, and ultimately enhances our quality of life.",
+        "model": "gpt-4o-mini-2024-07-18",
+        "usage": {
+          "completion_tokens": 439,
+          "prompt_tokens": 36,
+          "total_tokens": 475,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 0,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cached_tokens": 0
+          }
+        },
+        "finish_reason": "stop"
+      },
+      "store_content": {
+        "stored": true
+      },
+      "analyze_quality": {
+        "content": "9",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 481,
+          "completion_tokens": 1,
+          "total_tokens": 1175
+        },
+        "finish_reason": "STOP"
+      },
+      "extract_quality_score": {
+        "quality_score": 9
+      },
+      "store_quality": {
+        "stored": true
+      }
+    },
+    "error": null
+  },
+  "metadata": {
+    "type": "auto",
+    "node": "store_quality"
+  }
+}

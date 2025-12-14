@@ -1,0 +1,65 @@
+{
+  "workflow_id": "checkpoint_workflow",
+  "checkpoint_id": "a4d49d0ec88543518fe272fc7cd1bb82",
+  "timestamp": "2025-12-07T09:34:47.415797",
+  "workflow_state": {
+    "workflow_id": "checkpoint_workflow",
+    "state": "running",
+    "started_at": "2025-12-07T09:34:47.413288",
+    "completed_at": null,
+    "current_node_id": "step1",
+    "node_records": {
+      "start": {
+        "node_id": "start",
+        "state": "completed",
+        "started_at": "2025-12-07T09:34:47.413393",
+        "completed_at": "2025-12-07T09:34:47.413583",
+        "error": null,
+        "output": {
+          "status": "started",
+          "initial_data": {
+            "counter": 0
+          }
+        },
+        "retry_count": 0
+      },
+      "step1": {
+        "node_id": "step1",
+        "state": "completed",
+        "started_at": "2025-12-07T09:34:47.415187",
+        "completed_at": "2025-12-07T09:34:47.415699",
+        "error": null,
+        "output": {
+          "step": 1,
+          "counter": 1
+        },
+        "retry_count": 0
+      }
+    },
+    "variables": {},
+    "error": null
+  },
+  "execution_context": {
+    "workflow_id": "checkpoint_workflow",
+    "variables": {
+      "counter": 0
+    },
+    "node_outputs": {
+      "start": {
+        "status": "started",
+        "initial_data": {
+          "counter": 0
+        }
+      },
+      "step1": {
+        "step": 1,
+        "counter": 1
+      }
+    },
+    "error": null
+  },
+  "metadata": {
+    "type": "auto",
+    "node": "step1"
+  }
+}

@@ -2,7 +2,6 @@ DIR := $(shell pwd)
 GIT_COMMIT := $(shell git rev-parse HEAD)
 
 DOCKER_REPO := shibui/llm-best-practice
-DOCKERFILE = $(DIR)/Dockerfile
 DOCKER_TAG = chapter3_section6
 
 ############ COMMON COMMANDS ############
@@ -25,13 +24,24 @@ mypy:
 
 ############ DOCKER COMMANDS ############
 
-.PHONY: docker-build
-docker-build:
+.PHONY: docker-build-backend
+docker-build-backend:
 	docker build \
 		--platform linux/amd64 \
-		-t $(DOCKER_REPO):$(DOCKER_TAG) \
-		-f Dockerfile \
+		-t $(DOCKER_REPO):$(DOCKER_TAG)_backend \
+		-f Dockerfile.backend \
 		.
+
+.PHONY: docker-build-gateway
+docker-build-gateway:
+	docker build \
+		--platform linux/amd64 \
+		-t $(DOCKER_REPO):$(DOCKER_TAG)_gateway \
+		-f Dockerfile.gateway \
+		.
+
+.PHONY: docker-build
+docker-build: docker-build-backend docker-build-gateway
 
 .PHONY: docker-up
 docker-up:

@@ -1,343 +1,229 @@
-# Chapter 4 Section 6: パイプライン型AIエージェントによる契約書リスクコンプライアンス評価
+# Chapter 4 Section 6: LLMワークフローのためのオーケストレーション
 
 ## 概要
 
-本プロジェクトは、パイプライン型AIエージェントパターンを用いた契約書リスクコンプライアンス評価システムの実装例です。複雑なLLM処理を一連の逐次的なステージに分解し、各ステージが特定の責任を持ち、その出力を次のステージに渡す設計パターンを実証します。
+本プロジェクトは、LLMを含む複雑な処理フローを効率的に管理・実行するための**ワークフローオーケストレーションエンジン**を実装しています。
 
-パイプラインは契約書ドキュメントを読み込み、その構造（章と条）を抽出し、各セクションのリスクを評価し、包括的なコンプライアンスレポートを生成します。このアプローチにより、各処理ステージの責任が明確に分離され、保守性とテスト容易性が向上します。
+LLMを組み込んだソフトウェアでは、単一のLLM呼び出しで完結することは稀です。多くの場合、データの前処理、複数のLLM呼び出し、外部APIとの連携、条件分岐といった複数のステップから構成される複雑なワークフローとなります。本実装では、これらの処理フローをDAG（有向非巡回グラフ）として宣言的に定義し、処理の順序、依存関係、エラーハンドリング、チェックポイント/リカバリを自動で管理します。
+
+主要なデザインパターン（Builder、Strategy、Memento、State）を活用し、堅牢で拡張性の高いアーキテクチャを実現しています。
 
 ## 機能
 
-- **契約書構造抽出**: 契約書テキストから章・条構造を自動解析
-- **リスク評価**: 各条文に対する10カテゴリのリスク評価（知的財産権、責任・賠償、秘密保持など）
-- **4段階リスクレベル**: low / medium / high / critical の4段階でリスクを分類
-- **コンプライアンスレポート生成**: エグゼクティブサマリー、リスク分析、推奨事項を含む日本語レポート
-- **Markdownレポート出力**: 構造化されたMarkdown形式でレポートを出力
+- **宣言的なワークフロー定義**: Builderパターンによる流暢なインターフェースでDAGを構築
+- **多様なノードタイプ**: Start、End、Prompt（LLM）、IfElse（条件分岐）、Loop、Script
+- **自動リトライ**: 指数バックオフによる失敗時の自動再試行
+- **チェックポイント/リカバリ**: 状態永続化と障害復旧
+- **状態追跡**: 詳細な実行状況監視
+- **Gemini対応**: Google Gemini APIによるLLM実行
 
 ## プロジェクト構成
 
 ### ディレクトリ構成
 
 ```
-.
-|-- CLAUDE.md                           # プロジェクト説明（Claude Code用）
-|-- Makefile                            # 開発用コマンド
-|-- README.md                           # 本ドキュメント
-|-- pyproject.toml                      # 依存関係定義
-|-- .envrc.example                      # 環境変数テンプレート
-|-- data/
-|   |-- contract_0.md                   # サンプル契約書
-|   |-- contract_1.md
-|   |-- contract_2.md
-|   +-- contract_3.md
-+-- src/
-    |-- __init__.py
-    |-- main.py                         # CLIエントリーポイント
-    |-- config.py                       # 環境設定
-    |-- logger.py                       # ロギングユーティリティ
-    |-- client/
-    |   |-- __init__.py
-    |   +-- llm_client.py               # OpenAIモデル定義
-    |-- model/
-    |   |-- __init__.py
-    |   +-- contract_pipeline_model.py  # Pydanticデータモデル
-    |-- prompt/
-    |   |-- __init__.py
-    |   +-- contract_pipeline_prompt.py # プロンプトテンプレート
-    |-- layer/
-    |   |-- __init__.py
-    |   |-- base.py                     # 抽象基底エージェントクラス
-    |   +-- contract_pipeline/
-    |       |-- __init__.py
-    |       |-- extraction.py           # 抽出ステージエージェント
-    |       |-- risk_scoring.py         # リスク評価ステージエージェント
-    |       +-- report.py               # レポート生成ステージエージェント
-    +-- service/
-        |-- __init__.py
-        +-- contract_pipeline_service.py # LangGraphパイプラインオーケストレーション
+section_12/
+├── src/
+│   ├── __init__.py
+│   ├── main.py              # CLIエントリポイント
+│   ├── config.py            # 設定管理
+│   ├── logger.py            # ロギング設定
+│   ├── client.py            # Geminiクライアント・エグゼキュータ
+│   ├── examples.py          # ワークフロー実行例
+│   └── workflow/
+│       ├── __init__.py
+│       ├── models.py        # 基底クラス（Node, Edge, ExecutionContext, WorkflowState）
+│       ├── nodes.py         # ノード実装（Start, End, Prompt, IfElse等）
+│       ├── workflow.py      # Workflowクラス（DAG構造）
+│       ├── builder.py       # WorkflowBuilder（Builderパターン）
+│       ├── engine.py        # WorkflowEngine（実行エンジン）
+│       └── checkpoint.py    # チェックポイント管理
+├── checkpoints/             # チェックポイント保存先
+├── pyproject.toml
+├── .envrc.example
+└── README.md
 ```
 
 ### アーキテクチャ
 
 ```
-+------------------------------------------------------------------+
-|                    Contract Pipeline                              |
-+------------------------------------------------------------------+
-|                                                                   |
-|  +-------------------+                                            |
-|  |   Input Stage     |  ディスクから契約書ファイルを読み込み      |
-|  |   (main.py)       |                                            |
-|  +---------+---------+                                            |
-|            |                                                      |
-|            v                                                      |
-|  +-------------------+                                            |
-|  | Extraction Stage  |  ドキュメント構造を解析                    |
-|  | (extraction.py)   |  -> 章と条を抽出                           |
-|  |                   |  -> 当事者を特定                           |
-|  +---------+---------+                                            |
-|            |                                                      |
-|            v                                                      |
-|  +-------------------+                                            |
-|  | Risk Scoring      |  各セクションを評価                        |
-|  | Stage             |  -> リスクレベル評価 (low/med/high/crit)   |
-|  | (risk_scoring.py) |  -> 発見事項をカテゴリ分類                 |
-|  +---------+---------+                                            |
-|            |                                                      |
-|            v                                                      |
-|  +-------------------+                                            |
-|  | Report Stage      |  最終レポートを生成                        |
-|  | (report.py)       |  -> エグゼクティブサマリー                 |
-|  |                   |  -> 推奨事項                               |
-|  +---------+---------+                                            |
-|            |                                                      |
-|            v                                                      |
-|        [Output]         Markdownコンプライアンスレポート          |
-|                                                                   |
-+------------------------------------------------------------------+
+┌─────────────────────────────────────────────────────────────────┐
+│                        WorkflowBuilder                          │
+│  (Builderパターン: 流暢なインターフェースでDAGを構築)            │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                          Workflow                               │
+│  (DAG構造: ノードとエッジの集合)                                │
+│  ┌─────┐    ┌─────────┐    ┌──────────┐    ┌─────┐             │
+│  │Start│───▶│PromptLLM│───▶│IfElseNode│───▶│ End │             │
+│  └─────┘    └─────────┘    └──────────┘    └─────┘             │
+│                                 │ true         │ false          │
+│                                 ▼              ▼                │
+│                            ┌────────┐    ┌────────┐             │
+│                            │ Accept │    │ Refine │             │
+│                            └────────┘    └────────┘             │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                       WorkflowEngine                            │
+│  ┌─────────────────────┐  ┌─────────────────────┐              │
+│  │ CheckpointManager   │  │    Retry Logic      │              │
+│  │ (状態永続化)        │  │ (指数バックオフ)   │              │
+│  └─────────────────────┘  └─────────────────────┘              │
+│                                                                 │
+│  • DAG走査・ノード実行                                          │
+│  • 指数バックオフリトライ                                        │
+│  • チェックポイント作成/復元                                     │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        Gemini Executor                          │
+│  (Strategyパターン: Gemini LLMプロバイダ実行)                   │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ### 実装の詳細
 
-#### 1. データモデル (`src/model/contract_pipeline_model.py`)
+#### 1. WorkflowBuilder (`src/workflow/builder.py`)
 
-パイプライン全体で使用されるPydanticモデルを定義します。
+Builderパターンにより、流暢なインターフェースでワークフローを宣言的に定義します。
 
 ```python
-class RiskLevel(StrEnum):
-    """リスクレベルの分類"""
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-    CRITICAL = "critical"
+class WorkflowBuilder:
+    def __init__(self, workflow_id: str, name: str | None = None):
+        self._workflow = Workflow(workflow_id, name)
 
+    def add_start_node(self, node_id: str, initial_data: dict | None = None) -> "WorkflowBuilder":
+        node = StartNode(node_id, initial_data=initial_data)
+        self._workflow.add_node(node)
+        self._workflow.set_start_node(node_id)
+        return self
 
-class RiskCategory(StrEnum):
-    """契約リスクのカテゴリ"""
-    INTELLECTUAL_PROPERTY = "intellectual_property"
-    LIABILITY = "liability"
-    CONFIDENTIALITY = "confidentiality"
-    TERMINATION = "termination"
-    PAYMENT = "payment"
-    COMPLIANCE = "compliance"
-    WARRANTY = "warranty"
-    INDEMNIFICATION = "indemnification"
-    DISPUTE_RESOLUTION = "dispute_resolution"
-    OTHER = "other"
+    def add_prompt_node(self, node_id: str, prompt_template: str, llm_executor) -> "WorkflowBuilder":
+        node = PromptNode(node_id, prompt_template=prompt_template, llm_executor=llm_executor)
+        self._workflow.add_node(node)
+        return self
 
+    def add_edge(self, from_node_id: str, to_node_id: str) -> "WorkflowBuilder":
+        self._workflow.add_edge(Edge(from_node_id=from_node_id, to_node_id=to_node_id))
+        return self
 
-class ContractPipelineState(TypedDict):
-    """パイプラインの状態管理用TypedDict"""
-    contract_input: ContractInput
-    extraction_output: ExtractionOutput | None
-    risk_scoring_output: RiskScoringOutput | None
-    compliance_report: ComplianceReport | None
-    current_stage: str
-    pending_sections: list[ContractSection]
-    current_section_index: int
-    messages: Annotated[Sequence[BaseMessage], add_messages]
+    def build(self) -> Workflow:
+        self._workflow.validate()  # DAG検証（サイクル検出等）
+        return self._workflow
 ```
 
-**ポイント**: `ContractPipelineState`はLangGraphの状態管理に使用され、各ステージ間でデータを受け渡します。
+**ポイント**: メソッドチェーンで直感的にワークフローを構築でき、`build()`時にDAGの整合性を自動検証します。
 
-#### 2. 抽出ステージ (`src/layer/contract_pipeline/extraction.py`)
+#### 2. WorkflowEngine (`src/workflow/engine.py`)
 
-契約書テキストを解析し、章・条構造を抽出します。
-
-```python
-class ExtractionAgent(BaseAgent):
-    """抽出ステージエージェント"""
-
-    def __init__(self):
-        super().__init__(layer_name="PIPELINE", agent_name="ExtractionAgent")
-
-    def execute(
-        self, state: ContractPipelineState, config: RunnableConfig
-    ) -> dict:
-        """抽出ステージを実行"""
-        contract_input = state["contract_input"]
-        user_prompt = make_extraction_user_prompt(contract_input.raw_content)
-
-        result = self._invoke_and_parse(
-            config, make_extraction_system_prompt(), user_prompt
-        )
-        extraction_output = self._parse_extraction_result(
-            result, contract_input.contract_id
-        )
-
-        # 次のステージ用に全セクションをフラット化
-        all_sections = []
-        for chapter in extraction_output.structure.chapters:
-            all_sections.extend(chapter.sections)
-
-        return {
-            "extraction_output": extraction_output,
-            "pending_sections": all_sections,
-            "current_stage": "risk_scoring",
-        }
-```
-
-**ポイント**: LLMが返すJSONを解析し、構造化されたデータモデルに変換します。
-
-#### 3. リスク評価ステージ (`src/layer/contract_pipeline/risk_scoring.py`)
-
-各条文のリスクを評価し、発見事項をカテゴリ分類します。
+ワークフローを実行し、リトライとチェックポイントを管理します。
 
 ```python
-class RiskScoringAgent(BaseAgent):
-    """リスク評価ステージエージェント"""
+class WorkflowEngine:
+    def __init__(self, enable_checkpointing: bool = True, max_retries: int = 3):
+        self.max_retries = max_retries
+        self.checkpoint_manager = CheckpointManager() if enable_checkpointing else None
 
-    def _assess_section(
-        self,
-        section: ContractSection,
-        parties: list[str],
-        config: RunnableConfig,
-    ) -> SectionRiskAssessment:
-        """単一セクションのリスク評価"""
-        user_prompt = make_risk_scoring_user_prompt(
-            section_id=section.section_id,
-            section_number=section.section_number,
-            section_title=section.title,
-            section_content=section.content,
-            parties=parties,
-        )
+    async def execute(self, workflow: Workflow) -> dict:
+        context = ExecutionContext(workflow_id=workflow.workflow_id)
+        current_node_id = workflow.start_node_id
 
-        result = self._invoke_and_parse(
-            config, make_risk_scoring_system_prompt(), user_prompt
-        )
-        return self._parse_section_assessment(result, section)
+        while current_node_id:
+            node = workflow.get_node(current_node_id)
+            output = await self._execute_with_retry(node, context)
+            context.set_node_output(current_node_id, output)
 
-    def execute(
-        self, state: ContractPipelineState, config: RunnableConfig
-    ) -> dict:
-        """全セクションのリスク評価を実行"""
-        pending_sections = state["pending_sections"]
-        parties = state["extraction_output"].structure.parties
+            if current_node_id in workflow.end_node_ids:
+                break
+            current_node_id = self._get_next_node(workflow, node, output, context)
 
-        assessments: list[SectionRiskAssessment] = []
-        for section in pending_sections:
-            assessment = self._assess_section(section, parties, config)
-            assessments.append(assessment)
+        return {"status": "completed", "outputs": context.node_outputs}
 
-        return {
-            "risk_scoring_output": risk_output,
-            "current_stage": "report",
-        }
-```
-
-**ポイント**: 各セクションに対して個別にLLM呼び出しを行い、詳細なリスク評価を実施します。
-
-#### 4. レポート生成ステージ (`src/layer/contract_pipeline/report.py`)
-
-全評価結果を統合し、包括的なコンプライアンスレポートを生成します。
-
-```python
-class ReportAgent(BaseAgent):
-    """レポート生成ステージエージェント"""
-
-    def execute(
-        self, state: ContractPipelineState, config: RunnableConfig
-    ) -> dict:
-        """レポート生成ステージを実行"""
-        extraction = state["extraction_output"]
-        risk_output = state["risk_scoring_output"]
-
-        user_prompt = make_report_user_prompt(
-            contract_title=extraction.structure.title,
-            parties=extraction.structure.parties,
-            total_sections=extraction.structure.total_sections,
-            high_risk_count=risk_output.high_risk_count,
-            total_findings=risk_output.total_findings,
-            section_assessments=self._format_section_assessments(state),
-        )
-
-        result = self._invoke_and_parse(
-            config, make_report_system_prompt(), user_prompt
-        )
-        report = self._parse_report_result(result, state)
-
-        return {
-            "compliance_report": report,
-            "current_stage": "complete",
-        }
-```
-
-#### 5. パイプラインオーケストレーション (`src/service/contract_pipeline_service.py`)
-
-LangGraphを使用してパイプラインフローを定義・実行します。
-
-```python
-def create_contract_pipeline_graph() -> StateGraph:
-    """契約リスクコンプライアンスパイプライングラフを作成"""
-    graph = StateGraph(ContractPipelineState)
-
-    # パイプラインステージノードを追加
-    graph.add_node("extraction", extraction_stage_node)
-    graph.add_node("risk_scoring", risk_scoring_stage_node)
-    graph.add_node("report", report_stage_node)
-
-    # 線形パイプラインフローを定義
-    graph.set_entry_point("extraction")
-    graph.add_edge("extraction", "risk_scoring")
-    graph.add_edge("risk_scoring", "report")
-    graph.add_edge("report", END)
-
-    return graph.compile()
-
-
-async def run_contract_compliance_pipeline(
-    contract_file_path: str,
-    model: str = OpenAIModel.GPT_4O,
-) -> ComplianceReport | None:
-    """契約リスクコンプライアンスパイプラインを実行"""
-    graph = create_contract_pipeline_graph()
-    config = RunnableConfig(configurable={"model": model})
-
-    initial_state = _create_initial_state(contract_file_path)
-    final_state = await graph.ainvoke(initial_state, config)
-    return _extract_report_from_state(final_state)
-```
-
-**ポイント**: `StateGraph`を使用して、ステージ間の依存関係と実行順序を宣言的に定義します。
-
-#### 6. 基底エージェントクラス (`src/layer/base.py`)
-
-全エージェントに共通する機能を提供する抽象基底クラスです。
-
-```python
-class BaseAgent(ABC):
-    """全パイプラインエージェントの抽象基底クラス"""
-
-    def _invoke_with_retry(
-        self, model: ChatOpenAI, messages: list, config: RunnableConfig
-    ) -> str:
-        """リトライロジック付きLLM呼び出し"""
-        for attempt in range(MAX_RETRIES):
+    async def _execute_with_retry(self, node, context) -> Any:
+        for attempt in range(self.max_retries + 1):
             try:
-                response = model.invoke(messages, config)
-                if response.content and response.content.strip():
-                    return response.content
+                return await node.execute(context)
             except Exception as e:
-                self.logger.warning(f"Error on attempt {attempt + 1}: {e}")
-
-            if attempt < MAX_RETRIES - 1:
-                time.sleep(RETRY_DELAY_SECONDS)
-
-        raise ValueError(f"Failed after {MAX_RETRIES} attempts")
-
-    def _invoke_and_parse(
-        self,
-        config: RunnableConfig,
-        system_prompt: str,
-        user_prompt: str,
-    ) -> dict:
-        """共通ワークフロー: メッセージ構築 -> LLM呼び出し -> JSON解析"""
-        model = self._create_chat_model(config)
-        messages = self._build_messages(system_prompt, user_prompt)
-        response_content = self._invoke_with_retry(model, messages, config)
-        return extract_json_from_response(response_content)
+                if attempt < self.max_retries:
+                    await asyncio.sleep(2 ** attempt)  # 指数バックオフ
+                else:
+                    raise
 ```
 
-**ポイント**: リトライロジックとJSON解析を共通化し、各エージェントの実装を簡潔にします。
+**ポイント**: 各ノードを指数バックオフ付きでリトライし、一定間隔でチェックポイントを自動作成します。
+
+#### 3. ノード実装 (`src/workflow/nodes.py`)
+
+様々な処理を担うノードクラス群を提供します。
+
+```python
+class PromptNode(Node):
+    """LLMプロンプト実行ノード"""
+    def __init__(self, node_id: str, prompt_template: str, llm_executor):
+        super().__init__(node_id)
+        self.prompt_template = prompt_template
+        self.llm_executor = llm_executor
+
+    async def execute(self, context: ExecutionContext) -> Any:
+        prompt = self.prompt_template.format(**context.variables)
+        result = await self.llm_executor(prompt, context)
+        context.set_variable(f"{self.node_id}_output", result)
+        return result
+
+class IfElseNode(Node):
+    """条件分岐ノード"""
+    def __init__(self, node_id: str, condition: Callable[[ExecutionContext], bool]):
+        super().__init__(node_id)
+        self.condition = condition
+        self.true_branch: str | None = None
+        self.false_branch: str | None = None
+
+    async def execute(self, context: ExecutionContext) -> dict:
+        condition_result = self.condition(context)
+        return {
+            "condition_result": condition_result,
+            "next_branch": self.true_branch if condition_result else self.false_branch,
+        }
+```
+
+**ポイント**: 各ノードは単一の責務を持ち、`execute()`メソッドで処理を実行します。
+
+#### 4. チェックポイント管理 (`src/workflow/checkpoint.py`)
+
+ワークフロー状態を永続化し、障害からの復旧を可能にします。
+
+```python
+class CheckpointManager:
+    def __init__(self, checkpoint_dir: str = "checkpoints"):
+        self.checkpoint_dir = Path(checkpoint_dir)
+        self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
+    def create_checkpoint(self, workflow_id: str, state, context) -> Checkpoint:
+        return Checkpoint(
+            workflow_id=workflow_id,
+            checkpoint_id=uuid4().hex,
+            workflow_state=state.model_dump(),
+            execution_context=context.model_dump(),
+        )
+
+    def save_checkpoint(self, checkpoint: Checkpoint) -> Path:
+        path = self.checkpoint_dir / f"{checkpoint.workflow_id}_{checkpoint.checkpoint_id}.json"
+        path.write_text(checkpoint.to_json(), encoding="utf-8")
+        return path
+
+    def restore_from_checkpoint(self, checkpoint: Checkpoint):
+        return (
+            WorkflowState(**checkpoint.workflow_state),
+            ExecutionContext(**checkpoint.execution_context),
+        )
+```
+
+**ポイント**: チェックポイントをJSON形式で永続化し、障害時に任意のポイントから再開可能です。
 
 ## 使い方
 
@@ -345,176 +231,144 @@ class BaseAgent(ABC):
 
 - Python: 3.13.2以上
 - 依存ライブラリ:
-  - langchain-openai >= 1.1.0
-  - langgraph >= 1.0.0
-  - pydantic >= 2.12.2
   - click >= 8.3.0
+  - google-genai >= 1.45.0
+  - pydantic >= 2.12.2
   - python-dotenv >= 1.1.1
 
 ### セットアップ
 
-1. 環境変数テンプレートをコピー:
+1. 環境変数の設定
 
 ```bash
+# .envrc.exampleをコピーして編集
 cp .envrc.example .envrc
+
+# Gemini APIキーを設定
+# https://aistudio.google.com/app/apikey から取得
+export GEMINI_API_KEY="your-gemini-api-key-here"
 ```
 
-2. `.envrc`にOpenAI APIキーを設定:
-
-```
-OPENAI_API_KEY=your_api_key_here
-```
-
-3. 依存関係をインストール:
+2. 依存関係のインストール
 
 ```bash
+# uvを使用する場合
 uv sync
+
+# pipを使用する場合
+pip install -e .
 ```
 
 ### 使用方法、実行方法
 
 ```bash
-# 基本的な使用方法
-python -m src.main -c data/contract_0.md
+# 利用可能なオプションを表示
+python -m src.main --help
 
-# モデルを指定
-python -m src.main -c data/contract_0.md -m gpt-4o
+# シンプルなGeminiワークフローを実行
+python -m src.main -w example_gemini_simple
 
-# 出力ディレクトリを指定
-python -m src.main -c data/contract_0.md -od reports
+# 条件分岐ワークフローを実行
+python -m src.main -w example_conditional_workflow
+
+# ループワークフローを実行
+python -m src.main -w example_loop_workflow
+
+# チェックポイント/リカバリのデモ
+python -m src.main -w example_checkpoint_recovery
+
+# 複雑なコンテンツ生成パイプライン
+python -m src.main -w example_complex_content_pipeline
+
+# 複雑なリサーチワークフロー
+python -m src.main -w example_complex_research_workflow
+
+# すべてのワークフローを実行
+python -m src.main -w all
 ```
 
 ### CLIオプション
 
-| オプション | 短縮形 | 説明 | デフォルト |
-|-----------|--------|------|-----------|
-| --contract-file | -c | 契約書ファイルパス（必須） | - |
-| --model | -m | 使用するOpenAIモデル | gpt-4o-mini |
-| --output-directory | -od | レポート出力ディレクトリ | outputs |
-| --help | - | ヘルプを表示 | - |
+```
+Usage: python -m src.main [OPTIONS]
 
-### 利用可能なモデル
+  Run workflow orchestration examples.
 
-- gpt-4o, gpt-4o-mini
-- gpt-4.1, gpt-4.1-mini, gpt-4.1-nano
-- gpt-5, gpt-5-mini, gpt-5-nano
+Options:
+  -w, --workflow [example_gemini_simple|example_checkpoint_recovery|example_loop_workflow|example_conditional_workflow|example_complex_content_pipeline|example_complex_research_workflow|all]
+                                  Workflow to run. Use 'all' to run all
+                                  workflows.
+  --help                          Show this message and exit.
+```
 
 ### 出力例
 
-実行後、以下のようなMarkdownレポートが生成されます:
+```
+$ python -m src.main -w example_conditional_workflow
 
-```markdown
-# 契約書リスクコンプライアンスレポート
-
-**契約書**: ソフトウェア開発業務委託契約書
-**レポートID**: report_a1b2c3d4
-**生成日時**: 2024-01-15 14:30:00
-
----
-
-## エグゼクティブサマリー
-
-### 総合評価
-- **コンプライアンス状態**: ⚠️ 要確認
-- **リスクスコア**: 45/100
-
-本契約書は全体として標準的な業務委託契約の形式を取っていますが、
-いくつかの条項について確認・交渉が推奨されます。
-
-### 主要な懸念事項
-- 再委託に関する制限が緩い
-- 損害賠償の上限が委託料総額に制限されている
-
-### 即時対応が必要な事項
-- ⚠️ 第6条（再委託）の条件を明確化する必要があります
-
----
-
-## リスク分析
-
-### 責任・賠償
-- **検出件数**: 2件
-- **主な問題点**:
-  - 損害賠償額の上限設定
-  - 間接損害の扱いが不明確
-
----
-
-## セクション別評価詳細
-
-### ⚠️ 第6条 再委託
-- **リスクレベル**: 🟠 高
-- **コンプライアンス**: 要確認
-
-**検出されたリスク:**
-
-- **再委託の無制限許可**
-  - カテゴリ: 責任・賠償
-  - レベル: 🟠 高
-  - 推奨対応: 再委託先の事前承認制度を導入する
-
----
-
-## 総合的な推奨事項
-
-1. 第6条の再委託条項について、事前承認制度の導入を検討
-2. 第18条の損害賠償上限について、間接損害の取り扱いを明確化
-3. 秘密保持期間（3年）の適切性を再検討
-
----
-
-## 結論
-
-本契約書は基本的な構成は整っていますが、いくつかの条項について
-リスク軽減のための修正交渉を推奨します。特に再委託条項と
-損害賠償条項については、契約締結前に詳細な検討が必要です。
+[2025-01-15 10:30:00] [INFO] Running: example_conditional_workflow
+[2025-01-15 10:30:00] [INFO] ============================================================
+[2025-01-15 10:30:00] [INFO] Example: Conditional Workflow
+[2025-01-15 10:30:00] [INFO] ============================================================
+[2025-01-15 10:30:00] [INFO] Starting workflow: conditional
+[2025-01-15 10:30:00] [INFO] Workflow conditional validated
+[2025-01-15 10:30:00] [INFO] Executing: start (Start)
+[2025-01-15 10:30:00] [INFO] Starting workflow: conditional
+[2025-01-15 10:30:00] [INFO] Executing: age_check (Check Age)
+[2025-01-15 10:30:00] [INFO] Evaluating condition: Check Age
+[2025-01-15 10:30:00] [INFO] Condition result: True
+[2025-01-15 10:30:00] [INFO] Executing: adult (Adult Path)
+[2025-01-15 10:30:00] [INFO] Executing script: Adult Path
+[2025-01-15 10:30:00] [INFO] Executing: end (End)
+[2025-01-15 10:30:00] [INFO] Ending workflow: conditional
+[2025-01-15 10:30:00] [INFO] Reached end: end
+[2025-01-15 10:30:00] [INFO] Workflow conditional completed
+[2025-01-15 10:30:00] [INFO] Completed: completed (4 nodes)
 ```
 
-## 開発コマンド
+### プログラムからの使用例
 
-```bash
-# コードのリント
-make lint
+```python
+from src.client import GeminiModel, create_executor
+from src.workflow import ExecutionContext, WorkflowBuilder, WorkflowEngine
 
-# コードのフォーマット
-make fmt
+async def run_review_pipeline():
+    # Gemini Executorを作成
+    executor = create_executor(
+        model=GeminiModel.GEMINI_2_5_FLASH,
+        system_instruction="You are a helpful assistant."
+    )
 
-# リントとフォーマットを両方実行
-make fix
+    # 条件判定関数
+    def check_quality(ctx: ExecutionContext) -> bool:
+        return ctx.get_variable("quality_score", 0) >= 7
 
-# 型チェック
-make mypy
+    # ワークフローを定義
+    workflow = (
+        WorkflowBuilder("review_pipeline", "Review Processing")
+        .add_start_node("start", initial_data={"review": "素晴らしい商品です！"})
+        .add_prompt_node(
+            "analyze",
+            prompt_template="以下のレビューを分析してください: {review}",
+            llm_executor=executor
+        )
+        .add_if_else_node("quality_check", condition=check_quality)
+        .add_script_node("accept", func=lambda ctx: {"status": "accepted"})
+        .add_script_node("refine", func=lambda ctx: {"status": "needs_review"})
+        .add_end_node("end")
+        .add_edge("start", "analyze")
+        .add_edge("analyze", "quality_check")
+        .set_if_else_branches("quality_check", "accept", "refine")
+        .add_edge("accept", "end")
+        .add_edge("refine", "end")
+        .build()
+    )
+
+    # ワークフローを実行
+    engine = WorkflowEngine(enable_checkpointing=True, max_retries=3)
+    result = await engine.execute(workflow)
+
+    print(f"Status: {result['status']}")
+    print(f"Nodes executed: {result['nodes_executed']}")
+    return result
 ```
-
-## 実装のポイント
-
-### パイプライン状態フロー
-
-各ステージは共有の`ContractPipelineState`を更新します:
-
-1. **extraction**: `extraction_output`と`pending_sections`を設定
-2. **risk_scoring**: 全セクションから`risk_scoring_output`を設定
-3. **report**: 最終分析を含む`compliance_report`を設定
-
-### リスク評価カテゴリ
-
-システムは10のリスクカテゴリで契約書を評価します:
-
-| カテゴリ | 日本語名 |
-|---------|---------|
-| intellectual_property | 知的財産権 |
-| liability | 責任・賠償 |
-| confidentiality | 秘密保持 |
-| termination | 契約解除 |
-| payment | 支払条件 |
-| compliance | 法令遵守 |
-| warranty | 保証 |
-| indemnification | 補償 |
-| dispute_resolution | 紛争解決 |
-| other | その他 |
-
-### エラーハンドリング
-
-- LLM呼び出しにはリトライロジック（3回試行、2秒間隔）を実装
-- JSON解析には切り詰められたレスポンスの修正機能を含む
-- 評価に失敗したセクションにはデフォルトでMEDIUMリスクレベルを設定

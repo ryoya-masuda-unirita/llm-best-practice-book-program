@@ -21,9 +21,9 @@ class OpenAIModel(StrEnum):
     GPT_4O = "gpt-4o"
     GPT_4O_MINI = "gpt-4o-mini"
 
-    @staticmethod
-    def list_str() -> list[str]:
-        return list(OpenAIModel)
+    @classmethod
+    def list_str(cls) -> list[str]:
+        return list(cls)
 
 
 openai_client = AsyncOpenAI(api_key=config.openai_api_key)

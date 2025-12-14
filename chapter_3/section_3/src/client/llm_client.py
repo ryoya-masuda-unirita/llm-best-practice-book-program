@@ -1,25 +1,18 @@
 from enum import StrEnum
 
-from anthropic import AsyncAnthropic
+from google import genai
 
 from src.config import config
 
 
-class AnthropicModel(StrEnum):
-    CLAUDE_SONNET_4_5 = "claude-sonnet-4-5"
-    CLAUDE_OPUS_4 = "claude-opus-4"
+class GeminiModel(StrEnum):
+    GEMINI_2_5_PRO = "gemini-2.5-pro"
+    GEMINI_2_5_FLASH = "gemini-2.5-flash"
+    GEMINI_2_5_FLASH_LITE = "gemini-2.5-flash-lite"
 
-    @classmethod
-    def all_models(cls) -> list[str]:
-        return list(cls)
-
-    @classmethod
-    def free_plan_models(cls) -> list[str]:
-        return [cls.CLAUDE_SONNET_4_5]
-
-    @classmethod
-    def standard_plan_models(cls) -> list[str]:
-        return cls.all_models()
+    @staticmethod
+    def list_str() -> list[str]:
+        return [model for model in GeminiModel]
 
 
-anthropic_client = AsyncAnthropic(api_key=config.anthropic_api_key)
+google_genai_client = genai.Client(api_key=config.gemini_api_key)

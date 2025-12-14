@@ -1,251 +1,337 @@
-# Chapter 4 Section 3: マルチAIエージェントによる契約書レビューシステム
+# Chapter 4 Section 3: LLMサービスインターフェイスの分離
 
 ## 概要
 
-本プロジェクトは、マルチAIエージェントアーキテクチャを用いた契約書レビューシステムです。単一のLLMでは対応が困難な複雑な契約書レビュータスクを、6つの専門エージェントが協調して処理することで、高精度なリスク評価と修正提案を実現します。
+本プロジェクトは、**インターフェイス分離の原則（Interface Segregation Principle: ISP）** を適用したLLM APIサービスの実装例です。Anthropic Claude APIを使用し、テキスト生成とテキスト分類という2つの機能を、それぞれ独立したサービスインターフェイスとして定義することで、保守性と拡張性に優れたシステムを実現しています。
 
-マルチAIエージェントは、それぞれが特定の役割や専門知識を持つ複数のAIエージェントを協調させて動作させるアーキテクチャパターンです。タスクの分解、各エージェントへの割り当て、そして結果の統合という一連のプロセスを通じて、システム全体として高度な問題解決能力を実現します。
-
-本システムでは、契約書のアップロードから、条項の抽出、カテゴリ分類、リスク評価、標準契約との差分検出、修正案の提案、最終レポートの生成までを自動化します。法務部門の支援ツールとして、「どこを重点的に確認すべきか」のナビゲーションを提供します。
+単一の巨大なLLMサービスクラスではなく、機能ごとに分離されたインターフェイスを採用することで、各コンポーネントは必要な機能にのみ依存できます。これにより、テストの簡素化、安全な機能拡張、そしてユーザープランに基づく柔軟なアクセス制御が可能になります。
 
 ## 機能
 
-- **契約書構造解析**: マークダウン形式の契約書を条項ごとに構造化データとして抽出
-- **条項カテゴリ分類**: 守秘義務、損害賠償、再委託、知的財産など9種類のカテゴリに自動分類
-- **リスク評価**: 各条項を1-10のスコアでリスク評価し、リスク要因を特定
-- **標準契約との差分検出**: 自社標準テンプレートとの差分を検出し、追加・削除・修正を明示
-- **修正案の自動提案**: 高リスク条項に対する修正文案と交渉ポイントを提案
-- **レビューレポート生成**: 非法務ステークホルダー向けのエグゼクティブサマリーを含む包括的レポートを生成
+- **インターフェイス分離**: 機能ごとに独立したサービスインターフェイスを定義（ITextGenerationService、ITextClassificationService）
+- **依存性注入コンテナ**: ServiceContainerによる集中的なサービス管理
+- **プランベースのモデル制限**: ユーザープラン（Free/Standard）に応じた利用可能モデルの制御
+- **構造化出力**: Pydanticモデルを活用した型安全なLLM応答
+- **RESTful API**: FastAPIによる2つの独立したエンドポイント（/generate、/classify）
+- **非同期処理**: async/awaitパターンによる効率的なAPI呼び出し
+- **ログ出力**: 詳細なログ機能による実行状況の可視化
+- **Docker対応**: コンテナ化による簡単なデプロイメント
 
 ## プロジェクト構成
 
 ### ディレクトリ構成
 
 ```
-chapter_4/section_3/
+chapter_3/section_3/
 ├── src/
-│   ├── __init__.py
-│   ├── main.py                      # CLIエントリーポイント
-│   ├── config.py                    # 環境設定
-│   ├── logger.py                    # ロギング設定
+│   ├── __init__.py              # パッケージ初期化
+│   ├── config.py                # 設定管理（APIキー読み込み）
+│   ├── logger.py                # ロギング設定
+│   ├── api/
+│   │   ├── __init__.py
+│   │   └── llm_server.py        # FastAPI アプリケーション
 │   ├── client/
 │   │   ├── __init__.py
-│   │   └── llm_client.py            # Anthropic LLMクライアント
+│   │   └── llm_client.py        # Anthropicクライアント初期化
 │   ├── model/
 │   │   ├── __init__.py
-│   │   └── multi_agent_model.py     # データモデル定義
+│   │   └── model.py             # Pydanticデータモデル定義
 │   ├── prompt/
 │   │   ├── __init__.py
-│   │   └── multi_agent_prompt.py    # 各エージェントのプロンプト
+│   │   └── prompt.py            # プロンプト生成ロジック
 │   └── service/
 │       ├── __init__.py
-│       └── multi_agent_service.py   # マルチエージェントサービス
-├── example/                          # サンプル契約書
-│   ├── standard_nda_template.md
-│   ├── sample_nda.md
-│   ├── sample_nda_02.md
-│   ├── sample_nda_03.md
-│   ├── standard_purchase_order_template.md
-│   ├── sample_purchase_order_01.md
-│   ├── sample_purchase_order_02.md
-│   ├── standard_consulting_template.md
-│   ├── sample_consulting_01.md
-│   └── sample_consulting_02.md
-├── outputs/                          # 出力レポート保存先
-├── pyproject.toml
-├── .envrc.example
-├── CLAUDE.md
-└── README.md
+│       ├── interfaces.py        # サービスインターフェイス定義（ISP）
+│       ├── container.py         # 依存性注入コンテナ
+│       ├── text_generation_service.py    # テキスト生成サービス実装
+│       └── text_classification_service.py # テキスト分類サービス実装
+├── .env.example                 # 環境変数設定のサンプル
+├── docker-compose.yml           # Docker Compose設定
+├── Dockerfile.web               # Webサーバー用Dockerfile
+├── Makefile                     # 開発用コマンド定義
+├── pyproject.toml               # プロジェクト依存関係
+└── README.md                    # このファイル
 ```
 
 ### アーキテクチャ
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        Contract Review Pipeline                          │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐               │
-│  │   Contract   │───▶│  Document    │───▶│   Clause     │               │
-│  │    Input     │    │   Parser     │    │  Classifier  │               │
-│  └──────────────┘    │   Agent      │    │    Agent     │               │
-│                      └──────────────┘    └──────┬───────┘               │
-│                                                 │                        │
-│                                                 ▼                        │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐               │
-│  │   Standard   │───▶│    Diff      │◀───│    Risk      │               │
-│  │   Template   │    │   Checker    │    │  Assessment  │               │
-│  └──────────────┘    │    Agent     │    │    Agent     │               │
-│                      └──────┬───────┘    └──────────────┘               │
-│                             │                                            │
-│                             ▼                                            │
-│                      ┌──────────────┐    ┌──────────────┐               │
-│                      │  Amendment   │───▶│   Report     │               │
-│                      │  Proposer    │    │  Generator   │               │
-│                      │    Agent     │    │    Agent     │               │
-│                      └──────────────┘    └──────┬───────┘               │
-│                                                 │                        │
-│                                                 ▼                        │
-│                                          ┌──────────────┐               │
-│                                          │   Review     │               │
-│                                          │   Report     │               │
-│                                          └──────────────┘               │
-└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                        FastAPI Server                           │
+│  ┌─────────────────┐              ┌─────────────────────────┐  │
+│  │  POST /generate │              │    POST /classify       │  │
+│  └────────┬────────┘              └───────────┬─────────────┘  │
+└───────────┼───────────────────────────────────┼─────────────────┘
+            │                                   │
+            ▼                                   ▼
+┌───────────────────────────────────────────────────────────────────┐
+│                      ServiceContainer (DI)                        │
+│  ┌────────────────────────────┐  ┌────────────────────────────┐  │
+│  │ get_text_generation_service│  │get_text_classification_service│
+│  └─────────────┬──────────────┘  └──────────────┬─────────────┘  │
+└────────────────┼────────────────────────────────┼─────────────────┘
+                 │                                │
+                 ▼                                ▼
+┌────────────────────────────┐    ┌────────────────────────────────┐
+│ ITextGenerationService     │    │ ITextClassificationService     │
+│ (Abstract Interface)       │    │ (Abstract Interface)           │
+└─────────────┬──────────────┘    └──────────────┬─────────────────┘
+              │                                  │
+              ▼                                  ▼
+┌────────────────────────────┐    ┌────────────────────────────────┐
+│ TextGenerationService      │    │ TextClassificationService      │
+│ (Concrete Implementation)  │    │ (Concrete Implementation)      │
+└─────────────┬──────────────┘    └──────────────┬─────────────────┘
+              │                                  │
+              └──────────────┬───────────────────┘
+                             ▼
+                 ┌───────────────────────┐
+                 │   Anthropic Client    │
+                 │   (AsyncAnthropic)    │
+                 └───────────────────────┘
 ```
 
 ### 実装の詳細
 
-#### 1. エージェント状態管理 (`src/model/multi_agent_model.py`)
+#### 1. サービスインターフェイス (`src/service/interfaces.py`)
 
-LangGraphの`TypedDict`を使用して、エージェント間で共有される状態を管理します。
-
-```python
-class AgentState(TypedDict):
-    """State for the multi-agent contract review system."""
-
-    messages: Annotated[Sequence[BaseMessage], add_messages]
-    contract_text: str
-    standard_template: str
-    parsed_clauses: list[dict]
-    clause_categories: list[dict]
-    risk_assessments: list[dict]
-    diffs: list[dict]
-    amendments: list[dict]
-    final_report: str | None
-```
-
-**ポイント**: 各エージェントの出力が次のエージェントの入力となるパイプライン構造を、`AgentState`で一元管理しています。
-
-#### 2. データモデル (`src/model/multi_agent_model.py`)
-
-契約書レビューの各段階で生成されるデータをPydanticモデルで定義しています。
+インターフェイス分離の原則に基づき、機能ごとに独立したインターフェイスを定義します：
 
 ```python
-class RiskAssessment(BaseModel):
-    """Risk assessment for a clause."""
+from abc import ABC, abstractmethod
+from anthropic import AsyncAnthropic
 
-    clause_number: str = Field(..., description="Clause number")
-    risk_level: str = Field(..., description="Risk level: 高, 中, 低")
-    risk_score: int = Field(..., ge=1, le=10, description="Risk score from 1 to 10")
-    risk_factors: list[str] = Field(..., description="List of risk factors identified")
-    explanation: str = Field(..., description="Detailed explanation of risk assessment")
+class ITextGenerationService(ABC):
+    """テキスト生成サービスのインターフェイス"""
+
+    def __init__(self, client: AsyncAnthropic):
+        self.client = client
+
+    @abstractmethod
+    async def generate_character(
+        self,
+        gender: str,
+        age: int,
+        additional_instructions: str | None,
+        model: str,
+        user_plan: UserPlan,
+    ) -> CharacterResponse:
+        pass
+
+
+class ITextClassificationService(ABC):
+    """テキスト分類サービスのインターフェイス"""
+
+    def __init__(self, client: AsyncAnthropic):
+        self.client = client
+
+    @abstractmethod
+    async def classify(
+        self,
+        text: str,
+        categories: list[str],
+        model: str,
+        user_plan: UserPlan,
+    ) -> ClassificationResult:
+        pass
 ```
 
-**ポイント**: `Field`のバリデーション機能（`ge=1, le=10`）により、LLMの出力が期待される範囲内であることを保証します。
+**ポイント**:
+- 各インターフェイスは単一の責務のみを持つ（単一責任の原則）
+- クライアントは必要なインターフェイスのみに依存できる
+- テストやモックの作成が容易になる
+- 新しい機能追加時に既存インターフェイスへの影響を最小化
 
-#### 3. エージェントプロンプト (`src/prompt/multi_agent_prompt.py`)
+#### 2. プランベースのモデル制限 (`src/client/llm_client.py`)
 
-各専門エージェントのシステムプロンプトと、動的なユーザープロンプト生成関数を定義しています。
+ユーザープランに応じて利用可能なモデルを制限します：
 
 ```python
-RISK_ASSESSMENT_SYSTEM_PROMPT = """あなたは契約リスクを評価する専門AIエージェントです。
+class AnthropicModel(StrEnum):
+    CLAUDE_SONNET_4_5 = "claude-sonnet-4-5"
+    CLAUDE_OPUS_4 = "claude-opus-4"
 
-## 役割
-各契約条項のリスクレベルを評価し、リスク要因を特定します。
+    @classmethod
+    def free_plan_models(cls) -> list[str]:
+        """Freeプランで利用可能なモデル"""
+        return [cls.CLAUDE_SONNET_4_5]
 
-## 評価基準
-以下の観点からリスクを評価してください：
-
-1. **一方的な不利益**: 受領者（乙）に一方的に不利な条件
-2. **過度な義務**: 通常の商慣習を超えた義務の課せられ方
-3. **曖昧な表現**: 解釈の余地が大きく紛争の原因になりうる表現
-4. **実務上の困難**: 実際の業務遂行上、遵守が困難な条件
-5. **法的リスク**: 法令違反や公序良俗に反する可能性
-6. **財務リスク**: 過大な損害賠償、違約金のリスク
-
-## リスクレベル
-- 高（スコア7-10）: 直ちに修正交渉が必要
-- 中（スコア4-6）: 注意が必要、可能であれば修正を検討
-- 低（スコア1-3）: 標準的な条項、特段の問題なし
-"""
+    @classmethod
+    def standard_plan_models(cls) -> list[str]:
+        """Standardプランで利用可能なモデル（全モデル）"""
+        return cls.all_models()
 ```
 
-**ポイント**: 各エージェントの役割と評価基準を明確に定義することで、一貫性のある分析結果を得られます。
+**制限内容**:
 
-#### 4. LangGraphによるパイプライン構築 (`src/service/multi_agent_service.py`)
+| プラン | 利用可能なモデル |
+|--------|------------------|
+| FREE | claude-sonnet-4-5 |
+| STANDARD | claude-sonnet-4-5, claude-opus-4 |
 
-6つのエージェントノードを順次接続するグラフを構築します。
+#### 3. 具象サービス実装 (`src/service/text_generation_service.py`)
+
+インターフェイスを実装した具体的なサービスクラス：
 
 ```python
-def create_contract_review_graph() -> StateGraph:
-    """Create the multi-agent contract review graph."""
-    graph = StateGraph(AgentState)
+class TextGenerationService(ITextGenerationService):
+    """テキスト生成サービスの具象実装"""
 
-    # ノードの追加
-    graph.add_node("document_parser", document_parser_node)
-    graph.add_node("clause_classifier", clause_classifier_node)
-    graph.add_node("risk_assessment", risk_assessment_node)
-    graph.add_node("diff_checker", diff_checker_node)
-    graph.add_node("amendment_proposer", amendment_proposer_node)
-    graph.add_node("report_generator", report_generator_node)
+    def __init__(self, client: AsyncAnthropic):
+        super().__init__(client=client)
 
-    # エントリーポイントの設定
-    graph.set_entry_point("document_parser")
+    async def generate_character(
+        self,
+        gender: str,
+        age: int,
+        additional_instructions: str | None,
+        model: str,
+        user_plan: UserPlan,
+    ) -> CharacterResponse:
+        # モデルの利用可能性チェック
+        available_models = get_available_models(user_plan)
+        if model not in available_models:
+            raise ValueError(f"Model '{model}' is not available for {user_plan.value} plan")
 
-    # エッジの定義（パイプライン構造）
-    graph.add_edge("document_parser", "clause_classifier")
-    graph.add_edge("clause_classifier", "risk_assessment")
-    graph.add_edge("risk_assessment", "diff_checker")
-    graph.add_edge("diff_checker", "amendment_proposer")
-    graph.add_edge("amendment_proposer", "report_generator")
-    graph.add_edge("report_generator", END)
+        # プロンプト生成とLLM呼び出し
+        character_request = CharacterRequest(gender=gender, age=age, ...)
+        prompt = make_generation_prompt(character_request=character_request)
 
-    return graph.compile()
+        result = await self.client.beta.messages.parse(
+            model=model,
+            max_tokens=1024,
+            betas=["structured-outputs-2025-11-13"],
+            messages=prompt,
+            output_format=CharacterResponse,
+        )
+        return result.parsed_output
 ```
 
-**ポイント**: LangGraphの`StateGraph`を使用することで、エージェント間のデータフローを宣言的に定義できます。
+**ポイント**:
+- インターフェイスで定義された契約を遵守
+- ユーザープランに基づくモデル制限を実装
+- 構造化出力による型安全なレスポンス
 
-#### 5. LLM応答のJSON抽出 (`src/service/multi_agent_service.py`)
+#### 4. 依存性注入コンテナ (`src/service/container.py`)
 
-LLMの応答からJSONを安全に抽出するユーティリティ関数を実装しています。
+サービスインスタンスを集中管理するコンテナパターン：
 
 ```python
-def extract_json_from_response(response_text: str) -> dict:
-    """Extract JSON from LLM response text."""
-    # ```json ... ``` 形式の抽出を試みる
-    json_match = re.search(r"```json\s*([\s\S]*?)\s*```", response_text)
-    if json_match:
-        json_str = json_match.group(1)
-    else:
-        # 直接JSONオブジェクトを探す
-        json_match = re.search(r"\{[\s\S]*\}", response_text)
-        if json_match:
-            json_str = json_match.group(0)
-        else:
-            json_str = response_text
+class ServiceContainer:
+    """LLMサービスインスタンスの管理コンテナ"""
 
-    return json.loads(json_str)
+    def __init__(self):
+        self._text_generation_service = TextGenerationService(client=anthropic_client)
+        self._text_classification_service = TextClassificationService(client=anthropic_client)
+
+    def get_text_generation_service(self) -> ITextGenerationService:
+        return self._text_generation_service
+
+    def get_text_classification_service(self) -> ITextClassificationService:
+        return self._text_classification_service
+
+
+service_container = ServiceContainer()
 ```
 
-**ポイント**: LLMの出力形式の揺らぎに対応するため、複数のパターンでJSON抽出を試みます。
+**ポイント**:
+- サービスライフサイクルの集中管理
+- LLMクライアントの再利用によるリソース効率化
+- テスト時のモック注入が容易
+- 戻り値の型はインターフェイス（抽象型）
+
+#### 5. FastAPI エンドポイント (`src/api/llm_server.py`)
+
+分離されたサービスインターフェイスを利用するAPIエンドポイント：
+
+```python
+@app.post("/generate", response_model=LLMResponse)
+async def generate_character(request: LLMRequest):
+    """キャラクター生成エンドポイント"""
+    service = service_container.get_text_generation_service()
+
+    character = await service.generate_character(
+        gender=request.character_request.gender,
+        age=request.character_request.age,
+        additional_instructions=request.character_request.additional_instructions,
+        model=request.model,
+        user_plan=request.user_plan,
+    )
+
+    return LLMResponse(character=character, model=request.model, ...)
+
+
+@app.post("/classify", response_model=TextClassificationResponse)
+async def classify_text(request: TextClassificationRequest):
+    """テキスト分類エンドポイント"""
+    service = service_container.get_text_classification_service()
+
+    result = await service.classify(
+        text=request.text,
+        categories=request.categories,
+        model=request.model,
+        user_plan=request.user_plan,
+    )
+
+    return TextClassificationResponse(category=result.category, model=request.model, ...)
+```
+
+**ポイント**:
+- 各エンドポイントは必要なインターフェイスのみに依存
+- ServiceContainerによるサービスの取得（依存性注入パターン）
+- 一つのサービスの変更が他方に影響しない
+
+#### 6. データモデル (`src/model/model.py`)
+
+Pydanticを使用した型安全なデータモデル：
+
+```python
+class UserPlan(StrEnum):
+    """ユーザープランの種類"""
+    FREE = "free"
+    STANDARD = "standard"
+
+
+class CharacterResponse(BaseModel):
+    """キャラクター生成のレスポンスモデル"""
+    first_name: str
+    last_name: str
+    gender: Gender
+    age: int
+    personalities: list[CharacterPersonality]
+
+
+class ClassificationResult(BaseModel):
+    """テキスト分類の結果モデル"""
+    reasoning: str
+    category: str
+    confidence: Optional[str]
+```
 
 ## 使い方
 
 ### 環境構成
 
-- Python: 3.13.2以上
-- 主要な依存ライブラリ:
-  - `anthropic>=0.74.1` - Anthropic API クライアント
-  - `langchain-anthropic>=1.2.0` - LangChain Anthropic統合
-  - `langgraph>=1.0.0` - マルチエージェントグラフ構築
-  - `pydantic>=2.12.2` - データバリデーション
-  - `click>=8.3.0` - CLIフレームワーク
+- **Python**: 3.13.2以上
+- **依存ライブラリ**:
+  - anthropic>=0.74.1
+  - fastapi>=0.119.0
+  - uvicorn>=0.37.0
+  - pydantic>=2.12.2
+  - python-dotenv>=1.1.1
 
 ### セットアップ
 
-1. 環境変数の設定
+1. **環境変数ファイルの作成**
 
 ```bash
-cp .envrc.example .envrc
+cp .env.example .envrc
+
+# .envrcを編集してAPIキーを設定
+# ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
 ```
 
-`.envrc`を編集してAPIキーを設定:
-
-```
-ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
-```
-
-2. 依存関係のインストール
+2. **依存関係のインストール**
 
 ```bash
 uv sync
@@ -253,129 +339,153 @@ uv sync
 
 ### 使用方法、実行方法
 
-#### 基本的な使い方
+#### 開発サーバーの起動
 
 ```bash
-python -m src.main -c <契約書ファイル> -t <テンプレートファイル>
+uv run uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-#### CLIオプション
+サーバーが起動すると、以下のURLでアクセスできます：
+- API: http://localhost:8000
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
 
-```
-Usage: python -m src.main [OPTIONS]
-
-  Contract Review Multi-Agent System
-
-  This system reviews contract documents using multiple specialized AI agents:
-
-  1. Document Parser Agent - Parses contract into structured clauses
-  2. Clause Classifier Agent - Categorizes each clause
-  3. Risk Assessment Agent - Evaluates risk levels
-  4. Diff Checker Agent - Compares with standard template
-  5. Amendment Proposer Agent - Suggests modifications for high-risk clauses
-  6. Report Generator Agent - Creates comprehensive review report
-
-Options:
-  -m, --model [claude-sonnet-4-5|claude-opus-4-1]
-                                  The Anthropic model to use for the review.
-  -od, --output-directory PATH    The directory to save output files.
-  -c, --contract-file PATH        Path to the contract file to review (markdown format). [required]
-  -t, --template-file PATH        Path to the standard contract template file (markdown format). [required]
-  --help                          Show this message and exit.
-```
-
-#### 実行例
-
-**NDA契約書のレビュー:**
+#### Docker を使用した起動
 
 ```bash
-python -m src.main \
-  -c example/sample_nda.md \
-  -t example/standard_nda_template.md \
-  -od outputs
+make docker-build
+make docker-up
+make docker-logs   # ログの確認
+make docker-down   # コンテナの停止
 ```
 
-**物品売買契約書のレビュー:**
+### API の使用例
+
+#### 1. ヘルスチェック
 
 ```bash
-python -m src.main \
-  -c example/sample_purchase_order_01.md \
-  -t example/standard_purchase_order_template.md
+curl http://localhost:8000/health
 ```
 
-**コンサルティング契約書のレビュー（モデル指定）:**
+**レスポンス例**:
+```json
+{
+  "status": "healthy",
+  "timestamp": 1698765432.123
+}
+```
+
+#### 2. キャラクター生成（Free Plan）
 
 ```bash
-python -m src.main \
-  -m claude-opus-4-1 \
-  -c example/sample_consulting_02.md \
-  -t example/standard_consulting_template.md \
-  -od reports
+curl -X POST http://localhost:8000/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-sonnet-4-5",
+    "user_plan": "free",
+    "character_request": {
+      "gender": "female",
+      "age": 25,
+      "additional_instructions": "冒険家で勇敢な性格にしてください"
+    }
+  }'
+```
+
+**レスポンス例**:
+```json
+{
+  "character": {
+    "first_name": "アリサ",
+    "last_name": "高橋",
+    "gender": "female",
+    "age": 25,
+    "personalities": [
+      {
+        "short_personality": "勇敢な冒険家",
+        "description": "未知の場所や危険な状況でも臆することなく前進する。"
+      },
+      {
+        "short_personality": "楽観的なリーダー",
+        "description": "困難な状況でも明るさを失わず、周囲を勇気づける。"
+      },
+      {
+        "short_personality": "好奇心旺盛",
+        "description": "世界中の文化や歴史に強い興味を持ち、常に新しい知識を吸収する。"
+      }
+    ]
+  },
+  "model": "claude-sonnet-4-5",
+  "processing_time_ms": 1234.56
+}
+```
+
+#### 3. テキスト分類
+
+```bash
+curl -X POST http://localhost:8000/classify \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-sonnet-4-5",
+    "user_plan": "free",
+    "text": "この製品は素晴らしい！期待以上の品質でした。",
+    "categories": ["ポジティブ", "ネガティブ", "中立"]
+  }'
+```
+
+**レスポンス例**:
+```json
+{
+  "category": "ポジティブ",
+  "model": "claude-sonnet-4-5",
+  "processing_time_ms": 567.89,
+  "classification_result": {
+    "reasoning": "「素晴らしい」「期待以上」などの明確に肯定的な表現が含まれているため",
+    "category": "ポジティブ",
+    "confidence": "high"
+  }
+}
+```
+
+#### 4. プラン制限のエラー例
+
+Free Planユーザーが上位モデルを使用しようとした場合：
+
+```bash
+curl -X POST http://localhost:8000/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-opus-4",
+    "user_plan": "free",
+    "character_request": {
+      "gender": "male",
+      "age": 30,
+      "additional_instructions": null
+    }
+  }'
+```
+
+**エラーレスポンス**:
+```json
+{
+  "detail": "Model 'claude-opus-4' is not available for free plan. Available models: claude-sonnet-4-5"
+}
 ```
 
 ### 出力例
 
-レビュー結果は`outputs/`ディレクトリにMarkdown形式で保存されます。
+#### コンソールログ出力
 
-```markdown
-# 契約書レビューレポート
+```
+[2025-10-25 10:30:45] [INFO] [src.service.text_generation_service] Generating character using Anthropic model: claude-sonnet-4-5
+[2025-10-25 10:30:47] [INFO] [src.api.llm_server] Successfully generated character using claude-sonnet-4-5 for free plan in 1234.56ms
 
-## エグゼクティブサマリー
-**総合リスクレベル**: 高
-**総合リスクスコア**: 7.5 / 10.0
-
-本契約書には、受領者（乙）にとって重大なリスクを含む条項が複数存在します。
-特に、第4条（再委託）、第7条（損害賠償）、第9条（知的財産権）、第11条（契約解除）
-については、自社標準から大きく逸脱しており、早急な修正交渉が必要です。
-
-## 主要な論点
-1. 再委託条項で受領者の責任が免除されており、管理リスクが高い
-2. 損害賠償の上限が1万円と極端に低く設定されている
-3. 独自開発した知的財産も開示者に帰属する条項がある
-4. 事前通知なしの監査権限が付与されている
-
-## 推奨アクション
-1. 相手方に修正依頼（第4条、第7条、第9条、第11条）
-2. 上長決裁が必要
-3. 法務部門の詳細レビュー必要
-
-## リスク評価詳細
-
-### 高リスク条項
-
-#### 第7条
-- **リスクスコア**: 9/10
-- **リスク要因**:
-  - 損害賠償上限が1万円と極端に低い
-  - 間接損害・逸失利益が完全に免責されている
-- **詳細説明**: 契約違反による損害が発生しても、実質的な補償を受けられない...
-
-## 修正提案
-
-### 第7条
-**現行文言**:
-> 乙が本契約に違反し、甲に損害を与えた場合、乙は甲に対し、直接損害に限り、
-> 上限1万円までの賠償責任を負うものとする。
-
-**修正案**:
-> 甲または乙が本契約に違反し、相手方に損害を与えた場合、違反当事者は
-> 相手方に対し、通常かつ直接の損害について賠償責任を負う。
-
-**修正理由**: 双方対等な損害賠償責任とし、適切な賠償範囲を設定する
-
-**交渉ポイント**:
-- 現行の上限1万円では実質的に無責任であり、契約の拘束力が弱まる
-- 双方向の義務とすることで、相手方にもメリットがある
+[2025-10-25 10:31:12] [INFO] [src.service.text_classification_service] Classifying text using Anthropic model: claude-sonnet-4-5
+[2025-10-25 10:31:13] [INFO] [src.service.text_classification_service] Classification result: ポジティブ (confidence: high) - 「素晴らしい」などの肯定的表現が含まれているため
+[2025-10-25 10:31:13] [INFO] [src.api.llm_server] Successfully classified text using claude-sonnet-4-5 for free plan in 789.12ms. Result: ポジティブ
 ```
 
-## サンプル契約書
+#### プラン制限の警告ログ
 
-`example/`ディレクトリには、3種類の契約書タイプのサンプルとテンプレートが含まれています：
-
-| 契約タイプ | テンプレート | サンプル |
-|-----------|-------------|---------|
-| NDA（秘密保持契約） | `standard_nda_template.md` | `sample_nda.md`, `sample_nda_02.md`, `sample_nda_03.md` |
-| 物品売買契約 | `standard_purchase_order_template.md` | `sample_purchase_order_01.md`, `sample_purchase_order_02.md` |
-| コンサルティング契約 | `standard_consulting_template.md` | `sample_consulting_01.md`, `sample_consulting_02.md` |
-
-サンプル契約書には意図的に問題のある条項（一方的な責任制限、過度な知的財産権の帰属など）が含まれており、システムの動作確認に使用できます。
+```
+[2025-10-25 10:32:00] [WARNING] [src.api.llm_server] Validation error: Model 'claude-opus-4' is not available for free plan. Available models: claude-sonnet-4-5
+```

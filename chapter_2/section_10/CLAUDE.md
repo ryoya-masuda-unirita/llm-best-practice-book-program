@@ -1,524 +1,651 @@
-# Section 9 Project Status Report
-
-**Project**: Chapter 2 Section 9 - LLMを安定して使うために自由度を下げる
-**Last Updated**: 2025-10-18
-**Status**: Active Development
-
----
+# Chapter 2 Section 8: Prompt Unit Testing with LLM-as-a-Judge
 
 ## Overview
 
-This project demonstrates a fundamental LLM application design principle: **reducing user input flexibility to achieve stability and predictability**. Unlike Section 1 which focuses on structured outputs, Section 9 focuses on **structured inputs** through an interactive Streamlit web application.
+This project demonstrates **Prompt Unit Testing**, a design practice for verifying the behavior of prompts given to LLMs (Large Language Models) and continuously ensuring their quality and stability. In LLM-integrated applications, changes to prompts can have unexpected impacts on the entire system's output.
 
-### Key Differentiator
+This practice applies the concept of unit testing from traditional software development to prompt engineering. By introducing a mechanism to automatically verify the impact of prompt changes, it aims to detect unintended quality degradation (regression) early and enhance the reliability of LLM systems.
 
-Section 9 is **unique in Chapter 2** as it:
-- Provides an **interactive web UI** (the only section with Streamlit)
-- Demonstrates **comparative learning** by showing both good and bad approaches side-by-side
-- Focuses on **input design** rather than output design
-- Serves as an **educational tool** for understanding production LLM application patterns
+The implementation showcases two key patterns:
+1. **Prompt Unit Testing**: Systematic testing of prompts using representative inputs, structure validation, and regression detection
+2. **LLM-as-a-Judge**: Using another LLM to evaluate the quality of generated outputs based on defined criteria
 
----
+## Features
 
-## Current Architecture
+- **Comprehensive Prompt Testing Framework**: Multiple test patterns for validating prompt behavior
+- **LLM-as-a-Judge Integration**: Automated quality evaluation using LLM-based judges
+- **Multi-Provider Support**: Works with both OpenAI GPT-4o-mini and Google Gemini 2.5 Flash
+- **Structured Output Validation**: Type-safe responses using Pydantic models
+- **Flexible Evaluation Criteria**: Support for both default and custom evaluation criteria
+- **Regression Detection**: Tests designed to catch quality degradation when prompts change
+- **Mock-based Testing**: Fast unit tests using mocks alongside integration tests
+- **Quality Thresholds**: Configurable pass/fail thresholds for automated quality gates
+- **JSON Export**: Save both generation results and evaluation reports
+- **Async Architecture**: Efficient async/await pattern for API calls
 
-### Application Structure
+## Project Structure
 
-```
-Streamlit Web App (app.py)
-    ├── Free-form Interface Tab (demonstrates flexibility, potential instability)
-    ├── Structured Form Interface Tab (demonstrates constraints, stability)
-    └── Model Selection Sidebar (OpenAI/Gemini model switching)
-
-Supporting Infrastructure (src/)
-    ├── client/llm_client.py    - LLM client initialization
-    ├── model/model.py           - CharacterRequest + CharacterResponse
-    ├── prompt/prompt.py         - Dynamic prompt generation from requests
-    ├── service/request_llm.py   - LLM invocation logic
-    ├── config.py                - API key management
-    └── logger.py                - Logging utilities
-```
-
-### Design Pattern: Request/Response Separation
-
-**CharacterRequest** (Input Model):
-- Structures user input before it becomes a prompt
-- Validates: gender (enum), age (0-100), optional additional instructions
-- Enforces constraints at the input layer
-
-**CharacterResponse** (Output Model):
-- Same as Section 1
-- Ensures structured output from LLM
-
-This separation is the **core architectural innovation** of Section 9.
-
----
-
-## Recent Changes
-
-### Removed: CLI Interface (`src/main.py`)
-
-**Date**: 2025-10-18
-**Reason**: Streamline to focus on interactive demonstration
-
-The CLI was removed to:
-1. **Simplify the project scope** - Focus exclusively on the web-based comparative demo
-2. **Avoid redundancy** - Section 1 already demonstrates CLI usage
-3. **Emphasize the educational goal** - The Streamlit UI is the primary teaching tool
-
-**Impact**:
-- Project now has a single, clear entry point: `streamlit run app.py`
-- README.md updated to remove all CLI references
-- No impact on core functionality (all LLM logic is in `src/service/`)
-
----
-
-## Implementation Details
-
-### 1. Two-Tab Comparison Pattern
-
-**Tab 1: Free-form Interface**
-- Purpose: Demonstrate high flexibility, low stability
-- User Input: Single text area for arbitrary prompts
-- Shows: Difficulty in consistent parsing, error handling complexity
-- Educational Value: "This is what NOT to do in production"
-
-**Tab 2: Structured Form Interface**
-- Purpose: Demonstrate controlled flexibility, high stability
-- User Input: Dropdowns, number inputs, optional text area
-- Shows: Predictable results, easy validation, better UX
-- Educational Value: "This is the production-ready pattern"
-
-### 2. Dynamic Prompt Generation
-
-```python
-# prompt.py
-def make_prompt(character_request: CharacterRequest) -> list:
-    # Embeds validated user input into a structured prompt
-    # System prompt defines output schema (CharacterResponse)
-    # User prompt contains the constrained inputs
-```
-
-**Key Insight**: By accepting a `CharacterRequest` parameter, the prompt function enforces that all inputs are pre-validated before prompt construction.
-
-### 3. Multi-Provider Support
-
-**OpenAI Models** (8 options):
-- GPT-5 series: gpt-5, gpt-5-mini
-- GPT-4.1 series: gpt-4.1, gpt-4.1-mini
-- GPT-4o series: gpt-4o, gpt-4o-mini, gpt-4o-2024-11-20, gpt-4o-2024-08-06
-
-**Gemini Models** (3 options):
-- gemini-2.5-pro
-- gemini-2.5-flash
-- gemini-2.5-flash-lite
-
-Both providers use structured output features:
-- OpenAI: `beta.chat.completions.parse()` with `response_format`
-- Gemini: `generate_content()` with `response_schema`
-
-### 4. Streamlit UI Features
-
-**Sidebar**:
-- LLM provider selection (OpenAI/Gemini)
-- Model selection (dynamically updates based on provider)
-
-**Tab Content**:
-- Input fields (different for each tab)
-- "Generate" button
-- JSON output display
-- Formatted profile display
-- Expandable "Internal Prompt" section (shows what was actually sent to LLM)
-
-**Educational Messaging**:
-- `st.info()` for free-form tab (warns about risks)
-- `st.success()` for structured tab (highlights benefits)
-
----
-
-## Technical Stack
-
-### Dependencies
-
-**Core**:
-- `streamlit>=1.50.0` - Web UI framework (unique to Section 9)
-- `pydantic>=2.12.2` - Data validation and modeling
-- `openai>=2.4.0` - OpenAI API client
-- `google-genai>=1.45.0` - Google Gemini API client
-
-**Supporting**:
-- `python-dotenv>=1.1.1` - Environment variable management
-- `click>=8.3.0` - CLI parsing (used by other sections, minimal use here)
-
-### Python Version
-
-Requires Python 3.13.2+ for:
-- Modern type hints (`str | None` syntax)
-- Enhanced async/await support
-- Pydantic v2 compatibility
-
----
-
-## File Organization
+### Directory Structure
 
 ```
-section_9/
-├── app.py                    # 🎯 Main entry point (Streamlit app)
+chapter_2/section_8/
 ├── src/
+│   ├── __init__.py              # Package initialization
+│   ├── config.py                # Configuration management (API keys)
+│   ├── logger.py                # Logging setup
+│   ├── main.py                  # Main entry point with CLI
 │   ├── client/
-│   │   └── llm_client.py     # Initialize OpenAI/Gemini clients
+│   │   ├── __init__.py
+│   │   └── llm_client.py        # LLM client initialization (OpenAI, Gemini)
 │   ├── model/
-│   │   └── model.py          # CharacterRequest + CharacterResponse
+│   │   ├── __init__.py
+│   │   ├── model.py             # Character models (Request/Response)
+│   │   └── llm_as_a_judge_model.py  # Judge models (Request/Response)
 │   ├── prompt/
-│   │   └── prompt.py         # make_prompt(character_request)
-│   ├── service/
-│   │   └── request_llm.py    # request_openai(), request_gemini()
-│   ├── config.py             # API key loading with Secret[str]
-│   └── logger.py             # Logging configuration
-├── outputs/                  # Generated JSON files (gitignored)
-├── .envrc.example            # Template for API keys
-├── pyproject.toml            # Project dependencies
-├── Makefile                  # Build/lint commands
-├── README.md                 # User documentation
-└── CLAUDE.md                 # This file
+│   │   ├── __init__.py
+│   │   ├── prompt.py            # Character generation prompt
+│   │   └── llm_as_a_judge_prompt.py # Judge evaluation prompt
+│   └── service/
+│       ├── __init__.py
+│       ├── request_llm.py       # Character generation service
+│       └── llm_as_a_judge.py    # Judge evaluation service
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py              # Pytest fixtures
+│   ├── test_prompt_unit_testing.py  # Main prompt unit tests
+│   └── test_llm_as_a_judge.py   # LLM-as-a-Judge functionality tests
+├── outputs/                      # Generated results (auto-created)
+├── .envrc.example               # Environment variables template
+├── pyproject.toml               # Project dependencies
+├── pytest.ini                   # Pytest configuration
+├── Makefile                     # Development commands
+├── README.md                    # Project documentation (Japanese)
+└── CLAUDE.md                    # This file
 ```
 
-### Key Files
+### Architecture
 
-**`app.py`** (Main Application):
-- ~200-300 lines
-- Two tabs with distinct UI patterns
-- Model selection logic
-- LLM invocation with error handling
-- Output formatting (JSON + pretty-printed)
+The project follows a layered architecture with clear separation of concerns:
 
-**`src/model/model.py`** (Data Models):
-- `Gender(StrEnum)` - FEMALE/MALE
-- `CharacterPersonality(BaseModel)` - short_personality, description
-- `CharacterRequest(BaseModel)` - **NEW**: gender, age, additional_instructions
-- `CharacterResponse(BaseModel)` - Same as Section 1
-
-**`src/prompt/prompt.py`** (Prompt Generation):
-- `make_prompt(character_request: CharacterRequest) -> list`
-- Generates system + user messages
-- Embeds CharacterResponse schema in system prompt
-- Embeds user inputs in user prompt
-
-**`src/service/request_llm.py`** (LLM Service):
-- `request_openai(prompt, model)` - Async OpenAI call
-- `request_gemini(prompt, model)` - Async Gemini call
-- Both return `CharacterResponse` (parsed)
-
----
-
-## Configuration
-
-### Environment Variables
-
-Required in `.envrc`:
-```bash
-OPENAI_API_KEY=sk-...
-GEMINI_API_KEY=AIzaSy...
+```
+┌─────────────────────────────────────────────────┐
+│         CLI Layer (main.py)                     │
+│     - Command-line argument parsing             │
+│     - Output directory management               │
+│     - Orchestration of generation + evaluation  │
+└─────────────────┬───────────────────────────────┘
+                  │
+┌─────────────────▼───────────────────────────────┐
+│      Business Logic Layer                       │
+│  - Prompt generation (prompt.py)                │
+│  - LLM client management (llm_client.py)        │
+│  - Data models (model.py)                       │
+│  - Judge prompts (llm_as_a_judge_prompt.py)     │
+└─────────────────┬───────────────────────────────┘
+                  │
+┌─────────────────▼───────────────────────────────┐
+│      Service Layer                              │
+│  - Character generation (request_llm.py)        │
+│  - Judge evaluation (llm_as_a_judge.py)         │
+│  - Coordinated workflows (request_with_judge)   │
+└─────────────────┬───────────────────────────────┘
+                  │
+┌─────────────────▼───────────────────────────────┐
+│      Infrastructure Layer                       │
+│  - Configuration (config.py)                    │
+│  - Logging (logger.py)                          │
+│  - External APIs (OpenAI, Gemini)               │
+└─────────────────────────────────────────────────┘
 ```
 
-Managed by:
-- `python-dotenv` - Loads from `.envrc`
-- `pydantic.Secret[str]` - Masks in logs
-- `src/config.py` - Validates presence
+### Implementation Details
 
-### Security Notes
+#### 1. Data Models
 
-- API keys are **never logged** (Secret[str] automatic masking)
-- `.envrc` is **gitignored**
-- `.envrc.example` provides template without secrets
-
----
-
-## Usage Patterns
-
-### For End Users
-
-```bash
-# Start the web app
-streamlit run app.py
-
-# Access at http://localhost:8501
-# Try both tabs to compare interfaces
-```
-
-### For Developers
+**Character Models** (`src/model/model.py`):
 
 ```python
-# Import the request model
-from src.model.model import CharacterRequest, Gender
+class CharacterRequest(BaseModel):
+    gender: Gender
+    age: int  # 0-100
+    additional_instructions: Optional[str]
 
-# Create a structured request
-request = CharacterRequest(
-    gender=Gender.MALE,
-    age=25,
-    additional_instructions="Make them a sci-fi character"
+class CharacterResponse(BaseModel):
+    first_name: str
+    last_name: str
+    gender: Gender
+    age: int  # 0-100
+    personalities: list[CharacterPersonality]  # Exactly 3 traits
+```
+
+**Judge Models** (`src/model/llm_as_a_judge_model.py`):
+
+```python
+class EvaluationScore(IntEnum):
+    COMPLETELY_INAPPROPRIATE = 1
+    POOR = 2
+    ACCEPTABLE = 3
+    GOOD = 4
+    PERFECT = 5
+
+class JudgeRequest(BaseModel):
+    question: str
+    response: str
+    context: str | None
+
+class JudgeResponse(BaseModel):
+    evaluations: list[EvaluationCriterion]
+    overall_score: float  # 1.0-5.0
+    summary: str
+```
+
+#### 2. Prompt Unit Testing Patterns
+
+The test suite (`tests/test_prompt_unit_testing.py`) demonstrates six key testing patterns:
+
+**a) Structure Validation** (`TestCharacterPromptStructure`):
+- Verifies prompt includes all required fields
+- Checks format enforcement (JSON)
+- Validates parameter propagation
+
+**b) Quality Testing** (`TestCharacterOutputQuality`):
+- Uses LLM-as-a-Judge to validate output quality
+- Tests both high-quality and low-quality detection
+- Ensures quality thresholds work correctly
+
+**c) Representative Inputs** (`TestRepresentativeInputs`):
+- Tests 3-5 key scenarios covering main use cases
+- Young female fantasy character (primary use case)
+- Elderly male realistic character (different demographics)
+- Minimal input (edge case)
+
+**d) Custom Criteria** (`TestCustomJudgeCriteria`):
+- Demonstrates domain-specific evaluation criteria
+- Example: creativity, fantasy_elements, consistency for fantasy characters
+
+**e) Regression Detection** (`TestRegressionDetection`):
+- Verifies all required fields are present
+- Checks personality traits have descriptions
+- Validates JSON serialization
+- Ensures names are non-empty
+- Confirms age/gender match requests
+
+**f) End-to-End Integration** (`TestEndToEndWithJudge`):
+- Full workflow test (skipped by default)
+- Requires actual API calls
+- Validates complete generation + evaluation pipeline
+
+#### 3. LLM-as-a-Judge Implementation
+
+**Judge Service** (`src/service/llm_as_a_judge.py`):
+
+```python
+async def judge_with_openai(
+    judge_request: JudgeRequest,
+    model: OpenAIModel,
+) -> JudgeResponse:
+    """Evaluate response using OpenAI as judge."""
+    prompt = make_judge_prompt(judge_request)
+    result = await openai_client.beta.chat.completions.parse(
+        model=model,
+        messages=prompt,
+        response_format=JudgeResponse,
+    )
+    return result.choices[0].message.parsed
+```
+
+**Default Evaluation Criteria**:
+1. **Accuracy**: Does the response correctly answer the question?
+2. **Comprehensiveness**: Is all necessary information included?
+3. **Clarity**: Is the response clear and easy to understand?
+
+**Custom Criteria Support**:
+```python
+custom_criteria = [
+    {"name": "creativity", "description": "Is the character unique..."},
+    {"name": "fantasy_elements", "description": "Does it contain magic..."},
+]
+prompt = make_custom_judge_prompt(request, criteria=custom_criteria)
+```
+
+#### 4. Integrated Workflow
+
+The `request_with_judge` function (`src/service/request_llm.py`) coordinates:
+
+1. **Character Generation**: Generate character using OpenAI or Gemini
+2. **Automatic Evaluation**: Evaluate result using LLM-as-a-Judge
+3. **Return Both**: Return both character and evaluation results
+
+```python
+character_result, judge_result = await request_with_judge(
+    prompt=prompt,
+    model=model,
+    provider=provider,
+    judge_model=judge_model,
+    judge_provider=judge_provider,
 )
-
-# Generate prompt
-from src.prompt.prompt import make_prompt
-prompt = make_prompt(request)
-
-# Call LLM
-from src.service.request_llm import request_openai
-from src.model.model import OpenAIModel
-result = await request_openai(prompt, OpenAIModel.GPT_4O_MINI)
 ```
 
----
+## Usage
 
-## Testing Strategy
+### Environment Setup
 
-### Manual Testing Scenarios
+- **Python**: 3.13.2 or higher
+- **Dependencies**:
+  - click>=8.3.0
+  - google-genai>=1.45.0
+  - openai>=2.4.0
+  - pydantic>=2.12.2
+  - python-dotenv>=1.1.1
+  - pytest>=8.4.2 (dev)
+  - pytest-asyncio>=1.2.0 (dev)
+  - pytest-mock>=3.15.1 (dev)
 
-**Scenario 1: Free-form Tab**
-1. Enter: "Create a 30-year-old female character"
-2. Observe: LLM attempts to parse intent from free text
-3. Risk: Might misinterpret age, gender, or other details
+### Setup
 
-**Scenario 2: Structured Form Tab**
-1. Select: Female, Age: 30
-2. Observe: Inputs are guaranteed to be valid
-3. Benefit: No parsing ambiguity, validated before LLM call
+1. **Create environment variables file**
 
-**Scenario 3: Model Switching**
-1. Change provider from OpenAI to Gemini
-2. Observe: Model dropdown updates automatically
-3. Generate with both providers
-4. Compare: Both produce valid CharacterResponse JSON
-
-**Scenario 4: Validation**
-1. Try to enter age > 100 in structured form
-2. Observe: Number input prevents invalid values
-3. Benefit: Client-side validation before API call
-
-### Expected Behavior
-
-✅ **Structured form should always produce**:
-- Valid JSON matching CharacterResponse schema
-- Correct gender (exactly as selected)
-- Correct age (exactly as entered)
-- Consistent 3 personalities
-
-⚠️ **Free-form might produce**:
-- Varied interpretations of the request
-- Occasional parsing errors
-- Inconsistent results across runs
-
----
-
-## Design Decisions
-
-### Why Streamlit?
-
-1. **Rapid prototyping** - Built web UI in <100 lines
-2. **Interactive demos** - Perfect for educational content
-3. **No frontend complexity** - Pure Python, no HTML/CSS/JS
-4. **State management** - Session state for model persistence
-
-### Why Remove CLI?
-
-1. **Focus** - Section 1 already demonstrates CLI patterns
-2. **Clarity** - One entry point reduces confusion
-3. **Purpose** - This section is about **comparison**, which requires UI
-
-### Why Two Tabs?
-
-1. **Comparison** - Side-by-side demonstration is more effective
-2. **Education** - Users experience both approaches directly
-3. **Contrast** - Highlights trade-offs visually
-
-### Why CharacterRequest Model?
-
-1. **Type safety** - Pydantic validates at Python level
-2. **Documentation** - Model serves as API contract
-3. **Reusability** - Could be used by REST API, GraphQL, etc.
-4. **Separation** - Input validation separate from LLM logic
-
----
-
-## Known Limitations
-
-### Current Constraints
-
-1. **No persistent storage** - Generated characters are not saved to database
-2. **No batch generation** - One character at a time
-3. **No export options** - Can't download results (only copy JSON)
-4. **Limited customization** - Only gender, age, additional_instructions
-
-### Future Enhancements (Not Planned)
-
-These are **intentionally omitted** to keep the example focused:
-
-- ❌ User authentication
-- ❌ Character history/favorites
-- ❌ Multiple character generation
-- ❌ Advanced prompt templates
-- ❌ Custom output formats (PDF, DOCX)
-- ❌ API endpoint exposure
-
-**Rationale**: Section 9 is a **pedagogical example**, not a production application.
-
----
-
-## Relationship to Other Sections
-
-### Section 1 (Basic Structured Output)
-
-**Section 1** teaches:
-- How to get structured outputs from LLMs
-- Pydantic model integration with OpenAI/Gemini
-- Basic CLI application structure
-
-**Section 9** builds on this by adding:
-- Structured **inputs** (not just outputs)
-- Interactive UI for comparison
-- Request/Response pattern
-
-**Code Reuse**:
-- CharacterResponse model is identical
-- LLM client setup is similar
-- Config/logger are conceptually the same
-
-### Other Sections
-
-Section 9 is **self-contained** but demonstrates patterns used in:
-- **Section 2**: Logging/observability (though simplified here)
-- **Section 3**: Error handling and resilience
-- **Section 4**: Structured data flow
-- **Section 5**: API design patterns (request/response)
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-**Issue**: "Module not found: streamlit"
-- **Cause**: Dependencies not installed
-- **Fix**: Run `uv sync` or `pip install -e .`
-
-**Issue**: "API key not found"
-- **Cause**: `.envrc` not created or not loaded
-- **Fix**: Copy `.envrc.example` to `.envrc` and add keys
-
-**Issue**: Streamlit won't start
-- **Cause**: Port 8501 already in use
-- **Fix**: `streamlit run app.py --server.port 8502`
-
-**Issue**: JSON parsing errors in free-form tab
-- **Cause**: This is **expected behavior** demonstrating the problem
-- **Solution**: Switch to structured form tab
-
-**Issue**: Different results each time
-- **Cause**: High temperature settings (1.0 for OpenAI, 2.0 for Gemini)
-- **Expected**: Variability is intentional for creative generation
-
----
-
-## Performance Characteristics
-
-### Response Times
-
-**Typical latency** (depends on model and network):
-- OpenAI GPT-4o-mini: 2-4 seconds
-- OpenAI GPT-5: 4-8 seconds
-- Gemini 2.5 Flash: 2-5 seconds
-- Gemini 2.5 Pro: 5-10 seconds
-
-### Cost Considerations
-
-**Approximate costs per character generation**:
-- GPT-4o-mini: $0.001-0.003
-- GPT-4o: $0.01-0.02
-- Gemini 2.5 Flash: $0.0001-0.0005
-- Gemini 2.5 Pro: $0.002-0.005
-
-*Note: These are estimates and vary based on prompt length and output.*
-
----
-
-## Educational Value
-
-### Learning Objectives
-
-After using this section, developers should understand:
-
-1. ✅ **Input Constraint Principle**: Reducing user freedom improves reliability
-2. ✅ **Request/Response Pattern**: Separate input models from output models
-3. ✅ **Validation Layers**: Validate early (UI) and often (Pydantic)
-4. ✅ **Trade-off Analysis**: Flexibility vs. Stability spectrum
-5. ✅ **Production Patterns**: How to design user-facing LLM apps
-
-### Key Takeaways
-
-**For Product Designers**:
-- Users don't need full prompt engineering control
-- Structured forms provide better UX than text areas
-- Constraints enable better error messages
-
-**For Engineers**:
-- Pydantic models enforce contracts at boundaries
-- Type-safe inputs prevent entire classes of bugs
-- Separation of concerns improves maintainability
-
-**For Architects**:
-- Input validation is as important as output validation
-- Request models document API contracts
-- Interactive demos are powerful teaching tools
-
----
-
-## Maintenance Notes
-
-### Code Health
-
-**Linting**: Uses Ruff via Makefile
 ```bash
-make lint    # Run linter
-make format  # Auto-format code
+# Copy example and edit
+cp .envrc.example .envrc
+
+# Add your API keys
+# .envrc
+OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
+GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
 ```
 
-**Type Checking**: Pydantic provides runtime validation (static type checking not configured)
+2. **Install dependencies**
 
-**Dependencies**: Keep updated (especially openai and google-genai for new features)
+```bash
+# Using uv (recommended)
+uv sync
 
-### Future-Proofing
+# Using pip
+pip install -e .
+```
 
-**When models change**:
-1. Update `src/model/model.py` enum values
-2. Update README.md model lists
-3. Test with new models
+### Running Character Generation
 
-**When APIs change**:
-1. Check `src/service/request_llm.py` for compatibility
-2. Update client initialization in `src/client/llm_client.py`
-3. Run manual tests with both providers
+#### Basic Usage
 
----
+```bash
+# Generate with Gemini (default)
+uv run python -m src.main \
+  -g female \
+  -a 25 \
+  -ai "Generate a wizard from a fantasy world." \
+  -lp gemini \
+  -m gemini-2.5-flash
 
-## Documentation Status
+# Generate with OpenAI
+uv run python -m src.main \
+  -g male \
+  -a 30 \
+  -ai "Generate a detective from the modern world." \
+  -lp openai \
+  -m gpt-4o-mini
+```
 
-- ✅ README.md - Complete, user-focused
-- ✅ CLAUDE.md - This file, technical overview
-- ✅ Code comments - Key functions documented
-- ⚠️ API docs - Not generated (project too small)
-- ⚠️ Tutorial - Embedded in README
+#### Advanced Options
 
----
+```bash
+# Custom output directory
+uv run python -m src.main -g female -a 25 -lp gemini -m gemini-2.5-flash -od ./custom_output
+
+# Use different models for generation and judgment
+uv run python -m src.main \
+  -g female -a 25 \
+  -lp gemini -m gemini-2.5-flash \
+  -jp openai -jm gpt-4o-mini
+```
+
+#### CLI Options
+
+```
+Options:
+  -g, --gender [female|male]       Character gender (required)
+  -a, --age INTEGER RANGE          Character age 0-100 (required)
+  -ai, --additional-instructions   Additional generation instructions
+  -lp, --llm-provider              Provider for generation (openai|gemini)
+  -m, --model                      Model for generation
+  -jp, --judge-provider            Provider for judgment (optional)
+  -jm, --judge-model              Model for judgment (optional)
+  -od, --output-directory PATH     Output directory (default: outputs)
+  --help                           Show help message
+```
+
+### Output Example
+
+Running the generation creates two JSON files:
+
+**Character File**: `outputs/{uuid}_gemini_character.json`
+```json
+{
+    "first_name": "Aria",
+    "last_name": "Stormweaver",
+    "gender": "female",
+    "age": 25,
+    "personalities": [
+        {
+            "short_personality": "Curious scholar",
+            "description": "Driven by an insatiable thirst for knowledge, constantly studying ancient texts and experimenting with new spell combinations."
+        },
+        {
+            "short_personality": "Compassionate healer",
+            "description": "Uses magic primarily to help others, often prioritizing healing and protection spells over offensive magic."
+        },
+        {
+            "short_personality": "Impulsive risk-taker",
+            "description": "Sometimes acts without fully thinking through consequences, especially when pursuing a fascinating magical discovery."
+        }
+    ]
+}
+```
+
+**Judge File**: `outputs/{uuid}_gemini_judge.json`
+```json
+{
+    "evaluations": [
+        {
+            "criterion_name": "accuracy",
+            "score": 5,
+            "reasoning": "The response perfectly matches the request for a 25-year-old female wizard character from a fantasy world."
+        },
+        {
+            "criterion_name": "comprehensiveness",
+            "score": 4,
+            "reasoning": "Includes all required fields with detailed personality descriptions, though could expand on magical abilities."
+        },
+        {
+            "criterion_name": "clarity",
+            "score": 5,
+            "reasoning": "Clear, well-structured output with easy-to-understand personality descriptions."
+        }
+    ],
+    "overall_score": 4.67,
+    "summary": "Excellent character generation that meets all requirements with creative and consistent personality traits."
+}
+```
+
+**Console Output**:
+```
+[2025-10-18 10:30:45] [INFO] [__main__] Character Generation Request:
+Gender: female
+Age: 25
+Additional Instructions: Generate a wizard from a fantasy world.
+
+Generation LLM: gemini / gemini-2.5-flash
+Judge LLM: gemini / gemini-2.5-flash
+Output directory: outputs
+
+[2025-10-18 10:30:46] [INFO] [src.service.request_llm] Step 1: Generating character...
+[2025-10-18 10:30:48] [INFO] [src.service.request_llm] Character generation completed.
+[2025-10-18 10:30:48] [INFO] [src.service.request_llm] Step 2: Evaluating character with LLM-as-a-Judge...
+[2025-10-18 10:30:50] [INFO] [src.service.llm_as_a_judge] Judgment completed. Overall score: 4.67/5.0
+[2025-10-18 10:30:50] [INFO] [__main__] Character file saved to outputs/abc123_gemini_character.json
+[2025-10-18 10:30:50] [INFO] [__main__] Judge evaluation saved to outputs/abc123_gemini_judge.json
+[2025-10-18 10:30:50] [INFO] [__main__] Overall evaluation score: 4.67/5.0
+```
+
+### Running Tests
+
+#### Run All Tests
+
+```bash
+# Run all tests (mocked, no API calls)
+uv run pytest
+
+# Verbose output
+uv run pytest -v
+
+# Show print statements
+uv run pytest -s
+```
+
+#### Run Specific Test Classes
+
+```bash
+# Test prompt structure validation
+uv run pytest tests/test_prompt_unit_testing.py::TestCharacterPromptStructure -v
+
+# Test quality evaluation
+uv run pytest tests/test_prompt_unit_testing.py::TestCharacterOutputQuality -v
+
+# Test regression detection
+uv run pytest tests/test_prompt_unit_testing.py::TestRegressionDetection -v
+
+# Test LLM-as-a-Judge functionality
+uv run pytest tests/test_llm_as_a_judge.py -v
+```
+
+#### Run Integration Tests
+
+```bash
+# Run integration test (requires API keys and makes real API calls)
+uv run pytest -k "test_full_generation" -v
+
+# Skip integration tests (default behavior)
+uv run pytest -v -k "not test_full_generation"
+```
+
+#### Test Organization
+
+Tests are organized with pytest markers:
+
+- `@pytest.mark.asyncio`: Async tests
+- `@pytest.mark.skip`: Skipped tests (e.g., integration tests)
+- `@pytest.mark.integration`: Integration tests requiring API calls
+- `@pytest.mark.unit`: Fast unit tests with mocks
+
+### Development Commands
+
+```bash
+# Lint code
+make lint
+
+# Format code
+make fmt
+
+# Lint + format
+make fix
+
+# Type checking
+make mypy
+```
+
+## Key Design Patterns
+
+### 1. Representative Input Testing
+
+Instead of testing all possible inputs, focus on 3-5 representative cases:
+
+```python
+class TestRepresentativeInputs:
+    async def test_young_female_fantasy_character(self):
+        """Test Case 1: Primary use case"""
+
+    async def test_elderly_male_realistic_character(self):
+        """Test Case 2: Different demographics"""
+
+    async def test_young_adult_no_additional_instructions(self):
+        """Test Case 3: Minimal input edge case"""
+```
+
+### 2. Flexible Validation
+
+Tests verify "conditions that must be met" rather than exact output matching:
+
+```python
+# ✓ Good: Flexible validation
+assert len(response.personalities) == 3
+assert response.age == request.age
+assert all(len(p.description) > len(p.short_personality) for p in response.personalities)
+
+# ✗ Bad: Exact matching
+assert response.first_name == "Aria"  # Too strict, fails on valid variations
+```
+
+### 3. Regression Detection
+
+Tests serve as canaries for prompt changes:
+
+```python
+async def test_personality_traits_have_descriptions(self):
+    """If this fails after prompt change, descriptions may be missing."""
+    for personality in response.personalities:
+        assert len(personality.description) > 0
+        assert len(personality.description) > len(personality.short_personality)
+```
+
+### 4. Quality Threshold Gates
+
+Use LLM-as-a-Judge with configurable thresholds:
+
+```python
+assert judge_response.is_passing(threshold=3.0), \
+    "Generated character should meet minimum quality threshold"
+```
+
+### 5. Custom Evaluation Criteria
+
+Define domain-specific criteria for specialized use cases:
+
+```python
+custom_criteria = [
+    {"name": "creativity", "description": "Uniqueness and originality"},
+    {"name": "fantasy_elements", "description": "Appropriate magical elements"},
+    {"name": "consistency", "description": "Internal logical consistency"},
+]
+```
+
+## Best Practices Demonstrated
+
+### From CLAUDE.md Documentation
+
+This implementation follows the best practices outlined in the project documentation:
+
+1. **Structured Prompt Management**: Prompts are managed as code in separate modules (`prompt.py`, `llm_as_a_judge_prompt.py`)
+
+2. **Start with 3-5 Key Cases**: The `TestRepresentativeInputs` class demonstrates starting with the most important scenarios
+
+3. **Flexible Validation Utilities**: Tests use a combination of:
+   - Structure validation (field presence, type checking)
+   - Keyword/content verification
+   - LLM-as-a-Judge for quality assessment
+
+4. **CI/CD Integration Ready**:
+   - Pytest configuration in `pytest.ini`
+   - Fast mocked tests for CI
+   - Optional integration tests for comprehensive validation
+
+5. **Cost-Aware Testing Strategy**:
+   - Most tests use mocks (no API costs)
+   - Integration tests are skipped by default
+   - Can run full suite in nightly builds
+
+6. **Clear Test Organization**:
+   - Separate test classes for different concerns
+   - Descriptive test names explaining what they validate
+   - Comments explaining why tests matter for regression detection
+
+## Trade-offs and Considerations
+
+### Test Brittleness
+
+**Challenge**: Model updates may change output style, breaking tests
+
+**Mitigation**:
+- Use flexible assertions (presence checks, not exact matches)
+- Focus on structural requirements, not stylistic details
+- Configurable quality thresholds to adjust sensitivity
+
+### Execution Time and Cost
+
+**Challenge**: API calls add time and cost to test runs
+
+**Mitigation**:
+- Mock responses for unit tests (instant, free)
+- Skip integration tests by default (`@pytest.mark.skip`)
+- Run full suite only in nightly builds or before releases
+
+### Quality Threshold Calibration
+
+**Challenge**: Setting thresholds too loose misses issues, too strict causes false failures
+
+**Strategy**:
+- Default threshold: 3.0/5.0 (acceptable quality)
+- Adjust based on use case criticality
+- Monitor threshold effectiveness over time
+
+## Extension Points
+
+### Adding New Evaluation Criteria
+
+```python
+# Define custom criteria
+custom_criteria = [
+    {"name": "tone", "description": "Appropriate tone for target audience"},
+    {"name": "technical_accuracy", "description": "Factual correctness"},
+]
+
+# Use in tests
+prompt = make_custom_judge_prompt(request, criteria=custom_criteria)
+```
+
+### Testing Different Prompt Versions
+
+```python
+# Version A (current)
+def make_prompt_v1(request: CharacterRequest) -> list:
+    return [...]
+
+# Version B (experimental)
+def make_prompt_v2(request: CharacterRequest) -> list:
+    return [...]
+
+# A/B test in unit tests
+async def test_prompt_version_comparison():
+    v1_result = await generate_with_prompt(make_prompt_v1(request))
+    v2_result = await generate_with_prompt(make_prompt_v2(request))
+
+    v1_score = await judge(v1_result)
+    v2_score = await judge(v2_result)
+
+    # Ensure v2 doesn't degrade quality
+    assert v2_score >= v1_score - 0.5
+```
+
+### Snapshot Testing
+
+For outputs that should remain stable:
+
+```python
+# First run creates snapshot
+def test_output_snapshot(snapshot):
+    result = generate_character(...)
+    snapshot.assert_match(result.model_dump_json(), "character_output.json")
+
+# Subsequent runs compare against snapshot
+# Update snapshot with: pytest --snapshot-update
+```
 
 ## Summary
 
-**Section 9** successfully demonstrates a critical LLM application design principle through an interactive, comparative web interface. The removal of the CLI sharpened the focus on the educational goal: showing developers why and how to constrain user inputs for production stability.
+This project demonstrates a comprehensive approach to prompt unit testing for LLM applications:
 
-**Current Status**: ✅ Feature complete, ready for use
-**Next Steps**: None - project is in stable state for educational purposes
-**Recommended Use**: Run `streamlit run app.py` and explore both tabs to understand the principle
+- **Systematic Testing**: Multiple test patterns covering structure, quality, and regression
+- **Automated Evaluation**: LLM-as-a-Judge pattern for quality assessment
+- **Practical Balance**: Trade-offs between test coverage and execution cost
+- **CI/CD Ready**: Designed for integration into continuous integration pipelines
+- **Extensible**: Easy to add new criteria, prompts, and test cases
 
----
+By applying traditional software testing best practices to prompt engineering, this approach enables safe, continuous improvement of LLM systems while maintaining quality and reliability.
 
-*This document reflects the state of the project as of 2025-10-18. It should be updated when significant changes occur.*
+## References
+
+- **Pydantic**: Type-safe data validation - https://docs.pydantic.dev/
+- **Pytest**: Testing framework - https://docs.pytest.org/
+- **OpenAI Structured Outputs**: https://platform.openai.com/docs/guides/structured-outputs
+- **Google Gemini API**: https://ai.google.dev/gemini-api/docs
+- **LLM-as-a-Judge Pattern**: Using LLMs to evaluate LLM outputs

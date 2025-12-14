@@ -1,13 +1,13 @@
-from src.service.container import ServiceContainer, service_container
-from src.service.interfaces import ITextClassificationService, ITextGenerationService
-from src.service.text_classification_service import TextClassificationService
-from src.service.text_generation_service import TextGenerationService
+"""Service layer for LLMOps."""
+
+from src.service.llmops_logger import LLMOpsLogger, create_llmops_logger
+from src.service.prompt_storage import LocalFilePromptStorage, get_prompt_storage
+from src.service.request_llm import request_gemini
 
 __all__ = [
-    "ITextGenerationService",
-    "ITextClassificationService",
-    "TextGenerationService",
-    "TextClassificationService",
-    "ServiceContainer",
-    "service_container",
+    "LLMOpsLogger",
+    "LocalFilePromptStorage",
+    "create_llmops_logger",
+    "get_prompt_storage",
+    "request_gemini",
 ]

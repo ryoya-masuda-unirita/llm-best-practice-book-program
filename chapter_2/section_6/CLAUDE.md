@@ -1,485 +1,265 @@
-# Chapter 2 Section 6: Structured Template Prompting - Project Status Report
+# Chapter 3 Section 6: Asynchronous Batch Processing for LLM Applications
 
-**Generated**: 2025-10-18
-**Project**: Structured Template Prompting with Jinja2 and YAML
-**Status**: ✅ Implementation Complete - Production Ready
-**Version**: 1.0
+## Overview
 
----
+This project demonstrates a production-ready implementation of **asynchronous batch processing** for LLM applications. It showcases how to efficiently handle large-scale LLM tasks by decoupling request submission from processing, using Redis as a message queue and background workers for parallel execution.
 
-## 📊 Project Overview
+### Purpose
 
-This section implements a production-ready structured template prompting system for Large Language Model (LLM) applications. The system addresses critical challenges in prompt management: maintainability, reusability, testability, and collaborative development.
+The primary goal is to illustrate best practices for building scalable, fault-tolerant LLM systems that can:
+- Handle bulk processing requests without blocking the API
+- Scale horizontally by adding more workers
+- Provide real-time progress tracking
+- Gracefully handle failures at the task level
+- Optimize resource utilization and cost efficiency
 
-### Core Problem
+### Use Case
 
-Traditional prompt management approaches fail for LLM applications because:
-- Hardcoded prompts in source code are difficult to modify and maintain
-- Copy-paste duplication leads to inconsistency and maintenance overhead
-- Non-technical team members cannot easily improve prompts
-- Testing and version control of prompts is challenging
-- Dynamic prompt assembly from multiple sources becomes unmanageable
+This implementation focuses on fictional character generation as a representative batch processing use case. Users can submit requests to generate multiple characters with specific attributes (gender, age, personality traits), and the system processes them asynchronously via Gemini Batch API.
 
-### Solution
+## Architecture
 
-A template-driven architecture that separates prompt structure from code, enabling:
-- YAML-based template definition with Jinja2 for dynamic variable injection
-- Complete separation of prompt logic (templates) from data (variables)
-- Validation to ensure all required variables are provided
-- Multiple template variations for A/B testing and multi-use cases
-- Non-engineer prompt editing without touching code
-- Clean version control and collaboration workflows
-
----
-
-## ✅ Completed Features
-
-### Core Components
-- [x] TemplateEngine class with Jinja2 integration (src/service/template_engine.py - 147 lines)
-- [x] Variable extraction (`get_template_variables`)
-- [x] Variable validation (`validate_variables`)
-- [x] Template rendering (`render_template`)
-- [x] Message format conversion (`render_prompt_messages`)
-- [x] YAML template format with system_prompt and user_prompt keys
-- [x] Support for Jinja2 features (variables, conditionals, loops, filters)
-
-### Templates and Variables
-- [x] Character generation template (templates/character_generation.yaml)
-- [x] Product description template (templates/product_description.yaml)
-- [x] Email templates: formal and casual (templates/email_*.yaml)
-- [x] Character variable files: artist, detective (variables/character_*.yaml)
-- [x] Product variable files: electronics, apparel (variables/product_*.yaml)
-- [x] Email campaign variables: summer, winter (variables/email_campaign_*.yaml)
-
-### Application Integration
-- [x] Prompt generation using templates (src/prompt/prompt.py)
-- [x] LLM request handlers for OpenAI (src/service/request_llm.py)
-- [x] CLI with model and provider selection (src/main.py)
-- [x] Pydantic models for type safety (src/model/model.py)
-- [x] Configuration management (src/config.py)
-- [x] Logging setup (src/logger.py)
-
-### Testing
-- [x] 54 comprehensive tests across 2 test files
-- [x] TemplateEngine tests (46 tests) - initialization, validation, rendering, edge cases
-- [x] Prompt generation tests (8 tests)
-- [x] Test fixtures for temporary template directories (tests/conftest.py)
-- [x] Coverage for Unicode, special characters, nested structures
-
-### Infrastructure
-- [x] Makefile for common tasks (install, test, run, lint)
-- [x] pytest configuration with asyncio support
-- [x] Environment variable management
-- [x] Dependencies: jinja2>=3.1.6, pyyaml>=6.0.3
-
-### Documentation
-- [x] Comprehensive README.md (Japanese, production-ready)
-- [x] CLAUDE.md design specification (this file)
-- [x] Inline code documentation
-- [x] Usage examples and patterns
-
----
-
-## 📁 Project Structure
+### System Components
 
 ```
-section_6/
-├── src/
-│   ├── __init__.py
-│   ├── main.py                    # CLI entry point
-│   ├── config.py                  # Configuration (API keys)
-│   ├── logger.py                  # Logging setup
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py          # OpenAI client
-│   ├── model/
-│   │   ├── __init__.py
-│   │   └── model.py               # Request/Response models
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── prompt.py              # make_prompt function
-│   └── service/
-│       ├── __init__.py
-│       ├── request_llm.py         # LLM request handlers
-│       └── template_engine.py     # Template engine (147 lines)
-├── templates/                      # YAML templates (4 files)
-│   ├── character_generation.yaml
-│   ├── product_description.yaml
-│   ├── email_formal.yaml
-│   └── email_casual.yaml
-├── variables/                      # Variable definitions (6 files)
-│   ├── character_artist.yaml
-│   ├── character_detective.yaml
-│   ├── product_electronics.yaml
-│   ├── product_apparel.yaml
-│   ├── email_campaign_summer.yaml
-│   └── email_campaign_winter.yaml
-├── tests/                          # Test suite (54 tests)
-│   ├── __init__.py
-│   ├── conftest.py
-│   ├── test_template_engine.py    # 46 tests
-│   └── test_prompt.py             # 8 tests
-├── outputs/                        # Generated files (gitignored)
-├── .envrc.example
-├── pyproject.toml
-├── pytest.ini
-├── Makefile
-├── README.md
-└── CLAUDE.md
++------------------+
+|     Clients      |
++--------+---------+
+         |
+         +------------------+----------------------+
+         |                  |                      |
++--------v--------+  +------v-------+  +-----------v----------+
+|   LLM Server    |  | Batch Server |  |    Batch Worker      |
+|   (Port 8000)   |  | (Port 8001)  |  |    (Background)      |
+|                 |  |              |  |                      |
+| POST /generate  |  | POST /submit |  | - Job Pickup Loop    |
+|                 |  | GET /status  |  | - Polling Loop       |
+|                 |  | GET /result  |  | - Gemini Batch API   |
++--------+--------+  +------+-------+  +-----------+----------+
+         |                  |                      |
+         +------------------+----------------------+
+                            |
+                     +------v------+
+                     |    Redis    |
+                     | (Port 6379) |
+                     |             |
+                     | - Job Queue |
+                     | - Status    |
+                     | - Results   |
+                     +-------------+
 ```
 
-**Statistics**:
-- 17 Python files
-- 54 comprehensive tests
-- 4 template files
-- 6 variable files
+### Directory Structure
 
----
-
-## 🎓 Key Implementation Details
-
-### 1. TemplateEngine (src/service/template_engine.py)
-
-**Purpose**: Core template management system using Jinja2 and YAML
-
-**Key Methods**:
-- `get_template_variables(template_name)` - Extract all variable names from a template
-- `validate_variables(template_name, variables)` - Validate that all required variables are provided
-- `render_template(template_name, variables, validate=True)` - Render template to dict
-- `render_prompt_messages(...)` - Render and convert to LLM API message format
-
-**Features**:
-- Automatic variable extraction using `jinja2.meta.find_undeclared_variables()`
-- Validation before rendering to catch errors early
-- Support for Jinja2 filters, conditionals, loops
-- Proper YAML indentation handling (`trim_blocks`, `lstrip_blocks`)
-
-### 2. YAML Template Format
-
-**Standard Structure**:
-```yaml
-system_prompt: >-
-  System instruction text here.
-  {{ variable_name }}
-
-user_prompt: >-
-  User instruction text here.
-  {% if optional_variable %}
-  {{ optional_variable }}
-  {% endif %}
+```
+chapter_3/section_6/
+|-- src/
+|   |-- api/
+|   |   |-- batch_server.py     # Batch job management API (port 8001)
+|   |   +-- llm_server.py       # Synchronous LLM API (port 8000)
+|   |-- worker/
+|   |   +-- batch_worker.py     # Background worker with concurrent polling
+|   |-- client/
+|   |   |-- llm_client.py       # Gemini client initialization
+|   |   +-- redis_client.py     # Async Redis wrapper with decorators
+|   |-- model/
+|   |   |-- model.py            # Character request/response models
+|   |   +-- batch_model.py      # Batch job models (status, result)
+|   |-- service/
+|   |   +-- request_llm.py      # Gemini Batch API functions
+|   |-- prompt/
+|   |   +-- prompt.py           # Prompt generation with schema embedding
+|   |-- config.py               # Pydantic config with Secret types
+|   +-- logger.py               # Logging configuration
+|-- docker-compose.yml
+|-- Dockerfile
+|-- Makefile
+|-- pyproject.toml
++-- .env.example
 ```
 
-**Jinja2 Features Supported**:
-- Variable substitution: `{{ variable }}`
-- Conditionals: `{% if condition %}...{% endif %}`
-- Loops: `{% for item in list %}...{% endfor %}`
-- Filters: `{{ variable | indent(2) }}`
+## Key Components
 
-### 3. Variable Files
+### Batch Server (`src/api/batch_server.py`)
 
-Separate YAML files containing data to inject into templates:
+FastAPI server for batch job management:
+- `POST /batch/submit` - Submit batch job, returns job_id immediately
+- `GET /batch/{job_id}/status` - Poll job progress
+- `GET /batch/{job_id}/result` - Get completed results
+- `GET /batch/queue/stats` - View queue statistics
+- `GET /batch/jobs` - List all job IDs
 
-```yaml
-# variables/character_artist.yaml
-gender: "female"
-age: 28
-additional_instructions: "このキャラクターは画家で、感受性が豊かです。"
-```
+Uses helper functions `raise_not_found()` and `raise_internal_error()` for consistent error handling, and Pydantic response models (`QueueStatsResponse`, `JobListResponse`).
 
-**Benefits**:
-- Same template, multiple data sets
-- Easy A/B testing
-- Non-engineer editable
-- Version control for variations
+### Batch Worker (`src/worker/batch_worker.py`)
 
-### 4. Prompt Generation (src/prompt/prompt.py)
+Background processor with two concurrent async loops:
 
-```python
-# Initialize template engine once at module level
-_template_engine = TemplateEngine(template_dir=_template_dir)
+1. **Job Pickup Loop** (`_job_pickup_loop`):
+   - Dequeues jobs from Redis using BLPOP (1s timeout)
+   - Immediately submits to Gemini Batch API
+   - Tracks active jobs in `active_jobs` dict
 
-def make_prompt(character_request: CharacterRequest) -> list:
-    # Prepare variables
-    template_variables = {
-        "response_schema": response_schema,
-        "gender": character_request.gender.value,
-        "age": character_request.age,
-        "additional_instructions": character_request.additional_instructions or "",
-    }
+2. **Polling Loop** (`_poll_active_jobs_loop`):
+   - Polls all active Gemini batch jobs every 5 seconds
+   - Uses `asyncio.gather()` for concurrent status checks
+   - Processes results when jobs complete
 
-    # Render with validation
-    return _template_engine.render_prompt_messages(
-        template_name="character_generation.yaml",
-        variables=template_variables,
-        validate=True
-    )
-```
+Helper functions:
+- `build_status_response()` - Constructs BatchJobStatusResponse
+- `build_task_results()` - Converts batch results to TaskStatus list
+- `prepare_prompts()` - Prepares prompts from character requests
 
----
+### Redis Client (`src/client/redis_client.py`)
 
-## 🧪 Testing Strategy
+Async wrapper around redis-py with:
+- `@ensure_connected` decorator for automatic connection
+- `_status_key()` / `_result_key()` static methods for key generation
+- `DEFAULT_TTL = 86400` (24 hours) for automatic cleanup
+- Methods: `enqueue_job`, `dequeue_job`, `set_job_status`, `get_job_status`, `set_job_result`, `get_job_result`, `get_queue_length`, `list_job_ids`
 
-### Test Coverage (54 tests)
+### Gemini Batch API (`src/service/request_llm.py`)
 
-**TemplateEngine Tests** (46 tests):
-- Initialization: valid/invalid directories, string paths
-- Variable extraction: simple, loops, conditionals, multiple vars
-- Variable validation: missing, extra, partial variables
-- Template rendering: loops, conditionals, nested structures
-- Message conversion: default keys, custom keys, missing keys
-- Edge cases: Unicode, None values, special chars, boolean values
+Three synchronous functions for Gemini Batch API:
+- `submit_gemini_batch(model, prompts)` - Creates batch job, returns job name
+- `get_gemini_batch_status(batch_job_name)` - Returns state name (JOB_STATE_SUCCEEDED, etc.)
+- `get_gemini_batch_results(batch_job_name)` - Parses results into CharacterResponse list
 
-**Prompt Generation Tests** (8 tests):
-- Correct message format
-- Variable injection
-- Schema inclusion
-- Conditional sections
-- Validation enforcement
+Result parsing handles nested structure: `response.candidates[0].content.parts[0].text`
 
-### Running Tests
+### Data Models
+
+**JobStatus** enum: `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`
+
+**Key models**:
+- `BatchJobRequest` - Input: provider, model, character_requests (1-100)
+- `BatchJobResponse` - Immediate response: job_id, status, total_tasks
+- `BatchJobStatusResponse` - Progress: completed_tasks, failed_tasks, pending_tasks
+- `BatchJobResultResponse` - Final: tasks list with TaskStatus entries
+- `InternalJobData` - Queue storage: includes submitted_at timestamp
+
+## Dependencies
+
+- `redis>=7.0.0` - Async Redis client
+- `fastapi>=0.115.0` - Web framework
+- `uvicorn>=0.30.0` - ASGI server
+- `pydantic>=2.10.0` - Data validation
+- `google-genai>=1.0.0` - Gemini API client
+
+## Usage
+
+### Setup
 
 ```bash
-# All tests
-make test
-uv run pytest
+# Copy environment template
+cp .env.example .env
 
-# With coverage
-make pytest-cov
+# Edit .env with your API key
+# GEMINI_API_KEY=<your_key>
 
-# Specific test file
-uv run pytest tests/test_template_engine.py -v
-
-# Failed tests only
-make pytest-failed
-```
-
----
-
-## 🚀 Usage Examples
-
-### Basic CLI Usage
-
-```bash
 # Install dependencies
 uv sync
-make install
-
-# Run with OpenAI
-uv run python -m src.main --model gpt-4o
-make run-openai
-
-# Custom output directory
-uv run python -m src.main -m gpt-4o-mini -od ./my_outputs
 ```
 
-### Programmatic Usage
+### Run with Docker
 
-```python
-from src.service.template_engine import TemplateEngine
-
-# Initialize engine
-engine = TemplateEngine(template_dir="templates")
-
-# Define variables
-variables = {
-    "gender": "female",
-    "age": 28,
-    "additional_instructions": "Creative and artistic."
-}
-
-# Render to LLM message format
-messages = engine.render_prompt_messages(
-    template_name="character_generation.yaml",
-    variables=variables,
-    validate=True
-)
-
-# Use with LLM API
-response = await llm_client.generate(messages=messages)
+```bash
+make docker-build    # Build image
+make docker-up       # Start all services
+make docker-logs     # View logs
+make docker-down     # Stop services
 ```
 
----
+### Run Locally
 
-## 💡 Key Benefits
+```bash
+# Terminal 1: Redis
+redis-server
 
-### 1. Enhanced Maintainability
-- Centralized prompt management
-- No code changes for prompt updates
-- Version control for prompt history
-- Easy rollback to previous versions
+# Terminal 2: Batch Server
+uvicorn src.api.batch_server:app --host 0.0.0.0 --port 8001
 
-### 2. Improved Reusability
-- One template, multiple variable sets
-- Easy A/B testing
-- Template variations for different use cases
-
-### 3. Team Collaboration
-- Non-engineers can edit YAML files
-- Product managers can iterate on prompts
-- Domain experts can refine instructions
-- No code deployment for prompt changes
-
-### 4. Better Testing
-- Templates testable in isolation
-- Systematic validation testing
-- Edge case coverage
-- Mock data testing
-
-### 5. Flexibility
-- Jinja2 provides powerful features
-- Conditional content
-- Loop constructs
-- Filter functions
-
----
-
-## ⚖️ Trade-offs and Considerations
-
-### Benefits
-1. Maintainability: Centralized prompt management
-2. Reusability: One template, many variable sets
-3. Testability: Easy to test templates in isolation
-4. Collaboration: Non-engineers can edit YAML files
-5. Version Control: Git-friendly prompt history
-6. Validation: Catch missing variables early
-
-### Trade-offs
-1. **Complexity**: Additional abstraction layer
-   - Mitigation: Good documentation, examples
-
-2. **Over-abstraction Risk**: Too many template layers
-   - Mitigation: Keep templates simple, limit nesting
-
-3. **Debugging Challenges**: Errors in template or variables
-   - Mitigation: Detailed error messages, validation
-
-4. **Performance**: Template parsing overhead
-   - Mitigation: Cache compiled templates (Jinja2 default)
-
-5. **Logic in Templates**: Temptation to add business logic
-   - Mitigation: Keep templates simple, complex logic in Python
-
----
-
-## 📚 Best Practices
-
-### Do's
-1. Keep templates simple - minimize logic
-2. Always validate in production (`validate=True`)
-3. Use variable files for data separation
-4. Write template tests
-5. Document required variables
-6. Version control templates and variables
-7. Use meaningful file names
-8. Monitor template usage
-
-### Don'ts
-1. Don't put business logic in templates
-2. Don't skip validation in production
-3. Don't hardcode variables
-4. Don't over-abstract
-5. Don't ignore template errors
-6. Don't mix languages in same file
-7. Don't commit sensitive data
-8. Don't skip documentation
-
----
-
-## 🔮 Future Enhancements
-
-### Planned Features
-1. **Template Inheritance** - Base templates with extensions
-2. **Template Macros** - Reusable template components
-3. **Template Linting** - Validate YAML and Jinja2 syntax
-4. **Template Preview** - Render with sample data
-5. **Performance Optimization** - Template caching
-6. **Advanced Validation** - Type checking for variables
-7. **Multi-model Templates** - Model-specific optimizations
-8. **Template Analytics** - Track usage and performance
-
----
-
-## 🛠️ Troubleshooting
-
-### Common Issues
-
-**1. TemplateNotFound Error**
+# Terminal 3: Worker
+python -m src.worker.batch_worker
 ```
-jinja2.exceptions.TemplateNotFound: character_generation.yaml
+
+### API Examples
+
+```bash
+# Submit batch job
+curl -X POST http://localhost:8001/batch/submit \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "character_requests": [
+      {"gender": "female", "age": 25, "additional_instructions": "cheerful"},
+      {"gender": "male", "age": 30, "additional_instructions": "intellectual"}
+    ]
+  }'
+
+# Check status
+curl http://localhost:8001/batch/{job_id}/status
+
+# Get results
+curl http://localhost:8001/batch/{job_id}/result
+
+# List all jobs
+curl http://localhost:8001/batch/jobs
+
+# Queue stats
+curl http://localhost:8001/batch/queue/stats
 ```
-Solution: Check template directory path, verify file exists
 
-**2. Missing Variables**
-```
-TemplateValidationError: Missing required variables: {'age'}
-```
-Solution: Use `get_template_variables()` to check required variables
+## Development Commands
 
-**3. YAML Syntax Error**
-```
-yaml.scanner.ScannerError: mapping values are not allowed here
-```
-Solution: Check indentation and colons in YAML
+| Command | Description |
+|---------|-------------|
+| `make lint` | Run ruff linter with auto-fix |
+| `make fmt` | Format code with ruff |
+| `make fix` | Run lint + fmt |
+| `make mypy` | Type checking |
+| `make docker-build` | Build Docker image |
+| `make docker-up` | Start services |
+| `make docker-down` | Stop services |
+| `make docker-logs` | View logs |
+| `make docker-restart` | Restart services |
 
-**4. Undefined Variable**
-```
-jinja2.exceptions.UndefinedError: 'age' is undefined
-```
-Solution: Enable validation or use default values in template
+## Implementation Notes
 
----
+### Worker Architecture
 
-## 📖 References
+The worker uses two concurrent loops instead of sequential processing:
+1. Jobs are submitted to Gemini immediately upon dequeue
+2. Multiple Gemini batch jobs can be in-flight simultaneously
+3. All active jobs are polled in parallel every 5 seconds
 
-- **Design Pattern**: Template Method Pattern
-- **Jinja2 Documentation**: https://jinja.palletsprojects.com/
-- **YAML Specification**: https://yaml.org/spec/
-- **Best Practices**: Separation of Concerns, DRY principle
-- **Testing**: pytest, fixture-based testing
-- **Chapter Reference**: Chapter 2, Section 6 - Structured Template Prompting
+This design maximizes throughput when processing many concurrent jobs.
 
----
+### Redis Key Patterns
 
-## 📝 Changelog
+- Queue: `llm_batch_jobs` (LIST)
+- Status: `job:{job_id}:status` (STRING with 24h TTL)
+- Result: `job:{job_id}:result` (STRING with 24h TTL)
 
-### v1.0 (2025-10-18) - Initial Implementation
+### Error Handling
 
-**Core Features**:
-- TemplateEngine class with Jinja2 integration
-- YAML template format
-- Variable validation
-- Message format conversion
-- Jinja2 features support
+- Task-level failures don't affect other tasks
+- Job marked FAILED if any task fails
+- Worker continues processing after job failures
+- Gemini failed states: `JOB_STATE_FAILED`, `JOB_STATE_CANCELLED`, `JOB_STATE_EXPIRED`
 
-**Templates** (4 files):
-- Character generation
-- Product description
-- Email (formal and casual)
+### Supported Models
 
-**Variable Files** (6 files):
-- Character variations: artist, detective
-- Product variations: electronics, apparel
-- Email campaigns: summer, winter
+- `gemini-2.5-pro`
+- `gemini-2.5-flash`
+- `gemini-2.5-flash-lite`
 
-**Testing**:
-- 54 comprehensive tests
-- Full edge case coverage
-- Temporary directory fixtures
+### Security Notes
 
-**Infrastructure**:
-- CLI with provider/model selection
-- LLM request handlers
-- Makefile automation
-- pytest configuration
+This is example code without production security controls:
+- No authentication/authorization
+- No rate limiting
+- API keys in environment variables
 
-**Documentation**:
-- Comprehensive README.md (Japanese)
-- CLAUDE.md (this file)
-- Code documentation
-- Usage examples
-
----
-
-**Generated by**: Claude Code
-**Date**: 2025-10-18
-**Version**: 1.0
+For production, add API key auth, JWT, rate limiting, and secrets management.

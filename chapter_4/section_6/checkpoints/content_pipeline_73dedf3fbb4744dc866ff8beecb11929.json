@@ -1,0 +1,117 @@
+{
+  "workflow_id": "content_pipeline",
+  "checkpoint_id": "73dedf3fbb4744dc866ff8beecb11929",
+  "timestamp": "2025-11-09T11:24:18.948111",
+  "workflow_state": {
+    "workflow_id": "content_pipeline",
+    "state": "running",
+    "started_at": "2025-11-09T11:24:12.043653",
+    "completed_at": null,
+    "current_node_id": "parse_topics",
+    "node_records": {
+      "start": {
+        "node_id": "start",
+        "state": "completed",
+        "started_at": "2025-11-09T11:24:12.043686",
+        "completed_at": "2025-11-09T11:24:12.043713",
+        "error": null,
+        "output": {
+          "status": "started",
+          "initial_data": {
+            "domain": "artificial intelligence",
+            "num_topics": 3,
+            "quality_threshold": 7
+          }
+        },
+        "retry_count": 0
+      },
+      "generate_topics": {
+        "node_id": "generate_topics",
+        "state": "completed",
+        "started_at": "2025-11-09T11:24:12.043771",
+        "completed_at": "2025-11-09T11:24:18.947455",
+        "error": null,
+        "output": {
+          "content": "AI and the Job Market: Are Robots Coming for Your Role, or Creating New Opportunities?, You're Already Using AI: 7 Surprising Ways Intelligent Tech Powers Your Daily Life, Beyond ChatGPT: Can AI Truly Be Creative? Exploring the Artistic Frontier of Machines",
+          "model": "gemini-2.5-flash",
+          "usage": {
+            "prompt_tokens": 28,
+            "completion_tokens": 52,
+            "total_tokens": 970
+          },
+          "finish_reason": "STOP"
+        },
+        "retry_count": 0
+      },
+      "parse_topics": {
+        "node_id": "parse_topics",
+        "state": "completed",
+        "started_at": "2025-11-09T11:24:18.947797",
+        "completed_at": "2025-11-09T11:24:18.947920",
+        "error": null,
+        "output": {
+          "topics": [
+            "AI and the Job Market: Are Robots Coming for Your Role",
+            "or Creating New Opportunities?",
+            "You're Already Using AI: 7 Surprising Ways Intelligent Tech Powers Your Daily Life"
+          ],
+          "topics_count": 4
+        },
+        "retry_count": 0
+      }
+    },
+    "variables": {},
+    "error": null
+  },
+  "execution_context": {
+    "workflow_id": "content_pipeline",
+    "variables": {
+      "domain": "artificial intelligence",
+      "num_topics": 3,
+      "quality_threshold": 7,
+      "generate_topics_output": {
+        "content": "AI and the Job Market: Are Robots Coming for Your Role, or Creating New Opportunities?, You're Already Using AI: 7 Surprising Ways Intelligent Tech Powers Your Daily Life, Beyond ChatGPT: Can AI Truly Be Creative? Exploring the Artistic Frontier of Machines",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 28,
+          "completion_tokens": 52,
+          "total_tokens": 970
+        },
+        "finish_reason": "STOP"
+      }
+    },
+    "node_outputs": {
+      "start": {
+        "status": "started",
+        "initial_data": {
+          "domain": "artificial intelligence",
+          "num_topics": 3,
+          "quality_threshold": 7
+        }
+      },
+      "generate_topics": {
+        "content": "AI and the Job Market: Are Robots Coming for Your Role, or Creating New Opportunities?, You're Already Using AI: 7 Surprising Ways Intelligent Tech Powers Your Daily Life, Beyond ChatGPT: Can AI Truly Be Creative? Exploring the Artistic Frontier of Machines",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 28,
+          "completion_tokens": 52,
+          "total_tokens": 970
+        },
+        "finish_reason": "STOP"
+      },
+      "parse_topics": {
+        "topics": [
+          "AI and the Job Market: Are Robots Coming for Your Role",
+          "or Creating New Opportunities?",
+          "You're Already Using AI: 7 Surprising Ways Intelligent Tech Powers Your Daily Life"
+        ],
+        "topics_count": 4
+      }
+    },
+    "error": null
+  },
+  "metadata": {
+    "type": "auto",
+    "node": "parse_topics"
+  }
+}

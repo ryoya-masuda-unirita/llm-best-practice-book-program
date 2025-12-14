@@ -1,7 +1,5 @@
 import json
-import time
 from enum import StrEnum
-from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -9,19 +7,6 @@ from pydantic import BaseModel, ConfigDict, Field
 class Gender(StrEnum):
     FEMALE = "female"
     MALE = "male"
-
-
-class CharacterRequest(BaseModel):
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-        arbitrary_types_allowed=True,
-    )
-
-    gender: Gender = Field(..., description="The gender of the character.")
-    age: int = Field(..., description="The age of the character.", ge=0, le=100)
-    additional_instructions: Optional[str] = Field(..., description="Additional instructions for character generation.")
 
 
 class CharacterPersonality(BaseModel):
@@ -78,26 +63,3 @@ class CharacterResponse(BaseModel):
 
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(self.model_dump(), f, indent=4, ensure_ascii=False)
-
-
-class LLMRequest(BaseModel):
-    """Request model for LLM API."""
-
-    model: str = Field(..., description="The Gemini model name to use for generation")
-    character_request: CharacterRequest = Field(..., description="Character generation request parameters")
-
-
-class LLMResponse(BaseModel):
-    """Response model for LLM API."""
-
-    character: CharacterResponse = Field(..., description="Generated character information")
-    provider: str = Field(..., description="LLM provider used")
-    model: str = Field(..., description="Model used")
-    processing_time_ms: float = Field(..., description="Processing time in milliseconds")
-
-
-class HealthResponse(BaseModel):
-    """Health check response."""
-
-    status: Literal["healthy"] = "healthy"
-    timestamp: float = Field(default_factory=time.time)

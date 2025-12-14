@@ -1,0 +1,117 @@
+{
+  "workflow_id": "content_pipeline",
+  "checkpoint_id": "00bedbf1de204f1f8a3c28c850bc6dda",
+  "timestamp": "2025-11-09T11:19:24.562004",
+  "workflow_state": {
+    "workflow_id": "content_pipeline",
+    "state": "running",
+    "started_at": "2025-11-09T11:19:20.847637",
+    "completed_at": null,
+    "current_node_id": "parse_topics",
+    "node_records": {
+      "start": {
+        "node_id": "start",
+        "state": "completed",
+        "started_at": "2025-11-09T11:19:20.847672",
+        "completed_at": "2025-11-09T11:19:20.847700",
+        "error": null,
+        "output": {
+          "status": "started",
+          "initial_data": {
+            "domain": "artificial intelligence",
+            "num_topics": 3,
+            "quality_threshold": 7
+          }
+        },
+        "retry_count": 0
+      },
+      "generate_topics": {
+        "node_id": "generate_topics",
+        "state": "completed",
+        "started_at": "2025-11-09T11:19:20.847762",
+        "completed_at": "2025-11-09T11:19:24.561655",
+        "error": null,
+        "output": {
+          "content": "The AI Revolution You Didn't See Coming: How Artificial Intelligence is Already Reshaping Your Daily Life, From Sci-Fi to Reality: Demystifying AI's Biggest Myths and Ethical Dilemmas, Supercharge Your Life with AI: Practical Tools and Tips for Boosting Productivity and Creativity Today",
+          "model": "gemini-2.5-flash",
+          "usage": {
+            "prompt_tokens": 28,
+            "completion_tokens": 59,
+            "total_tokens": 588
+          },
+          "finish_reason": "STOP"
+        },
+        "retry_count": 0
+      },
+      "parse_topics": {
+        "node_id": "parse_topics",
+        "state": "completed",
+        "started_at": "2025-11-09T11:19:24.561832",
+        "completed_at": "2025-11-09T11:19:24.561902",
+        "error": null,
+        "output": {
+          "topics": [
+            "The AI Revolution You Didn't See Coming: How Artificial Intelligence is Already Reshaping Your Daily Life",
+            "From Sci-Fi to Reality: Demystifying AI's Biggest Myths and Ethical Dilemmas",
+            "Supercharge Your Life with AI: Practical Tools and Tips for Boosting Productivity and Creativity Today"
+          ],
+          "topics_count": 3
+        },
+        "retry_count": 0
+      }
+    },
+    "variables": {},
+    "error": null
+  },
+  "execution_context": {
+    "workflow_id": "content_pipeline",
+    "variables": {
+      "domain": "artificial intelligence",
+      "num_topics": 3,
+      "quality_threshold": 7,
+      "generate_topics_output": {
+        "content": "The AI Revolution You Didn't See Coming: How Artificial Intelligence is Already Reshaping Your Daily Life, From Sci-Fi to Reality: Demystifying AI's Biggest Myths and Ethical Dilemmas, Supercharge Your Life with AI: Practical Tools and Tips for Boosting Productivity and Creativity Today",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 28,
+          "completion_tokens": 59,
+          "total_tokens": 588
+        },
+        "finish_reason": "STOP"
+      }
+    },
+    "node_outputs": {
+      "start": {
+        "status": "started",
+        "initial_data": {
+          "domain": "artificial intelligence",
+          "num_topics": 3,
+          "quality_threshold": 7
+        }
+      },
+      "generate_topics": {
+        "content": "The AI Revolution You Didn't See Coming: How Artificial Intelligence is Already Reshaping Your Daily Life, From Sci-Fi to Reality: Demystifying AI's Biggest Myths and Ethical Dilemmas, Supercharge Your Life with AI: Practical Tools and Tips for Boosting Productivity and Creativity Today",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 28,
+          "completion_tokens": 59,
+          "total_tokens": 588
+        },
+        "finish_reason": "STOP"
+      },
+      "parse_topics": {
+        "topics": [
+          "The AI Revolution You Didn't See Coming: How Artificial Intelligence is Already Reshaping Your Daily Life",
+          "From Sci-Fi to Reality: Demystifying AI's Biggest Myths and Ethical Dilemmas",
+          "Supercharge Your Life with AI: Practical Tools and Tips for Boosting Productivity and Creativity Today"
+        ],
+        "topics_count": 3
+      }
+    },
+    "error": null
+  },
+  "metadata": {
+    "type": "auto",
+    "node": "parse_topics"
+  }
+}

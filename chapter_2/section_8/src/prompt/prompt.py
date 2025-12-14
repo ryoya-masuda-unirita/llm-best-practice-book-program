@@ -34,6 +34,7 @@ def make_openai_prompt(character: CharacterRequest) -> list:
 
 def make_gemini_prompt(character: CharacterRequest) -> tuple[str, str]:
     data = character.to_str_dict()
+    data = character.to_str_dict()
     params = CharacterResponse.detailed_model()
     param_dump = json.dumps(params, indent=2, ensure_ascii=False)
     system_prompt = f"""あなたは創造的なキャラクタージェネレーターです。
@@ -79,11 +80,7 @@ def make_anthropic_prompt(character: CharacterRequest) -> list:
     ]
 
 
-def make_prompt(character: CharacterRequest, provider: LLMProvider | None = None) -> list | tuple[str, str]:
-    """Create a prompt for character generation based on the provider."""
-    if provider is None:
-        provider = LLMProvider.OPENAI
-
+def make_prompt(character: CharacterRequest, provider: LLMProvider) -> list | tuple[str, str]:
     if provider == LLMProvider.OPENAI:
         return make_openai_prompt(character)
     elif provider == LLMProvider.GEMINI:

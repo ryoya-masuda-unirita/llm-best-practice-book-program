@@ -1,3 +1,5 @@
-from src.service.request_llm import request_gemini
+"""Service layer exports for LLM requests."""
 
-__all__ = ["request_gemini"]
+from src.service.request_llm import request_llm
+
+__all__ = ["request_llm"]

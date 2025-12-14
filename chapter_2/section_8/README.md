@@ -1,231 +1,239 @@
-# Chapter 2 Section 8: プロンプトのユニットテスト
+# Chapter 2 Section 8: LLMでLLMを評価する（LLM-as-a-Judge）
 
 ## 概要
 
-このプロジェクトは、**プロンプトのユニットテスト（Prompt Unit Testing）** の実装を示すサンプルコードです。LLM（大規模言語モデル）に与えるプロンプトの振る舞いを体系的に検証し、品質と安定性を継続的に保証するための設計プラクティスを実践します。
+このプロジェクトは、**LLM-as-a-Judge**（LLMを審査員として活用する設計手法）の実装を示すサンプルコードです。LLMが生成したコンテンツを別のLLMが自動的に評価することで、品質管理の自動化と効率化を実現します。
 
-プロンプトの変更がシステム全体の出力に与える影響を自動的に検証する仕組みを導入することで、意図しない品質劣化（リグレッション）を早期に検出し、LLMシステムの信頼性を高めることができます。**LLM-as-a-Judge** パターンを活用し、別のLLMに出力品質を評価させることで、高度な品質検証を実現しています。
-
-キャラクター生成のユースケースを通じて、プロンプトの構造検証、出力品質評価、リグレッション検出といった実践的なテスト手法を学ぶことができます。
+OpenAI、Google Gemini、Anthropic Claudeの3つのプロバイダーに対応し、**クロスプロバイダー評価**（異なるプロバイダーで生成と評価を行う）もサポートしています。キャラクター生成という具体的なユースケースを通じて、LLM-as-a-Judgeの実践的な実装方法を学ぶことができます。
 
 ## 機能
 
-### コアの機能
+### 基本機能
+- **自動品質評価**: 生成されたすべてのキャラクターを自動的に評価
+- **構造化評価結果**: JSON形式で詳細な評価結果を出力
+- **3つの評価軸**: 正確性（accuracy）、網羅性（comprehensiveness）、明瞭さ（clarity）
+- **スコアリング**: 1-5点の5段階評価と総合スコア算出
+- **品質閾値チェック**: 設定した閾値（デフォルト3.0/5.0）を下回る場合に警告
 
-- **プロンプトユニットテスト**: pytestベースの体系的なプロンプト品質検証
-- **LLM-as-a-Judge**: 別のLLMを用いた自動品質評価システム
-- **構造化出力**: PydanticモデルによるAPI応答形式の型安全性保証
-- **マルチプロバイダー対応**: OpenAI、Google Gemini、Anthropic APIの3つのプロバイダーをサポート
-- **品質スコアリング**: 5段階評価による定量的な品質測定
-
-### テスト機能
-
-- **構造検証テスト**: プロンプトが必須フィールドを含むことを確認
-- **品質閾値テスト**: 生成結果が最低品質基準を満たすことを保証
-- **リグレッション検出テスト**: プロンプト変更による品質劣化を検出
-- **代表的入力テスト**: 3-5個の重要なユースケースをカバー
-- **カスタム評価基準**: ドメイン固有の要件に対応した評価
-
-### その他の機能
-
+### 高度な機能
+- **クロスプロバイダー評価**: 異なるLLMプロバイダーで生成と評価を実行
+- **リクエストパラメータ評価**: 生成されたキャラクターが元のリクエスト要件（性別、年齢、追加指示）を満たしているかを自動検証
+- **カスタム評価基準**: プログラマティックAPIでドメイン固有の評価基準を定義可能
+- **温度パラメータ制御**: 評価の一貫性を高めるため低温度（0.0）で実行
+- **マルチプロバイダー対応**: OpenAI、Google Gemini、Anthropic Claude APIの3つをサポート
+- **プロバイダー別プロンプト**: 各LLMプロバイダーの特性に最適化されたプロンプト形式を自動選択
 - **非同期処理**: async/awaitパターンによる効率的なAPI呼び出し
-- **CLIインターフェース**: Clickライブラリによる柔軟なコマンドラインツール
+
+### システム機能
+- **型安全性**: Pydanticによる厳密な型検証とバリデーション
+- **CLIインターフェース**: Clickライブラリを使用した使いやすいコマンドラインツール
 - **環境変数管理**: python-dotenvによる安全なAPIキー管理
-- **詳細なログ出力**: 実行状況の可視化
-- **JSON出力**: 生成結果と評価結果をJSON形式で保存
+- **ログ出力**: 詳細なログ機能による実行状況の可視化
+- **JSON出力**: 生成結果と評価結果をそれぞれJSON形式でファイルに保存
 
 ## プロジェクト構成
 
 ### ディレクトリ構成
 
 ```
-chapter_2/section_8/
+chapter_2/section_7/
 ├── src/
 │   ├── __init__.py                    # パッケージ初期化
-│   ├── config.py                      # 設定管理（APIキー読み込み）
+│   ├── config.py                      # 設定管理（API キー読み込み）
 │   ├── logger.py                      # ロギング設定
-│   ├── main.py                        # メインエントリーポイント
+│   ├── main.py                        # メインエントリーポイント（CLIとLLM-as-a-Judge統合）
 │   ├── client/
 │   │   ├── __init__.py
 │   │   └── llm_client.py              # LLMクライアント初期化
 │   ├── model/
 │   │   ├── __init__.py
-│   │   ├── model.py                   # キャラクターモデル定義
-│   │   └── llm_as_a_judge_model.py    # Judge評価モデル定義
+│   │   ├── model.py                   # キャラクターデータモデル定義
+│   │   └── llm_as_a_judge_model.py    # LLM-as-a-Judge評価モデル定義
 │   ├── prompt/
 │   │   ├── __init__.py
 │   │   ├── prompt.py                  # キャラクター生成プロンプト
-│   │   └── llm_as_a_judge_prompt.py   # Judge評価プロンプト
+│   │   └── llm_as_a_judge_prompt.py   # LLM-as-a-Judge評価プロンプト
 │   └── service/
 │       ├── __init__.py
-│       ├── request_llm.py             # LLMリクエスト処理
-│       └── llm_as_a_judge.py          # Judge評価サービス
-├── tests/
-│   ├── __init__.py
-│   ├── conftest.py                    # pytestフィクスチャ定義
-│   ├── test_prompt_unit_testing.py    # プロンプトユニットテスト
-│   └── test_llm_as_a_judge.py         # Judge機能テスト
-├── outputs/                            # 生成結果の保存先（自動作成）
+│       ├── request_llm.py             # LLMリクエスト処理（統合ワークフロー）
+│       └── llm_as_a_judge.py          # LLM-as-a-Judge評価サービス
+├── outputs/                            # 生成結果と評価結果の保存先（自動作成）
 ├── .envrc.example                      # 環境変数設定のサンプル
 ├── pyproject.toml                      # プロジェクト依存関係
-├── pytest.ini                          # pytest設定ファイル
-├── Makefile                            # 開発用コマンド
 ├── README.md                           # このファイル
-└── CLAUDE.md                           # プロジェクト状態レポート
+└── CLAUDE.md                           # コンセプト説明（日本語）
 ```
 
 ### アーキテクチャ
 
-このプロジェクトは、以下の3層アーキテクチャ + テスト層で構成されています：
+このプロジェクトは、以下の多層アーキテクチャで構成されています：
 
 ```
-┌─────────────────────────────────────────────────┐
-│         CLI Layer (main.py)                     │
-│   - コマンドライン引数解析                      │
-│   - 生成・評価ワークフロー制御                  │
-│   - 出力ディレクトリ管理                        │
-└─────────────────┬───────────────────────────────┘
+┌────────────────────────────────────────────────┐
+│         CLI Layer (main.py)                    │
+│  - コマンドライン引数解析                       │
+│  - 生成と評価の統合ワークフロー                 │
+│  - 出力ディレクトリ管理                         │
+└─────────────────┬──────────────────────────────┘
                   │
-┌─────────────────▼───────────────────────────────┐
-│      Business Logic Layer                       │
-│  - プロンプト生成 (prompt.py)                   │
-│  - Judge評価プロンプト (llm_as_a_judge_prompt) │
-│  - LLMクライアント管理 (llm_client.py)         │
-│  - リクエスト処理 (request_llm.py)             │
-│  - Judge評価サービス (llm_as_a_judge.py)       │
-│  - データモデル (model.py, judge_model.py)     │
-└─────────────────┬───────────────────────────────┘
+┌─────────────────▼──────────────────────────────┐
+│      Business Logic Layer                      │
+│  ┌──────────────────────────────────────────┐  │
+│  │  生成サービス (request_llm.py)           │  │
+│  │  - request_openai()                      │  │
+│  │  - request_gemini()                      │  │
+│  │  - request_with_judge() ★統合機能       │  │
+│  └──────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────┐  │
+│  │  評価サービス (llm_as_a_judge.py)        │  │
+│  │  - judge_with_openai()                   │  │
+│  │  - judge_with_gemini()                   │  │
+│  └──────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────┐  │
+│  │  プロンプト生成                           │  │
+│  │  - make_prompt() (キャラクター生成)      │  │
+│  │  - make_judge_prompt() (評価)            │  │
+│  │  - make_custom_judge_prompt() (カスタム) │  │
+│  └──────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────┐  │
+│  │  データモデル                             │  │
+│  │  - CharacterRequest/Response             │  │
+│  │  - JudgeRequest/Response                 │  │
+│  │  - EvaluationCriterion                   │  │
+│  └──────────────────────────────────────────┘  │
+└─────────────────┬──────────────────────────────┘
                   │
-┌─────────────────▼───────────────────────────────┐
-│      Infrastructure Layer                       │
-│  - 設定管理 (config.py)                         │
-│  - ログ管理 (logger.py)                         │
-│  - 外部API (OpenAI, Gemini, Anthropic)          │
-└─────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────┐
-│      Test Layer (tests/)                        │
-│  - プロンプト構造検証テスト                     │
-│  - 出力品質テスト                               │
-│  - リグレッション検出テスト                     │
-│  - 代表的入力テスト                             │
-│  - Judge機能テスト                              │
-└─────────────────────────────────────────────────┘
+┌─────────────────▼──────────────────────────────┐
+│      Infrastructure Layer                      │
+│  - 設定管理 (config.py)                        │
+│  - ログ管理 (logger.py)                        │
+│  - LLMクライアント (llm_client.py)             │
+│  - 外部API (OpenAI, Gemini)                    │
+└────────────────────────────────────────────────┘
 ```
 
 ### 実装の詳細
 
-#### 1. データモデル (`src/model/`)
+#### 1. LLM-as-a-Judge データモデル (`src/model/llm_as_a_judge_model.py`)
 
-##### キャラクターモデル (`model.py`)
-
-Pydanticを使用して、厳密に型付けされたデータモデルを定義します：
+評価に関連するデータ構造を定義します：
 
 ```python
-class Gender(StrEnum):
-    FEMALE = "female"
-    MALE = "male"
-
-class CharacterRequest(BaseModel):
-    gender: Gender
-    age: int  # 0-100
-    additional_instructions: str
-
-class CharacterResponse(BaseModel):
-    first_name: str
-    last_name: str
-    gender: Gender
-    age: int  # 0-100
-    personalities: list[CharacterPersonality]  # 3つの性格特性
-```
-
-##### Judge評価モデル (`llm_as_a_judge_model.py`)
-
-LLM-as-a-Judgeパターンの評価結果を表現するモデル：
-
-```python
-class EvaluationScore(IntEnum):
-    COMPLETELY_INAPPROPRIATE = 1  # 完全に不適切
-    POOR = 2                      # 不十分
-    ACCEPTABLE = 3                # 許容範囲
-    GOOD = 4                      # 良好
-    PERFECT = 5                   # 完璧
-
 class EvaluationCriterion(BaseModel):
-    criterion_name: str    # 評価基準名
-    score: EvaluationScore # スコア（1-5）
-    reasoning: str         # 評価の根拠
+    """個別の評価基準の結果"""
+    criterion_name: str        # 評価基準名
+    score: int                 # スコア（1-5）with ge=1, le=5 constraints
+    reasoning: str             # スコアの理由
+
+class JudgeRequest(BaseModel):
+    """評価リクエスト"""
+    question: str                      # 元の質問・プロンプト
+    response: str                      # 評価対象の応答
+    context: str | None                # オプションの参照情報（RAG評価用）
+    request_parameters: str | None     # オプションのリクエストパラメータ
 
 class JudgeResponse(BaseModel):
+    """評価結果"""
     evaluations: list[EvaluationCriterion]  # 各基準の評価
-    overall_score: float                     # 総合スコア
-    summary: str                             # 評価サマリー
+    overall_score: float                     # 総合スコア（1.0-5.0）
+    summary: str                             # 評価の要約
 
     def is_passing(self, threshold: float = 3.0) -> bool:
-        """品質閾値を超えているかチェック"""
+        """品質閾値をクリアしているか判定"""
         return self.overall_score >= threshold
 ```
 
 **ポイント**:
-- 5段階評価で定量的な品質測定を実現
-- `is_passing()`メソッドで品質閾値判定を簡潔に実装
-- 評価の根拠（reasoning）を保持し、説明可能性を確保
+- `score`フィールドは`int`型で1-5の制約を設定（Gemini APIとの互換性のため）
+- `JudgeRequest`に`request_parameters`フィールドを追加し、元のリクエスト要件との整合性を評価
+- `JudgeRequest`にオプションの`context`フィールドを持たせることでRAG評価にも対応
+- `is_passing()`メソッドで品質ゲーティング機能を提供
 
-#### 2. プロンプト生成 (`src/prompt/`)
+#### 2. 評価プロンプト生成 (`src/prompt/llm_as_a_judge_prompt.py`)
 
-##### キャラクター生成プロンプト (`prompt.py`)
+各プロバイダーに最適化された評価プロンプトを生成します：
 
 ```python
-def make_prompt(character_request: CharacterRequest) -> list:
-    params = CharacterResponse.detailed_model()
-    param_dump = json.dumps(params, indent=2, ensure_ascii=False)
-
+def make_openai_judge_prompt(request: JudgeRequest) -> list:
+    """OpenAI用の標準的な3基準評価プロンプトを生成"""
+    # systemとuserロールを分離したOpenAI形式
     return [
-        {
-            "role": "system",
-            "content": f"""あなたは創造的なキャラクタージェネレーターです。
-以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：
+        {"role": "system", "content": system_instruction},
+        {"role": "user", "content": evaluation_content}
+    ]
 
-{param_dump}
-..."""
-        },
-        {
-            "role": "user",
-            "content": f"""性別: {character_request.gender.value}
-年齢: {character_request.age}
-追加指示: {character_request.additional_instructions}"""
-        }
+def make_gemini_judge_prompt(request: JudgeRequest) -> tuple[str, str]:
+    """Gemini用の標準的な3基準評価プロンプトを生成"""
+    # system_promptとuser_promptを分離したGemini形式
+    return system_prompt, user_prompt
+
+def make_anthropic_judge_prompt(request: JudgeRequest) -> list:
+    """Anthropic用の標準的な3基準評価プロンプトを生成"""
+    # userロールのみのAnthropic形式
+    return [
+        {"role": "user", "content": combined_content}
     ]
 ```
 
-##### Judge評価プロンプト (`llm_as_a_judge_prompt.py`)
+評価内容の構築：
 
 ```python
-def make_judge_prompt(request: JudgeRequest) -> list:
-    """デフォルトの評価基準（accuracy, comprehensiveness, clarity）で評価"""
-    ...
+evaluation_content = f"""以下の質問と回答を評価してください。
 
-def make_custom_judge_prompt(
-    request: JudgeRequest,
-    criteria: list[dict]
-) -> list:
-    """カスタム評価基準で評価（ドメイン固有要件に対応）"""
-    ...
+【質問】
+{request.question}
+
+【回答】
+{request.response}
+"""
+
+# リクエストパラメータを含める
+if request.request_parameters:
+    evaluation_content += f"""
+【リクエストパラメータ】
+{request.request_parameters}
+"""
+
+# 参照情報を含める（RAG評価用）
+if request.context:
+    evaluation_content += f"""
+【参照情報】
+{request.context}
+"""
+```
+
+**評価基準**:
+```
+1. 正確性 (accuracy):
+   - リクエストパラメータがある場合、その要件に忠実であるか
+   - 参照情報がある場合、その内容に忠実であるか
+   - 誤った情報やハルシネーションが含まれていないか
+
+2. 網羅性 (comprehensiveness):
+   - リクエストパラメータで指定された要件をすべて満たしているか
+   - ユーザーの質問に直接答えているか
+   - 重要な情報が欠けていないか
+
+3. 明瞭さ (clarity):
+   - 回答が理解しやすく、適切な表現で書かれているか
 ```
 
 **ポイント**:
-- スキーマ情報をプロンプトに埋め込み、出力の一貫性を確保
-- デフォルト評価基準とカスタム評価基準の両方をサポート
-- 評価プロンプトもバージョン管理対象とし、品質基準を明確化
+- プロバイダーごとに最適化されたプロンプト形式を提供
+- リクエストパラメータを評価に含めることで、元の要件との整合性を検証
+- `context`がある場合は参照情報として含める（RAG評価用）
+- モデルから自動的にスキーマ情報を抽出してプロンプトに埋め込み
 
-#### 3. Judge評価サービス (`src/service/llm_as_a_judge.py`)
+#### 3. 評価サービス (`src/service/llm_as_a_judge.py`)
+
+3つのプロバイダーを使った評価実装：
 
 ```python
 async def judge_with_openai(
     judge_request: JudgeRequest,
-    model: OpenAIModel
+    model: OpenAIModel,
 ) -> JudgeResponse:
-    """OpenAI APIを使用してLLM-as-a-Judge評価を実行"""
+    """OpenAIを使用して評価"""
     prompt = make_openai_judge_prompt(judge_request)
 
     result = await openai_client.responses.parse(
@@ -233,13 +241,14 @@ async def judge_with_openai(
         input=prompt,
         text_format=JudgeResponse,
     )
+
     return result.output_parsed
 
 async def judge_with_gemini(
     judge_request: JudgeRequest,
-    model: GeminiModel
+    model: GeminiModel,
 ) -> JudgeResponse:
-    """Gemini APIを使用してLLM-as-a-Judge評価を実行"""
+    """Geminiを使用して評価"""
     system_prompt, user_prompt = make_gemini_judge_prompt(judge_request)
 
     result = await google_genai_client.aio.models.generate_content(
@@ -249,16 +258,17 @@ async def judge_with_gemini(
             system_instruction=system_prompt,
             response_mime_type="application/json",
             response_schema=JudgeResponse,
-            temperature=0.0,
+            temperature=0.0,  # 一貫した評価のため低温度
         ),
     )
+
     return result.parsed
 
 async def judge_with_anthropic(
     judge_request: JudgeRequest,
-    model: AnthropicModel
+    model: AnthropicModel,
 ) -> JudgeResponse:
-    """Anthropic APIを使用してLLM-as-a-Judge評価を実行"""
+    """Anthropicを使用して評価"""
     prompt = make_anthropic_judge_prompt(judge_request)
 
     result = await anthropic_client.beta.messages.parse(
@@ -268,15 +278,19 @@ async def judge_with_anthropic(
         messages=prompt,
         output_format=JudgeResponse,
     )
+
     return result.parsed_output
 ```
 
 **特徴**:
-- `temperature=0.0`で評価の一貫性を確保（Geminiのみ設定可能）
-- 構造化出力で評価結果を確実にパース
-- マルチプロバイダー対応（OpenAI、Gemini、Anthropic）で柔軟な評価環境を提供
+- 各プロバイダーに最適化されたプロンプト関数を使用
+- `temperature=0.0`で評価の一貫性を確保（Geminiのみ、他はプロバイダーのデフォルト）
+- 構造化出力により確実にJSONフォーマットで評価結果を取得
+- 3つのプロバイダーで統一されたインターフェースを提供
 
 #### 4. 統合ワークフロー (`src/service/request_llm.py`)
+
+生成と評価を統合した関数：
 
 ```python
 async def request_with_judge(
@@ -287,109 +301,111 @@ async def request_with_judge(
     judge_provider: str | None = None,
 ) -> tuple[CharacterResponse, JudgeResponse]:
     """
-    Step 1: キャラクター生成
-    Step 2: LLM-as-a-Judgeによる品質評価
+    キャラクター生成と評価を一括実行
 
-    Returns:
-        (生成結果, 評価結果)のタプル
+    クロスプロバイダー評価をサポート：
+    - judge_modelとjudge_providerを指定すると異なるプロバイダーで評価
+    - 指定しない場合は生成と同じモデル/プロバイダーで評価
     """
-    ...
+    # ステップ1: プロンプト生成
+    prompt = make_prompt(character=character_request, provider=LLMProvider(provider))
+
+    # ステップ2: キャラクター生成
+    if provider == LLMProvider.OPENAI:
+        character_response = await request_openai(prompt=prompt, model=model)
+    elif provider == LLMProvider.GEMINI:
+        character_response = await request_gemini(prompt=prompt, model=model)
+    elif provider == LLMProvider.ANTHROPIC:
+        character_response = await request_anthropic(prompt=prompt, model=model)
+
+    # ステップ3: リクエストパラメータのフォーマット
+    request_params_str = f"""Gender: {character_request.gender.value}
+Age: {character_request.age}
+Additional Instructions: {character_request.additional_instructions or "None"}"""
+
+    # ステップ4: 評価リクエストの作成
+    judge_request = JudgeRequest(
+        question=user_prompt,
+        response=character_response.model_dump_json(indent=2, ensure_ascii=False),
+        context=None,
+        request_parameters=request_params_str
+    )
+
+    # ステップ5: 評価実行
+    if judge_provider == LLMProvider.OPENAI:
+        judge_response = await judge_with_openai(judge_request, judge_model)
+    elif judge_provider == LLMProvider.GEMINI:
+        judge_response = await judge_with_gemini(judge_request, judge_model)
+    elif judge_provider == LLMProvider.ANTHROPIC:
+        judge_response = await judge_with_anthropic(judge_request, judge_model)
+
+    return character_response, judge_response
 ```
 
 **ポイント**:
-- 生成と評価を1つのワークフローで実行
-- 生成モデルと評価モデルを独立して指定可能
-- 両方の結果を返すことで、品質検証と出力取得を同時に実現
+- CharacterRequestを受け取り、内部でプロンプト生成を実行
+- リクエストパラメータを自動的にフォーマットして評価に含める
+- 生成と評価を1つの関数で完結
+- 3つのプロバイダーすべてでクロスプロバイダー評価をサポート
+- 生成結果をJSON化して評価リクエストに含める
 
-#### 5. テスト実装 (`tests/`)
+#### 5. CLI統合 (`src/main.py`)
 
-##### プロンプト構造検証テスト
-
-```python
-class TestCharacterPromptStructure:
-    """プロンプトが正しい構造を持つことを検証"""
-
-    def test_prompt_includes_required_fields(self, sample_character_request):
-        """必須フィールドがプロンプトに含まれているか"""
-        prompt = make_prompt(sample_character_request)
-        system_content = prompt[0]["content"]
-
-        assert "first_name" in system_content
-        assert "last_name" in system_content
-        assert "gender" in system_content
-        assert "age" in system_content
-        assert "personalities" in system_content
-```
-
-##### 品質閾値テスト
+コマンドラインから評価機能を利用：
 
 ```python
-class TestCharacterOutputQuality:
-    """LLM-as-a-Judgeを使用した品質検証"""
+@click.command()
+@click.option("--gender", "-g", type=click.Choice(Gender), ...)
+@click.option("--age", "-a", type=click.IntRange(0, 100), ...)
+@click.option("--additional-instructions", "-ai", type=str, ...)
+@click.option("--llm-provider", "-lp", type=click.Choice(LLMProvider), ...)
+@click.option("--model", "-m",
+    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str() + AnthropicModel.list_str()),
+    ...)
+@click.option("--judge-provider", "-jp", type=click.Choice(LLMProvider), required=False)
+@click.option("--judge-model", "-jm",
+    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str() + AnthropicModel.list_str()),
+    required=False)
+async def main(
+    gender: Gender,
+    age: int,
+    additional_instructions: str,
+    llm_provider: LLMProvider,
+    model: str,
+    judge_provider: LLMProvider | None = None,
+    judge_model: str | None = None,
+):
+    # CharacterRequestを作成
+    character_request = CharacterRequest(
+        gender=gender,
+        age=age,
+        additional_instructions=additional_instructions
+    )
 
-    @pytest.mark.asyncio
-    async def test_generated_character_meets_quality_threshold(
-        self,
-        sample_character_response,
-        sample_judge_response
-    ):
-        """生成されたキャラクターが品質基準を満たすか"""
-        judge_response = await judge_with_openai(...)
+    # 常にLLM-as-a-Judgeワークフローを使用
+    character_result, judge_result = await request_with_judge(
+        character_request=character_request,
+        model=model,
+        provider=llm_provider.value,
+        judge_model=judge_model,
+        judge_provider=judge_provider.value if judge_provider else None,
+    )
 
-        assert judge_response.is_passing(threshold=3.0)
-        assert judge_response.overall_score >= 4.0
+    # 両方の結果を保存
+    character_result.save_as_json(character_file_path)
+    judge_result.save_as_json(judge_file_path)
+
+    # スコアチェック
+    if not judge_result.is_passing():
+        logger.warning("品質閾値を下回っています (3.0/5.0)")
 ```
 
-##### リグレッション検出テスト
-
-```python
-class TestRegressionDetection:
-    """プロンプト変更による品質劣化を検出"""
-
-    @pytest.mark.asyncio
-    async def test_output_contains_all_required_fields(
-        self,
-        sample_character_response
-    ):
-        """すべての必須フィールドが出力に含まれているか
-
-        このテストが失敗した場合、プロンプトの変更により
-        必須フィールドが欠落する可能性がある
-        """
-        response_dict = sample_character_response.model_dump()
-
-        assert "first_name" in response_dict
-        assert "last_name" in response_dict
-        assert len(response_dict["personalities"]) == 3
-```
-
-##### 代表的入力テスト
-
-```python
-class TestRepresentativeInputs:
-    """3-5個の代表的なユースケースをテスト"""
-
-    @pytest.mark.asyncio
-    async def test_young_female_fantasy_character(self):
-        """テストケース1: 若い女性ファンタジーキャラクター"""
-        request = CharacterRequest(
-            gender=Gender.FEMALE,
-            age=25,
-            additional_instructions="Generate a wizard from a fantasy world."
-        )
-        prompt = make_prompt(request)
-        # 検証...
-
-    @pytest.mark.asyncio
-    async def test_elderly_male_realistic_character(self):
-        """テストケース2: 高齢男性現実的キャラクター"""
-        ...
-```
-
-**ポイント**:
-- 最初から全ケースを網羅せず、重要な3-5個からスタート
-- リグレッションテストは、プロンプト変更時に失敗することで問題を検出
-- モックを活用し、API呼び出しコストを削減
+**特徴**:
+- 3つのプロバイダー（OpenAI、Gemini、Anthropic）すべてをサポート
+- CharacterRequestを直接渡すシンプルな設計
+- すべての実行で自動的に評価を実行
+- オプションで異なるプロバイダー/モデルを評価に使用可能
+- 品質閾値チェックと警告機能
 
 ## 使い方
 
@@ -397,15 +413,12 @@ class TestRepresentativeInputs:
 
 - **Python**: 3.13.2以上
 - **依存ライブラリ**:
+  - anthropic>=0.42.0
   - click>=8.3.0
   - google-genai>=1.45.0
   - openai>=2.4.0
   - pydantic>=2.12.2
   - python-dotenv>=1.1.1
-- **開発依存ライブラリ**:
-  - pytest>=8.4.2
-  - pytest-asyncio>=1.2.0
-  - pytest-mock>=3.15.1
 
 ### セットアップ
 
@@ -430,261 +443,164 @@ uv sync
 
 # pipを使用する場合
 pip install -e .
-pip install -e ".[dev]"  # テスト用依存関係も含む
 ```
 
 ### 使用方法、実行方法
 
-#### メインプログラムの実行
-
-キャラクター生成とLLM-as-a-Judge評価を実行します：
-
-##### 基本的な使い方
+#### 基本的な使い方（同じプロバイダーで生成と評価）
 
 ```bash
-# Gemini APIを使用
-uv run python -m src.main \
-    --llm-provider gemini \
-    --model gemini-2.5-flash \
-    --gender female \
-    --age 25
+# Geminiで生成し、Geminiで評価
+python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH
 
-# OpenAI APIを使用
-uv run python -m src.main \
-    --llm-provider openai \
-    --model gpt-4o-mini \
-    --gender male \
-    --age 30
+# OpenAIで生成し、OpenAIで評価
+python -m src.main -g FEMALE -a 25 -lp OPENAI -m GPT_4O_MINI
 
-# Anthropic APIを使用
-uv run python -m src.main \
-    --llm-provider anthropic \
-    --model claude-sonnet-4-5 \
-    --gender female \
-    --age 28
+# Anthropicで生成し、Anthropicで評価
+python -m src.main -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_SONNET_4_5
 ```
 
-##### 追加指示を指定
+#### クロスプロバイダー評価（推奨）
+
+異なるプロバイダーで生成と評価を行うことで、より客観的な評価が可能になります：
 
 ```bash
-uv run python -m src.main \
-    -lp openai \
-    -m gpt-4o-mini \
-    -g female \
-    -a 25 \
-    --additional-instructions "Generate a wizard from a fantasy world."
+# Geminiで生成、OpenAIで評価
+python -m src.main \
+  -g FEMALE -a 25 \
+  -lp GEMINI -m GEMINI_2_5_FLASH \
+  -jp OPENAI -jm GPT_4O_MINI
+
+# OpenAIで生成、Anthropicで評価
+python -m src.main \
+  -g MALE -a 40 \
+  -lp OPENAI -m GPT_4O \
+  -jp ANTHROPIC -jm CLAUDE_OPUS_4_1
+
+# Anthropicで生成、Geminiで評価
+python -m src.main \
+  -g FEMALE -a 30 \
+  -lp ANTHROPIC -m CLAUDE_SONNET_4_5 \
+  -jp GEMINI -jm GEMINI_2_5_PRO
 ```
 
-##### 異なるモデルで評価
+#### 追加指示の指定
 
 ```bash
-# gpt-4o-miniで生成し、claude-sonnet-4-5で評価
-uv run python -m src.main \
-    -lp openai \
-    -m gpt-4o-mini \
-    -g female \
-    -a 25 \
-    --judge-provider anthropic \
-    --judge-model claude-sonnet-4-5
+python -m src.main \
+  -g FEMALE -a 30 \
+  -ai "mysterious artist" \
+  -lp GEMINI -m GEMINI_2_5_FLASH \
+  -jp OPENAI -jm GPT_4O_MINI
 ```
 
-##### 出力先の指定
+#### ヘルプの表示
 
 ```bash
-uv run python -m src.main \
-    -lp gemini \
-    -m gemini-2.5-flash \
-    -g male \
-    -a 40 \
-    --output-directory ./custom_output
-```
-
-##### ヘルプの表示
-
-```bash
-uv run python -m src.main --help
+python -m src.main --help
 ```
 
 **出力例**:
 ```
+Usage: python -m src.main [OPTIONS]
+
 Options:
-  -g, --gender [female|male]                    The gender of the character to generate.
-  -a, --age INTEGER RANGE                       The age of the character to generate.  [0<=x<=100]
-  -ai, --additional-instructions TEXT           Additional instructions for character generation.
-  -lp, --llm-provider [openai|gemini|anthropic] The LLM provider to use.
-  -m, --model TEXT                              The model to use for the request.
-  -od, --output-directory PATH                  The directory to save output files.
-  -jp, --judge-provider [openai|gemini|anthropic] The LLM provider to use for judgment.
-  -jm, --judge-model TEXT                       The model to use for judgment.
-  --help                                        Show this message and exit.
-```
-
-#### テストの実行
-
-プロンプトのユニットテストを実行します：
-
-##### すべてのテストを実行
-
-```bash
-# pytestで全テストを実行
-uv run pytest
-
-# より詳細な出力
-uv run pytest -v
-
-# ローカル変数を表示
-uv run pytest -vl
-```
-
-##### 特定のテストクラスを実行
-
-```bash
-# プロンプト構造検証テストのみ
-uv run pytest tests/test_prompt_unit_testing.py::TestCharacterPromptStructure -v
-
-# 品質テストのみ
-uv run pytest tests/test_prompt_unit_testing.py::TestCharacterOutputQuality -v
-
-# リグレッション検出テストのみ
-uv run pytest tests/test_prompt_unit_testing.py::TestRegressionDetection -v
-```
-
-##### 特定のテスト関数を実行
-
-```bash
-# 必須フィールド検証テストのみ
-uv run pytest tests/test_prompt_unit_testing.py::TestCharacterPromptStructure::test_prompt_includes_required_fields -v
-```
-
-##### マーカーでフィルタリング
-
-```bash
-# 非同期テストのみ
-uv run pytest -m asyncio -v
-
-# 統合テスト（スキップされているものも実行）
-uv run pytest -m integration -v
-
-# スモークテストのみ
-uv run pytest -m smoke -v
-```
-
-##### テストをスキップせずに実行
-
-```bash
-# API呼び出しを伴うテストも含めて実行（コストに注意）
-uv run pytest -v -k "not test_full_generation" --tb=short
-```
-
-##### テスト結果のサマリー
-
-```bash
-# すべてのテスト結果のサマリーを表示
-uv run pytest -ra
+  -g, --gender [FEMALE|MALE]           キャラクターの性別 [required]
+  -a, --age INTEGER RANGE              キャラクターの年齢 [0<=x<=100; required]
+  -ai, --additional-instructions TEXT  追加の生成指示
+  -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
+                                       生成に使用するLLMプロバイダー [required]
+  -m, --model [GPT_5|GPT_5_MINI|...|CLAUDE_SONNET_4_5|CLAUDE_OPUS_4_1]
+                                       生成に使用するモデル [required]
+  -od, --output-directory PATH         出力ディレクトリ
+  -jp, --judge-provider [OPENAI|GEMINI|ANTHROPIC]
+                                       評価に使用するLLMプロバイダー（省略時は生成と同じ）
+  -jm, --judge-model [...]             評価に使用するモデル（省略時は生成と同じ）
+  --help                               ヘルプを表示
 ```
 
 ### 出力例
 
-#### キャラクター生成結果
+実行すると、2つのJSONファイルが生成されます：
 
-実行すると、以下のような構造化されたJSONファイルが生成されます：
+#### 1. キャラクターファイル
 
-**ファイル名**: `outputs/abc123_gemini_character.json`
+**ファイル名**: `outputs/gemini_character_a1b2c3d4e5f6.json`
 
 ```json
 {
-    "first_name": "蒼",
-    "last_name": "雨宮",
-    "gender": "male",
-    "age": 28,
+    "first_name": "サラ",
+    "last_name": "コンラッド",
+    "gender": "female",
+    "age": 25,
     "personalities": [
         {
-            "short_personality": "内向的な思索家",
-            "description": "常に深く物事を考え、静かな場所を好む。表面的な会話よりも、哲学的な議論に心を開く。"
+            "short_personality": "好奇心旺盛",
+            "description": "未知の世界や技術に強い興味を持つ探究心の塊"
         },
         {
-            "short_personality": "完璧主義者",
-            "description": "すべてのタスクに最高の基準を求め、細部にこだわる。しばしば自分自身に対して厳しすぎることがある。"
+            "short_personality": "冷静沈着",
+            "description": "危機的状況でも論理的に判断できる思考力"
         },
         {
-            "short_personality": "忠実な友人",
-            "description": "一度信頼関係を築くと、どんな困難な状況でも友人を支える。約束を何よりも大切にする。"
+            "short_personality": "正義感が強い",
+            "description": "弱者を守り、不正を許さない強い使命感"
         }
     ]
 }
 ```
 
-#### Judge評価結果
+#### 2. 評価ファイル
 
-**ファイル名**: `outputs/abc123_gemini_judge.json`
+**ファイル名**: `outputs/openai_judge_a1b2c3d4e5f6.json`（クロスプロバイダー評価の場合）
 
 ```json
 {
     "evaluations": [
         {
             "criterion_name": "accuracy",
-            "score": 4,
-            "reasoning": "指定された年齢（28歳）と性別（男性）が正確に反映されている。"
+            "score": 5,
+            "reasoning": "キャラクター設定が論理的で矛盾がなく、SF小説の主人公として適切です。"
         },
         {
             "criterion_name": "comprehensiveness",
-            "score": 5,
-            "reasoning": "名前、性別、年齢、3つの性格特性がすべて含まれており、各性格には短い説明と詳細な説明の両方が記載されている。"
+            "score": 4,
+            "reasoning": "基本的な性格特性は十分ですが、背景設定があればより良いでしょう。"
         },
         {
             "criterion_name": "clarity",
-            "score": 4,
-            "reasoning": "各性格特性が明確に記述されており、キャラクターの個性が理解しやすい。"
+            "score": 5,
+            "reasoning": "各性格特性が明確に記述されており、理解しやすいです。"
         }
     ],
-    "overall_score": 4.33,
-    "summary": "指定された条件を満たし、キャラクターの個性が適切に表現された高品質な生成結果。"
+    "overall_score": 4.67,
+    "summary": "全体的に高品質なキャラクター設定です。SF小説の主人公として適切で、個性が明確です。"
 }
 ```
 
 #### 実行ログ例
 
 ```
-[2025-10-18 17:30:45] [INFO] [__main__] [main.py:102] Character Generation Request:
+[2025-10-18 14:30:00] [INFO] Character Generation Request:
 Gender: female
 Age: 25
-Additional Instructions: Generate a wizard from a fantasy world.
+Additional Instructions: SF小説の主人公として適したキャラクターを生成してください。
 
-Generation LLM: gemini / gemini-2.0-flash-exp
-Judge LLM: gemini / gemini-2.0-flash-exp
+Generation LLM: gemini / gemini-2.5-flash
+Judge LLM: openai / gpt-4o-mini
 Output directory: outputs
 
-[2025-10-18 17:30:45] [INFO] [src.service.request_llm] [request_llm.py:59] Step 1: Generating character...
-[2025-10-18 17:30:47] [INFO] [src.service.request_llm] [request_llm.py:67] Character generation completed.
-[2025-10-18 17:30:47] [INFO] [src.service.request_llm] [request_llm.py:70] Step 2: Evaluating character with LLM-as-a-Judge...
-[2025-10-18 17:30:49] [INFO] [src.service.request_llm] [request_llm.py:96] Evaluation completed. Overall score: 4.33/5.0
-[2025-10-18 17:30:49] [INFO] [__main__] [main.py:144] Character file saved to outputs/abc123_gemini_character.json
-[2025-10-18 17:30:49] [INFO] [__main__] [main.py:149] Judge evaluation saved to outputs/abc123_gemini_judge.json
-[2025-10-18 17:30:49] [INFO] [__main__] [main.py:151] Overall evaluation score: 4.33/5.0
+[2025-10-18 14:30:01] [INFO] Step 1: Generating character...
+[2025-10-18 14:30:03] [INFO] Character generation completed.
+[2025-10-18 14:30:03] [INFO] Step 2: Evaluating character with LLM-as-a-Judge...
+[2025-10-18 14:30:03] [INFO] Requesting judgment from OpenAI model: gpt-4o-mini
+[2025-10-18 14:30:05] [INFO] Judgment completed. Overall score: 4.67/5.0
+[2025-10-18 14:30:05] [INFO] Character file saved to outputs/gemini_character_a1b2c3d4e5f6.json
+[2025-10-18 14:30:05] [INFO] Judge evaluation saved to outputs/openai_judge_a1b2c3d4e5f6.json
+[2025-10-18 14:30:05] [INFO] Overall evaluation score: 4.67/5.0
 ```
 
-#### テスト実行結果例
-
-```bash
-$ uv run pytest -v
-
-============================= test session starts ==============================
-platform darwin -- Python 3.13.2, pytest-8.4.2
-collected 25 items
-
-tests/test_llm_as_a_judge.py::TestJudgeModels::test_judge_request_creation PASSED    [  4%]
-tests/test_llm_as_a_judge.py::TestJudgeModels::test_judge_response_structure PASSED  [  8%]
-tests/test_llm_as_a_judge.py::TestJudgeModels::test_evaluation_score_values PASSED   [ 12%]
-tests/test_llm_as_a_judge.py::TestJudgePrompts::test_make_judge_prompt_structure PASSED [ 16%]
-tests/test_prompt_unit_testing.py::TestCharacterPromptStructure::test_prompt_includes_required_fields PASSED [ 20%]
-tests/test_prompt_unit_testing.py::TestCharacterPromptStructure::test_prompt_specifies_personality_count PASSED [ 24%]
-tests/test_prompt_unit_testing.py::TestCharacterPromptStructure::test_prompt_enforces_json_format PASSED [ 28%]
-tests/test_prompt_unit_testing.py::TestCharacterOutputQuality::test_generated_character_meets_quality_threshold PASSED [ 32%]
-tests/test_prompt_unit_testing.py::TestRepresentativeInputs::test_young_female_fantasy_character PASSED [ 36%]
-tests/test_prompt_unit_testing.py::TestRepresentativeInputs::test_elderly_male_realistic_character PASSED [ 40%]
-tests/test_prompt_unit_testing.py::TestRegressionDetection::test_output_contains_all_required_fields PASSED [ 44%]
-tests/test_prompt_unit_testing.py::TestRegressionDetection::test_personality_traits_have_descriptions PASSED [ 48%]
-tests/test_prompt_unit_testing.py::TestRegressionDetection::test_output_is_valid_json_serializable PASSED [ 52%]
-
-============================== 25 passed in 2.45s ===============================
+品質閾値を下回った場合の警告例：
+```
+[2025-10-18 14:30:05] [WARNING] The generated character did not meet the quality threshold (3.0/5.0)
 ```

@@ -1,267 +1,363 @@
-# Chapter 4 Section 1: ReAct型AIエージェント
+# Chapter 4 Section 1: LLMシステムのストレージと実行を分離する
 
 ## 概要
 
-このプロジェクトは、**ReAct（Reasoning and Acting）パターン** を用いたAIエージェントの実装を示すサンプルコードです。LangChainとLangGraphを活用し、「思考（Thought）→ 行動（Action）→ 観察（Observation）」のサイクルを繰り返すことで、複雑なタスクを段階的に解決するエージェントを構築します。
+このプロジェクトは、**ストレージ層と実行層を分離した設計パターン（Bridge Pattern）** を用いたLLMシステムの実装サンプルです。キャッシュやデータベースへのアクセス処理と、LLM APIの呼び出し処理を疎結合に保つことで、コンポーネントの独立性を高め、柔軟でテストしやすく、保守性の高いシステムを実現します。
 
-夕食メニューのアドバイザーエージェントを通じて、ReActパターンの実践的な実装方法を学ぶことができます。エージェントはレシピ検索、栄養情報確認、旬の食材取得、調理時間見積もりなどのツールを活用し、ユーザーのリクエストに基づいて最適な夕食メニューを提案します。
+本実装では、FastAPIベースのREST APIサーバーを提供し、OpenAI GPTモデル（GPT-5、GPT-4.1、GPT-4oシリーズ）に対応しています。また、インメモリキャッシュとRedisキャッシュの両方をサポートし、環境に応じて柔軟に切り替えることができます。
 
 ## 機能
 
-- **ReActパターン実装**: Thought-Action-Observationループによる段階的な問題解決
-- **ツール連携**: 4種類の専用ツール（レシピ検索、栄養情報、旬の食材、調理時間見積もり）
-- **LangGraph状態管理**: StateGraphによるエージェントの状態遷移管理
-- **無限ループ防止**: 最大イテレーション数による安全機構
+- **ストレージと実行の分離**: Bridge Patternを用いた責務の明確な分離
+- **キャッシング機能**: インメモリとRedisベースの2種類のキャッシュバックエンドをサポート
+- **OpenAI対応**: OpenAI GPTモデル（GPT-5、GPT-4.1、GPT-4oシリーズ）をサポート
+- **依存性注入（DI）**: Factoryパターンによる柔軟なサービスインスタンス管理
+- **REST APIサーバー**: FastAPIによる高性能なAPIエンドポイント
+- **キャッシュメトリクス**: キャッシュヒット率、ミス数などの監視機能
+- **キャッシュ無効化**: 任意のキャッシュキーを手動で無効化する機能
 - **非同期処理**: async/awaitパターンによる効率的なAPI呼び出し
-- **CLIインターフェース**: Clickライブラリを使用した使いやすいコマンドラインツール
+- **型安全性**: Pydanticによる厳密な型検証とバリデーション
 - **環境変数管理**: python-dotenvによる安全なAPIキー管理
-- **ログ出力**: 詳細なログ機能によるエージェント実行状況の可視化
-- **Markdown出力**: 推薦結果をMarkdown形式でファイルに保存
+- **Docker対応**: Docker Composeによる簡単なデプロイメント
 
 ## プロジェクト構成
 
 ### ディレクトリ構成
 
 ```
-chapter_4/section_1/
+chapter_3/section_2/
 ├── src/
-│   ├── __init__.py                    # パッケージ初期化
-│   ├── config.py                      # 設定管理（API キー読み込み）
-│   ├── logger.py                      # ロギング設定
-│   ├── main.py                        # メインエントリーポイント（CLI）
+│   ├── __init__.py                # パッケージ初期化
+│   ├── config.py                  # 設定管理（API キー、キャッシュ設定）
+│   ├── logger.py                  # ロギング設定
+│   ├── api/
+│   │   ├── __init__.py
+│   │   └── llm_server.py          # FastAPI サーバー実装
 │   ├── client/
 │   │   ├── __init__.py
-│   │   └── llm_client.py              # LLMクライアント初期化
+│   │   ├── llm_client.py          # LLMクライアント初期化
+│   │   └── cache_client.py        # キャッシュクライアント（Redis、インメモリ）
 │   ├── model/
 │   │   ├── __init__.py
-│   │   └── llm_pipeline_model.py      # エージェント状態・データモデル定義
+│   │   └── model.py               # Pydanticデータモデル定義
 │   ├── prompt/
 │   │   ├── __init__.py
-│   │   └── llm_pipeline_prompt.py     # システムプロンプト・ユーザープロンプト
+│   │   └── prompt.py              # プロンプト生成ロジック
 │   └── service/
 │       ├── __init__.py
-│       └── llm_pipeline_service.py    # ReActエージェント実装・ツール定義
-├── outputs/                            # 推薦結果の保存先（自動作成）
-├── .envrc.example                      # 環境変数設定のサンプル
-├── pyproject.toml                      # プロジェクト依存関係
-├── README.md                           # このファイル
-└── CLAUDE.md                           # プロジェクト状態レポート
+│       ├── interface.py           # ILLMService インターフェース（Bridge）
+│       ├── storage.py             # ストレージ層実装（キャッシュ）
+│       ├── execution.py           # 実行層実装（LLM API呼び出し）
+│       └── factory.py             # Factoryパターン実装
+├── .env.example                    # 環境変数設定のサンプル
+├── .envrc.example                  # direnv設定のサンプル
+├── docker-compose.yml              # Docker Compose設定
+├── Dockerfile.web                  # Webサーバー用Dockerfile
+├── Makefile                        # 開発用コマンド
+├── pyproject.toml                  # プロジェクト依存関係
+├── README.md                       # このファイル
+└── CLAUDE.md                       # プロジェクト設計書
+
 ```
 
 ### アーキテクチャ
 
-このプロジェクトは、ReActパターンに基づく以下のアーキテクチャで構成されています：
+本プロジェクトは、**Bridge Pattern** を中核とした3層アーキテクチャで構成されています：
 
 ```
-┌─────────────────────────────────────────┐
-│         CLI Layer (main.py)             │
-│     - コマンドライン引数解析             │
-│     - 出力ディレクトリ管理               │
-└─────────────────┬───────────────────────┘
-                  │
-┌─────────────────▼───────────────────────┐
-│      ReAct Agent Layer                  │
-│  - StateGraph (LangGraph)               │
-│  - Thought-Action-Observation Loop      │
-│  - ツール実行・結果観察                  │
-└─────────────────┬───────────────────────┘
-                  │
-┌─────────────────▼───────────────────────┐
-│      Tool Layer                         │
-│  - search_recipes (レシピ検索)          │
-│  - check_nutrition (栄養情報確認)       │
-│  - get_seasonal_ingredients (旬の食材)  │
-│  - estimate_cooking_time (調理時間)     │
-└─────────────────┬───────────────────────┘
-                  │
-┌─────────────────▼───────────────────────┐
-│      Infrastructure Layer               │
-│  - 設定管理 (config.py)                 │
-│  - ログ管理 (logger.py)                 │
-│  - 外部API (OpenAI)                     │
-└─────────────────────────────────────────┘
-```
-
-### ReActエージェントのフロー
-
-```
-    ┌─────────────┐
-    │    Start    │
-    └──────┬──────┘
-           │
-           ▼
-    ┌─────────────┐
-    │    Agent    │ ◄──────────────────┐
-    │  (Thought)  │                    │
-    └──────┬──────┘                    │
-           │                           │
-           ▼                           │
-    ┌─────────────┐    Yes      ┌──────┴──────┐
-    │ Tool Call?  │────────────►│    Tools    │
-    └──────┬──────┘             │(Observation)│
-           │ No                 └─────────────┘
-           ▼
-    ┌─────────────┐
-    │  Finalize   │
-    │ (Response)  │
-    └──────┬──────┘
-           │
-           ▼
-    ┌─────────────┐
-    │     End     │
-    └─────────────┘
+┌─────────────────────────────────────────────────┐
+│        API Layer (FastAPI)                      │
+│    - エンドポイント定義                         │
+│    - リクエスト/レスポンス処理                  │
+│    - ヘルスチェック、メトリクス                 │
+└───────────────────┬─────────────────────────────┘
+                    │
+┌───────────────────▼─────────────────────────────┐
+│        Service Layer (Bridge Pattern)           │
+│                                                  │
+│  ┌──────────────────────────────────────────┐  │
+│  │   ILLMService (Interface)                │  │
+│  │   - generate_character()                 │  │
+│  │   - invalidate_cache()                   │  │
+│  └──────────────┬───────────┬────────────────┘  │
+│                 │           │                    │
+│    ┌────────────▼──────┐  ┌▼──────────────────┐ │
+│    │ CachedLLMService  │  │ ExecutionLLMService│ │
+│    │ (Storage Layer)   │  │ (Execution Layer)  │ │
+│    │ - キャッシュ管理  │  │ - OpenAI API呼び出し│ │
+│    │ - メトリクス収集  │  │                    │ │
+│    └────────────┬──────┘  └────────────────────┘ │
+│                 │                                 │
+│    ┌────────────▼──────────────┐                 │
+│    │  LLMServiceFactory (DI)   │                 │
+│    │  - サービスインスタンス作成│                 │
+│    │  - 環境に応じた実装切替   │                 │
+│    └───────────────────────────┘                 │
+└──────────────────┬──────────────────────────────┘
+                   │
+┌──────────────────▼──────────────────────────────┐
+│      Infrastructure Layer                       │
+│  - Cache Backend (InMemory / Redis)             │
+│  - LLM Client (OpenAI)                          │
+│  - Config (環境変数管理)                        │
+│  - Logger (ログ出力)                            │
+└─────────────────────────────────────────────────┘
 ```
 
 ### 実装の詳細
 
-#### 1. エージェント状態モデル (`src/model/llm_pipeline_model.py`)
+#### 1. Bridgeインターフェース (`src/service/interface.py`)
 
-LangGraphのTypedDictを使用して、エージェントの状態を定義します：
+ストレージ層と実行層を繋ぐ共通インターフェースを定義します：
 
 ```python
-class AgentState(TypedDict):
-    """ReAct agent state for dinner menu advisor."""
+class ILLMService(ABC):
+    """LLMサービス操作の抽象インターフェース"""
 
-    messages: Annotated[Sequence[BaseMessage], add_messages]
-    user_request: str
-    final_recommendation: str | None
+    @abstractmethod
+    async def generate_character(
+        self,
+        prompt: list[dict],
+        model: str,
+        provider: str,
+        cache_key: str | None = None,
+    ) -> CharacterResponse:
+        """キャラクターを生成"""
+        pass
+
+    @abstractmethod
+    async def invalidate_cache(self, cache_key: str) -> bool:
+        """キャッシュを無効化"""
+        pass
 ```
 
 **ポイント**:
-- `Annotated`と`add_messages`でメッセージ履歴を自動管理
-- `final_recommendation`で最終的な推薦結果を保持
+- アプリケーションはこのインターフェースのみに依存
+- 実装の詳細（キャッシュ or 直接実行）を隠蔽
+- テスト時のモック化が容易
 
-#### 2. ツール定義 (`src/service/llm_pipeline_service.py`)
+#### 2. ストレージ層実装 (`src/service/storage.py`)
 
-LangChainの`@tool`デコレータを使用して、エージェントが利用可能なツールを定義します：
+キャッシュを管理する責務を持つ層です：
 
 ```python
-@tool
-def search_recipes(query: str, cuisine_type: str | None = None) -> str:
-    """
-    Search for recipes based on keywords and optional cuisine type.
+class CachedLLMService(ILLMService):
+    """キャッシング機能を持つストレージ層実装"""
 
-    Args:
-        query: Search keywords (e.g., "chicken", "pasta", "quick dinner")
-        cuisine_type: Optional cuisine type (e.g., "Japanese", "Italian", "Chinese")
+    def __init__(self, execution_service: ILLMService):
+        self._execution_service = execution_service
+        # キャッシュバックエンドの初期化
+        if config.cache_backend == CacheBackend.MEMORY:
+            self._cache = InMemoryCache()
+        else:
+            self._cache = redis_client
 
-    Returns:
-        JSON string containing matching recipes
-    """
-    # レシピデータベースの検索ロジック
-    ...
+    async def generate_character(
+        self, prompt, model, provider, cache_key=None
+    ) -> CharacterResponse:
+        key = self._generate_cache_key(prompt, model, provider, cache_key)
 
-@tool
-def check_nutrition(dish_name: str) -> str:
-    """Check the nutritional information of a dish."""
-    ...
+        # キャッシュチェック
+        if self._cache_enabled:
+            cached_data = await self._cache.get(key)
+            if cached_data:
+                self._cache_hits += 1
+                return CharacterResponse(**cached_data)
+            self._cache_misses += 1
 
-@tool
-def get_seasonal_ingredients(season: str | None = None) -> str:
-    """Get a list of ingredients that are currently in season."""
-    ...
+        # キャッシュミス → 実行層に委譲
+        character = await self._execution_service.generate_character(
+            prompt, model, provider, cache_key
+        )
 
-@tool
-def estimate_cooking_time(dish_name: str, skill_level: str = "intermediate") -> str:
-    """Estimate the cooking time for a specific dish."""
-    ...
+        # 結果をキャッシュに保存
+        if self._cache_enabled:
+            await self._cache.set(key, character.model_dump())
+
+        return character
 ```
 
 **ポイント**:
-- docstringがLLMへのツール説明として自動的に使用される
-- JSON形式で結果を返すことで、LLMが解釈しやすい
+- 実行層サービスをコンストラクタで受け取る（DI）
+- キャッシュヒット/ミスのメトリクスを自動収集
+- キャッシュキーはリクエストパラメータのハッシュで生成
+- インメモリとRedisのバックエンドを透過的に切り替え可能
 
-#### 3. ReActエージェントグラフ (`src/service/llm_pipeline_service.py`)
+#### 3. 実行層実装 (`src/service/execution.py`)
 
-LangGraphのStateGraphを使用して、ReActループを構築します：
+LLM APIを呼び出す責務を持つ層です：
 
 ```python
-def create_dinner_advisor_graph() -> StateGraph:
-    """Create the ReAct agent graph for dinner menu advice."""
+class ExecutionLLMService(ILLMService):
+    """LLM API呼び出しを行う実行層実装"""
 
-    graph = StateGraph(AgentState)
+    async def generate_character(
+        self, prompt, model, provider, cache_key=None
+    ) -> CharacterResponse:
+        if provider != LLMProvider.OPENAI:
+            raise ValueError(f"Unsupported LLM provider: {provider}")
 
-    # Add nodes
-    graph.add_node("agent", call_model)      # Thought + Action決定
-    graph.add_node("tools", tool_node)       # Observation
-    graph.add_node("finalize", extract_final_recommendation)
+        logger.info(f"Executing LLM request: model={model}")
+        result = await openai_client.responses.parse(
+            model=model,
+            input=prompt,
+            text_format=CharacterResponse,
+        )
+        logger.info(f"OpenAI API call successful: {model}")
+        return result.output_parsed
+```
 
-    # Set entry point
-    graph.set_entry_point("agent")
+**ポイント**:
+- キャッシュの存在を一切知らない（単一責任原則）
+- OpenAI Responses APIの構造化出力を使用して型安全な応答を取得
 
-    # Add conditional edges
-    graph.add_conditional_edges(
-        "agent",
-        should_continue,
-        {
-            "tools": "tools",
-            "end": "finalize",
-        },
+#### 4. Factoryパターン (`src/service/factory.py`)
+
+依存性注入とサービスインスタンスの生成を管理します：
+
+```python
+class LLMServiceFactory:
+    """LLMサービスインスタンスを生成するFactory"""
+
+    @staticmethod
+    def create_service() -> ILLMService:
+        # 実行サービスを作成
+        execution_service = ExecutionLLMService()
+
+        # 設定に応じてキャッシュ層でラップ
+        if config.cache_enabled:
+            return CachedLLMService(execution_service)
+        else:
+            return execution_service
+
+# シングルトンインスタンス管理
+_service_instance: ILLMService = None
+
+def get_llm_service() -> ILLMService:
+    """シングルトンサービスインスタンスを取得"""
+    global _service_instance
+    if _service_instance is None:
+        _service_instance = LLMServiceFactory.create_service()
+    return _service_instance
+```
+
+**ポイント**:
+- 環境変数の設定に基づいて適切な実装を選択
+- シングルトンパターンでアプリケーション全体で単一インスタンスを共有
+- テスト用に `reset_llm_service()` で再初期化可能
+
+#### 5. キャッシュクライアント (`src/client/cache_client.py`)
+
+2種類のキャッシュバックエンドを提供します：
+
+```python
+class InMemoryCache:
+    """TTLサポート付きインメモリキャッシュ"""
+
+    def __init__(self):
+        self._cache: dict[str, tuple[dict, float]] = {}
+
+    async def get(self, key: str) -> Optional[dict]:
+        if key in self._cache:
+            value, expire_at = self._cache[key]
+            if expire_at == 0 or time.time() < expire_at:
+                return value
+            del self._cache[key]  # 期限切れを削除
+        return None
+
+class RedisClient:
+    """非同期Redisクライアント"""
+
+    async def connect(self):
+        self._client = redis.Redis(
+            host=config.redis_host,
+            port=config.redis_port,
+            db=config.redis_db,
+            password=password,
+        )
+        await self._client.ping()
+
+    async def get(self, key: str) -> Optional[dict]:
+        value = await self._client.get(key)
+        return json.loads(value) if value else None
+```
+
+**ポイント**:
+- 両クライアントは同一のインターフェース（`get`, `set`, `delete`）を実装
+- InMemoryCache: 開発・テスト環境向け、TTL機能付き
+- RedisClient: 本番環境向け、永続化と分散キャッシュに対応
+
+#### 6. REST APIサーバー (`src/api/llm_server.py`)
+
+FastAPIベースのエンドポイントを提供します：
+
+```python
+@app.post("/generate", response_model=LLMResponse)
+async def generate_character(request: LLMRequest):
+    """キャラクター生成エンドポイント"""
+    prompt = make_prompt(character_request=request.character_request)
+
+    # Factoryからサービスを取得（DI）
+    llm_service = get_llm_service()
+
+    # サービス層に処理を委譲
+    character = await llm_service.generate_character(
+        prompt=prompt,
+        model=request.model,
+        provider=request.provider.value
     )
 
-    # Tools always go back to agent
-    graph.add_edge("tools", "agent")
-    graph.add_edge("finalize", END)
+    return LLMResponse(character=character, ...)
 
-    return graph.compile()
+@app.get("/metrics")
+async def get_cache_metrics():
+    """キャッシュメトリクスを取得"""
+    llm_service = get_llm_service()
+    if isinstance(llm_service, CachedLLMService):
+        return llm_service.get_cache_metrics()
+    return {"cache_enabled": False}
+
+@app.delete("/cache/{cache_key}")
+async def invalidate_cache(cache_key: str):
+    """キャッシュを手動で無効化"""
+    llm_service = get_llm_service()
+    result = await llm_service.invalidate_cache(cache_key)
+    return {"invalidated": result}
 ```
 
 **ポイント**:
-- `call_model`: LLMを呼び出し、次のアクションを決定（Thought + Action）
-- `tool_node`: ツールを実行し、結果を観察（Observation）
-- `should_continue`: ループを継続するか終了するかを判定
+- サービス層の抽象インターフェースのみに依存
+- キャッシュの有無を意識せずに実装できる
+- メトリクス取得とキャッシュ無効化のエンドポイントを提供
 
-#### 4. 無限ループ防止機構
+#### 7. 設定管理 (`src/config.py`)
 
-最大イテレーション数を設定し、無限ループを防止します：
-
-```python
-MAX_ITERATIONS = 10
-
-def should_continue(state: AgentState) -> Literal["tools", "end"]:
-    messages = state["messages"]
-    last_message = messages[-1]
-
-    # Check iteration count to prevent infinite loops
-    tool_message_count = sum(1 for m in messages if isinstance(m, ToolMessage))
-    if tool_message_count >= MAX_ITERATIONS:
-        logger.warning(f"Agent: Max iterations ({MAX_ITERATIONS}) reached, ending loop")
-        return "end"
-
-    # If the last message has tool calls, continue to tools
-    if isinstance(last_message, AIMessage) and last_message.tool_calls:
-        return "tools"
-
-    return "end"
-```
-
-#### 5. システムプロンプト (`src/prompt/llm_pipeline_prompt.py`)
-
-ReActパターンの思考プロセスを促すシステムプロンプトを定義します：
+環境変数からAPIキーとキャッシュ設定を読み込みます：
 
 ```python
-DINNER_ADVISOR_SYSTEM_PROMPT = """You are a helpful dinner menu advisor AI assistant.
-Your goal is to recommend the best dinner menu based on the user's request.
+class CacheBackend(StrEnum):
+    MEMORY = "memory"
+    REDIS = "redis"
 
-You have access to the following tools to help you make better recommendations:
+class Config(BaseModel):
+    openai_api_key: Secret[str]
 
-1. **search_recipes**: Search for recipes based on keywords, cuisine type, or ingredients.
-2. **check_nutrition**: Check the nutritional information of a dish.
-3. **get_seasonal_ingredients**: Get a list of ingredients that are currently in season.
-4. **estimate_cooking_time**: Estimate the cooking time for a specific dish.
+    # キャッシュ設定
+    cache_enabled: bool = True
+    cache_backend: CacheBackend = CacheBackend.MEMORY
+    cache_ttl: int = 3600  # 1時間
 
-## ReAct Process
-
-For each user request, follow this Thought-Action-Observation loop:
-
-1. **Thought**: Think about what information you need to gather...
-2. **Action**: Use one of the available tools to gather information.
-3. **Observation**: Analyze the results from the tool...
-
-Repeat this loop until you have enough information to make a confident recommendation.
-...
-"""
+    # Redis設定
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_db: int = 0
+    redis_password: Secret[str] | None = None
 ```
+
+**ポイント**:
+- `Secret[str]`型でAPIキーを保護
+- デフォルト値により最小限の設定で動作
+- 環境変数の検証をPydanticが自動実行
 
 ## 使い方
 
@@ -269,24 +365,40 @@ Repeat this loop until you have enough information to make a confident recommend
 
 - **Python**: 3.13.2以上
 - **依存ライブラリ**:
-  - click>=8.3.0
-  - langchain-openai>=1.1.0
-  - langgraph>=1.0.0
+  - fastapi>=0.119.0
+  - uvicorn>=0.37.0
   - openai>=2.4.0
   - pydantic>=2.12.2
   - python-dotenv>=1.1.1
+  - redis>=7.0.0
+  - click>=8.3.0
+  - httpx>=0.28.1
+- **オプション**:
+  - Docker & Docker Compose（コンテナデプロイメント用）
+  - Redis Server（Redisキャッシュ使用時）
 
 ### セットアップ
 
 1. **環境変数ファイルの作成**
 
 ```bash
-# .envrc.exampleをコピーして.envrcを作成
-cp .envrc.example .envrc
+# .env.exampleをコピーして.envを作成
+cp .env.example .env
 
-# エディタで.envrcを開き、APIキーを設定
-# .envrc
+# エディタで.envを開き、APIキーを設定
+# .env
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
+
+# キャッシュ設定（デフォルト）
+CACHE_ENABLED=true
+CACHE_BACKEND=memory
+CACHE_TTL=3600
+
+# Redis設定（CACHE_BACKEND=redisの場合）
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=0
+REDIS_PASSWORD=
 ```
 
 2. **依存関係のインストール**
@@ -299,112 +411,145 @@ uv sync
 pip install -e .
 ```
 
+3. **Redisのセットアップ（Redisキャッシュ使用時のみ）**
+
+```bash
+# ローカルでRedisを起動
+docker run -d -p 6379:6379 redis:latest
+
+# または、Homebrewでインストール（macOS）
+brew install redis
+brew services start redis
+```
+
 ### 使用方法、実行方法
 
-#### 基本的な使い方
+#### 方法1: ローカル実行
 
 ```bash
-# リクエストを指定して実行
-uv run python -m src.main -r "今日は疲れているので簡単な料理がいい"
+# LLM APIサーバーを起動
+make run-llm-server
 
-# 健康志向のリクエスト
-uv run python -m src.main -r "健康的な和食を作りたい"
-
-# 時間制限のあるリクエスト
-uv run python -m src.main -r "30分以内で作れるイタリアン"
+# または直接uvicornで起動
+uv run uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-#### モデルの指定
+#### 方法2: Docker Compose実行
 
 ```bash
-# デフォルト（gpt-4o）
-uv run python -m src.main -r "簡単な夕食"
+# Dockerイメージをビルド
+make docker-build
 
-# 別のモデルを使用
-uv run python -m src.main -m gpt-4o-mini -r "簡単な夕食"
+# サービスを起動（APIサーバー + Redis）
+make docker-up
+
+# ログを確認
+make docker-logs
+
+# サービスを停止
+make docker-down
 ```
 
-#### 出力先の指定
+#### API使用例
+
+サーバーが起動したら、以下のようにAPIを呼び出します：
+
+**1. キャラクター生成（OpenAI）**
 
 ```bash
-# カスタム出力ディレクトリを指定
-uv run python -m src.main -r "簡単な夕食" -od ./my_recommendations
+curl -X POST "http://localhost:8000/generate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "character_request": {
+      "gender": "male",
+      "age": 28,
+      "additional_instructions": "ファンタジー世界の魔法使い"
+    }
+  }'
 ```
 
-#### ヘルプの表示
+**2. ヘルスチェック**
 
 ```bash
-uv run python -m src.main --help
+curl http://localhost:8000/health
 ```
 
-**出力例**:
+**3. キャッシュメトリクスの確認**
+
+```bash
+curl http://localhost:8000/metrics
 ```
-Usage: python -m src.main [OPTIONS]
 
-  Dinner Menu Advisor - A ReAct AI Agent
+**4. キャッシュの無効化**
 
-  This agent recommends dinner menus based on your request. It uses tools to
-  search recipes, check nutrition, find seasonal ingredients, and estimate
-  cooking times.
-
-Options:
-  -m, --model [gpt-5|gpt-5-mini|gpt-5-nano|gpt-4.1|gpt-4.1-mini|gpt-4.1-nano|gpt-4o|gpt-4o-mini]
-                                  The model to use for the request.
-  -od, --output-directory PATH    The directory to save output files.
-  -r, --request TEXT              Your dinner request in natural language.
-                                  [required]
-  --help                          Show this message and exit.
+```bash
+curl -X DELETE "http://localhost:8000/cache/{cache_key}"
 ```
+
+#### APIドキュメント
+
+サーバー起動後、以下のURLで自動生成されたAPIドキュメントを参照できます：
+
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
 
 ### 出力例
 
-実行すると、以下のようなMarkdownファイルが生成されます：
+#### 1. キャラクター生成レスポンス
 
-**ファイル名**: `outputs/dinner_recommendation_a1b2c3d4.md`
-
-```markdown
-# 夕食メニュー提案: 豚の生姜焼き
-
-## 概要
-- **調理時間**: 約20分
-- **難易度**: 簡単
-
-## おすすめの理由
-お疲れの時にぴったりの、シンプルで美味しい定番料理です。
-材料も少なく、手順も簡単なので、疲れていても無理なく作れます。
-豚肉のタンパク質と生姜の風味で、元気が出る一品です。
-
-## 材料
-- 豚ロース 200g
-- 生姜 1かけ
-- 醤油 大さじ2
-- みりん 大さじ1
-- 酒 大さじ1
-
-## 作り方
-1. 生姜をすりおろす
-2. 調味料を混ぜ合わせてタレを作る
-3. 豚肉をフライパンで焼く
-4. タレを加えて絡める
-5. 皿に盛り付けて完成
+```json
+{
+  "character": {
+    "first_name": "アリス",
+    "last_name": "スターフィールド",
+    "gender": "female",
+    "age": 22,
+    "personalities": [
+      {
+        "short_personality": "好奇心旺盛な探究者",
+        "description": "未知の領域や新しい発見に対して常に興味を持ち、リスクを恐れずチャレンジする。"
+      },
+      {
+        "short_personality": "冷静な判断力",
+        "description": "緊急事態でも感情に流されず、論理的かつ迅速に最適解を導き出す能力を持つ。"
+      },
+      {
+        "short_personality": "チームプレイヤー",
+        "description": "仲間との協力を重視し、全員が安全に任務を遂行できるようサポートする。"
+      }
+    ]
+  },
+  "provider": "openai",
+  "model": "gpt-4o-mini",
+  "processing_time_ms": 1234.56
+}
 ```
 
-**実行ログ例**:
-```
-[2025-10-17 10:30:45] [INFO] [src.main] Dinner Menu Advisor
-Model: gpt-4o
-Request: 今日は疲れているので簡単な料理がいい
-Output directory: outputs
+#### 2. キャッシュメトリクスレスポンス
 
-[2025-10-17 10:30:45] [INFO] [src.service.llm_pipeline_service] Starting dinner advisor for request: 今日は疲れているので簡単な料理がいい
-[2025-10-17 10:30:45] [INFO] [src.service.llm_pipeline_service] Creating dinner advisor ReAct agent graph...
-[2025-10-17 10:30:46] [INFO] [src.service.llm_pipeline_service] Agent: Calling model for reasoning...
-[2025-10-17 10:30:47] [INFO] [src.service.llm_pipeline_service] Agent: Model response received (has_tool_calls=True)
-[2025-10-17 10:30:47] [INFO] [src.service.llm_pipeline_service] Agent: Executing tool calls...
-[2025-10-17 10:30:47] [INFO] [src.service.llm_pipeline_service] Tool: search_recipes called with query='簡単', cuisine_type='Quick'
-[2025-10-17 10:30:47] [INFO] [src.service.llm_pipeline_service] Agent: Tool 'search_recipes' returned result
-[2025-10-17 10:30:48] [INFO] [src.service.llm_pipeline_service] Agent: Calling model for reasoning...
-[2025-10-17 10:30:50] [INFO] [src.service.llm_pipeline_service] Agent: No tool calls, ending loop with final answer
-[2025-10-17 10:30:50] [INFO] [src.service.llm_pipeline_service] Dinner advisor completed successfully
-[2025-10-17 10:30:50] [INFO] [src.main] Recommendation saved: outputs/dinner_recommendation_a1b2c3d4.md
+```json
+{
+  "cache_enabled": true,
+  "cache_backend": "redis",
+  "cache_hits": 42,
+  "cache_misses": 8,
+  "cache_hit_rate": 0.84,
+  "total_requests": 50
+}
+```
+
+#### 3. サーバーログ出力例
+
+```
+[2025-10-25 15:30:45] [INFO] Starting up LLM API server...
+[2025-10-25 15:30:45] [INFO] Cache enabled: True
+[2025-10-25 15:30:45] [INFO] Cache backend: redis
+[2025-10-25 15:30:45] [INFO] Redis connection initialized successfully
+[2025-10-25 15:30:47] [INFO] Cache miss for openai/gpt-4o-mini (hits: 0, misses: 1, hit_rate: 0.00%)
+[2025-10-25 15:30:47] [INFO] Executing LLM request: model=gpt-4o-mini
+[2025-10-25 15:30:49] [INFO] OpenAI API call successful: gpt-4o-mini
+[2025-10-25 15:30:49] [INFO] Successfully generated character using openai/gpt-4o-mini in 1234.56ms
+[2025-10-25 15:30:52] [INFO] Cache hit for openai/gpt-4o-mini (hits: 1, misses: 1, hit_rate: 50.00%)
 ```

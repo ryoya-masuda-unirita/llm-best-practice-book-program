@@ -1,19 +1,19 @@
-from src.model.multi_agent_model import (
-    AgentState,
-    AmendmentProposal,
-    ClauseCategory,
-    ClauseDiff,
-    ContractClause,
-    ContractReviewReport,
-    RiskAssessment,
+from src.model.model import (
+    CharacterPersonality,
+    CharacterRequest,
+    CharacterResponse,
+    Gender,
+    HealthResponse,
+    LLMRequest,
+    LLMResponse,
 )
 
 __all__ = [
-    "AgentState",
-    "AmendmentProposal",
-    "ClauseCategory",
-    "ClauseDiff",
-    "ContractClause",
-    "ContractReviewReport",
-    "RiskAssessment",
+    "CharacterPersonality",
+    "CharacterResponse",
+    "Gender",
+    "LLMRequest",
+    "LLMResponse",
+    "HealthResponse",
+    "CharacterRequest",
 ]

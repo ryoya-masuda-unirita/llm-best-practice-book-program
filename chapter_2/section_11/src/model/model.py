@@ -1,5 +1,6 @@
 import json
 from enum import StrEnum
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -7,6 +8,27 @@ from pydantic import BaseModel, ConfigDict, Field
 class Gender(StrEnum):
     FEMALE = "female"
     MALE = "male"
+
+
+class CharacterRequest(BaseModel):
+    model_config = ConfigDict(
+        validate_assignment=True,
+        frozen=True,
+        extra="ignore",
+        arbitrary_types_allowed=True,
+    )
+
+    gender: Gender = Field(..., description="The gender of the character.")
+    age: int = Field(..., description="The age of the character.", ge=0, le=100)
+    additional_instructions: Optional[str] = Field(..., description="Additional instructions for character generation.")
+
+    def to_str_dict(self) -> dict[str, str]:
+        """Convert all fields to string representation for prompt formatting."""
+        return {
+            "gender": self.gender,
+            "age": str(self.age),
+            "additional_instructions": self.additional_instructions or "",
+        }
 
 
 class CharacterPersonality(BaseModel):

@@ -1,46 +1,12 @@
 import json
 from enum import StrEnum
-from typing import Optional
 
-import yaml
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class Gender(StrEnum):
     FEMALE = "female"
     MALE = "male"
-
-
-class CharacterRequest(BaseModel):
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-        arbitrary_types_allowed=True,
-    )
-
-    gender: Gender = Field(..., description="The gender of the character.")
-    age: int = Field(..., description="The age of the character.", ge=0, le=100)
-    additional_instructions: Optional[str] = Field(..., description="Additional instructions for character generation.")
-
-
-class CharacterRequests(BaseModel):
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-        arbitrary_types_allowed=True,
-    )
-
-    requests: list[CharacterRequest] = Field(..., description="A list of character generation requests.")
-
-    @staticmethod
-    def load_from_yaml(file_path: str) -> "CharacterRequests":
-        """Load character requests from a YAML file."""
-
-        with open(file_path, "r", encoding="utf-8") as f:
-            data = yaml.safe_load(f)
-        return CharacterRequests.model_validate(data)
 
 
 class CharacterPersonality(BaseModel):

@@ -1,15 +1,23 @@
 import asyncio
 import os
 from functools import wraps
+from pathlib import Path
 from uuid import uuid4
 
 import click
-
-from src.client.llm_client import GeminiModel, LLMProvider, OpenAIModel, google_genai_client
+from src.client.llm_client import OpenAIModel
 from src.logger import make_logger
-from src.service import run_document_analysis_pipeline
+from src.service import request_openai
+from src.service.template_engine import TemplateEngine
 
 logger = make_logger(__name__)
+
+PROJECT_ROOT = Path(__file__).parent.parent
+
+TEMPLATE_DIR = PROJECT_ROOT / "templates"
+VARIABLES_DIR = PROJECT_ROOT / "variables"
+
+TEMPLATE_ENGINE = TemplateEngine(template_dir=TEMPLATE_DIR)
 
 
 def async_cmd(func):
@@ -22,19 +30,12 @@ def async_cmd(func):
 
 @click.command()
 @click.option(
-    "--llm-provider",
-    "-lp",
-    type=click.Choice(LLMProvider),
-    required=True,
-    default=LLMProvider.GEMINI,
-    help="The LLM provider to use.",
-)
-@click.option(
     "--model",
     "-m",
-    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str()),
+    type=click.Choice(OpenAIModel.list_str()),
     required=True,
-    help="The model to use for the request.",
+    default=OpenAIModel.GPT_4O,
+    help="The OpenAI model to use for the request.",
 )
 @click.option(
     "--output-directory",
@@ -45,57 +46,67 @@ def async_cmd(func):
     help="The directory to save output files.",
 )
 @click.option(
-    "--document-path",
-    "-dp",
-    type=click.Path(exists=True),
-    required=True,
-    help="Path to the markdown document to analyze.",
+    "--template",
+    "-t",
+    type=click.Path(exists=False, path_type=str),
+    required=False,
+    default="templates/character_generation.yaml",
+    help="Template file path (relative to project root or absolute). Default: templates/character_generation.yaml",
+)
+@click.option(
+    "--variables",
+    "-v",
+    type=click.Path(exists=False, path_type=str),
+    required=False,
+    default=None,
+    help="Variables file path (relative to project root or absolute). If not specified, uses default values.",
 )
 @async_cmd
 async def main(
-    llm_provider: LLMProvider,
     model: str,
-    document_path: str,
     output_directory: str = "outputs",
+    template: str = "templates/character_generation.yaml",
+    variables: str | None = None,
 ):
-    logger.info(f"""LLM provider: {llm_provider.value}
-Model: {model}
-Document path: {document_path}
-Output directory: {output_directory}
-""")
+    template_path = Path(template)
+    if not template_path.is_absolute():
+        template_path = PROJECT_ROOT / template_path
 
-    if llm_provider == LLMProvider.OPENAI and model not in OpenAIModel.list_str():
-        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
-    if llm_provider == LLMProvider.GEMINI and model not in GeminiModel.list_str():
-        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
+    variables_path = None
+    if variables:
+        variables_path = Path(variables)
+        if not variables_path.is_absolute():
+            variables_path = PROJECT_ROOT / variables_path
+
+    if not template_path.exists():
+        raise FileNotFoundError(f"Template file not found: {template_path}")
+
+    if variables_path and not variables_path.exists():
+        raise FileNotFoundError(f"Variables file not found: {variables_path}")
+
+    logger.info(f"""Model: {model}
+Output directory: {output_directory}
+Template: {template_path}
+Variables: {variables_path or "default"}""")
+
+    if model not in OpenAIModel.list_str():
+        raise ValueError(f"Invalid model '{model}'. Must be one of {OpenAIModel.list_str()}")
 
     os.makedirs(output_directory, exist_ok=True)
 
-    if not document_path:
-        raise ValueError("Document path is required for pipeline mode. Use --document-path option.")
-
-    result = await run_document_analysis_pipeline(
-        document_path=document_path,
-        llm_provider=llm_provider,
+    result = await request_openai(
         model=model,
+        template_path=template_path,
+        variables_path=variables_path,
+        template_dir=TEMPLATE_DIR,
+        variables_dir=VARIABLES_DIR,
+        template_engine=TEMPLATE_ENGINE,
     )
 
-    if result is None:
-        raise ValueError("Document analysis pipeline failed. Check logs for details.")
-
-    base_name = f"{llm_provider.value}_analysis_{uuid4().hex}"
-    json_file_path = os.path.join(output_directory, f"{base_name}.json")
-    md_file_path = os.path.join(output_directory, f"{base_name}.md")
-
-    result.save_as_json(json_file_path)
-    result.save_as_markdown(md_file_path)
-
-    logger.info(f"""Analysis results saved:
-JSON: {json_file_path}
-Markdown: {md_file_path}""")
-
-    if llm_provider == LLMProvider.GEMINI:
-        await google_genai_client.aio.aclose()
+    file_name = f"openai_{uuid4().hex}.json"
+    file_path = os.path.join(output_directory, file_name)
+    result.save_as_json(file_path)
+    logger.info(f"""File saved to {file_path}""")
 
 
 if __name__ == "__main__":

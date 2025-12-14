@@ -1,31 +1,22 @@
-from src.client.gateway_client import gateway_client
-from src.client.llm_client import GeminiModel, LLMProvider, OpenAIModel
+from google.genai.types import GenerateContentConfig
+
+from src.client.llm_client import GeminiModel, google_genai_client
 from src.logger import make_logger
 from src.model.model import CharacterResponse
 
 logger = make_logger(__name__)
 
 
-async def _request_llm(provider: LLMProvider, model: str, prompt: list[dict]) -> CharacterResponse:
-    """Request character generation from an LLM provider via the gateway."""
-    content, processing_time_ms, request_id = await gateway_client.generate(
-        provider=provider.value,
-        model=model,
-        prompt=prompt,
-        response_format=CharacterResponse.model_json_schema(),
-        client_id="llm_server",
-    )
-
-    logger.info(f"Received response from gateway: request_id={request_id}, time={processing_time_ms:.2f}ms")
-
-    return CharacterResponse.model_validate(content)
-
-
-async def request_openai(model: OpenAIModel, prompt: list[dict]) -> CharacterResponse:
-    """Request character generation from OpenAI via the gateway."""
-    return await _request_llm(LLMProvider.OPENAI, model, prompt)
-
-
 async def request_gemini(model: GeminiModel, prompt: list[dict]) -> CharacterResponse:
-    """Request character generation from Gemini via the gateway."""
-    return await _request_llm(LLMProvider.GEMINI, model, prompt)
+    result = await google_genai_client.aio.models.generate_content(
+        model=model,
+        contents=prompt[-1]["content"],
+        config=GenerateContentConfig(
+            system_instruction=prompt[0]["content"],
+            response_mime_type="application/json",
+            response_schema=CharacterResponse,
+            temperature=2.0,
+        ),
+    )
+    logger.info(result)
+    return result.parsed

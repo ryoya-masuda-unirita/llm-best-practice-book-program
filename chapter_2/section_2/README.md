@@ -1,526 +1,412 @@
-# Chapter 2 Section 2: LLMOps構造化ログの実装
+# Chapter 2 Section 2: LLMで構造化出力を定義する
 
 ## 概要
 
-このプロジェクトは、**構造化ログ（Structured Logging）を用いたLLMOps実装**を示すサンプルコードです。本番環境のLLMアプリケーションにおいて、可観測性（Observability）、デバッグ、コンプライアンス、パフォーマンス監視を実現するための包括的なログシステムを提供します。
+本プロジェクトは、**LLM自身に出力スキーマを動的に生成させる**アプローチを実装しています。従来、LLMの出力形式は開発者が事前に定義する必要がありましたが、AIエージェントのように用途が柔軟でドメインが多岐にわたる場合、すべてのスキーマを事前定義することは困難です。
 
-従来のログアプローチでは、プロンプトとレスポンスが長すぎる、非構造化ログでは分析が困難、機密データの扱いが難しいなどの課題がありました。本システムでは、**メタデータ（構造化ログ）とコンテンツ（プロンプトストレージ）の二層アーキテクチャ**により、これらの課題を解決します。
+このプロジェクトでは、処理を2つのステップに分割することでこの課題を解決します：
 
-フィクションのキャラクター生成を通じて、構造化ログの実践的な実装方法と、LLM運用における観測可能性の確保方法を学ぶことができます。
+1. **Step 1: スキーマ生成** - LLMに自然言語プロンプトを与え、最適なJSON Schemaを生成させる
+2. **Step 2: データ抽出** - 生成されたスキーマをPydanticモデルに変換し、構造化データを抽出する
+
+この2段階アプローチにより、開発者は事前にすべての出力形式を設計する必要がなくなり、柔軟でスケーラブルなシステムを構築できます。
 
 ## 機能
 
-### コアロギング機能
-
-- **構造化JSON形式のログ**: 機械可読なJSON形式でメタデータを記録
-- **分離されたプロンプトストレージ**: 長いプロンプト/レスポンスを別ファイルに保存
-- **自動レイテンシ計測**: コンテキストマネージャーによる自動的なタイミング計測
-- **エラーハンドリング**: 例外発生時も確実にログを記録
-- **ユニークID管理**: request_idとprompt_idによる完全なトレーサビリティ
-
-### セキュリティ機能
-
-- **自動PII（個人情報）マスキング**: SSN、メール、クレジットカード番号などを自動検出・マスキング
-- **再帰的マスキング**: ネストされた構造（リスト、辞書）にも対応
-- **設定可能なマスキング**: 本番環境では有効化、開発環境では無効化可能
-
-### ストレージ機能
-
-- **日付ベースのパーティショニング**: `YYYY/MM/DD`形式でプロンプトを整理
-- **非同期I/O処理**: リクエストレイテンシに影響を与えない非同期ストレージ
-- **拡張可能な設計**: 抽象ベースクラスによるS3、GCSなどへの拡張対応
-- **検索機能**: prompt_idによる高速なプロンプト検索
-
-### LLM統合機能
-
-- **マルチプロバイダー対応**: OpenAI GPT-4o-mini、Google Gemini 2.5 Flash、Anthropic Claude Sonnet 4.5をサポート
-- **構造化出力**: Pydanticモデルによる型安全なLLM応答
-- **非同期処理**: async/awaitによる効率的なAPI呼び出し
-- **CLIインターフェース**: Clickライブラリによる使いやすいコマンドラインツール
+- **動的スキーマ生成**: 自然言語プロンプトからJSON Schemaを自動生成
+- **High Reasoningモード**: 曖昧なプロンプトに対して最適な構造を推論
+- **マルチプロンプト対応**: 複数のプロンプトから統一スキーマを生成
+- **自動バリデーション**: 生成されたスキーマの検証とリトライ機構
+- **Pydanticモデル変換**: JSON SchemaからPydanticモデルを動的に生成
+- **スキーマ永続化**: 生成したスキーマをJSONファイルとして保存・再利用
 
 ## プロジェクト構成
 
 ### ディレクトリ構成
 
 ```
-chapter_2/section_2/
+chapter_3/section_14/
 ├── src/
-│   ├── __init__.py                    # パッケージ初期化
-│   ├── main.py                        # メインエントリーポイント（CLI）
-│   ├── config.py                      # 設定管理（APIキー読み込み）
-│   ├── logger.py                      # 基本ロガー設定
+│   ├── main.py                          # CLIエントリーポイント
+│   ├── config.py                        # 設定管理
+│   ├── logger.py                        # ロギング設定
+│   ├── auto_structured_output/          # コアモジュール
+│   │   ├── extractor.py                 # メインオーケストレーター
+│   │   ├── schema_generator.py          # スキーマ生成・リトライ
+│   │   ├── model_builder.py             # JSON Schema → Pydantic変換
+│   │   ├── validators.py                # スキーマバリデーション
+│   │   ├── prompts.py                   # プロンプトテンプレート
+│   │   └── model.py                     # 型定義
 │   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py              # LLMクライアント初期化
-│   ├── model/
-│   │   ├── __init__.py
-│   │   ├── model.py                   # キャラクターレスポンスモデル
-│   │   ├── llmops_log.py              # 構造化ログエントリモデル
-│   │   └── prompt_data.py             # プロンプトデータモデル
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── prompt.py                  # プロンプト生成ロジック
-│   └── service/
-│       ├── __init__.py
-│       ├── llmops_logger.py           # メインロギングインターフェース
-│       └── prompt_storage.py          # プロンプトストレージ実装
-├── tests/
-│   ├── __init__.py
-│   ├── conftest.py                    # テストフィクスチャ（tempfile使用）
-│   ├── test_llmops_log.py             # ログエントリモデルのテスト
-│   ├── test_llmops_logger.py          # ロガーインターフェースのテスト
-│   └── test_prompt_storage.py         # ストレージ実装のテスト
-├── prompt_storage/                     # プロンプト保存先（実行時に自動作成、gitignore）
-│   └── YYYY/MM/DD/*.json              # 日付パーティショニング構造
-├── outputs/                            # キャラクター生成結果の保存先
-├── .envrc.example                      # 環境変数設定のサンプル
-├── pyproject.toml                      # プロジェクト依存関係
-├── pytest.ini                          # テスト設定
-├── README.md                           # このファイル
-└── CLAUDE.md                           # 設計仕様書
+│   │   └── llm_client.py                # OpenAIクライアント設定
+│   └── examples/                        # 17個の実践的サンプル
+│       ├── runner.py                    # 実行ロジック
+│       ├── basic_usage.py               # 基本例（5例）
+│       ├── advanced_examples.py         # 応用例（6例）
+│       └── high_reasoning_examples.py   # 高度推論例（6例）
+├── outputs/                             # 生成されたスキーマ
+├── .envrc.example                       # 環境変数テンプレート
+├── Makefile                             # 開発タスク
+└── pyproject.toml                       # 依存関係
 ```
 
 ### アーキテクチャ
 
-このプロジェクトは、以下の二層ロギングアーキテクチャで構成されています：
-
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                  Application Layer                          │
-│                      (main.py)                              │
-│    - CLI引数解析                                            │
-│    - LLMリクエスト実行                                      │
-│    - 出力ファイル管理                                       │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-                          ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   LLMOpsLogger                              │
-│              (service/llmops_logger.py)                     │
-│    - track_llm_request() コンテキストマネージャー          │
-│    - 自動タイミング計測                                     │
-│    - エラーハンドリング                                     │
-│    - ID生成                                                 │
-└──────────────┬──────────────────────────┬───────────────────┘
-               │                          │
-               ▼                          ▼
-┌──────────────────────────┐  ┌──────────────────────────────┐
-│   Structured Log         │  │     Prompt Storage           │
-│   (model/llmops_log.py)  │  │  (service/prompt_storage.py) │
-│                          │  │                              │
-│  • LLMOpsLogEntry        │  │  • PromptData                │
-│    - timestamp           │  │  • LocalFilePromptStorage    │
-│    - request_id          │  │  • mask_sensitive_data()     │
-│    - prompt_id           │  │                              │
-│    - model               │  │  ストレージ構造:             │
-│    - temperature         │  │  prompt_storage/             │
-│    - latency_ms          │  │    └── YYYY/                 │
-│    - status_code         │  │        └── MM/               │
-│    - level               │  │            └── DD/           │
-│    - metadata            │  │                └── {id}.json │
-└──────────┬───────────────┘  └──────────┬───────────────────┘
-           │                             │
-           ▼                             ▼
-   JSON to stdout              非同期ファイルI/O
-   (ストリーミングログ)         (日付パーティション)
+┌─────────────────────────────────────────────────────────────────┐
+│                        ユーザープロンプト                          │
+│         "ユーザー名、年齢、メールアドレスを抽出して"                 │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     StructureExtractor                          │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │  Step 1: スキーマ生成                                     │   │
+│  │  ┌─────────────┐    ┌─────────────┐    ┌────────────┐   │   │
+│  │  │   Prompt    │───▶│  OpenAI API │───▶│JSON Schema │   │   │
+│  │  │  Templates  │    │  (gpt-4o)   │    │  生成      │   │   │
+│  │  └─────────────┘    └─────────────┘    └────────────┘   │   │
+│  │                                              │           │   │
+│  │                                              ▼           │   │
+│  │                                    ┌─────────────────┐   │   │
+│  │                                    │  SchemaValidator│   │   │
+│  │                                    │  (検証＆リトライ) │   │   │
+│  │                                    └─────────────────┘   │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                │                                │
+│                                ▼                                │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │  Step 2: モデル構築 & データ抽出                          │   │
+│  │  ┌─────────────┐    ┌─────────────┐    ┌────────────┐   │   │
+│  │  │JSON Schema  │───▶│ModelBuilder │───▶│  Pydantic  │   │   │
+│  │  │             │    │(create_model│    │   Model    │   │   │
+│  │  └─────────────┘    └─────────────┘    └────────────┘   │   │
+│  │                                              │           │   │
+│  │                                              ▼           │   │
+│  │                                    ┌─────────────────┐   │   │
+│  │                                    │  OpenAI API     │   │   │
+│  │                                    │  (parse)        │   │   │
+│  │                                    └─────────────────┘   │   │
+│  └─────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        構造化データ出力                          │
+│  {"name": "John Doe", "age": 21, "email": "john@example.com"}   │
+└─────────────────────────────────────────────────────────────────┘
 ```
-
-### データフロー
-
-1. **リクエスト開始**: アプリケーションが`track_llm_request()`コンテキストマネージャーを使用
-2. **タイミング開始**: 開始時刻を自動的に記録
-3. **LLM呼び出し**: コンテキスト内でLLMリクエストを実行
-4. **レスポンス取得**: レスポンスをトラッキング辞書に保存
-5. **レイテンシ計算**: コンテキスト終了時に自動的に経過時間を計算
-6. **並列処理**:
-   - 構造化ログエントリを作成してstdoutに出力（同期）
-   - プロンプト/レスポンス内容をファイルシステムに保存（非同期）
-7. **エラーハンドリング**: 例外が発生した場合もERRORレベルでログを記録
 
 ### 実装の詳細
 
-#### 1. 構造化ログエントリ (`src/model/llmops_log.py`)
+#### 1. StructureExtractor (`src/auto_structured_output/extractor.py`)
 
-Pydanticを使用して、LLM操作のメタデータを厳密に型付けします：
-
-```python
-class LLMOpsLogEntry(BaseModel):
-    timestamp: str              # ISO 8601形式、自動生成
-    request_id: str            # リクエストのユニークID
-    prompt_id: str             # プロンプトの参照ID
-    user_id: Optional[str]     # ユーザー識別子
-    model: str                 # 使用したLLMモデル名
-    temperature: float         # 温度パラメータ（0.0-2.0）
-    latency_ms: Optional[float] # レスポンス時間（ミリ秒）
-    status_code: Optional[int]  # HTTPステータスコード
-    error_message: Optional[str] # エラーメッセージ
-    level: LogLevel            # ログレベル
-    metadata: dict[str, Any]   # 拡張可能なカスタムデータ
-```
-
-**ポイント**:
-- プロンプト内容は含まない（メタデータのみ）
-- JSON形式で出力し、ログ集約ツール（Datadog、BigQuery等）と連携可能
-- `exclude_none=True`でクリーンな出力を実現
-- バリデーション制約（temperature: 0.0-2.0など）
-
-#### 2. プロンプトストレージ (`src/service/prompt_storage.py`)
-
-プロンプトとレスポンスの内容を別ファイルに保存します：
-
-**抽象ベースクラス**:
-```python
-class PromptStorage(ABC):
-    @abstractmethod
-    async def save_prompt(self, prompt_data, mask_sensitive=True) -> str:
-        """プロンプトデータを保存し、保存パスを返す"""
-        pass
-
-    @abstractmethod
-    async def retrieve_prompt(self, prompt_id: str) -> Optional[PromptData]:
-        """prompt_idでプロンプトデータを取得"""
-        pass
-```
-
-**ローカルファイル実装**:
-```python
-class LocalFilePromptStorage(PromptStorage):
-    def _get_storage_path(self, prompt_id: str, date: datetime) -> Path:
-        # prompt_storage/YYYY/MM/DD/prompt_id.json
-        year_dir = self.base_dir / str(date.year)
-        month_dir = year_dir / f"{date.month:02d}"
-        day_dir = month_dir / f"{date.day:02d}"
-        return day_dir / f"{prompt_id}.json"
-```
-
-**特徴**:
-- 日付ベースのパーティショニングで効率的な検索
-- 非同期I/Oによるパフォーマンス最適化
-- データ保持ポリシーの実装が容易
-- 将来的にS3、GCSなどへの拡張が可能
-
-#### 3. PIIマスキング (`src/model/prompt_data.py`)
-
-正規表現ベースの自動マスキング機能：
+スキーマ生成からPydanticモデル構築までを統合するメインクラスです。
 
 ```python
-class PromptData(BaseModel):
-    def mask_sensitive_data(self) -> None:
-        patterns = [
-            (r"\b\d{3}-\d{2}-\d{4}\b", "***-**-****"),  # SSN
-            (r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "***@***.***"),  # Email
-            (r"\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b", "****-****-****-****"),  # Credit card
-        ]
-        # 再帰的にマスキング（文字列、リスト、辞書に対応）
+class StructureExtractor:
+    def __init__(self, llm_client: OpenAI, model: str, max_retries: int = 3):
+        self.client = llm_client
+        self.model = model
+        self.schema_generator = SchemaGenerator(max_retries=max_retries)
+        self.model_builder = ModelBuilder()
+
+    def extract_structure(
+        self,
+        prompts: list[str],
+        use_high_reasoning: bool = False,
+    ) -> type[BaseModel]:
+        """プロンプトから構造を抽出しPydanticモデルを返す"""
+        schema_json = self._extract_schema_from_prompt(prompts, use_high_reasoning)
+        validated_schema = self._validate_schema(schema_json)
+        return self._build_model(validated_schema)
+
+    @staticmethod
+    def save_extracted_json(model: type[BaseModel], file_path: str | Path) -> None:
+        """生成したスキーマをJSONファイルに保存"""
+        schema = model.model_json_schema()
+        with Path(file_path).open("w", encoding="utf-8") as f:
+            json.dump(schema, f, indent=2, ensure_ascii=False)
 ```
 
-**対応パターン**:
-- SSN（社会保障番号）: `123-45-6789` → `***-**-****`
-- メールアドレス: `user@example.com` → `***@***.***`
-- クレジットカード番号: `4111-1111-1111-1111` → `****-****-****-****`
+**ポイント**: `use_high_reasoning=True`を指定すると、曖昧なプロンプトに対してLLMがドメイン知識を活用して最適な構造を推論します。
 
-#### 4. LLMOpsLogger (`src/service/llmops_logger.py`)
+#### 2. SchemaGenerator (`src/auto_structured_output/schema_generator.py`)
 
-メインのロギングインターフェース：
+LLMを使用してJSON Schemaを生成し、バリデーションエラー時は自動リトライします。
 
-**コンテキストマネージャー（推奨）**:
 ```python
-async with llmops_logger.track_llm_request(
-    model="gpt-4o-mini",
-    temperature=1.0,
-    prompt_content=prompt,
-    user_id="user123",
-    metadata={"provider": "openai"}
-) as tracking:
-    response = await llm_client.generate(...)
-    tracking["response"] = response
+class SchemaGenerator:
+    def __init__(self, max_retries: int = 3):
+        self.max_retries = max_retries
+
+    def extract_from_prompt(
+        self,
+        prompts: list[str],
+        client: OpenAI,
+        model: str,
+        use_high_reasoning: bool = False,
+    ) -> dict[str, Any]:
+        """スキーマ生成（バリデーション失敗時は自動リトライ）"""
+        messages = get_schema_extraction_messages(prompts, use_high_reasoning)
+
+        for attempt in range(self.max_retries):
+            try:
+                schema = self._call_api(client, model, messages)
+                SchemaValidator.validate_schema(schema)
+                return schema
+            except ValueError as e:
+                if attempt == self.max_retries - 1:
+                    raise
+                # エラーフィードバックを含めてリトライ
+                messages = get_schema_retry_messages(
+                    prompts, schema, str(e), use_high_reasoning
+                )
 ```
 
-**利点**:
-- 自動タイミング計測（手動の開始/終了不要）
-- 自動エラーハンドリング
-- 確実なクリーンアップ（finally節）
-- クリーンなAPI（手動のログ呼び出し不要）
+**ポイント**: バリデーションエラーが発生した場合、エラーメッセージをLLMにフィードバックして修正されたスキーマを再生成します。
 
-**内部動作**:
-1. request_idとprompt_idを自動生成（未指定の場合）
-2. エントリー時に開始時刻を記録
-3. トラッキング辞書をyieldしてレスポンス保存を可能に
-4. 終了時（成功/失敗問わず）にレイテンシを計算
-5. status_codeを設定（成功: 200、例外: 500）
-6. 適切なログレベル（INFOまたはERROR）でログ出力
+#### 3. ModelBuilder (`src/auto_structured_output/model_builder.py`)
 
-#### 5. アプリケーション統合 (`src/main.py`)
+JSON SchemaからPydanticモデルを動的に生成します。
 
-実際のLLM呼び出しでの使用例：
-
-**OpenAI実装**:
 ```python
-async def request_openai(
-    model: OpenAIModel,
-    llmops_logger: LLMOpsLogger,
-    user_id: str = "default_user",
-) -> CharacterResponse:
-    prompt = make_openai_prompt()
+class ModelBuilder:
+    def build_model(self, schema: dict[str, Any], model_name: str | None = None) -> type[BaseModel]:
+        """JSON SchemaからPydanticモデルクラスを動的に生成"""
+        name = model_name or schema.get("title", "DynamicModel")
+        properties = schema.get("properties", {})
+        required_fields = set(schema.get("required", []))
 
-    async with llmops_logger.track_llm_request(
-        model=model,
-        prompt_content=prompt,
-        user_id=user_id,
-        metadata={"provider": "openai", "model": model, "response_format": "CharacterResponse"},
-    ) as tracking:
-        result = await openai_client.responses.parse(
-            model=model,
-            messages=prompt,
-            response_format=CharacterResponse,
-        )
-        tracking["response"] = result.parsed.model_dump() if result.parsed else None
-        return result.parsed
+        fields = {}
+        for field_name, field_info in properties.items():
+            field_type = self._get_field_type(field_info)
+            description = field_info.get("description")
+
+            if field_name in required_fields:
+                fields[field_name] = (field_type, Field(..., description=description))
+            else:
+                fields[field_name] = (Optional[field_type], Field(None, description=description))
+
+        return create_model(name, **fields)
 ```
 
-**Gemini実装**:
+**ポイント**: Pydanticの`create_model`を使用して実行時にクラスを生成。ネストしたオブジェクトや配列、Union型にも対応しています。
+
+#### 4. SchemaValidator (`src/auto_structured_output/validators.py`)
+
+OpenAI Structured Outputs仕様に準拠したスキーマかを検証します。
+
 ```python
-async def request_gemini(
-    model: GeminiModel,
-    llmops_logger: LLMOpsLogger,
-    user_id: str = "default_user",
-) -> CharacterResponse:
-    system_prompt, user_prompt = make_gemini_prompt()
+class SchemaValidator:
+    """Validates JSON Schemas following OpenAI Structured Outputs specifications."""
 
-    async with llmops_logger.track_llm_request(
-        model=model,
-        prompt_content=[system_prompt, user_prompt],
-        user_id=user_id,
-        metadata={"provider": "gemini", "model": model, "response_format": "CharacterResponse"},
-    ) as tracking:
-        result = await google_genai_client.aio.models.generate_content(
-            model=model,
-            contents=user_prompt,
-            config=GenerateContentConfig(
-                system_instruction=system_prompt,
-                response_mime_type="application/json",
-                response_schema=CharacterResponse,
-            ),
-        )
-        tracking["response"] = result.parsed.model_dump() if result.parsed else None
-        await google_genai_client.aio.aclose()
-        return result.parsed
+    @classmethod
+    def validate_schema(cls, schema: dict[str, Any]) -> dict[str, Any]:
+        if schema["type"] != "object":
+            raise ValueError("Top-level schema must be of type 'object'")
+
+        if "properties" not in schema:
+            raise ValueError("Schema must have a 'properties' field")
+
+        cls._validate_properties(schema["properties"])
+
+        if "required" in schema:
+            cls.validate_required_fields(schema["required"], schema["properties"])
+
+        return schema
 ```
 
-**Anthropic実装**:
-```python
-async def request_anthropic(
-    model: AnthropicModel,
-    llmops_logger: LLMOpsLogger,
-    user_id: str = "default_user",
-) -> CharacterResponse:
-    prompt = make_anthropic_prompt()
-
-    async with llmops_logger.track_llm_request(
-        model=model,
-        prompt_content=prompt,
-        user_id=user_id,
-        metadata={"provider": "gemini", "model": model, "response_format": "CharacterResponse"},
-    ) as tracking:
-        result = await anthropic_client.beta.messages.parse(
-            model=model,
-            max_tokens=1024,
-            betas=["structured-outputs-2025-11-13"],
-            messages=prompt,
-            output_format=CharacterResponse,
-        )
-        tracking["response"] = result.parsed_output.model_dump() if result.parsed_output else None
-        return result.parsed_output
-```
+**ポイント**: 型、フォーマット、制約条件を再帰的に検証し、OpenAI APIで使用可能なスキーマであることを保証します。
 
 ## 使い方
 
 ### 環境構成
 
-- **Python**: 3.13.2以上
-- **依存ライブラリ**:
-  - pydantic>=2.0.0（データモデルとバリデーション）
-  - python-dotenv>=1.0.0（環境変数管理）
-  - openai>=1.0.0（OpenAI APIクライアント）
-  - google-genai>=1.0.0（Google Gemini APIクライアント）
-  - anthropic>=0.40.0（Anthropic Claude APIクライアント）
-  - click>=8.0.0（CLIインターフェース）
-
-**開発用依存関係**:
-  - pytest>=8.4.2（テストフレームワーク）
-  - pytest-asyncio>=1.2.0（非同期テストサポート）
-  - pytest-mock>=3.15.1（モックユーティリティ）
+- Python: 3.13.2以上
+- 依存ライブラリ:
+  - `click>=8.3.0` - CLIフレームワーク
+  - `openai>=2.4.0` - OpenAI API クライアント
+  - `pydantic>=2.12.2` - データバリデーション
+  - `python-dotenv>=1.1.1` - 環境変数管理
 
 ### セットアップ
 
-1. **環境変数ファイルの作成**
+1. 環境変数を設定
 
 ```bash
-# .envrc.exampleをコピーして.envrcを作成
 cp .envrc.example .envrc
-
-# エディタで.envrcを開き、APIキーを設定
-# .envrc
-export OPENAI_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxx"
-export GEMINI_API_KEY="AIzaSyXXXXXXXXXXXXXXXXXXXX"
-export ANTHROPIC_API_KEY="sk-ant-xxxxxxxxxxxxxxxxxxxxx"
 ```
 
-2. **依存関係のインストール**
+`.envrc`を編集してAPIキーを設定:
 
 ```bash
-# uvを使用する場合（推奨）
-uv sync
+export OPENAI_API_KEY="sk-your-openai-api-key-here"
+BASIC_PREDICTION_MODEL="gpt-4o"
+HIGH_PREDICTION_MODEL="gpt-5"
+```
 
-# 開発用依存関係も含める場合
-uv sync --group dev
+2. 依存関係をインストール
+
+```bash
+uv sync
 ```
 
 ### 使用方法、実行方法
 
-#### 基本的な使い方
+#### CLIオプション
 
 ```bash
-# OpenAI APIを使用
-uv run python -m src.main --llm-provider OPENAI --model GPT_5_MINI --user-id user123 --output-directory ./custom_output
-
-# Gemini APIを使用 
-uv run python -m src.main --llm-provider GEMINI --model GEMINI_2_5_FLASH --user-id user123 --output-directory ./custom_output
-
-# Anthropic APIを使用
-uv run python -m src.main --llm-provider ANTHROPIC --model CLAUDE_SONNET_4_5 --user-id user123 --output-directory ./custom_output
+python -m src.main --help
 ```
 
-#### ヘルプの表示
-
-```bash
-$ uv run python -m src.main --help
+```
 Usage: python -m src.main [OPTIONS]
 
+  Run auto-structured output examples
+
 Options:
-  -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
-                                  The LLM provider to use.  [required]
-  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_SONNET_4_5|CLAUDE_OPUS_4_1]
-                                  The model to use for the request.
-                                  [required]
+  -m, --model [gpt-5|gpt-5-mini|gpt-5-nano|gpt-4.1|gpt-4.1-mini|gpt-4.1-nano|gpt-4o|gpt-4o-mini]
+                                  The model to use for the request.  [required]
+  -e, --example [example_1_simple_user_model|example_2_product_with_enum|...]
+                                  The example to run.
   -od, --output-directory PATH    The directory to save output files.
-  -u, --user-id TEXT              User ID for logging purposes.
-  -st, --storage-type [LOCAL]     The storage type for prompt logging.
   --help                          Show this message and exit.
 ```
 
+#### 基本的な実行例
+
+```bash
+# シンプルなユーザーモデルの生成
+python -m src.main -m gpt-4o -e example_1_simple_user_model
+
+# 出力ディレクトリを指定して実行
+python -m src.main -m gpt-4o -e example_2_product_with_enum -od ./my_outputs
+```
+
+#### サンプル一覧
+
+| カテゴリ | 例 | 説明 |
+|---------|------|------|
+| Basic | `example_1_simple_user_model` | シンプルなユーザープロファイル |
+| Basic | `example_2_product_with_enum` | Enum型を持つ商品情報 |
+| Basic | `example_3_optional_fields` | オプショナルフィールドを持つ書籍 |
+| Basic | `example_4_array_fields` | 配列フィールドを持つコース情報 |
+| Basic | `example_5_datetime_fields` | 日時フィールドを持つイベント |
+| Advanced | `example_1_nested_objects` | ネストしたオブジェクト |
+| Advanced | `example_2_complex_article` | 著者・コメントを含む記事 |
+| Advanced | `example_3_array_of_objects` | オブジェクト配列を持つ注文 |
+| Advanced | `example_4_deep_nesting` | 深いネスト構造 |
+| Advanced | `example_5_anyof_union_types` | Union型の支払い方法 |
+| Advanced | `example_6_validation_constraints` | バリデーション制約付き商品 |
+| High Reasoning | `example_1_customer_feedback_analysis` | 顧客フィードバック分析 |
+| High Reasoning | `example_4_job_application_evaluation` | マルチプロンプト求人評価 |
+| High Reasoning | `example_6_high_reasoning` | 商品レビュー分析 |
+
 ### 出力例
 
-#### 1. キャラクター生成結果（outputs/）
+`example_1_simple_user_model`を実行した場合：
 
-実行すると、以下のような構造化されたJSONファイルが生成されます：
-
-**ファイル名**: `outputs/anthropic_a1b2c3d4e5f6.json` または `outputs/openai_a1b2c3d4e5f6.json` または `outputs/gemini_a1b2c3d4e5f6.json`
+**生成されるJSON Schema** (`outputs/simple_user_model.json`):
 
 ```json
 {
-    "first_name": "Cassandra",
-    "last_name": "Thornfield",
-    "gender": "female",
-    "age": 34,
-    "personalities": [
-        {
-            "short_personality": "Analytical perfectionist",
-            "description": "Cassandra possesses an incredibly sharp mind and approaches every problem with methodical precision. She cannot tolerate incomplete data or sloppy work, often spending hours refining details that others might overlook. This trait makes her exceptional at her work as a forensic archaeologist, but it also causes friction in personal relationships where emotional nuance matters more than factual accuracy."
+  "$defs": {
+    "NestedModel": {
+      "properties": {
+        "theme": {
+          "description": "UI theme preference",
+          "enum": ["light", "dark"],
+          "type": "string"
         },
-        {
-            "short_personality": "Guarded optimist",
-            "description": "Despite experiencing betrayal early in her career that nearly destroyed her reputation, Cassandra maintains a cautious hope about human nature. She believes in the potential for good in people but keeps emotional walls firmly in place, revealing her warmer side only to those who earn her trust through consistent actions over time. This duality makes her seem cold at first but deeply loyal once bonds are formed."
-        },
-        {
-            "short_personality": "Compulsively curious",
-            "description": "Cassandra is driven by an insatiable need to understand the 'why' behind everything she encounters. Whether it's an ancient artifact or a colleague's unusual behavior, she cannot rest until she has uncovered the underlying truth. This curiosity has led to groundbreaking discoveries in her field but has also gotten her into dangerous situations when her questions threaten powerful interests."
+        "notificationsEnabled": {
+          "description": "Whether notifications are enabled",
+          "type": "boolean"
         }
-    ]
-}
-```
-
-#### 2. 構造化ログ（stdout）
-
-LLM操作のメタデータがJSON形式でstdoutに出力されます：
-
-```json
-{"timestamp": "2025-11-17T05:48:24.147777+00:00", "request_id": "6081711d-b000-45cf-91cc-6bd3dd6853f1", "prompt_id": "0c18299b-06bc-4f56-b7f1-1981b2024675", "user_id": "user_0", "model": "claude-sonnet-4-5", "latency_ms": 9511.006116867065, "status_code": 200, "level": "INFO", "metadata": {"provider": "anthropic", "model": "claude-sonnet-4-5", "response_format": "CharacterResponse"}}
-```
-
-**フィールドの説明**:
-- `timestamp`: ログエントリの作成時刻（ISO 8601形式）
-- `request_id`: リクエストのユニークID（トレーシング用）
-- `prompt_id`: 保存されたプロンプトへの参照ID
-- `user_id`: ユーザー識別子（監査・分析用）
-- `model`: 使用したLLMモデル名
-- `temperature`: 生成パラメータ
-- `latency_ms`: リクエストからレスポンスまでの時間（ミリ秒）
-- `status_code`: APIステータスコード（200: 成功、500: エラー）
-- `level`: ログレベル（INFO、ERROR、WARNING、DEBUG）
-- `metadata`: カスタム追加情報
-
-#### 3. 保存されたプロンプト（prompt_storage/）
-
-プロンプトとレスポンスの完全な内容が日付別に保存されます：
-
-**ファイル名**: `prompt_storage/2025/10/17/p1q2r3s4-t5u6-v7w8-xyz9-ab1234567890.json`
-
-```json
-{
-  "prompt_id": "0c18299b-06bc-4f56-b7f1-1981b2024675",
-  "prompt_content": [
-    {
-      "role": "system",
-      "content": "あなたは創造的なキャラクタージェネレーターです。"
-    },
-    {
-      "role": "user",
-      "content": "あなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は「female」または「male」のいずれかであること\n4. 年齢は0から100の間であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n\nユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n"
+      },
+      "required": ["theme", "notificationsEnabled"],
+      "type": "object"
     }
-  ],
-  "response_content": {
-    "first_name": "Cassandra",
-    "last_name": "Thornfield",
-    "gender": "female",
-    "age": 34,
-    "personalities": [
-      {
-        "short_personality": "Analytical perfectionist",
-        "description": "Cassandra possesses an incredibly sharp mind and approaches every problem with methodical precision. She cannot tolerate incomplete data or sloppy work, often spending hours refining details that others might overlook. This trait makes her exceptional at her work as a forensic archaeologist, but it also causes friction in personal relationships where emotional nuance matters more than factual accuracy."
-      },
-      {
-        "short_personality": "Guarded optimist",
-        "description": "Despite experiencing betrayal early in her career that nearly destroyed her reputation, Cassandra maintains a cautious hope about human nature. She believes in the potential for good in people but keeps emotional walls firmly in place, revealing her warmer side only to those who earn her trust through consistent actions over time. This duality makes her seem cold at first but deeply loyal once bonds are formed."
-      },
-      {
-        "short_personality": "Compulsively curious",
-        "description": "Cassandra is driven by an insatiable need to understand the 'why' behind everything she encounters. Whether it's an ancient artifact or a colleague's unusual behavior, she cannot rest until she has uncovered the underlying truth. This curiosity has led to groundbreaking discoveries in her field but has also gotten her into dangerous situations when her questions threaten powerful interests."
-      }
-    ]
   },
-  "created_at": "2025-11-17T05:48:24.147808",
-  "metadata": {
-    "request_id": "6081711d-b000-45cf-91cc-6bd3dd6853f1",
-    "provider": "anthropic",
-    "model": "claude-sonnet-4-5",
-    "response_format": "CharacterResponse"
-  }
+  "properties": {
+    "name": {
+      "description": "User's full name",
+      "type": "string"
+    },
+    "age": {
+      "description": "User's age in years",
+      "type": "integer"
+    },
+    "email": {
+      "description": "User's email address",
+      "type": "string"
+    },
+    "preferences": {
+      "$ref": "#/$defs/NestedModel",
+      "description": "User interface and notification preferences"
+    }
+  },
+  "required": ["name", "age", "email", "preferences"],
+  "title": "UserProfile",
+  "type": "object"
 }
 ```
 
-#### 4. 実行ログ例
+**抽出される構造化データ**:
 
-コンソールには以下のようなログが出力されます：
+```python
+{
+    "name": "John Doe",
+    "age": 21,
+    "email": "johndoe@example.com",
+    "preferences": {
+        "theme": "light",
+        "notificationsEnabled": False
+    }
+}
+```
 
+## プログラムでの使用
+
+```python
+from openai import OpenAI
+from src.auto_structured_output import StructureExtractor
+
+# OpenAIクライアントを初期化
+client = OpenAI(api_key="your-api-key")
+
+# StructureExtractorを作成
+extractor = StructureExtractor(llm_client=client, model="gpt-4o")
+
+# Step 1: プロンプトからPydanticモデルを動的に生成
+prompt = "ユーザー名、年齢、メールアドレスを抽出してください"
+T_Model = extractor.extract_structure([prompt])
+
+# Step 2: 生成したモデルを使って構造化データを抽出
+response = client.responses.parse(
+    model="gpt-4o",
+    input=[{"role": "user", "content": "John Doeは25歳で、john@example.comにメールできます"}],
+    text_format=T_Model,
+)
+
+data = response.output_parsed.model_dump()
+print(data)
+# {"name": "John Doe", "age": 25, "email": "john@example.com"}
+
+# スキーマを保存して再利用
+extractor.save_extracted_json(T_Model, "my_schema.json")
+
+# 保存したスキーマからモデルを復元
+restored_model = StructureExtractor.load_from_json("my_schema.json")
 ```
-$ python -m src.main -lp ANTHROPIC -m CLAUDE_SONNET_4_5 -od outputs -u user_0 -st LOCAL
-[2025-11-17 14:48:14,636] [INFO] [__main__] [main.py:71] [main] LLM provider: anthropic
-Model: claude-sonnet-4-5
-Output directory: outputs
-User ID: user_0
-Storage type: local
-Prompt stored successfully at: prompt_storage/2025/11/17/0c18299b-06bc-4f56-b7f1-1981b2024675.json
-{"timestamp": "2025-11-17T05:48:24.147777+00:00", "request_id": "6081711d-b000-45cf-91cc-6bd3dd6853f1", "prompt_id": "0c18299b-06bc-4f56-b7f1-1981b2024675", "user_id": "user_0", "model": "claude-sonnet-4-5", "latency_ms": 9511.006116867065, "status_code": 200, "level": "INFO", "metadata": {"provider": "gemini", "model": "claude-sonnet-4-5", "response_format": "CharacterResponse"}}
-[2025-11-17 14:48:24,148] [INFO] [__main__] [main.py:99] [main] File saved to outputs/anthropic_282cd205f6f74a3abc9c97c7944f4aba.json
-```
+
+## 注意点
+
+- **出力の安定性**: LLMが生成するスキーマは実行のたびに微妙に異なる可能性があります。安定性が必要な場合は、一度生成したスキーマを保存して再利用してください。
+- **APIコスト**: 2段階のAPI呼び出しが必要なため、通常の構造化出力より多くのトークンを消費します。
+- **バリデーションリトライ**: デフォルトで最大3回リトライしますが、複雑なスキーマでは失敗する可能性があります。
+
+## ライセンス
+
+MIT License

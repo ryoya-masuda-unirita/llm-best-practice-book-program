@@ -1,435 +1,454 @@
-# Chapter 2 Section 6: プロンプトを構造的にテンプレート化する
+# Chapter 2 Section 6: 非同期バッチ処理
 
 ## 概要
 
-このプロジェクトは、**構造化されたテンプレート化プロンプト（Structured Template Prompting）** の実装を示すサンプルコードです。プロンプトをソースコードから分離し、YAML形式のテンプレートファイルとして管理することで、再利用性、保守性、可読性を飛躍的に向上させます。Jinja2テンプレートエンジンを活用して動的に変数を注入し、最終的なプロンプトを生成します。
+本プロジェクトは、LLMアプリケーションにおける**非同期バッチ処理**の実装例です。Redisをメッセージキューとして使用し、大量のLLMリクエストを効率的に処理するアーキテクチャを示しています。
 
-キャラクター生成、商品説明文作成、メール文面生成といった複数のユースケースを通じて、プロンプトテンプレート化のベストプラクティスを学ぶことができます。
+リアルタイム応答が不要な大規模タスク（ドキュメント要約、データ分析、コンテンツ生成など）において、リクエストの受付と処理を分離することで、システムのスケーラビリティと耐障害性を向上させます。クライアントはジョブを登録後、ジョブIDを使って非同期に進捗確認と結果取得を行います。
+
+本実装では、架空のキャラクター生成をユースケースとして採用しています。ユーザーは複数のキャラクター生成リクエスト（性別、年齢、性格特性など）をバッチで投入し、バックグラウンドワーカーがGemini Batch APIを呼び出して処理を実行します。
 
 ## 機能
 
-- **テンプレートベースのプロンプト管理**: YAMLファイルでプロンプト構造を定義
-- **動的変数注入**: Jinja2を使用した柔軟な変数置換とロジック（条件分岐、ループなど）
-- **テンプレートバリデーション**: 必須変数の存在チェックによる実行時エラーの防止
-- **複数テンプレートのサポート**: キャラクター生成、商品説明、メールなど多様なユースケース
-- **変数ファイル管理**: テンプレートとデータを完全に分離した設計
-- **OpenAI API対応**: OpenAI APIをサポート
-- **型安全な構造化出力**: Pydanticモデルによる厳密な型検証
-- **包括的なテストスイート**: TemplateEngineとプロンプト生成の網羅的テスト
-- **CLIインターフェース**: 使いやすいコマンドラインツール
-- **Makefileサポート**: 一般的なタスクを簡単に実行
+- **バッチジョブ登録API**: 複数のキャラクター生成リクエストを一括登録し、即座にジョブIDを返却
+- **ジョブステータス追跡**: リアルタイムで処理進捗（完了数、失敗数、保留数）を確認
+- **結果取得API**: 完了したジョブの結果を取得
+- **バックグラウンドワーカー**: Redisキューを監視し、Gemini Batch APIでジョブを並行処理
+- **水平スケーリング**: ワーカーを複数起動することでスループットを向上
+- **自動クリーンアップ**: TTL（24時間）によりジョブデータを自動削除
 
 ## プロジェクト構成
 
 ### ディレクトリ構成
 
 ```
-chapter_2/section_6/
+chapter_3/section_6/
 ├── src/
-│   ├── __init__.py              # パッケージ初期化
-│   ├── config.py                # 設定管理（API キー読み込み）
-│   ├── logger.py                # ロギング設定
-│   ├── main.py                  # メインエントリーポイント
+│   ├── api/
+│   │   ├── batch_server.py    # バッチジョブ管理API（ポート8001）
+│   │   └── llm_server.py      # 同期LLM API（ポート8000）
+│   ├── worker/
+│   │   └── batch_worker.py    # バックグラウンドワーカー
 │   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py        # LLMクライアント初期化
+│   │   ├── llm_client.py      # Geminiクライアント
+│   │   └── redis_client.py    # Redisクライアント
 │   ├── model/
-│   │   ├── __init__.py
-│   │   └── model.py             # Pydanticデータモデル定義
+│   │   ├── model.py           # キャラクターモデル
+│   │   └── batch_model.py     # バッチジョブモデル
+│   ├── service/
+│   │   └── request_llm.py     # Gemini Batch API呼び出し
 │   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── prompt.py            # プロンプト生成ロジック
-│   └── service/
-│       ├── __init__.py
-│       ├── request_llm.py       # LLM APIリクエスト処理
-│       └── template_engine.py   # テンプレートエンジン実装
-├── templates/                    # プロンプトテンプレートファイル
-│   ├── character_generation.yaml # キャラクター生成テンプレート
-│   ├── product_description.yaml  # 商品説明文テンプレート
-│   ├── email_formal.yaml         # フォーマルメールテンプレート
-│   └── email_casual.yaml         # カジュアルメールテンプレート
-├── variables/                    # テンプレート変数定義ファイル
-│   ├── character_artist.yaml     # 芸術家キャラクター変数
-│   ├── character_detective.yaml  # 探偵キャラクター変数
-│   ├── product_electronics.yaml  # 家電商品変数
-│   ├── product_apparel.yaml      # アパレル商品変数
-│   ├── email_campaign_summer.yaml # サマーキャンペーン変数
-│   └── email_campaign_winter.yaml # ウィンターキャンペーン変数
-├── tests/                        # テストファイル
-│   ├── __init__.py
-│   ├── conftest.py              # pytest設定とフィクスチャ
-│   ├── test_template_engine.py  # TemplateEngineのテスト
-│   └── test_prompt.py           # プロンプト生成のテスト
-├── outputs/                      # 生成結果の保存先（自動作成）
-├── .envrc.example                # 環境変数設定のサンプル
-├── pyproject.toml                # プロジェクト依存関係
-├── Makefile                      # タスク自動化
-├── README.md                     # このファイル
-└── CLAUDE.md                     # プロジェクト状態レポート
+│   │   └── prompt.py          # プロンプト生成
+│   ├── config.py              # 設定管理
+│   └── logger.py              # ロガー
+├── docker-compose.yml
+├── Dockerfile
+├── Makefile
+├── pyproject.toml
+└── .env.example
 ```
 
 ### アーキテクチャ
 
-このプロジェクトは、テンプレート駆動型の4層アーキテクチャで構成されています：
-
 ```
-┌───────────────────────────────────────────────┐
-│         CLI Layer (main.py)                   │
-│     - コマンドライン引数解析                   │
-│     - 出力ディレクトリ管理                     │
-└──────────────────┬────────────────────────────┘
-                   │
-┌──────────────────▼────────────────────────────┐
-│      Business Logic Layer                     │
-│  - プロンプト生成 (prompt.py)                 │
-│  - LLMリクエスト処理 (request_llm.py)         │
-│  - データモデル (model.py)                    │
-└──────────────────┬────────────────────────────┘
-                   │
-┌──────────────────▼────────────────────────────┐
-│      Template Layer                           │
-│  - テンプレートエンジン (template_engine.py)  │
-│  - YAMLテンプレート (templates/)              │
-│  - 変数定義 (variables/)                      │
-└──────────────────┬────────────────────────────┘
-                   │
-┌──────────────────▼────────────────────────────┐
-│      Infrastructure Layer                     │
-│  - 設定管理 (config.py)                       │
-│  - ログ管理 (logger.py)                       │
-│  - 外部API (OpenAI)                           │
-└───────────────────────────────────────────────┘
++------------------+
+|     Clients      |
++--------+---------+
+         |
+         +------------------+----------------------+
+         |                  |                      |
++--------v--------+  +------v-------+  +-----------v----------+
+|   LLM Server    |  | Batch Server |  |    Batch Worker      |
+|   (Port 8000)   |  | (Port 8001)  |  |    (Background)      |
+|                 |  |              |  |                      |
+| POST /generate  |  | POST /submit |  | - ジョブ取得ループ     |
+|                 |  | GET /status  |  | - ポーリングループ     |
+|                 |  | GET /result  |  | - Gemini API送信      |
++--------+--------+  +------+-------+  +-----------+----------+
+         |                  |                      |
+         +------------------+----------------------+
+                            |
+                     +------v------+
+                     |    Redis    |
+                     | (Port 6379) |
+                     |             |
+                     | - ジョブキュー |
+                     | - ステータス  |
+                     | - 結果       |
+                     +-------------+
 ```
 
 ### 実装の詳細
 
-#### 1. テンプレートエンジン (`src/service/template_engine.py`)
+#### 1. バッチジョブ登録API (`src/api/batch_server.py`)
 
-Jinja2を使用した構造化テンプレート管理の中核実装です：
-
-```python
-class TemplateEngine:
-    """
-    Template engine for loading and rendering YAML-based prompt templates.
-
-    This class implements structured template prompting by:
-    1. Loading YAML templates from a designated directory
-    2. Rendering templates with dynamic variables using Jinja2
-    3. Validating that all required variables are provided
-    """
-
-    def __init__(self, template_dir: str | Path = "templates"):
-        """Initialize with template directory path."""
-        self.template_dir = Path(template_dir)
-        # Setup Jinja2 environment with proper settings
-        self.env = Environment(
-            loader=FileSystemLoader(str(self.template_dir)),
-            trim_blocks=True,
-            lstrip_blocks=True,
-            keep_trailing_newline=True,
-        )
-```
-
-**主要機能**:
-
-1. **`get_template_variables()`**: テンプレートで使用されている変数を抽出
-2. **`validate_variables()`**: 必須変数が全て提供されているか検証
-3. **`render_template()`**: テンプレートを変数でレンダリングしてYAMLをパース
-4. **`render_prompt_messages()`**: LLM API形式のメッセージリストを生成
-
-**ポイント**:
-- `trim_blocks`と`lstrip_blocks`でYAMLインデントを適切に処理
-- `meta.find_undeclared_variables()`で必須変数を自動検出
-- テンプレート読み込み時のバリデーションで早期エラー検出
-
-#### 2. YAMLテンプレート (`templates/character_generation.yaml`)
-
-プロンプト構造をYAML形式で定義します：
-
-```yaml
-system_prompt: >-
-  あなたは創造的なキャラクタージェネレーターです。
-
-  あなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。
-
-  以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：
-
-  {{ response_schema | indent(2) }}
-
-  以下を確認してください：
-  1. 応答は有効なJSONであること
-  2. すべてのフィールドが含まれていること
-  3. 性別は指定された値であること
-  4. 年齢は指定された値であること
-  5. 正確に3つの性格特性が提供されていること
-
-user_prompt: >-
-  ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。
-
-  性別は「{{ gender }}」、年齢は「{{ age }}」歳です。
-{% if additional_instructions %}
-
-  {{ additional_instructions }}
-{% endif %}
-```
-
-**特徴**:
-- `{{ variable }}`形式でプレースホルダーを定義
-- `{% if %}...{% endif %}`で条件分岐
-- `{{ variable | filter }}`でJinja2フィルタを適用（例: `indent(2)`）
-- `>-`構文で複数行テキストを改行なしで結合
-
-#### 3. 変数ファイル (`variables/character_artist.yaml`)
-
-テンプレートに注入するデータを別ファイルで管理：
-
-```yaml
-# 芸術家キャラクター生成用変数設定
-gender: "female"
-age: 28
-additional_instructions: "このキャラクターは画家で、感受性が豊かです。情熱的で自由奔放な性格ですが、繊細な一面も持っています。"
-```
-
-**メリット**:
-- テンプレートとデータの完全な分離
-- 同じテンプレートで異なるデータセットを簡単に切り替え
-- 非エンジニアでも変数ファイルを編集可能
-
-#### 4. プロンプト生成 (`src/prompt/prompt.py`)
-
-テンプレートエンジンを使用してプロンプトを生成：
+ユーザーからのリクエストを受け付け、Redisキューにジョブを登録して即座にジョブIDを返却します。
 
 ```python
-# Initialize template engine with the templates directory
-_template_dir = Path(__file__).parent.parent.parent / "templates"
-_template_engine = TemplateEngine(template_dir=_template_dir)
+@app.post("/batch/submit", response_model=BatchJobResponse)
+async def submit_batch_job(request: BatchJobRequest) -> BatchJobResponse:
+    job_id = str(uuid.uuid4())
+    total_tasks = len(request.character_requests)
+    submitted_at = time.time()
 
-def make_prompt(character_request: CharacterRequest) -> list:
-    """
-    Generate a structured prompt using template-based approach.
+    job_data = InternalJobData(
+        job_id=job_id,
+        provider=request.provider,
+        model=request.model,
+        character_requests=[req.model_dump() for req in request.character_requests],
+    )
 
-    This function demonstrates the structured template prompting practice by:
-    1. Separating prompt logic from code (templates stored in YAML)
-    2. Using Jinja2 for dynamic variable injection
-    3. Validating that all required variables are provided
-    """
-    # Prepare the response schema for the template
-    params = CharacterResponse.detailed_model()
-    response_schema = json.dumps(params, indent=2, ensure_ascii=False)
-
-    # Define variables to inject into the template
-    template_variables = {
-        "response_schema": response_schema,
-        "gender": character_request.gender.value,
-        "age": character_request.age,
-        "additional_instructions": character_request.additional_instructions or "",
+    # ジョブステータスを初期化（進捗追跡用）
+    status_data = {
+        "job_id": job_id, "status": JobStatus.PENDING,
+        "total_tasks": total_tasks, "completed_tasks": 0, "failed_tasks": 0,
     }
+    await redis_client.set_job_status(job_id, status_data)
+    await redis_client.enqueue_job(QUEUE_NAME, job_data.model_dump())
 
-    # Render the template with validation
-    return _template_engine.render_prompt_messages(
-        template_name="character_generation.yaml",
-        variables=template_variables,
-        validate=True,  # Ensure all required variables are provided
-    )
+    return BatchJobResponse(job_id=job_id, status=JobStatus.PENDING, total_tasks=total_tasks)
 ```
 
 **ポイント**:
-- テンプレートエンジンをモジュールレベルで初期化（効率化）
-- `validate=True`で必須変数の存在を保証
-- スキーマ情報を動的に生成してテンプレートに注入
+- ユニークなジョブIDをUUIDで生成し、クライアントに即座に返却
+- ジョブステータスとジョブデータを別々にRedisに保存（ステータスはポーリング用）
+- `RPUSH`でキューの末尾に追加し、FIFO順序を保証
 
-#### 5. データモデル (`src/model/model.py`)
+#### 2. バックグラウンドワーカー (`src/worker/batch_worker.py`)
 
-リクエストとレスポンスのPydanticモデル：
-
-```python
-class CharacterRequest(BaseModel):
-    """Request model for character generation."""
-    gender: Gender = Field(..., description="The gender of the character.")
-    age: int = Field(..., description="The age of the character.", ge=0, le=100)
-    additional_instructions: Optional[str] = Field(
-        ..., description="Additional instructions for character generation."
-    )
-
-class CharacterResponse(BaseModel):
-    """Response model for generated character."""
-    first_name: str = Field(..., description="The first name of the character.")
-    last_name: str = Field(..., description="The last name of the character.")
-    gender: Gender = Field(Gender.MALE, description="The gender of the character.")
-    age: int = Field(..., description="The age of the character.", ge=0, le=100)
-    personalities: list[CharacterPersonality] = Field(
-        ..., description="The three most important personality traits of the character."
-    )
-
-    @staticmethod
-    def detailed_model() -> dict:
-        """Generate a detailed schema for prompt inclusion."""
-        # Creates a human-readable schema representation for the prompt
-        ...
-```
-
-**特徴**:
-- `frozen=True`で不変オブジェクトを保証
-- `validate_assignment=True`で代入時のバリデーション
-- `detailed_model()`メソッドでプロンプト用のスキーマ説明を生成
-
-#### 6. LLM APIリクエスト (`src/service/request_llm.py`)
-
-OpenAI APIに対応したAPI呼び出し:
+キューを監視し、ジョブを取得次第Gemini Batch APIに送信します。2つの非同期ループを並行実行することで、新規ジョブの受付と既存ジョブのステータス監視を同時に行います。
 
 ```python
-async def request_openai(model: OpenAIModel) -> CharacterResponse:
-    character_request = CharacterRequest(
-        gender=Gender.MALE,
-        age=25,
-        additional_instructions="このキャラクターは冒険好きで、好奇心旺盛です。",
-    )
-    prompt = make_prompt(character_request)
-    result = await openai_client.beta.chat.completions.parse(
-        model=model,
-        messages=prompt,  # Template-generated messages
-        response_format=CharacterResponse,
-        temperature=1.0,
-    )
-    return result.choices[0].message.parsed
+class BatchWorker:
+    def __init__(self) -> None:
+        self.running = False
+        self.active_jobs: dict[str, ActiveJob] = {}  # 処理中ジョブを追跡
+
+    async def start(self) -> None:
+        self.running = True
+        await redis_client.connect()
+        # ジョブ取得ループとポーリングループを並行実行
+        pickup_task = asyncio.create_task(self._job_pickup_loop())
+        poll_task = asyncio.create_task(self._poll_active_jobs_loop())
+        await asyncio.gather(pickup_task, poll_task)
+
+    async def _job_pickup_loop(self) -> None:
+        """キューから新規ジョブを取得し、即座にGemini APIに送信"""
+        while self.running:
+            job_data = await redis_client.dequeue_job(QUEUE_NAME, timeout=POLL_TIMEOUT)
+            if job_data:
+                await self._submit_job_to_gemini(job_data)
+
+    async def _poll_active_jobs_loop(self) -> None:
+        """処理中の全ジョブのステータスを並行してポーリング"""
+        while self.running:
+            jobs_to_check = list(self.active_jobs.values())
+            await asyncio.gather(*[self._check_job_status(job) for job in jobs_to_check])
+            await asyncio.sleep(BATCH_POLL_INTERVAL)
 ```
 
 **ポイント**:
-- テンプレート生成されたプロンプトをそのままAPI呼び出しに使用
-- プロンプトロジックはテンプレートに集約され、コードは簡潔
+- `asyncio.gather()`で複数のタスクを並行実行
+- `active_jobs`辞書でGemini APIに送信済みのジョブを追跡
+- `BLPOP`によるブロッキングポップでCPU負荷を抑制
+
+#### 3. Redisキュークライアント (`src/client/redis_client.py`)
+
+ジョブのエンキュー・デキューとステータス管理を担う非同期Redisクライアントです。
+
+```python
+class RedisClient:
+    async def enqueue_job(self, queue_name: str, job_data: dict) -> None:
+        """ジョブをキューの末尾に追加（FIFO順序を保証）"""
+        await self.redis.rpush(queue_name, json.dumps(job_data))
+
+    async def dequeue_job(self, queue_name: str, timeout: int = 0) -> dict | None:
+        """キューの先頭からジョブを取得（ブロッキングポップ）"""
+        result = await self.redis.blpop(queue_name, timeout=timeout)
+        return json.loads(result[1]) if result else None
+
+    async def set_job_status(self, job_id: str, status_data: dict, ttl: int = 86400) -> None:
+        """ジョブステータスをTTL付きで保存（24時間で自動削除）"""
+        await self.redis.setex(f"job:{job_id}:status", ttl, json.dumps(status_data))
+
+    async def get_job_status(self, job_id: str) -> dict | None:
+        data = await self.redis.get(f"job:{job_id}:status")
+        return json.loads(data) if data else None
+```
+
+**ポイント**:
+- `SETEX`でTTL（24時間）を設定し、古いデータを自動削除
+- `BLPOP`はジョブがない場合にタイムアウトまでブロックし、ビジーウェイトを回避
+- `ensure_connected`デコレータで自動接続を保証
+
+#### 4. Gemini Batch API呼び出し (`src/service/request_llm.py`)
+
+Gemini Batch APIにリクエストを送信し、結果を取得する関数群です。
+
+```python
+def submit_gemini_batch(model: GeminiModel, prompts: list[tuple[str, str]]) -> str:
+    """バッチジョブをGeminiに送信し、ジョブ名を返却"""
+    inline_requests = [
+        {
+            "contents": [{"parts": [{"text": user_prompt}], "role": "user"}],
+            "config": {
+                "system_instruction": system_prompt,
+                "response_mime_type": "application/json",
+                "response_schema": CharacterResponse,
+            },
+        }
+        for system_prompt, user_prompt in prompts
+    ]
+
+    inline_batch_job = google_genai_client.batches.create(
+        model=f"models/{model}",
+        src=inline_requests,
+        config={"display_name": "character-generation-batch"},
+    )
+    return inline_batch_job.name
+
+
+def get_gemini_batch_status(batch_job_name: str) -> str:
+    """バッチジョブのステータスを取得"""
+    batch_job = google_genai_client.batches.get(name=batch_job_name)
+    return batch_job.state.name  # "JOB_STATE_SUCCEEDED", "JOB_STATE_FAILED" など
+```
+
+**ポイント**:
+- `response_mime_type="application/json"`でJSON出力を強制
+- `response_schema=CharacterResponse`でPydanticモデルによる出力検証
+
+#### 5. バッチジョブモデル (`src/model/batch_model.py`)
+
+```python
+class JobStatus(StrEnum):
+    PENDING = "pending"       # キュー待ち
+    PROCESSING = "processing" # 処理中
+    COMPLETED = "completed"   # 完了
+    FAILED = "failed"         # 失敗
+
+class BatchJobStatusResponse(BaseModel):
+    job_id: str
+    status: JobStatus
+    total_tasks: int
+    completed_tasks: int = 0
+    failed_tasks: int = 0
+    pending_tasks: int = 0
+    submitted_at: float
+    started_at: Optional[float] = None
+    completed_at: Optional[float] = None
+```
 
 ## 使い方
 
 ### 環境構成
 
 - **Python**: 3.13.2以上
+- **Redis**: 7.0以上
 - **依存ライブラリ**:
-  - click>=8.3.0 (CLIインターフェース)
-  - jinja2>=3.1.6 (テンプレートエンジン)
-  - openai>=2.4.0 (OpenAI API)
-  - pydantic>=2.12.2 (データモデル)
-  - python-dotenv>=1.1.1 (環境変数管理)
-  - pyyaml>=6.0.3 (YAMLパーサー)
+  - `redis>=7.0.0`
+  - `fastapi>=0.115.0`
+  - `uvicorn>=0.30.0`
+  - `pydantic>=2.10.0`
+  - `google-genai>=1.0.0`
 
 ### セットアップ
 
-1. **環境変数ファイルの作成**
+1. **環境変数の設定**
 
 ```bash
-# .envrc.exampleをコピーして.envrcを作成
-cp .envrc.example .envrc
+cp .env.example .env
+# .envファイルを編集してAPIキーを設定
+```
 
-# エディタで.envrcを開き、APIキーを設定
-# .envrc
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
+```bash
+# .env
+GEMINI_API_KEY=<your_gemini_api_key>
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=0
 ```
 
 2. **依存関係のインストール**
 
 ```bash
-# uvを使用する場合（推奨）
 uv sync
-
-# または make コマンド
-make install
-
-# pipを使用する場合
-pip install -e .
 ```
 
-### 使用方法、実行方法
+### 実行方法
 
-#### 基本的な使い方
+#### Docker Composeを使用する場合
 
 ```bash
-# OpenAI APIを使用
-uv run python -m src.main --model gpt-4o
+# サービスを起動
+make docker-up
 
-# Makefileを使用
-make run-openai
+# ログを確認
+make docker-logs
+
+# サービスを停止
+make docker-down
 ```
 
-#### 出力先の指定
+#### ローカルで実行する場合
 
 ```bash
-# カスタム出力ディレクトリを指定
-uv run python -m src.main -m gpt-4o-mini -od ./custom_output
+# Redisを起動（別ターミナル）
+redis-server
 
-# 短縮オプション
-uv run python -m src.main -m gpt-4o -od ./my_characters
+# Batch Serverを起動（別ターミナル）
+uvicorn src.api.batch_server:app --host 0.0.0.0 --port 8001
+
+# Batch Workerを起動（別ターミナル）
+python -m src.worker.batch_worker
 ```
 
-#### ヘルプの表示
+### APIエンドポイント
+
+| エンドポイント | メソッド | 説明 |
+|--------------|---------|------|
+| `/health` | GET | ヘルスチェック |
+| `/batch/submit` | POST | バッチジョブを登録 |
+| `/batch/{job_id}/status` | GET | ジョブステータスを取得 |
+| `/batch/{job_id}/result` | GET | ジョブ結果を取得 |
+| `/batch/queue/stats` | GET | キュー統計を取得 |
+| `/batch/jobs` | GET | 全ジョブIDを取得 |
+
+### 使用例
+
+#### 1. バッチジョブの登録
 
 ```bash
-uv run python -m src.main --help
+curl -X POST http://localhost:8001/batch/submit \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "character_requests": [
+      {"gender": "female", "age": 25, "additional_instructions": "明るい性格"},
+      {"gender": "male", "age": 30, "additional_instructions": "知的な性格"}
+    ]
+  }'
 ```
 
-**出力例**:
+レスポンス:
+```json
+{
+  "job_id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "pending",
+  "total_tasks": 2,
+  "submitted_at": 1699999999.123
+}
 ```
-Usage: python -m src.main [OPTIONS]
 
-Options:
-  -m, --model TEXT                The OpenAI model to use for the request.  [required]
-  -od, --output-directory PATH    The directory to save output files.
-  --help                          Show this message and exit.
-```
-
-#### Makefileコマンド一覧
+#### 2. ジョブステータスの確認
 
 ```bash
-# ヘルプを表示
-make help
+curl http://localhost:8001/batch/550e8400-e29b-41d4-a716-446655440000/status
+```
 
-# テストを実行
-make test               # 全テスト実行
-make pytest             # ユニットテストのみ
-make pytest-cov         # カバレッジレポート付き
-make test-templates     # テンプレートテストのみ
+レスポンス:
+```json
+{
+  "job_id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "processing",
+  "total_tasks": 2,
+  "completed_tasks": 1,
+  "failed_tasks": 0,
+  "pending_tasks": 1,
+  "submitted_at": 1699999999.123,
+  "started_at": 1699999999.456,
+  "completed_at": null
+}
+```
 
-# コード品質チェック
-make lint               # リンター実行
-make fmt                # コードフォーマット
-make fix                # リントとフォーマットを両方実行
-make mypy               # 型チェック
+#### 3. 結果の取得
 
-# LLM実行
-make run-openai         # OpenAI APIで実行
+```bash
+curl http://localhost:8001/batch/550e8400-e29b-41d4-a716-446655440000/result
+```
+
+レスポンス:
+```json
+{
+  "job_id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "completed",
+  "provider": "gemini",
+  "model": "gemini-2.5-flash",
+  "tasks": [
+    {
+      "task_index": 0,
+      "status": "completed",
+      "character": {
+        "first_name": "Sakura",
+        "last_name": "Tanaka",
+        "gender": "female",
+        "age": 25,
+        "personalities": [
+          {"short_personality": "陽気", "description": "常に明るく周囲を笑顔にする"},
+          {"short_personality": "好奇心旺盛", "description": "新しいことに挑戦するのが大好き"},
+          {"short_personality": "思いやり", "description": "他者の気持ちに寄り添える優しさを持つ"}
+        ]
+      },
+      "processing_time_ms": 1234.56
+    }
+  ],
+  "submitted_at": 1699999999.123,
+  "completed_at": 1700000005.789
+}
+```
+
+#### 4. キュー統計の取得
+
+```bash
+curl http://localhost:8001/batch/queue/stats
+```
+
+レスポンス:
+```json
+{
+  "queue_name": "llm_batch_jobs",
+  "pending_jobs": 5
+}
+```
+
+#### 5. 全ジョブIDの取得
+
+```bash
+curl http://localhost:8001/batch/jobs
+```
+
+レスポンス:
+```json
+{
+  "job_ids": ["550e8400-e29b-41d4-a716-446655440000", "..."],
+  "count": 3
+}
+```
+
+### Makeコマンド
+
+```bash
+make lint          # リントチェック
+make fmt           # コードフォーマット
+make fix           # lint + fmt
+make mypy          # 型チェック
+make docker-build  # Dockerイメージをビルド
+make docker-up     # Docker Composeでサービスを起動
+make docker-down   # サービスを停止
+make docker-logs   # ログを表示
+make docker-restart # サービスを再起動
 ```
 
 ### 出力例
 
-実行すると、以下のような構造化されたJSONファイルが生成されます：
+#### ワーカーログ
 
-**ファイル名**: `outputs/openai_c5339cd3f7b240b3b6e7b113eeacd216.json`
-
-```json
-{
-    "first_name": "蒼",
-    "last_name": "雨宮",
-    "gender": "male",
-    "age": 25,
-    "personalities": [
-        {
-            "short_personality": "冒険心旺盛",
-            "description": "新しい場所や経験を求め、常に未知への挑戦を楽しむ。好奇心が強く、リスクを恐れず行動する。"
-        },
-        {
-            "short_personality": "社交的",
-            "description": "初対面の人とも打ち解けやすく、会話を楽しむ。多様なバックグラウンドを持つ人々との交流を大切にする。"
-        },
-        {
-            "short_personality": "楽観的",
-            "description": "困難な状況でもポジティブな側面を見つけ、前向きに対処する。失敗を学びの機会と捉える。"
-        }
-    ]
-}
 ```
-
-**実行ログ例**:
-```
-[2025-01-18 10:30:45] [INFO] [__main__] [main.py:53] [main] LLM provider: openai
-Model: gpt-4o
-Output directory: outputs
-[2025-01-18 10:30:47] [INFO] [__main__] [main.py:74] [main] File saved to outputs/openai_c5339cd3f7b240b3b6e7b113eeacd216.json
+[INFO] [batch_worker] Batch worker started, waiting for jobs...
+[INFO] [batch_worker] Submitting job 550e8400-... with 2 tasks to Gemini
+[INFO] [batch_worker] Job 550e8400-... submitted to Gemini as batches/xxx
+[INFO] [batch_worker] Gemini batch job succeeded: batches/xxx
+[INFO] [batch_worker] Batch API completed in 5234.56ms for 2 tasks
+[INFO] [batch_worker] Job 550e8400-... completed: 2 succeeded, 0 failed
 ```

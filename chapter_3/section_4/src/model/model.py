@@ -5,12 +5,13 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from src.client.llm_client import LLMProvider
+
+class Gender(StrEnum):
+    FEMALE = "female"
+    MALE = "male"
 
 
-class FrozenModel(BaseModel):
-    """Base model with common configuration for immutable models."""
-
+class CharacterRequest(BaseModel):
     model_config = ConfigDict(
         validate_assignment=True,
         frozen=True,
@@ -18,24 +19,31 @@ class FrozenModel(BaseModel):
         arbitrary_types_allowed=True,
     )
 
-
-class Gender(StrEnum):
-    FEMALE = "female"
-    MALE = "male"
-
-
-class CharacterRequest(FrozenModel):
     gender: Gender = Field(..., description="The gender of the character.")
     age: int = Field(..., description="The age of the character.", ge=0, le=100)
     additional_instructions: Optional[str] = Field(..., description="Additional instructions for character generation.")
 
 
-class CharacterPersonality(FrozenModel):
+class CharacterPersonality(BaseModel):
+    model_config = ConfigDict(
+        validate_assignment=True,
+        frozen=True,
+        extra="ignore",
+        arbitrary_types_allowed=True,
+    )
+
     short_personality: str = Field(..., description="A short description of the character's personality.")
     description: str = Field(..., description="A description of the character's personality traits and behaviors.")
 
 
-class CharacterResponse(FrozenModel):
+class CharacterResponse(BaseModel):
+    model_config = ConfigDict(
+        validate_assignment=True,
+        frozen=True,
+        extra="ignore",
+        arbitrary_types_allowed=True,
+    )
+
     first_name: str = Field(..., description="The first name of the character.")
     last_name: str = Field(..., description="The last name of the character.")
     gender: Gender = Field(Gender.MALE, description="The gender of the character.")
@@ -75,8 +83,7 @@ class CharacterResponse(FrozenModel):
 class LLMRequest(BaseModel):
     """Request model for LLM API."""
 
-    provider: LLMProvider = Field(..., description="The LLM provider to use (openai or gemini)")
-    model: str = Field(..., description="The model name to use for generation")
+    model: str = Field(..., description="The Gemini model name to use for generation")
     character_request: CharacterRequest = Field(..., description="Character generation request parameters")
 
 

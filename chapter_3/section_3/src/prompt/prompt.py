@@ -3,14 +3,14 @@ import json
 from src.model.model import CharacterRequest, CharacterResponse
 
 
-def make_generation_prompt(
+def make_prompt(
     character_request: CharacterRequest,
 ) -> list:
     params = CharacterResponse.detailed_model()
     param_dump = json.dumps(params, indent=2, ensure_ascii=False)
     return [
         {
-            "role": "user",
+            "role": "system",
             "content": f"""あなたは創造的なキャラクタージェネレーターです。
 あなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。
 以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：
@@ -24,50 +24,13 @@ def make_generation_prompt(
 4. 年齢は指定された値であること
 5. 正確に3つの性格特性が提供されていること
 6. JSON構造の外に説明や追加のテキストを含めないこと
-
-ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。
-性別は「{character_request.gender.value}」、年齢は「{character_request.age}」歳です。
-{character_request.additional_instructions}
 """,
         },
-    ]
-
-
-def make_classification_prompt(text: str, categories: list[str]) -> list:
-    categories_str = ", ".join([f'"{cat}"' for cat in categories])
-
-    schema_description = json.dumps(
-        {
-            "reasoning": "string; Brief explanation for why this category was chosen",
-            "category": f"string; Must be exactly one of: {categories_str}",
-            "confidence": "string; Optional confidence level: 'high', 'medium', or 'low'",
-        },
-        indent=2,
-        ensure_ascii=False,
-    )
-
-    return [
         {
             "role": "user",
-            "content": f"""あなたはテキスト分類の専門家です。
-与えられたテキストを以下のカテゴリのいずれか一つに分類してください：{categories_str}
-
-以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：
-
-{schema_description}
-
-重要な注意事項：
-0. reasoningフィールドは必須で、なぜそのカテゴリが選ばれたのかを簡潔に説明すること
-1. categoryフィールドは必須で、提供されたカテゴリリストから正確に一つを選択すること
-2. カテゴリ名は大文字小文字を含めて完全に一致させること
-3. confidenceは任意ですが、提供すると分類の質が向上します
-4. JSON構造の外に説明や追加のテキストを含めないこと
-
-以下のテキストを分類してください：
-
-{text}
-
-利用可能なカテゴリ：{categories_str}
+            "content": f"""ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。
+性別は「{character_request.gender.value}」、年齢は「{character_request.age}」歳です。
+{character_request.additional_instructions}
 """,
         },
     ]

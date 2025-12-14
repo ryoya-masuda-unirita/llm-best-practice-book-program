@@ -4,11 +4,11 @@ import time
 
 from fastapi import FastAPI, HTTPException, status
 
-from src.client.llm_client import GeminiModel, LLMProvider
+from src.client.llm_client import GeminiModel, LLMProvider, OpenAIModel
 from src.logger import make_logger
 from src.model.model import HealthResponse, LLMRequest, LLMResponse
 from src.prompt.prompt import make_prompt
-from src.service import get_gemini_batch_results, get_gemini_batch_status, submit_gemini_batch
+from src.service import request_gemini, request_openai
 
 logger = make_logger(__name__)
 
@@ -21,20 +21,21 @@ app = FastAPI(
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 async def health_check():
+    """Health check endpoint."""
     return HealthResponse()
 
 
 @app.post("/generate", response_model=LLMResponse, tags=["LLM"])
 async def generate_character(request: LLMRequest):
-    """
-    Generate a character using the specified LLM provider and model.
-
-    This endpoint accepts requests to generate character descriptions using
-    Gemini models.
-    """
+    """Generate a character using the specified LLM provider and model."""
     start_time = time.time()
 
     try:
+        if request.provider == LLMProvider.OPENAI and request.model not in OpenAIModel.list_str():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid model '{request.model}' for provider '{request.provider.value}'",
+            )
         if request.provider == LLMProvider.GEMINI and request.model not in GeminiModel.list_str():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -43,30 +44,10 @@ async def generate_character(request: LLMRequest):
 
         prompt = make_prompt(character_request=request.character_request)
 
-        if request.provider == LLMProvider.GEMINI:
-            system_prompt = prompt[0]["content"]
-            user_prompt = prompt[-1]["content"]
-
-            batch_job_name = submit_gemini_batch(model=request.model, prompts=[(system_prompt, user_prompt)])
-
-            while True:
-                batch_status = get_gemini_batch_status(batch_job_name)
-                if batch_status == "JOB_STATE_SUCCEEDED":
-                    break
-                if batch_status in ("JOB_STATE_FAILED", "JOB_STATE_CANCELLED", "JOB_STATE_EXPIRED"):
-                    raise HTTPException(
-                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        detail=f"Batch job failed with state: {batch_status}",
-                    )
-                time.sleep(5)
-
-            results = get_gemini_batch_results(batch_job_name)
-            if not results or results[0] is None:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Failed to generate character from batch API",
-                )
-            character = results[0]
+        if request.provider == LLMProvider.OPENAI:
+            character = await request_openai(model=request.model, prompt=prompt)
+        elif request.provider == LLMProvider.GEMINI:
+            character = await request_gemini(model=request.model, prompt=prompt)
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

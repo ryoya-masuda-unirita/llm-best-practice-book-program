@@ -1,8 +1,11 @@
 import json
+import time
 from enum import StrEnum
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from src.client.llm_client import LLMProvider
 
 
 class Gender(StrEnum):
@@ -73,7 +76,29 @@ class CharacterResponse(BaseModel):
         return params
 
     def save_as_json(self, file_path: str) -> None:
-        """Save the character response as a JSON file."""
-
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(self.model_dump(), f, indent=4, ensure_ascii=False)
+
+
+class LLMRequest(BaseModel):
+    """Request model for LLM API."""
+
+    provider: LLMProvider = Field(..., description="The LLM provider to use (openai or gemini)")
+    model: str = Field(..., description="The model name to use for generation")
+    character_request: CharacterRequest = Field(..., description="Character generation request parameters")
+
+
+class LLMResponse(BaseModel):
+    """Response model for LLM API."""
+
+    character: CharacterResponse = Field(..., description="Generated character information")
+    provider: str = Field(..., description="LLM provider used")
+    model: str = Field(..., description="Model used")
+    processing_time_ms: float = Field(..., description="Processing time in milliseconds")
+
+
+class HealthResponse(BaseModel):
+    """Health check response."""
+
+    status: Literal["healthy"] = "healthy"
+    timestamp: float = Field(default_factory=time.time)

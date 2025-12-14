@@ -1,5 +1,3 @@
-"""LLM-as-a-Judge service for evaluating LLM responses."""
-
 from google.genai.types import GenerateContentConfig
 
 from src.client.llm_client import (
@@ -25,7 +23,6 @@ async def judge_with_openai(
     judge_request: JudgeRequest,
     model: OpenAIModel,
 ) -> JudgeResponse:
-    """Evaluate a response using OpenAI as the judge."""
     prompt = make_openai_judge_prompt(judge_request)
 
     logger.info(f"Requesting judgment from OpenAI model: {model}")
@@ -46,7 +43,6 @@ async def judge_with_gemini(
     judge_request: JudgeRequest,
     model: GeminiModel,
 ) -> JudgeResponse:
-    """Evaluate a response using Gemini as the judge."""
     system_prompt, user_prompt = make_gemini_judge_prompt(judge_request)
 
     logger.info(f"Requesting judgment from Gemini model: {model}")
@@ -72,7 +68,6 @@ async def judge_with_anthropic(
     judge_request: JudgeRequest,
     model: AnthropicModel,
 ) -> JudgeResponse:
-    """Evaluate a response using Anthropic as the judge."""
     prompt = make_anthropic_judge_prompt(judge_request)
 
     logger.info(f"Requesting judgment from Anthropic model: {model}")

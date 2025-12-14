@@ -1,10 +1,12 @@
 import json
 
-from src.model.model import CharacterRequest, CharacterResponse
+from src.model.model import CharacterResponse, Gender
 
 
 def make_prompt(
-    character_request: CharacterRequest,
+    gender: Gender,
+    age: int,
+    additional_instructions: str = "",
 ) -> list:
     params = CharacterResponse.detailed_model()
     param_dump = json.dumps(params, indent=2, ensure_ascii=False)
@@ -29,8 +31,8 @@ def make_prompt(
         {
             "role": "user",
             "content": f"""ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。
-性別は「{character_request.gender.value}」、年齢は「{character_request.age}」歳です。
-{character_request.additional_instructions}
+性別は「{gender.value}」、年齢は「{age}」歳です。
+{additional_instructions}
 """,
         },
     ]

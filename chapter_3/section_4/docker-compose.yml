@@ -1,41 +1,17 @@
 version: '3.8'
 
 services:
-  # LLM API Gateway - Centralized gateway for all LLM requests
-  gateway:
-    container_name: llm-gateway
-    image: shibui/llm-best-practice:chapter3_section4_gateway
-    platform: linux/amd64
-    ports:
-      - "8080:8080"
-    environment:
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT:-30.0}
-    env_file:
-      - .envrc
-    command:
-      - uvicorn
-      - src.api_gateway.gateway_server:app
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8080"
-    restart: unless-stopped
-
-  # Backend LLM Server - Connects to gateway for LLM requests
-  backend:
-    container_name: llm-backend
-    image: shibui/llm-best-practice:chapter3_section4_backend
+  # LLM API Server (Backend)
+  llm-server:
+    container_name: llm-api-server
+    image: shibui/llm-best-practice:chapter3_section4_web
     platform: linux/amd64
     ports:
       - "8000:8000"
     environment:
-      - BACKEND_URL=http://backend:8000
-      - GATEWAY_URL=http://gateway:8080
-      - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT:-30.0}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - PROXY_URL=http://llm-server:8080
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
     env_file:
       - .envrc
     command:
@@ -46,9 +22,33 @@ services:
       - --port
       - "8000"
     restart: unless-stopped
-    depends_on:
-      - gateway
+    networks:
+      - llm-network
+
+  # Proxy Server (Frontend)
+  proxy-server:
+    container_name: llm-proxy-server
+    image: shibui/llm-best-practice:chapter3_section4_proxy
+    platform: linux/amd64
+    ports:
+      - "8080:8080"
+    environment:
+      - BACKEND_URL=http://llm-server:8000
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    env_file:
+      - .envrc
+    command:
+      - uvicorn
+      - src.proxy.proxy_server:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+    restart: unless-stopped
+    networks:
+      - llm-network
 
 networks:
-  default:
-    name: llm-gateway-network
+  llm-network:
+    driver: bridge

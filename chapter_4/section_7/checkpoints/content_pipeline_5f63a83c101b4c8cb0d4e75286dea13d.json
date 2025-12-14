@@ -1,0 +1,117 @@
+{
+  "workflow_id": "content_pipeline",
+  "checkpoint_id": "5f63a83c101b4c8cb0d4e75286dea13d",
+  "timestamp": "2025-11-09T15:14:57.124084",
+  "workflow_state": {
+    "workflow_id": "content_pipeline",
+    "state": "running",
+    "started_at": "2025-11-09T15:14:52.215494",
+    "completed_at": null,
+    "current_node_id": "parse_topics",
+    "node_records": {
+      "start": {
+        "node_id": "start",
+        "state": "completed",
+        "started_at": "2025-11-09T15:14:52.215556",
+        "completed_at": "2025-11-09T15:14:52.215614",
+        "error": null,
+        "output": {
+          "status": "started",
+          "initial_data": {
+            "domain": "artificial intelligence",
+            "num_topics": 3,
+            "quality_threshold": 7
+          }
+        },
+        "retry_count": 0
+      },
+      "generate_topics": {
+        "node_id": "generate_topics",
+        "state": "completed",
+        "started_at": "2025-11-09T15:14:52.215674",
+        "completed_at": "2025-11-09T15:14:57.123488",
+        "error": null,
+        "output": {
+          "content": "Beyond the Buzzwords: How AI is Already Changing Your Daily Life (and What's Next), The Ethical Tightrope: Navigating AI's Biggest Questions (and Why You Should Care), Unleashing Creativity: How Generative AI is Empowering Artists, Writers, and Innovators",
+          "model": "gemini-2.5-flash",
+          "usage": {
+            "prompt_tokens": 28,
+            "completion_tokens": 57,
+            "total_tokens": 725
+          },
+          "finish_reason": "STOP"
+        },
+        "retry_count": 0
+      },
+      "parse_topics": {
+        "node_id": "parse_topics",
+        "state": "completed",
+        "started_at": "2025-11-09T15:14:57.123746",
+        "completed_at": "2025-11-09T15:14:57.123923",
+        "error": null,
+        "output": {
+          "topics": [
+            "Beyond the Buzzwords: How AI is Already Changing Your Daily Life (and What's Next)",
+            "The Ethical Tightrope: Navigating AI's Biggest Questions (and Why You Should Care)",
+            "Unleashing Creativity: How Generative AI is Empowering Artists"
+          ],
+          "topics_count": 5
+        },
+        "retry_count": 0
+      }
+    },
+    "variables": {},
+    "error": null
+  },
+  "execution_context": {
+    "workflow_id": "content_pipeline",
+    "variables": {
+      "domain": "artificial intelligence",
+      "num_topics": 3,
+      "quality_threshold": 7,
+      "generate_topics_output": {
+        "content": "Beyond the Buzzwords: How AI is Already Changing Your Daily Life (and What's Next), The Ethical Tightrope: Navigating AI's Biggest Questions (and Why You Should Care), Unleashing Creativity: How Generative AI is Empowering Artists, Writers, and Innovators",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 28,
+          "completion_tokens": 57,
+          "total_tokens": 725
+        },
+        "finish_reason": "STOP"
+      }
+    },
+    "node_outputs": {
+      "start": {
+        "status": "started",
+        "initial_data": {
+          "domain": "artificial intelligence",
+          "num_topics": 3,
+          "quality_threshold": 7
+        }
+      },
+      "generate_topics": {
+        "content": "Beyond the Buzzwords: How AI is Already Changing Your Daily Life (and What's Next), The Ethical Tightrope: Navigating AI's Biggest Questions (and Why You Should Care), Unleashing Creativity: How Generative AI is Empowering Artists, Writers, and Innovators",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 28,
+          "completion_tokens": 57,
+          "total_tokens": 725
+        },
+        "finish_reason": "STOP"
+      },
+      "parse_topics": {
+        "topics": [
+          "Beyond the Buzzwords: How AI is Already Changing Your Daily Life (and What's Next)",
+          "The Ethical Tightrope: Navigating AI's Biggest Questions (and Why You Should Care)",
+          "Unleashing Creativity: How Generative AI is Empowering Artists"
+        ],
+        "topics_count": 5
+      }
+    },
+    "error": null
+  },
+  "metadata": {
+    "type": "auto",
+    "node": "parse_topics"
+  }
+}

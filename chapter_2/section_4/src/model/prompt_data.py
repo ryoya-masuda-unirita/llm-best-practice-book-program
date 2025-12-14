@@ -1,20 +1,30 @@
 """Prompt data model for LLMOps."""
 
 import re
-from datetime import datetime, timezone
-from typing import Any
+from datetime import datetime
+from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PromptData(BaseModel):
     """Model for prompt data to be stored."""
 
-    prompt_id: str
-    prompt_content: Any
-    response_content: Any = None
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    model_config = ConfigDict(
+        validate_assignment=True,
+        frozen=False,
+        extra="ignore",
+        arbitrary_types_allowed=True,
+    )
+
+    prompt_id: str = Field(..., description="Unique identifier for the prompt")
+    prompt_content: Any = Field(..., description="The actual prompt content (can be string or list of messages)")
+    response_content: Optional[Any] = Field(None, description="The LLM response content")
+    created_at: str = Field(
+        default_factory=lambda: datetime.utcnow().isoformat(),
+        description="Timestamp when prompt was created",
+    )
+    metadata: Optional[dict[str, Any]] = Field(default_factory=dict, description="Additional metadata")
 
     def mask_sensitive_data(self) -> None:
         """Mask potentially sensitive information in prompt and response content."""

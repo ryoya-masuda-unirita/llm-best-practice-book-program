@@ -1,3 +1,33 @@
-from src.model.model import CharacterPersonality, CharacterResponse, Gender
+from src.model.model import (
+    ChartDataPoint,
+    Diagram,
+    DiagramType,
+    Invoice,
+    InvoiceBankAccountType,
+    InvoiceBankDetails,
+    InvoiceFinancialTotals,
+    InvoiceIssuerInfo,
+    InvoiceLineItem,
+    InvoiceRecipientInfo,
+    InvoiceTaxType,
+    Slide,
+    SlideDiagram,
+    SlideDiagramType,
+)
 
-__all__ = ["CharacterPersonality", "CharacterResponse", "Gender"]
+__all__ = [
+    "ChartDataPoint",
+    "Diagram",
+    "DiagramType",
+    "Invoice",
+    "InvoiceBankAccountType",
+    "InvoiceBankDetails",
+    "InvoiceFinancialTotals",
+    "InvoiceIssuerInfo",
+    "InvoiceLineItem",
+    "InvoiceRecipientInfo",
+    "InvoiceTaxType",
+    "Slide",
+    "SlideDiagram",
+    "SlideDiagramType",
+]

@@ -1,23 +1,15 @@
 import asyncio
 import os
 from functools import wraps
-from pathlib import Path
 from uuid import uuid4
 
 import click
-from src.client.llm_client import OpenAIModel
+
+from src.client.llm_client import AnthropicModel, GeminiModel, LLMProvider, OpenAIModel
 from src.logger import make_logger
-from src.service import request_openai
-from src.service.template_engine import TemplateEngine
+from src.service import request_anthropic_outfit, request_gemini_outfit, request_openai_outfit
 
 logger = make_logger(__name__)
-
-PROJECT_ROOT = Path(__file__).parent.parent
-
-TEMPLATE_DIR = PROJECT_ROOT / "templates"
-VARIABLES_DIR = PROJECT_ROOT / "variables"
-
-TEMPLATE_ENGINE = TemplateEngine(template_dir=TEMPLATE_DIR)
 
 
 def async_cmd(func):
@@ -30,12 +22,33 @@ def async_cmd(func):
 
 @click.command()
 @click.option(
+    "--llm-provider",
+    "-lp",
+    type=click.Choice(LLMProvider),
+    required=True,
+    default=LLMProvider.GEMINI,
+    help="The LLM provider to use.",
+)
+@click.option(
     "--model",
     "-m",
-    type=click.Choice(OpenAIModel.list_str()),
+    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str() + AnthropicModel.list_str()),
     required=True,
-    default=OpenAIModel.GPT_4O,
-    help="The OpenAI model to use for the request.",
+    help="The model to use for the request.",
+)
+@click.option(
+    "--latitude",
+    "-lat",
+    type=float,
+    required=True,
+    help="緯度 (例: 39.7456 for Kansas, USA)",
+)
+@click.option(
+    "--longitude",
+    "-lon",
+    type=float,
+    required=True,
+    help="経度 (例: -97.0892 for Kansas, USA)",
 )
 @click.option(
     "--output-directory",
@@ -45,68 +58,72 @@ def async_cmd(func):
     default="outputs",
     help="The directory to save output files.",
 )
-@click.option(
-    "--template",
-    "-t",
-    type=click.Path(exists=False, path_type=str),
-    required=False,
-    default="templates/character_generation.yaml",
-    help="Template file path (relative to project root or absolute). Default: templates/character_generation.yaml",
-)
-@click.option(
-    "--variables",
-    "-v",
-    type=click.Path(exists=False, path_type=str),
-    required=False,
-    default=None,
-    help="Variables file path (relative to project root or absolute). If not specified, uses default values.",
-)
 @async_cmd
 async def main(
+    llm_provider: LLMProvider,
     model: str,
+    latitude: float,
+    longitude: float,
     output_directory: str = "outputs",
-    template: str = "templates/character_generation.yaml",
-    variables: str | None = None,
 ):
-    template_path = Path(template)
-    if not template_path.is_absolute():
-        template_path = PROJECT_ROOT / template_path
+    """天気予報に基づいて服装を提案します
 
-    variables_path = None
-    if variables:
-        variables_path = Path(variables)
-        if not variables_path.is_absolute():
-            variables_path = PROJECT_ROOT / variables_path
+    Example:
+        python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.7456 -lon -97.0892
+    """
+    logger.info(f"""LLM provider: {llm_provider.value}
+Model: {model}
+Latitude: {latitude}
+Longitude: {longitude}
+Output directory: {output_directory}""")
 
-    if not template_path.exists():
-        raise FileNotFoundError(f"Template file not found: {template_path}")
-
-    if variables_path and not variables_path.exists():
-        raise FileNotFoundError(f"Variables file not found: {variables_path}")
-
-    logger.info(f"""Model: {model}
-Output directory: {output_directory}
-Template: {template_path}
-Variables: {variables_path or "default"}""")
-
-    if model not in OpenAIModel.list_str():
-        raise ValueError(f"Invalid model '{model}'. Must be one of {OpenAIModel.list_str()}")
+    if llm_provider == LLMProvider.OPENAI and model not in OpenAIModel.list_str():
+        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
+    if llm_provider == LLMProvider.GEMINI and model not in GeminiModel.list_str():
+        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
+    if llm_provider == LLMProvider.ANTHROPIC and model not in AnthropicModel.list_str():
+        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
 
     os.makedirs(output_directory, exist_ok=True)
 
-    result = await request_openai(
-        model=model,
-        template_path=template_path,
-        variables_path=variables_path,
-        template_dir=TEMPLATE_DIR,
-        variables_dir=VARIABLES_DIR,
-        template_engine=TEMPLATE_ENGINE,
-    )
+    try:
+        if llm_provider == LLMProvider.OPENAI:
+            result = await request_openai_outfit(model=model, latitude=latitude, longitude=longitude)
+        elif llm_provider == LLMProvider.GEMINI:
+            result = await request_gemini_outfit(model=model, latitude=latitude, longitude=longitude)
+        elif llm_provider == LLMProvider.ANTHROPIC:
+            result = await request_anthropic_outfit(model=model, latitude=latitude, longitude=longitude)
+        else:
+            raise ValueError(f"Unsupported LLM provider: {llm_provider.value}")
+    except ValueError as e:
+        logger.error(f"\n❌ エラー: {e}")
+        raise click.ClickException(str(e))
 
-    file_name = f"openai_{uuid4().hex}.json"
+    file_name = f"outfit_{llm_provider.value}_{uuid4().hex}.json"
     file_path = os.path.join(output_directory, file_name)
     result.save_as_json(file_path)
     logger.info(f"""File saved to {file_path}""")
+
+    logger.info(f"""
+=== 服装提案 ===
+場所: {result.location}
+天気概要: {result.weather_summary}
+
+現在の天気:
+  期間: {result.current_weather.period_name}
+  気温: {result.current_weather.temperature}°{result.current_weather.temperature_unit}
+  風: {result.current_weather.wind_speed} {result.current_weather.wind_direction}
+  予報: {result.current_weather.forecast_summary}
+
+推奨服装:
+""")
+    for i, rec in enumerate(result.outfit_recommendations, 1):
+        logger.info(f"""  {i}. {rec.clothing_type}: {rec.item_suggestion}
+     理由: {rec.reason}""")
+
+    logger.info(f"""
+追加アドバイス: {result.additional_advice}
+""")
 
 
 if __name__ == "__main__":

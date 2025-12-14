@@ -1,22 +1,29 @@
-from google.genai.types import GenerateContentConfig
+"""Service layer for unified LLM requests."""
 
-from src.client.llm_client import GeminiModel, google_genai_client
+from src.client.base import LLMClient
+from src.client.model import AnthropicModel, GeminiModel, OpenAIModel
 from src.logger import make_logger
 from src.model.model import CharacterResponse
+from src.prompt import make_prompt
 
 logger = make_logger(__name__)
 
 
-async def request_gemini(model: GeminiModel, prompt: list[dict]) -> CharacterResponse:
-    result = await google_genai_client.aio.models.generate_content(
-        model=model,
-        contents=prompt[-1]["content"],
-        config=GenerateContentConfig(
-            system_instruction=prompt[0]["content"],
-            response_mime_type="application/json",
-            response_schema=CharacterResponse,
-            temperature=2.0,
-        ),
+async def request_llm(
+    client: LLMClient,
+    model: OpenAIModel | GeminiModel | AnthropicModel,
+) -> CharacterResponse:
+    """Make LLM request and return character data."""
+    logger.info(f"Making LLM request: provider={client.get_provider_name()}, model={model}")
+
+    provider = client.get_provider_name()
+    prompt = make_prompt(provider)
+
+    result = await client.chat(
+        messages=prompt,
+        response_format=CharacterResponse,
     )
-    logger.info(result)
-    return result.parsed
+
+    logger.info(f"Successfully received response from {provider}")
+
+    return result

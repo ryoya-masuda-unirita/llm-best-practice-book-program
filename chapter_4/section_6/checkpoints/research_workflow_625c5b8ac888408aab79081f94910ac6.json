@@ -1,0 +1,135 @@
+{
+  "workflow_id": "research_workflow",
+  "checkpoint_id": "625c5b8ac888408aab79081f94910ac6",
+  "timestamp": "2025-11-09T11:14:21.662259",
+  "workflow_state": {
+    "workflow_id": "research_workflow",
+    "state": "failed",
+    "started_at": "2025-11-09T11:14:08.948217",
+    "completed_at": "2025-11-09T11:14:21.661815",
+    "current_node_id": "research_q1",
+    "node_records": {
+      "start": {
+        "node_id": "start",
+        "state": "completed",
+        "started_at": "2025-11-09T11:14:08.948252",
+        "completed_at": "2025-11-09T11:14:08.948281",
+        "error": null,
+        "output": {
+          "status": "started",
+          "initial_data": {
+            "research_topic": "impact of large language models on software development",
+            "depth": "comprehensive"
+          }
+        },
+        "retry_count": 0
+      },
+      "define_questions": {
+        "node_id": "define_questions",
+        "state": "completed",
+        "started_at": "2025-11-09T11:14:08.948341",
+        "completed_at": "2025-11-09T11:14:14.654067",
+        "error": null,
+        "output": {
+          "content": "Here are 3 specific research questions about the impact of large language models on software development:\n\n1.  To what extent do large language models (LLMs) improve developer productivity, measured by task completion time and successful feature implementation rates, in agile software development teams working on enterprise-level applications?\n2.  How does the integration of LLM-powered code generation and review tools affect the long-term maintainability, security vulnerability rates, and technical debt accumulation in complex software projects, compared to traditional human-centric development practices?\n3.  What specific shifts occur in the demand for traditional programming skills versus prompt engineering and critical evaluation skills among software developers as LLMs become more prevalent in the code generation, debugging, and testing phases of the software development lifecycle?",
+          "model": "gemini-2.5-flash",
+          "usage": {
+            "prompt_tokens": 31,
+            "completion_tokens": 155,
+            "total_tokens": 1044
+          },
+          "finish_reason": "STOP"
+        },
+        "retry_count": 0
+      },
+      "parse_questions": {
+        "node_id": "parse_questions",
+        "state": "completed",
+        "started_at": "2025-11-09T11:14:14.655633",
+        "completed_at": "2025-11-09T11:14:14.655780",
+        "error": null,
+        "output": {
+          "questions": [
+            "1.  To what extent do large language models (LLMs) improve developer productivity, measured by task completion time and successful feature implementation rates, in agile software development teams working on enterprise-level applications?",
+            "2.  How does the integration of LLM-powered code generation and review tools affect the long-term maintainability, security vulnerability rates, and technical debt accumulation in complex software projects, compared to traditional human-centric development practices?",
+            "3.  What specific shifts occur in the demand for traditional programming skills versus prompt engineering and critical evaluation skills among software developers as LLMs become more prevalent in the code generation, debugging, and testing phases of the software development lifecycle?"
+          ]
+        },
+        "retry_count": 0
+      },
+      "prep_q1": {
+        "node_id": "prep_q1",
+        "state": "completed",
+        "started_at": "2025-11-09T11:14:14.655882",
+        "completed_at": "2025-11-09T11:14:14.655967",
+        "error": null,
+        "output": {
+          "question": "1.  To what extent do large language models (LLMs) improve developer productivity, measured by task completion time and successful feature implementation rates, in agile software development teams working on enterprise-level applications?"
+        },
+        "retry_count": 0
+      },
+      "research_q1": {
+        "node_id": "research_q1",
+        "state": "failed",
+        "started_at": "2025-11-09T11:14:14.656709",
+        "completed_at": "2025-11-09T11:14:21.661662",
+        "error": "'question'",
+        "output": null,
+        "retry_count": 4
+      }
+    },
+    "variables": {},
+    "error": "'question'"
+  },
+  "execution_context": {
+    "workflow_id": "research_workflow",
+    "variables": {
+      "research_topic": "impact of large language models on software development",
+      "depth": "comprehensive",
+      "define_questions_output": {
+        "content": "Here are 3 specific research questions about the impact of large language models on software development:\n\n1.  To what extent do large language models (LLMs) improve developer productivity, measured by task completion time and successful feature implementation rates, in agile software development teams working on enterprise-level applications?\n2.  How does the integration of LLM-powered code generation and review tools affect the long-term maintainability, security vulnerability rates, and technical debt accumulation in complex software projects, compared to traditional human-centric development practices?\n3.  What specific shifts occur in the demand for traditional programming skills versus prompt engineering and critical evaluation skills among software developers as LLMs become more prevalent in the code generation, debugging, and testing phases of the software development lifecycle?",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 31,
+          "completion_tokens": 155,
+          "total_tokens": 1044
+        },
+        "finish_reason": "STOP"
+      }
+    },
+    "node_outputs": {
+      "start": {
+        "status": "started",
+        "initial_data": {
+          "research_topic": "impact of large language models on software development",
+          "depth": "comprehensive"
+        }
+      },
+      "define_questions": {
+        "content": "Here are 3 specific research questions about the impact of large language models on software development:\n\n1.  To what extent do large language models (LLMs) improve developer productivity, measured by task completion time and successful feature implementation rates, in agile software development teams working on enterprise-level applications?\n2.  How does the integration of LLM-powered code generation and review tools affect the long-term maintainability, security vulnerability rates, and technical debt accumulation in complex software projects, compared to traditional human-centric development practices?\n3.  What specific shifts occur in the demand for traditional programming skills versus prompt engineering and critical evaluation skills among software developers as LLMs become more prevalent in the code generation, debugging, and testing phases of the software development lifecycle?",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 31,
+          "completion_tokens": 155,
+          "total_tokens": 1044
+        },
+        "finish_reason": "STOP"
+      },
+      "parse_questions": {
+        "questions": [
+          "1.  To what extent do large language models (LLMs) improve developer productivity, measured by task completion time and successful feature implementation rates, in agile software development teams working on enterprise-level applications?",
+          "2.  How does the integration of LLM-powered code generation and review tools affect the long-term maintainability, security vulnerability rates, and technical debt accumulation in complex software projects, compared to traditional human-centric development practices?",
+          "3.  What specific shifts occur in the demand for traditional programming skills versus prompt engineering and critical evaluation skills among software developers as LLMs become more prevalent in the code generation, debugging, and testing phases of the software development lifecycle?"
+        ]
+      },
+      "prep_q1": {
+        "question": "1.  To what extent do large language models (LLMs) improve developer productivity, measured by task completion time and successful feature implementation rates, in agile software development teams working on enterprise-level applications?"
+      }
+    },
+    "error": "'question'"
+  },
+  "metadata": {
+    "status": "failed",
+    "error": "'question'"
+  }
+}

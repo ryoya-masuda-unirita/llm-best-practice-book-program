@@ -1,630 +1,485 @@
-# Chapter 2 Section 5: LLM Streaming API - Project Status Report
-
-**Last Updated**: 2025-10-17
-**Project Version**: 1.0.0
-**Status**: Production Ready
-
-## Executive Summary
-
-This project demonstrates a production-ready implementation of **LLM streaming responses** using FastAPI and Server-Sent Events (SSE). It provides a unified API interface supporting both OpenAI GPT-4o-mini and Google Gemini 2.5 Flash models, enabling real-time text generation with efficient resource utilization.
-
-### Key Achievements
-
-- FastAPI-based RESTful API with streaming support
-- Multi-provider architecture (OpenAI + Gemini)
-- Async/await pattern for efficient I/O operations
-- Production-ready features (CORS, error handling, logging)
-- Comprehensive test client and usage examples
-
-## Project Architecture
-
-### Technology Stack
-
-- **Web Framework**: FastAPI 0.119.0+
-- **ASGI Server**: Uvicorn 0.37.0+
-- **LLM Providers**:
-  - OpenAI API (openai 2.4.0+)
-  - Google Gemini API (google-genai 1.45.0+)
-- **HTTP Client**: aiohttp 3.11.17+
-- **Data Validation**: Pydantic 2.12.2+
-- **CLI Framework**: Click 8.3.0+
-- **Python Version**: 3.13.2+
-
-### Architecture Layers
-
-```
-+--------------------------------------------------+
-|  Presentation Layer                              |
-|  - test_client.py: CLI test client               |
-|  - examples/: Usage demonstrations               |
-+------------------+-------------------------------+
-                   |
-                   v
-+------------------+-------------------------------+
-|  API Layer (src/api/)                            |
-|  - app.py: FastAPI application & routes          |
-|  - models.py: Request/Response schemas           |
-|  - Endpoints: /health, /stream, /stream/*        |
-+------------------+-------------------------------+
-                   |
-                   v
-+------------------+-------------------------------+
-|  Service Layer (src/service/)                    |
-|  - streaming_service.py: Async generators        |
-|  - stream_openai_response()                      |
-|  - stream_gemini_response()                      |
-+------------------+-------------------------------+
-                   |
-                   v
-+------------------+-------------------------------+
-|  Business Logic Layer                            |
-|  - client/: LLM client initialization            |
-|  - model/: Pydantic data models                  |
-|  - prompt/: Prompt generation logic              |
-+------------------+-------------------------------+
-                   |
-                   v
-+------------------+-------------------------------+
-|  Infrastructure Layer                            |
-|  - config.py: Configuration & API keys           |
-|  - logger.py: Logging setup                      |
-|  - External APIs: OpenAI, Gemini                 |
-+--------------------------------------------------+
-```
-
-## Directory Structure
-
-```
-section_5/
-├── src/
-│   ├── __init__.py
-│   ├── config.py              # Environment & API key management
-│   ├── logger.py              # Centralized logging configuration
-│   ├── main.py                # CLI entry point (legacy, non-streaming)
-│   ├── llms.py                # Compatibility layer
-│   │
-│   ├── api/
-│   │   ├── __init__.py
-│   │   ├── app.py             # FastAPI application & endpoints
-│   │   └── models.py          # Pydantic request/response models
-│   │
-│   ├── service/
-│   │   ├── __init__.py
-│   │   └── streaming_service.py  # Core streaming logic
-│   │
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py      # LLM client initialization & enums
-│   │
-│   ├── model/
-│   │   ├── __init__.py
-│   │   └── model.py           # Business data models
-│   │
-│   └── prompt/
-│       ├── __init__.py
-│       └── prompt.py          # Prompt generation utilities
-│
-├── examples/
-│   └── example_usage.py       # Comprehensive usage demonstrations
-│
-├── .envrc.example             # Environment variables template
-├── .envrc                     # Local environment configuration (gitignored)
-├── pyproject.toml             # Project dependencies & metadata
-├── run_server.py              # Server startup script with CLI options
-├── test_client.py             # Interactive test client
-├── README.md                  # User documentation
-└── CLAUDE.md                  # This file - project status report
-```
-
-## Implementation Details
-
-### API Endpoints
-
-#### 1. Health Check
-```
-GET /health
-Response: {"status": "healthy", "message": "LLM Streaming API is running"}
-```
-
-#### 2. Unified Streaming Endpoint
-```
-POST /stream
-Body: {
-  "prompt": string (required, min_length=1),
-  "provider": "openai" | "gemini" (default: "gemini"),
-  "model": string | null (optional),
-  "system_instruction": string | null (Gemini only)
-}
-Response: text/event-stream (SSE)
-```
-
-#### 3. Provider-Specific Endpoints
-```
-POST /stream/openai
-POST /stream/gemini
-Body: Same as unified endpoint (provider is implicit)
-Response: text/event-stream (SSE)
-```
-
-### Streaming Service Implementation
-
-#### OpenAI Streaming (src/service/streaming_service.py:12)
-
-```python
-async def stream_openai_response(prompt: str, model: str = "gpt-4o-mini") -> AsyncIterator[str]:
-    """Async generator for OpenAI streaming responses"""
-
-    stream = await openai_client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-        stream=True,
-        temperature=1.0,
-    )
-
-    async for chunk in stream:
-        if chunk.choices[0].delta.content:
-            content = chunk.choices[0].delta.content
-            yield content
-            await asyncio.sleep(0.01)  # Prevent event loop blocking
-```
-
-**Key Features**:
-- Uses OpenAI's native streaming API (`stream=True`)
-- Async iteration over response chunks
-- Non-blocking yields with microsleep
-- Error handling with user-friendly messages
-
-#### Gemini Streaming (src/service/streaming_service.py:43)
-
-```python
-async def stream_gemini_response(
-    prompt: str,
-    model: str = "gemini-2.5-flash",
-    system_instruction: str | None = None,
-) -> AsyncIterator[str]:
-    """Async generator for Gemini streaming responses"""
-
-    config = GenerateContentConfig(temperature=2.0)
-    if system_instruction:
-        config = GenerateContentConfig(
-            system_instruction=system_instruction,
-            temperature=2.0,
-        )
-
-    response = google_genai_client.models.generate_content_stream(
-        model=model,
-        contents=prompt,
-        config=config,
-    )
-
-    for chunk in response:
-        if chunk.text:
-            yield chunk.text
-```
-
-**Key Features**:
-- Uses Gemini SDK's `generate_content_stream()`
-- System instruction support for role-based responses
-- Synchronous iteration (SDK limitation)
-- Higher temperature setting (2.0) for creative outputs
-
-### FastAPI Application (src/api/app.py)
-
-**Configuration**:
-- CORS enabled for all origins (WARNING: restrict in production)
-- Proper SSE headers: `Cache-Control`, `Connection`, `X-Accel-Buffering`
-- Comprehensive error handling with HTTP status codes
-
-**Request Validation**:
-- Pydantic models ensure type safety
-- Automatic validation for required fields
-- Clear error messages on validation failures
-
-### Test Client (test_client.py)
-
-**Features**:
-- CLI interface using Click
-- Real-time chunk display with proper buffering
-- Support for all endpoint parameters
-- Connection error handling
-- Configurable server URL
-
-**Usage Examples**:
-```bash
-# Basic usage
-python test_client.py --prompt "Hello, world!"
-
-# OpenAI with custom model
-python test_client.py --provider openai --model gpt-4o --prompt "Explain AI"
-
-# Gemini with system instruction
-python test_client.py --provider gemini \
-  --prompt "Recommend a healthy lunch" \
-  --system-instruction "You are a nutritionist"
-```
-
-## Current Status
-
-### Completed Features
-
-[x] **Core Streaming Implementation**
-- OpenAI streaming with async generators
-- Gemini streaming with SDK integration
-- Proper SSE formatting and headers
-
-[x] **API Layer**
-- FastAPI application with OpenAPI documentation
-- Unified and provider-specific endpoints
-- Health check endpoint
-
-[x] **Error Handling**
-- Service-level exception catching
-- User-friendly error messages in stream
-- Detailed server-side logging
-- HTTP exception handling
-
-[x] **CORS Support**
-- Middleware configuration
-- All origins allowed (development mode)
-
-[x] **Testing Tools**
-- Interactive CLI test client
-- Comprehensive usage examples
-- Multiple test scenarios
-
-[x] **Documentation**
-- Detailed README with setup instructions
-- Code comments and docstrings
-- Usage examples with expected outputs
-
-### Known Limitations
-
-[!] **CORS Configuration**
-- Currently allows all origins (`allow_origins=["*"]`)
-- **Action Required**: Restrict in production to specific domains
-
-[!] **No Unit Tests**
-- Manual testing only through test_client.py and examples
-- **Recommendation**: Add pytest test suite for API endpoints
-
-[!] **No Rate Limiting**
-- Direct API calls without throttling
-- **Risk**: Potential API quota exhaustion
-- **Recommendation**: Implement rate limiting middleware
-
-[!] **No Authentication**
-- Open endpoints without auth
-- **Risk**: Unauthorized access and usage
-- **Recommendation**: Add API key authentication for production
-
-[!] **No Request Logging**
-- Limited observability for production monitoring
-- **Recommendation**: Add request/response logging with correlation IDs
-
-[!] **Synchronous Gemini Iteration**
-- Gemini SDK uses synchronous iteration
-- Wrapped in async generator but not truly async
-- **Note**: SDK limitation, not implementation issue
-
-## Testing Strategy
-
-### Manual Testing
-
-**1. Server Health Check**
-```bash
-python run_server.py
-curl http://127.0.0.1:8000/health
-# Expected: {"status":"healthy","message":"LLM Streaming API is running"}
-```
-
-**2. OpenAI Streaming**
-```bash
-python test_client.py --provider openai --prompt "Hello, world!"
-# Expected: Real-time text generation from GPT-4o-mini
-```
-
-**3. Gemini Streaming**
-```bash
-python test_client.py --provider gemini --prompt "こんにちは"
-# Expected: Real-time text generation from Gemini 2.5 Flash
-```
-
-**4. System Instruction (Gemini)**
-```bash
-python test_client.py --provider gemini \
-  --prompt "Recommend a lunch menu" \
-  --system-instruction "You are a nutritionist"
-# Expected: Response with nutritional guidance
-```
-
-**5. Error Handling**
-```bash
-curl -X POST http://127.0.0.1:8000/stream \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "", "provider": "gemini"}'
-# Expected: HTTP 422 with validation error
-```
-
-**6. Comprehensive Examples**
-```bash
-python examples/example_usage.py
-# Expected: All 5 examples run successfully
-```
-
-### Test Coverage Gaps
-
-Missing unit tests for:
-- [ ] Streaming service functions
-- [ ] API endpoint handlers
-- [ ] Request validation logic
-- [ ] Error handling paths
-- [ ] CORS configuration
-- [ ] Client initialization
-
-## Dependencies
-
-### Production Dependencies
-
-```toml
-[project.dependencies]
-aiohttp = ">=3.11.17"        # Async HTTP client for test tools
-click = ">=8.3.0"            # CLI interface framework
-fastapi = ">=0.119.0"        # Web framework
-google-genai = ">=1.45.0"    # Google Gemini SDK
-openai = ">=2.4.0"           # OpenAI SDK
-pydantic = ">=2.12.2"        # Data validation
-python-dotenv = ">=1.1.1"    # Environment variable management
-uvicorn = ">=0.37.0"         # ASGI server
-```
-
-### Development Dependencies
-
-```toml
-[dependency-groups.dev]
-pytest = ">=8.4.2"           # Test framework (not yet used)
-pytest-asyncio = ">=1.2.0"   # Async test support (not yet used)
-pytest-mock = ">=3.15.1"     # Mocking utilities (not yet used)
-```
-
-## Environment Configuration
-
-### Required Environment Variables
-
-```bash
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
-```
-
-### Configuration Files
-
-- `.envrc.example`: Template with placeholder values
-- `.envrc`: Local configuration (gitignored)
-- Loaded via `python-dotenv` in `src/config.py`
-
-## Performance Considerations
-
-### Streaming Benefits
-
-1. **Reduced Time-to-First-Byte (TTFB)**: Users see response immediately
-2. **Better UX**: Progressive display vs. long wait times
-3. **Resource Efficiency**: No need to buffer entire response
-4. **Scalability**: Handles long-form content without timeout issues
-
-### Optimization Points
-
-- **OpenAI**: `asyncio.sleep(0.01)` prevents event loop blocking (src/service/streaming_service.py:36)
-- **FastAPI**: Async endpoints enable concurrent request handling
-- **SSE Headers**: Proper cache and buffering control for real-time delivery
-
-### Potential Bottlenecks
-
-- **API Latency**: Dependent on external API response times
-- **Network Bandwidth**: Large responses may strain client connections
-- **Concurrent Requests**: No connection pooling or rate limiting
-
-## Security Considerations
-
-### Current Security Posture
-
-[!] **Development Mode**: Not production-ready without hardening
-
-**Vulnerabilities**:
-1. No authentication/authorization
-2. CORS allows all origins
-3. No rate limiting (API abuse risk)
-4. API keys in environment variables (acceptable for development)
-5. No request size limits
-6. No input sanitization beyond Pydantic validation
-
-### Production Hardening Checklist
-
-- [ ] Implement API key authentication
-- [ ] Restrict CORS to specific domains
-- [ ] Add rate limiting (per IP/per user)
-- [ ] Use secret management service for API keys
-- [ ] Add request size limits
-- [ ] Implement request validation and sanitization
-- [ ] Add HTTPS/TLS termination
-- [ ] Set up monitoring and alerting
-- [ ] Implement proper error handling without leaking internals
-- [ ] Add audit logging for compliance
-
-## Git Status
-
-### Recent Commits
-```
-889035f 2.7
-bc953f0 2.6
-cb11475 2.5
-8162ad8 init
-e34954c add 2.1
-```
-
-### Current Branch
-- `main` (clean working directory for section_5)
-
-### Modified Files (Parent Directories)
-- Multiple reorganization operations in sibling sections
-- New files added in section_5 (untracked)
-
-## Future Enhancements
-
-### Priority 1: Testing & Quality
-
-1. **Add Unit Tests**
-   - Test streaming service functions with mocked API clients
-   - Test FastAPI endpoints with TestClient
-   - Test error handling paths
-   - Target: 80%+ code coverage
-
-2. **Add Integration Tests**
-   - End-to-end tests with real API calls (optional)
-   - Use VCR.py for recording/replaying API responses
-
-3. **Add CI/CD Pipeline**
-   - Automated testing on push
-   - Code quality checks (ruff, mypy)
-   - Dependency vulnerability scanning
-
-### Priority 2: Production Readiness
-
-1. **Authentication & Authorization**
-   - API key-based auth
-   - JWT token support
-   - Per-user rate limiting
-
-2. **Observability**
-   - Structured logging (JSON format)
-   - Request tracing with correlation IDs
-   - Metrics collection (Prometheus)
-   - Health check enhancements (liveness/readiness)
-
-3. **Rate Limiting**
-   - Per-IP rate limiting
-   - Per-user quota management
-   - Graceful degradation on quota exhaustion
-
-### Priority 3: Feature Enhancements
-
-1. **Extended Model Support**
-   - Additional OpenAI models (GPT-4, GPT-3.5)
-   - Additional Gemini models (Pro, Ultra)
-   - Claude API integration
-   - Model-specific parameter tuning
-
-2. **Advanced Streaming Features**
-   - Token-level streaming metadata
-   - Usage statistics in response
-   - Partial response caching
-   - Stream interruption/cancellation
-
-3. **Developer Experience**
-   - OpenAPI schema enhancements
-   - SDK generation for clients
-   - WebSocket alternative to SSE
-   - GraphQL subscription support
-
-### Priority 4: Operational Excellence
-
-1. **Deployment**
-   - Docker containerization
-   - Kubernetes manifests
-   - Terraform IaC
-   - Multi-region deployment
-
-2. **Monitoring & Alerting**
-   - Grafana dashboards
-   - PagerDuty integration
-   - Error rate alerts
-   - Latency SLO monitoring
-
-3. **Cost Optimization**
-   - Response caching layer
-   - Smart model routing (cost vs. quality)
-   - Request batching
-   - Budget alerts
-
-## Troubleshooting
-
-### Common Issues
-
-**Issue**: Server fails to start
-```
-Solution: Check API keys are set in .envrc
-$ source .envrc
-$ echo $OPENAI_API_KEY
-```
-
-**Issue**: Test client connection refused
-```
-Solution: Ensure server is running
-$ python run_server.py
-# In another terminal:
-$ python test_client.py --prompt "test"
-```
-
-**Issue**: Empty responses from Gemini
-```
-Solution: Check Gemini API quota and credentials
-Verify model name is correct (gemini-2.5-flash)
-```
-
-**Issue**: CORS errors in browser
-```
-Solution: Check CORS middleware configuration in src/api/app.py:19
-Verify allowed origins match your frontend domain
-```
-
-**Issue**: Slow streaming responses
-```
-Solution: Check network latency to API endpoints
-Verify asyncio.sleep(0.01) is not too high in streaming_service.py
-```
-
-## Maintenance Notes
-
-### Regular Tasks
-
-- **Weekly**: Review API usage and costs
-- **Monthly**: Update dependencies (uv sync --upgrade)
-- **Quarterly**: Security audit and dependency updates
-- **Yearly**: API key rotation
-
-### Monitoring Checklist
-
-- [ ] API endpoint response times
-- [ ] Error rates (4xx, 5xx)
-- [ ] External API latencies (OpenAI, Gemini)
-- [ ] Server resource utilization (CPU, memory)
-- [ ] Request volumes and patterns
-
-## References
-
-### External Documentation
-
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [OpenAI Streaming API](https://platform.openai.com/docs/api-reference/streaming)
-- [Google Gemini API](https://ai.google.dev/docs)
-- [Server-Sent Events Spec](https://html.spec.whatwg.org/multipage/server-sent-events.html)
-
-### Internal Documentation
-
-- `README.md`: User-facing setup and usage guide
-- Code docstrings: Implementation details
-- `examples/example_usage.py`: Practical usage patterns
-
-## Conclusion
-
-This project successfully demonstrates a production-ready LLM streaming API implementation with multi-provider support. The architecture is clean, maintainable, and extensible. While suitable for demonstration and development, production deployment requires additional hardening (authentication, rate limiting, monitoring).
-
-**Next Steps**:
-1. Add comprehensive test suite
-2. Implement authentication layer
-3. Set up monitoring and alerting
-4. Deploy to staging environment for load testing
+# Chapter 2 Section 6: Structured Template Prompting - Project Status Report
+
+**Generated**: 2025-10-18
+**Project**: Structured Template Prompting with Jinja2 and YAML
+**Status**: ✅ Implementation Complete - Production Ready
+**Version**: 1.0
 
 ---
 
-**Document Maintained By**: Development Team
-**Last Review**: 2025-10-17
-**Next Review**: 2025-11-17
+## 📊 Project Overview
+
+This section implements a production-ready structured template prompting system for Large Language Model (LLM) applications. The system addresses critical challenges in prompt management: maintainability, reusability, testability, and collaborative development.
+
+### Core Problem
+
+Traditional prompt management approaches fail for LLM applications because:
+- Hardcoded prompts in source code are difficult to modify and maintain
+- Copy-paste duplication leads to inconsistency and maintenance overhead
+- Non-technical team members cannot easily improve prompts
+- Testing and version control of prompts is challenging
+- Dynamic prompt assembly from multiple sources becomes unmanageable
+
+### Solution
+
+A template-driven architecture that separates prompt structure from code, enabling:
+- YAML-based template definition with Jinja2 for dynamic variable injection
+- Complete separation of prompt logic (templates) from data (variables)
+- Validation to ensure all required variables are provided
+- Multiple template variations for A/B testing and multi-use cases
+- Non-engineer prompt editing without touching code
+- Clean version control and collaboration workflows
+
+---
+
+## ✅ Completed Features
+
+### Core Components
+- [x] TemplateEngine class with Jinja2 integration (src/service/template_engine.py - 147 lines)
+- [x] Variable extraction (`get_template_variables`)
+- [x] Variable validation (`validate_variables`)
+- [x] Template rendering (`render_template`)
+- [x] Message format conversion (`render_prompt_messages`)
+- [x] YAML template format with system_prompt and user_prompt keys
+- [x] Support for Jinja2 features (variables, conditionals, loops, filters)
+
+### Templates and Variables
+- [x] Character generation template (templates/character_generation.yaml)
+- [x] Product description template (templates/product_description.yaml)
+- [x] Email templates: formal and casual (templates/email_*.yaml)
+- [x] Character variable files: artist, detective (variables/character_*.yaml)
+- [x] Product variable files: electronics, apparel (variables/product_*.yaml)
+- [x] Email campaign variables: summer, winter (variables/email_campaign_*.yaml)
+
+### Application Integration
+- [x] Prompt generation using templates (src/prompt/prompt.py)
+- [x] LLM request handlers for OpenAI (src/service/request_llm.py)
+- [x] CLI with model and provider selection (src/main.py)
+- [x] Pydantic models for type safety (src/model/model.py)
+- [x] Configuration management (src/config.py)
+- [x] Logging setup (src/logger.py)
+
+### Testing
+- [x] 54 comprehensive tests across 2 test files
+- [x] TemplateEngine tests (46 tests) - initialization, validation, rendering, edge cases
+- [x] Prompt generation tests (8 tests)
+- [x] Test fixtures for temporary template directories (tests/conftest.py)
+- [x] Coverage for Unicode, special characters, nested structures
+
+### Infrastructure
+- [x] Makefile for common tasks (install, test, run, lint)
+- [x] pytest configuration with asyncio support
+- [x] Environment variable management
+- [x] Dependencies: jinja2>=3.1.6, pyyaml>=6.0.3
+
+### Documentation
+- [x] Comprehensive README.md (Japanese, production-ready)
+- [x] CLAUDE.md design specification (this file)
+- [x] Inline code documentation
+- [x] Usage examples and patterns
+
+---
+
+## 📁 Project Structure
+
+```
+section_6/
+├── src/
+│   ├── __init__.py
+│   ├── main.py                    # CLI entry point
+│   ├── config.py                  # Configuration (API keys)
+│   ├── logger.py                  # Logging setup
+│   ├── client/
+│   │   ├── __init__.py
+│   │   └── llm_client.py          # OpenAI client
+│   ├── model/
+│   │   ├── __init__.py
+│   │   └── model.py               # Request/Response models
+│   ├── prompt/
+│   │   ├── __init__.py
+│   │   └── prompt.py              # make_prompt function
+│   └── service/
+│       ├── __init__.py
+│       ├── request_llm.py         # LLM request handlers
+│       └── template_engine.py     # Template engine (147 lines)
+├── templates/                      # YAML templates (4 files)
+│   ├── character_generation.yaml
+│   ├── product_description.yaml
+│   ├── email_formal.yaml
+│   └── email_casual.yaml
+├── variables/                      # Variable definitions (6 files)
+│   ├── character_artist.yaml
+│   ├── character_detective.yaml
+│   ├── product_electronics.yaml
+│   ├── product_apparel.yaml
+│   ├── email_campaign_summer.yaml
+│   └── email_campaign_winter.yaml
+├── tests/                          # Test suite (54 tests)
+│   ├── __init__.py
+│   ├── conftest.py
+│   ├── test_template_engine.py    # 46 tests
+│   └── test_prompt.py             # 8 tests
+├── outputs/                        # Generated files (gitignored)
+├── .envrc.example
+├── pyproject.toml
+├── pytest.ini
+├── Makefile
+├── README.md
+└── CLAUDE.md
+```
+
+**Statistics**:
+- 17 Python files
+- 54 comprehensive tests
+- 4 template files
+- 6 variable files
+
+---
+
+## 🎓 Key Implementation Details
+
+### 1. TemplateEngine (src/service/template_engine.py)
+
+**Purpose**: Core template management system using Jinja2 and YAML
+
+**Key Methods**:
+- `get_template_variables(template_name)` - Extract all variable names from a template
+- `validate_variables(template_name, variables)` - Validate that all required variables are provided
+- `render_template(template_name, variables, validate=True)` - Render template to dict
+- `render_prompt_messages(...)` - Render and convert to LLM API message format
+
+**Features**:
+- Automatic variable extraction using `jinja2.meta.find_undeclared_variables()`
+- Validation before rendering to catch errors early
+- Support for Jinja2 filters, conditionals, loops
+- Proper YAML indentation handling (`trim_blocks`, `lstrip_blocks`)
+
+### 2. YAML Template Format
+
+**Standard Structure**:
+```yaml
+system_prompt: >-
+  System instruction text here.
+  {{ variable_name }}
+
+user_prompt: >-
+  User instruction text here.
+  {% if optional_variable %}
+  {{ optional_variable }}
+  {% endif %}
+```
+
+**Jinja2 Features Supported**:
+- Variable substitution: `{{ variable }}`
+- Conditionals: `{% if condition %}...{% endif %}`
+- Loops: `{% for item in list %}...{% endfor %}`
+- Filters: `{{ variable | indent(2) }}`
+
+### 3. Variable Files
+
+Separate YAML files containing data to inject into templates:
+
+```yaml
+# variables/character_artist.yaml
+gender: "female"
+age: 28
+additional_instructions: "このキャラクターは画家で、感受性が豊かです。"
+```
+
+**Benefits**:
+- Same template, multiple data sets
+- Easy A/B testing
+- Non-engineer editable
+- Version control for variations
+
+### 4. Prompt Generation (src/prompt/prompt.py)
+
+```python
+# Initialize template engine once at module level
+_template_engine = TemplateEngine(template_dir=_template_dir)
+
+def make_prompt(character_request: CharacterRequest) -> list:
+    # Prepare variables
+    template_variables = {
+        "response_schema": response_schema,
+        "gender": character_request.gender.value,
+        "age": character_request.age,
+        "additional_instructions": character_request.additional_instructions or "",
+    }
+
+    # Render with validation
+    return _template_engine.render_prompt_messages(
+        template_name="character_generation.yaml",
+        variables=template_variables,
+        validate=True
+    )
+```
+
+---
+
+## 🧪 Testing Strategy
+
+### Test Coverage (54 tests)
+
+**TemplateEngine Tests** (46 tests):
+- Initialization: valid/invalid directories, string paths
+- Variable extraction: simple, loops, conditionals, multiple vars
+- Variable validation: missing, extra, partial variables
+- Template rendering: loops, conditionals, nested structures
+- Message conversion: default keys, custom keys, missing keys
+- Edge cases: Unicode, None values, special chars, boolean values
+
+**Prompt Generation Tests** (8 tests):
+- Correct message format
+- Variable injection
+- Schema inclusion
+- Conditional sections
+- Validation enforcement
+
+### Running Tests
+
+```bash
+# All tests
+make test
+uv run pytest
+
+# With coverage
+make pytest-cov
+
+# Specific test file
+uv run pytest tests/test_template_engine.py -v
+
+# Failed tests only
+make pytest-failed
+```
+
+---
+
+## 🚀 Usage Examples
+
+### Basic CLI Usage
+
+```bash
+# Install dependencies
+uv sync
+make install
+
+# Run with OpenAI
+uv run python -m src.main --model gpt-4o
+make run-openai
+
+# Custom output directory
+uv run python -m src.main -m gpt-4o-mini -od ./my_outputs
+```
+
+### Programmatic Usage
+
+```python
+from src.service.template_engine import TemplateEngine
+
+# Initialize engine
+engine = TemplateEngine(template_dir="templates")
+
+# Define variables
+variables = {
+    "gender": "female",
+    "age": 28,
+    "additional_instructions": "Creative and artistic."
+}
+
+# Render to LLM message format
+messages = engine.render_prompt_messages(
+    template_name="character_generation.yaml",
+    variables=variables,
+    validate=True
+)
+
+# Use with LLM API
+response = await llm_client.generate(messages=messages)
+```
+
+---
+
+## 💡 Key Benefits
+
+### 1. Enhanced Maintainability
+- Centralized prompt management
+- No code changes for prompt updates
+- Version control for prompt history
+- Easy rollback to previous versions
+
+### 2. Improved Reusability
+- One template, multiple variable sets
+- Easy A/B testing
+- Template variations for different use cases
+
+### 3. Team Collaboration
+- Non-engineers can edit YAML files
+- Product managers can iterate on prompts
+- Domain experts can refine instructions
+- No code deployment for prompt changes
+
+### 4. Better Testing
+- Templates testable in isolation
+- Systematic validation testing
+- Edge case coverage
+- Mock data testing
+
+### 5. Flexibility
+- Jinja2 provides powerful features
+- Conditional content
+- Loop constructs
+- Filter functions
+
+---
+
+## ⚖️ Trade-offs and Considerations
+
+### Benefits
+1. Maintainability: Centralized prompt management
+2. Reusability: One template, many variable sets
+3. Testability: Easy to test templates in isolation
+4. Collaboration: Non-engineers can edit YAML files
+5. Version Control: Git-friendly prompt history
+6. Validation: Catch missing variables early
+
+### Trade-offs
+1. **Complexity**: Additional abstraction layer
+   - Mitigation: Good documentation, examples
+
+2. **Over-abstraction Risk**: Too many template layers
+   - Mitigation: Keep templates simple, limit nesting
+
+3. **Debugging Challenges**: Errors in template or variables
+   - Mitigation: Detailed error messages, validation
+
+4. **Performance**: Template parsing overhead
+   - Mitigation: Cache compiled templates (Jinja2 default)
+
+5. **Logic in Templates**: Temptation to add business logic
+   - Mitigation: Keep templates simple, complex logic in Python
+
+---
+
+## 📚 Best Practices
+
+### Do's
+1. Keep templates simple - minimize logic
+2. Always validate in production (`validate=True`)
+3. Use variable files for data separation
+4. Write template tests
+5. Document required variables
+6. Version control templates and variables
+7. Use meaningful file names
+8. Monitor template usage
+
+### Don'ts
+1. Don't put business logic in templates
+2. Don't skip validation in production
+3. Don't hardcode variables
+4. Don't over-abstract
+5. Don't ignore template errors
+6. Don't mix languages in same file
+7. Don't commit sensitive data
+8. Don't skip documentation
+
+---
+
+## 🔮 Future Enhancements
+
+### Planned Features
+1. **Template Inheritance** - Base templates with extensions
+2. **Template Macros** - Reusable template components
+3. **Template Linting** - Validate YAML and Jinja2 syntax
+4. **Template Preview** - Render with sample data
+5. **Performance Optimization** - Template caching
+6. **Advanced Validation** - Type checking for variables
+7. **Multi-model Templates** - Model-specific optimizations
+8. **Template Analytics** - Track usage and performance
+
+---
+
+## 🛠️ Troubleshooting
+
+### Common Issues
+
+**1. TemplateNotFound Error**
+```
+jinja2.exceptions.TemplateNotFound: character_generation.yaml
+```
+Solution: Check template directory path, verify file exists
+
+**2. Missing Variables**
+```
+TemplateValidationError: Missing required variables: {'age'}
+```
+Solution: Use `get_template_variables()` to check required variables
+
+**3. YAML Syntax Error**
+```
+yaml.scanner.ScannerError: mapping values are not allowed here
+```
+Solution: Check indentation and colons in YAML
+
+**4. Undefined Variable**
+```
+jinja2.exceptions.UndefinedError: 'age' is undefined
+```
+Solution: Enable validation or use default values in template
+
+---
+
+## 📖 References
+
+- **Design Pattern**: Template Method Pattern
+- **Jinja2 Documentation**: https://jinja.palletsprojects.com/
+- **YAML Specification**: https://yaml.org/spec/
+- **Best Practices**: Separation of Concerns, DRY principle
+- **Testing**: pytest, fixture-based testing
+- **Chapter Reference**: Chapter 2, Section 6 - Structured Template Prompting
+
+---
+
+## 📝 Changelog
+
+### v1.0 (2025-10-18) - Initial Implementation
+
+**Core Features**:
+- TemplateEngine class with Jinja2 integration
+- YAML template format
+- Variable validation
+- Message format conversion
+- Jinja2 features support
+
+**Templates** (4 files):
+- Character generation
+- Product description
+- Email (formal and casual)
+
+**Variable Files** (6 files):
+- Character variations: artist, detective
+- Product variations: electronics, apparel
+- Email campaigns: summer, winter
+
+**Testing**:
+- 54 comprehensive tests
+- Full edge case coverage
+- Temporary directory fixtures
+
+**Infrastructure**:
+- CLI with provider/model selection
+- LLM request handlers
+- Makefile automation
+- pytest configuration
+
+**Documentation**:
+- Comprehensive README.md (Japanese)
+- CLAUDE.md (this file)
+- Code documentation
+- Usage examples
+
+---
+
+**Generated by**: Claude Code
+**Date**: 2025-10-18
+**Version**: 1.0

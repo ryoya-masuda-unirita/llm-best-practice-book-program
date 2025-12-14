@@ -1,0 +1,117 @@
+{
+  "workflow_id": "content_pipeline",
+  "checkpoint_id": "68ee3d88cbe24fb2ae0e891dcbf43ef3",
+  "timestamp": "2025-12-07T09:15:53.361209",
+  "workflow_state": {
+    "workflow_id": "content_pipeline",
+    "state": "running",
+    "started_at": "2025-12-07T09:15:48.146095",
+    "completed_at": null,
+    "current_node_id": "parse_topics",
+    "node_records": {
+      "start": {
+        "node_id": "start",
+        "state": "completed",
+        "started_at": "2025-12-07T09:15:48.146130",
+        "completed_at": "2025-12-07T09:15:48.146160",
+        "error": null,
+        "output": {
+          "status": "started",
+          "initial_data": {
+            "domain": "artificial intelligence",
+            "num_topics": 3,
+            "quality_threshold": 7
+          }
+        },
+        "retry_count": 0
+      },
+      "generate_topics": {
+        "node_id": "generate_topics",
+        "state": "completed",
+        "started_at": "2025-12-07T09:15:48.146192",
+        "completed_at": "2025-12-07T09:15:53.359373",
+        "error": null,
+        "output": {
+          "content": "Beyond ChatGPT: 5 Surprising Ways AI is Already Making Your Life Smarter (Without You Even Realizing It), Can AI Be Truly Creative? Exploring the Blurry Line Between Human Artistry and Machine Mimicry, Your Personal AI Twin: The Ethical Dilemmas of an AI That Knows You Better Than You Know Yourself",
+          "model": "gemini-2.5-flash",
+          "usage": {
+            "prompt_tokens": 28,
+            "completion_tokens": 65,
+            "total_tokens": 879
+          },
+          "finish_reason": "STOP"
+        },
+        "retry_count": 0
+      },
+      "parse_topics": {
+        "node_id": "parse_topics",
+        "state": "completed",
+        "started_at": "2025-12-07T09:15:53.359513",
+        "completed_at": "2025-12-07T09:15:53.359613",
+        "error": null,
+        "output": {
+          "topics": [
+            "Beyond ChatGPT: 5 Surprising Ways AI is Already Making Your Life Smarter (Without You Even Realizing It)",
+            "Can AI Be Truly Creative? Exploring the Blurry Line Between Human Artistry and Machine Mimicry",
+            "Your Personal AI Twin: The Ethical Dilemmas of an AI That Knows You Better Than You Know Yourself"
+          ],
+          "topics_count": 3
+        },
+        "retry_count": 0
+      }
+    },
+    "variables": {},
+    "error": null
+  },
+  "execution_context": {
+    "workflow_id": "content_pipeline",
+    "variables": {
+      "domain": "artificial intelligence",
+      "num_topics": 3,
+      "quality_threshold": 7,
+      "generate_topics_output": {
+        "content": "Beyond ChatGPT: 5 Surprising Ways AI is Already Making Your Life Smarter (Without You Even Realizing It), Can AI Be Truly Creative? Exploring the Blurry Line Between Human Artistry and Machine Mimicry, Your Personal AI Twin: The Ethical Dilemmas of an AI That Knows You Better Than You Know Yourself",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 28,
+          "completion_tokens": 65,
+          "total_tokens": 879
+        },
+        "finish_reason": "STOP"
+      }
+    },
+    "node_outputs": {
+      "start": {
+        "status": "started",
+        "initial_data": {
+          "domain": "artificial intelligence",
+          "num_topics": 3,
+          "quality_threshold": 7
+        }
+      },
+      "generate_topics": {
+        "content": "Beyond ChatGPT: 5 Surprising Ways AI is Already Making Your Life Smarter (Without You Even Realizing It), Can AI Be Truly Creative? Exploring the Blurry Line Between Human Artistry and Machine Mimicry, Your Personal AI Twin: The Ethical Dilemmas of an AI That Knows You Better Than You Know Yourself",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 28,
+          "completion_tokens": 65,
+          "total_tokens": 879
+        },
+        "finish_reason": "STOP"
+      },
+      "parse_topics": {
+        "topics": [
+          "Beyond ChatGPT: 5 Surprising Ways AI is Already Making Your Life Smarter (Without You Even Realizing It)",
+          "Can AI Be Truly Creative? Exploring the Blurry Line Between Human Artistry and Machine Mimicry",
+          "Your Personal AI Twin: The Ethical Dilemmas of an AI That Knows You Better Than You Know Yourself"
+        ],
+        "topics_count": 3
+      }
+    },
+    "error": null
+  },
+  "metadata": {
+    "type": "auto",
+    "node": "parse_topics"
+  }
+}

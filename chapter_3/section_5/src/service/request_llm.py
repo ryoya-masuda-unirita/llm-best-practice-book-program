@@ -1,21 +1,11 @@
-from google.genai.types import GenerateContentConfig
-
-from src.client.llm_client import GeminiModel, google_genai_client
-from src.logger import make_logger
+from src.client.llm_client import OpenAIModel, openai_client
 from src.model.model import CharacterResponse
 
-logger = make_logger(__name__)
 
-
-async def request_gemini(model: GeminiModel, prompt: list[dict]) -> CharacterResponse:
-    result = await google_genai_client.aio.models.generate_content(
+async def request_openai(model: OpenAIModel, prompt: list[dict]) -> CharacterResponse:
+    result = await openai_client.responses.parse(
         model=model,
-        contents=prompt[-1]["content"],
-        config=GenerateContentConfig(
-            system_instruction=prompt[0]["content"],
-            response_mime_type="application/json",
-            response_schema=CharacterResponse,
-        ),
+        input=prompt,
+        text_format=CharacterResponse,
     )
-    logger.info(result)
-    return result.parsed
+    return result.output_parsed

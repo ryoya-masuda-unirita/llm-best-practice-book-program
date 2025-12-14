@@ -1,246 +1,193 @@
-# CQRS Knowledge Base Implementation
+# Chapter 3 Section 7: Priority-based Request Handling
 
 ## Overview
 
-This project implements the **CQRS (Command Query Responsibility Segregation)** pattern for LLM-based knowledge management systems. It separates write operations (Commands) from read operations (Queries), achieving high throughput for writes and low latency for reads.
-
-The system uses Google Gemini for both character generation and embedding creation, with ChromaDB as the vector database for semantic search.
+Production-ready implementation of priority-based request handling for LLM applications. Manages requests with varying business importance through a multi-tier queue system backed by Redis, ensuring fair resource allocation while maintaining service quality guarantees for premium users.
 
 ## Architecture
 
 ```
-+-------------------------------------------------------------+
-|                      User Requests                          |
-+-------------------------------------------------------------+
-              |                           |
-              v                           v
-+---------------------------+   +---------------------------+
-|      LLM Server           |   |   Knowledge Server        |
-|      Port 8000            |   |   Port 8001               |
-|                           |   |                           |
-|  POST /generate           |   |  POST /command/register   |
-|   - Character generation  |   |   - Async write (Command) |
-|   - Auto-store knowledge  |   |                           |
-|                           |   |  POST /query/search       |
-|                           |   |   - Sync read (Query)     |
-|                           |   |                           |
-|                           |   |  GET /query/stats         |
-|                           |   |   - Statistics (Query)    |
-+-------------+-------------+   +-------------+-------------+
-              |                               |
-              +---------------+---------------+
-                              |
-                              v
-              +-------------------------------+
-              |          ChromaDB             |
-              |       Vector Database         |
-              |                               |
-              |  - Cosine similarity search   |
-              |  - Custom Gemini embeddings   |
-              |  - Metadata filtering         |
-              +---------------+---------------+
-                              |
-                              v
-              +-------------------------------+
-              |        Gemini API             |
-              |  - gemini-2.5-pro/flash/lite  |
-              |  - gemini-embedding-001       |
-              +-------------------------------+
++-------------+     +---------------+     +------------------+
+|   Client    | --> |  FastAPI API  | --> | Redis Priority   |
+| (REST API)  |     |  (Producer)   |     | Queues (3 tiers) |
++-------------+     +---------------+     +------------------+
+                                                    |
+                                                    v
+                                          +------------------+
+                                          | Background Worker|
+                                          | (Weighted Sched) |
+                                          +------------------+
+                                                    |
+                                                    v
+                                          +------------------+
+                                          |   OpenAI API     |
+                                          +------------------+
 ```
+
+**Priority Mapping:**
+- ENTERPRISE -> HIGH (70% processing capacity)
+- PREMIUM -> MEDIUM (20% processing capacity)
+- FREE -> LOW (10% processing capacity)
 
 ### Directory Structure
 
 ```
 src/
-|-- __init__.py              # Package init, shared ThreadPoolExecutor
-|-- config.py                # Configuration (GEMINI_API_KEY)
-|-- logger.py                # Logging utility
-|-- api/
-|   |-- __init__.py
-|   |-- llm_server.py        # LLM API server (Port 8000)
-|   +-- knowledge_server.py  # CQRS API server (Port 8001)
-|-- client/
-|   |-- __init__.py
-|   |-- llm_client.py        # Gemini API client
-|   +-- chromadb_client.py   # ChromaDB client (local/remote)
-|-- model/
-|   |-- __init__.py
-|   |-- model.py             # LLM data models (FrozenModel base)
-|   +-- knowledge.py         # CQRS models (Command/Query)
-|-- service/
-|   |-- __init__.py
-|   |-- request_llm.py       # Gemini LLM request handler
-|   |-- embedding_service.py # Gemini embedding service
-|   |-- knowledge_command.py # Command service (async writes)
-|   +-- knowledge_query.py   # Query service (sync reads)
-+-- prompt/
-    |-- __init__.py
-    +-- prompt.py            # Prompt generation
+  api/
+    llm_server.py    # FastAPI endpoints for queue operations
+  client/
+    llm_client.py    # LLM provider client definitions
+  model/
+    model.py         # Pydantic models (Priority, UserTier, QueuedTask, etc.)
+  prompt/
+    prompt.py        # Prompt generation utilities
+  service/
+    queue_manager.py # Redis-based priority queue management
+    worker.py        # Background worker with weighted scheduling
+    request_llm.py   # LLM API request handlers
+  config.py          # Configuration with environment variables
+  logger.py          # Structured logging setup
 ```
 
 ## Key Components
 
-### CQRS Services
-
 | Component | File | Purpose |
 |-----------|------|---------|
-| Command Service | `src/service/knowledge_command.py` | Async knowledge registration |
-| Query Service | `src/service/knowledge_query.py` | Sync knowledge search |
-| Embedding Service | `src/service/embedding_service.py` | Gemini embedding generation |
-
-### Data Models
-
-| Model | File | Purpose |
-|-------|------|---------|
-| `FrozenModel` | `src/model/model.py` | Base Pydantic model with frozen config |
-| `KnowledgeRegisterCommand` | `src/model/knowledge.py` | Command input model |
-| `KnowledgeSearchQuery` | `src/model/knowledge.py` | Query input model |
-| `KnowledgeSearchResponse` | `src/model/knowledge.py` | Query response with results |
-
-### API Servers
-
-| Server | Port | Endpoints |
-|--------|------|-----------|
-| LLM Server | 8000 | `GET /health`, `POST /generate` |
-| Knowledge Server | 8001 | `GET /health`, `POST /command/register`, `POST /query/search`, `GET /query/stats` |
+| PriorityQueueManager | `queue_manager.py` | Redis Sorted Set-based priority queues |
+| WeightedPriorityScheduler | `worker.py` | Weighted random selection to prevent starvation |
+| PriorityWorker | `worker.py` | Task processing loop with retry logic |
+| QueuedTask | `model.py` | Task lifecycle model with state tracking |
 
 ## Dependencies
 
-```toml
-[dependencies]
-chromadb = ">=1.3.0"
-fastapi = ">=0.119.0"
-google-genai = ">=1.45.0"
-pydantic = ">=2.12.2"
-uvicorn = ">=0.37.0"
-```
+- **fastapi**: REST API framework
+- **redis**: Priority queue storage using Sorted Sets
+- **openai**: LLM provider for character generation
+- **pydantic**: Data validation and configuration
+- **uvicorn**: ASGI server
 
 ## Usage
 
 ### Setup
 
-1. Set environment variable:
 ```bash
-export GEMINI_API_KEY="your-api-key"
+# Copy environment file and add API keys
+cp .envrc.example .envrc
+# Set OPENAI_API_KEY in .envrc
 ```
 
-2. Install dependencies:
+### Run with Docker
+
 ```bash
-uv sync
+# Start all services (Redis, API server, Worker)
+make docker-up
+
+# View logs
+make docker-logs
+
+# Stop services
+make docker-down
 ```
 
-### Run
+### Run Locally
 
-**Local Development:**
 ```bash
-# Terminal 1: LLM Server
-uv run python -m src.api.llm_server
+# Terminal 1: Start Redis
+docker run -p 6379:6379 redis:8-alpine
 
-# Terminal 2: Knowledge Server
-uv run python -m src.api.knowledge_server
+# Terminal 2: Start API server
+uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000
+
+# Terminal 3: Start worker
+python -m src.service.worker
 ```
 
-**Docker Compose:**
-```bash
-docker-compose up -d
-```
+### API Endpoints
 
-### API Examples
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/generate/queue` | Queue task with priority based on user_tier |
+| GET | `/task/{task_id}` | Get task status and result |
+| GET | `/queue/stats` | Get queue statistics |
+| POST | `/generate` | Synchronous generation (bypass queue) |
+| GET | `/health` | Health check |
 
-**Generate Character:**
+### Example Request
+
 ```bash
-curl -X POST http://localhost:8000/generate \
+# Submit a task (enterprise user = high priority)
+curl -X POST http://localhost:8000/generate/queue \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gemini-2.5-flash",
+    "provider": "openai",
+    "model": "gpt-4o-mini",
     "character_request": {
       "gender": "female",
       "age": 25,
-      "additional_instructions": "brave warrior"
-    }
+      "additional_instructions": "A brave warrior"
+    },
+    "user_tier": "enterprise"
   }'
+
+# Check task status
+curl http://localhost:8000/task/{task_id}
+
+# View queue statistics
+curl http://localhost:8000/queue/stats
 ```
-
-**Search Knowledge:**
-```bash
-curl -X POST http://localhost:8001/query/search \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query_text": "brave warrior",
-    "limit": 5
-  }'
-```
-
-**Get Statistics:**
-```bash
-curl http://localhost:8001/query/stats
-```
-
-### Available Gemini Models
-
-| Model | Use Case |
-|-------|----------|
-| `gemini-2.5-pro` | High quality generation |
-| `gemini-2.5-flash` | Balanced speed/quality |
-| `gemini-2.5-flash-lite` | Fastest generation |
 
 ## Development Commands
 
-```bash
-# Install dependencies
-uv sync
-
-# Run LLM server
-uv run python -m src.api.llm_server
-
-# Run Knowledge server
-uv run python -m src.api.knowledge_server
-
-# Syntax check all files
-python -m py_compile src/**/*.py
-
-# Docker operations
-docker-compose up -d      # Start all services
-docker-compose ps         # Check status
-docker-compose logs -f    # View logs
-docker-compose down       # Stop all services
-```
+| Command | Description |
+|---------|-------------|
+| `make lint` | Run ruff linter with auto-fix |
+| `make fmt` | Format code with ruff |
+| `make fix` | Run lint and format |
+| `make mypy` | Type check with mypy |
+| `make docker-build` | Build Docker image |
+| `make docker-up` | Start Docker Compose services |
+| `make docker-down` | Stop Docker Compose services |
+| `make docker-logs` | View all service logs |
+| `make docker-logs-server` | View API server logs |
+| `make docker-logs-worker` | View worker logs |
 
 ## Implementation Notes
 
-### CQRS Pattern
+### Redis Data Structures
 
-- **Command (Write)**: Async processing via `asyncio.create_task()`, returns job ID immediately
-- **Query (Read)**: Sync processing, optimized for low latency (<300ms)
-- **Eventual Consistency**: 2-5 second delay between write and read availability
+- **Priority Queues**: Sorted Sets (`llm:queue:high`, `llm:queue:medium`, `llm:queue:low`)
+  - Score = Unix timestamp for FIFO within priority
+- **Task Storage**: Key-Value (`llm:task:{task_id}`)
+- **Processing Set**: Set (`llm:processing`) for crash recovery
 
-### Embedding Configuration
+### Weighted Scheduling Algorithm
 
-- Model: `gemini-embedding-001`
-- Dimensions: 768
-- Distance Metric: Cosine similarity
+Uses `random.choices()` with weights [0.7, 0.2, 0.1] to select which priority queue to process. This ensures:
+- HIGH priority gets ~70% of processing capacity
+- LOW priority still gets ~10% (prevents starvation)
+- Long-term convergence to configured ratios
 
-### ChromaDB Modes
+### Task State Transitions
 
-- **Local Mode**: Uses `./data/chromadb` when `CHROMA_HOST` is not set
-- **Remote Mode**: Connects via HTTP when `CHROMA_HOST` and `CHROMA_PORT` are set
+```
+PENDING -> PROCESSING -> COMPLETED
+                     -> FAILED (after max_retry_attempts)
+                     -> PENDING (retry on transient error)
+```
 
-### Shared Resources
+### Configuration (Environment Variables)
 
-- `src/__init__.py` contains shared `ThreadPoolExecutor(max_workers=4)`
-- Used by both Command and Query services for blocking ChromaDB operations
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OPENAI_API_KEY` | (required) | OpenAI API key |
+| `REDIS_HOST` | localhost | Redis server host |
+| `REDIS_PORT` | 6379 | Redis server port |
+| `REDIS_DB` | 0 | Redis database number |
 
-### Error Handling
+### Priority Ratios (config.py)
 
-- All API endpoints return appropriate HTTP status codes
-- Background tasks log errors without crashing the main server
-- ChromaDB operations wrapped in try-except blocks
-
-### Performance Characteristics
-
-| Operation | Latency |
-|-----------|---------|
-| Character Generation | 1-2 seconds |
-| Background Storage | +2-5 seconds |
-| Query Search | 100-300 ms |
-| Stats Retrieval | 50-100 ms |
+| Priority | Default Ratio | Description |
+|----------|---------------|-------------|
+| HIGH | 0.7 | Enterprise users |
+| MEDIUM | 0.2 | Premium users |
+| LOW | 0.1 | Free users |

@@ -1,13 +1,7 @@
-__all__ = ["request_openai", "TemplateEngine"]
+from src.service.request_llm import (
+    get_gemini_batch_results,
+    get_gemini_batch_status,
+    submit_gemini_batch,
+)
 
-
-def __getattr__(name):
-    if name == "request_openai":
-        from src.service.request_llm import request_openai
-
-        return request_openai
-    elif name == "TemplateEngine":
-        from src.service.template_engine import TemplateEngine
-
-        return TemplateEngine
-    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+__all__ = ["submit_gemini_batch", "get_gemini_batch_status", "get_gemini_batch_results"]

@@ -1,363 +1,444 @@
-# Chapter 3 Section 2: LLMシステムのストレージと実行を分離する
+# Chapter 3 Section 2: LLMリクエストのタイムアウトとフォールバック
 
 ## 概要
 
-このプロジェクトは、**ストレージ層と実行層を分離した設計パターン（Bridge Pattern）** を用いたLLMシステムの実装サンプルです。キャッシュやデータベースへのアクセス処理と、LLM APIの呼び出し処理を疎結合に保つことで、コンポーネントの独立性を高め、柔軟でテストしやすく、保守性の高いシステムを実現します。
+このプロジェクトは、**本番環境で求められるLLM APIリクエストの復元力（レジリエンス）とフォールバック戦略**を実装したサンプルコードです。プライマリLLMプロバイダーの障害やタイムアウトが発生した場合でも、サービスを継続的に提供するための多段階フォールバックシステムを実現します。
 
-本実装では、FastAPIベースのREST APIサーバーを提供し、OpenAI GPTモデル（GPT-5、GPT-4.1、GPT-4oシリーズ）に対応しています。また、インメモリキャッシュとRedisキャッシュの両方をサポートし、環境に応じて柔軟に切り替えることができます。
+Section 1とSection 2で学んだ基本的なLLM実装をベースに、**プロダクションレディなエラーハンドリング、キャッシング、代替プロバイダー切り替え**などの実用的なパターンを追加しています。
+
+フィクションのキャラクター情報生成を通じて、API障害時でも安定したサービス提供を実現する方法を学ぶことができます。
 
 ## 機能
 
-- **ストレージと実行の分離**: Bridge Patternを用いた責務の明確な分離
-- **キャッシング機能**: インメモリとRedisベースの2種類のキャッシュバックエンドをサポート
-- **OpenAI対応**: OpenAI GPTモデル（GPT-5、GPT-4.1、GPT-4oシリーズ）をサポート
-- **依存性注入（DI）**: Factoryパターンによる柔軟なサービスインスタンス管理
-- **REST APIサーバー**: FastAPIによる高性能なAPIエンドポイント
-- **キャッシュメトリクス**: キャッシュヒット率、ミス数などの監視機能
-- **キャッシュ無効化**: 任意のキャッシュキーを手動で無効化する機能
+### 1. 3段階フォールバックシステム
+
+プライマリプロバイダーの障害時に自動的に代替手段へ切り替える多段階システム：
+
+1. **プライマリプロバイダーリクエスト** - 設定されたタイムアウト内でリクエストを試行
+2. **パラメーターキャッシュ/セマンティックキャッシュ** - 過去のリクエストのキャッシュを検索
+3. **代替プロバイダー** - 別のLLMプロバイダー（OpenAI ⇄ Gemini）に自動切り替え
+
+### 2. 2種類のレスポンスキャッシング
+
+**パラメーターキャッシュ（CacheManager）:**
+- **SHA256ベースのキャッシュキー生成** - プロンプト、モデルを元にハッシュ化
+- **完全一致検索** - 同じプロンプトとモデルの組み合わせで高速ヒット
+- **TTL（Time-To-Live）サポート** - キャッシュの有効期限管理（デフォルト: 1時間）
+- **JSONファイルベースストレージ** - `.cache/` ディレクトリに保存
+
+**セマンティックキャッシュ（SemanticCacheManager）:**
+- **埋め込みベースの類似検索** - プロンプトの意味的な類似性でキャッシュヒット
+- **コサイン類似度** - 設定可能な類似度閾値（デフォルト: 0.95）
+- **類似プロンプトの再利用** - 完全一致でなくても類似したリクエストでキャッシュを活用
+
+**共通機能:**
+- **期限切れエントリの自動クリーンアップ** - 無効なキャッシュの自動削除
+- **ベースクラスによる共通機能** - BaseCacheManagerで重複コードを削減
+
+### 3. 設定可能なタイムアウト管理
+
+- **デフォルトタイムアウト**: 10秒（環境変数またはCLIで設定可能）
+- **リクエスト毎のタイムアウト上書き** - 柔軟な制御が可能
+- **タイムアウト追跡** - 監視用の統計情報を記録
+
+### 4. 統計情報とモニタリング
+
+包括的なメトリクスの追跡：
+- 総リクエスト数
+- プライマリプロバイダー成功率
+- パラメーターキャッシュヒット率
+- セマンティックキャッシュヒット率
+- 代替プロバイダー使用率
+- タイムアウトおよびエラーカウント
+- フォールバック率と失敗率
+
+### 5. デュアルLLMプロバイダーサポート
+
+- **OpenAI**: GPT-4o-miniによる構造化出力
+- **Gemini**: Gemini-2.5-flashによるJSONスキーマ検証
+- **クロスプロバイダーフォールバック**: OpenAI失敗時にGeminiへ、またはその逆
+
+### 6. その他の機能
+
 - **非同期処理**: async/awaitパターンによる効率的なAPI呼び出し
 - **型安全性**: Pydanticによる厳密な型検証とバリデーション
+- **CLIインターフェース**: Clickライブラリを使用した使いやすいコマンドラインツール
 - **環境変数管理**: python-dotenvによる安全なAPIキー管理
-- **Docker対応**: Docker Composeによる簡単なデプロイメント
+- **詳細なログ出力**: 実行状況とフォールバック戦略の可視化
+- **JSON出力**: 生成結果をJSON形式でファイルに保存
+- **データクラスによる型安全性**: RequestContextとFallbackResultで明確なデータ構造
 
 ## プロジェクト構成
 
 ### ディレクトリ構成
 
 ```
-chapter_3/section_2/
+chapter_2/section_3/
 ├── src/
-│   ├── __init__.py                # パッケージ初期化
-│   ├── config.py                  # 設定管理（API キー、キャッシュ設定）
-│   ├── logger.py                  # ロギング設定
-│   ├── api/
-│   │   ├── __init__.py
-│   │   └── llm_server.py          # FastAPI サーバー実装
+│   ├── __init__.py              # パッケージ初期化
+│   ├── config.py                # 設定管理（API キー、タイムアウト、TTL）
+│   ├── logger.py                # ロギング設定
+│   ├── main.py                  # メインエントリーポイント
 │   ├── client/
 │   │   ├── __init__.py
-│   │   ├── llm_client.py          # LLMクライアント初期化
-│   │   └── cache_client.py        # キャッシュクライアント（Redis、インメモリ）
+│   │   ├── llm_client.py        # LLMクライアント初期化（OpenAI/Gemini）
+│   │   └── llm_request_wrapper.py  # フォールバックロジックを含むリクエストラッパー
 │   ├── model/
 │   │   ├── __init__.py
-│   │   └── model.py               # Pydanticデータモデル定義
+│   │   └── model.py             # Pydanticデータモデル定義
 │   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── prompt.py              # プロンプト生成ロジック
+│   │   └── prompt.py            # プロンプト生成ロジック
 │   └── service/
 │       ├── __init__.py
-│       ├── interface.py           # ILLMService インターフェース（Bridge）
-│       ├── storage.py             # ストレージ層実装（キャッシュ）
-│       ├── execution.py           # 実行層実装（LLM API呼び出し）
-│       └── factory.py             # Factoryパターン実装
-├── .env.example                    # 環境変数設定のサンプル
-├── .envrc.example                  # direnv設定のサンプル
-├── docker-compose.yml              # Docker Compose設定
-├── Dockerfile.web                  # Webサーバー用Dockerfile
-├── Makefile                        # 開発用コマンド
-├── pyproject.toml                  # プロジェクト依存関係
-├── README.md                       # このファイル
-└── CLAUDE.md                       # プロジェクト設計書
-
+│       ├── cache_manager.py     # TTL付きレスポンスキャッシング（パラメーター/セマンティック）
+│       ├── fallback_coordinator.py  # フォールバック戦略の統括
+│       └── template_response.py # テンプレート応答生成
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py              # pytestフィクスチャ
+│   ├── test_cache_manager.py    # キャッシュマネージャーのテスト
+│   └── test_fallback_coordinator.py # フォールバックコーディネーターのテスト
+├── .cache/                      # パラメーターキャッシュストレージ（.gitignore）
+├── .semantic_cache/             # セマンティックキャッシュストレージ（.gitignore）
+├── outputs/                     # 生成結果の保存先（自動作成）
+├── .envrc.example               # 環境変数設定のサンプル
+├── pyproject.toml               # プロジェクト依存関係
+├── README.md                    # このファイル
+└── CLAUDE.md                    # プロジェクト状態レポート（英語）
 ```
 
 ### アーキテクチャ
 
-本プロジェクトは、**Bridge Pattern** を中核とした3層アーキテクチャで構成されています：
+このプロジェクトは、以下の4層アーキテクチャで構成されています：
 
 ```
-┌─────────────────────────────────────────────────┐
-│        API Layer (FastAPI)                      │
-│    - エンドポイント定義                         │
-│    - リクエスト/レスポンス処理                  │
-│    - ヘルスチェック、メトリクス                 │
-└───────────────────┬─────────────────────────────┘
-                    │
-┌───────────────────▼─────────────────────────────┐
-│        Service Layer (Bridge Pattern)           │
-│                                                  │
-│  ┌──────────────────────────────────────────┐  │
-│  │   ILLMService (Interface)                │  │
-│  │   - generate_character()                 │  │
-│  │   - invalidate_cache()                   │  │
-│  └──────────────┬───────────┬────────────────┘  │
-│                 │           │                    │
-│    ┌────────────▼──────┐  ┌▼──────────────────┐ │
-│    │ CachedLLMService  │  │ ExecutionLLMService│ │
-│    │ (Storage Layer)   │  │ (Execution Layer)  │ │
-│    │ - キャッシュ管理  │  │ - OpenAI API呼び出し│ │
-│    │ - メトリクス収集  │  │                    │ │
-│    └────────────┬──────┘  └────────────────────┘ │
-│                 │                                 │
-│    ┌────────────▼──────────────┐                 │
-│    │  LLMServiceFactory (DI)   │                 │
-│    │  - サービスインスタンス作成│                 │
-│    │  - 環境に応じた実装切替   │                 │
-│    └───────────────────────────┘                 │
-└──────────────────┬──────────────────────────────┘
-                   │
-┌──────────────────▼──────────────────────────────┐
-│      Infrastructure Layer                       │
-│  - Cache Backend (InMemory / Redis)             │
-│  - LLM Client (OpenAI)                          │
-│  - Config (環境変数管理)                        │
-│  - Logger (ログ出力)                            │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────┐
+│         CLI Layer (main.py)                 │
+│     - コマンドライン引数解析                 │
+│     - 出力ディレクトリ管理                   │
+│     - フォールバック有効/無効制御             │
+└─────────────────┬───────────────────────────┘
+                  │
+┌─────────────────▼───────────────────────────┐
+│      Request Wrapper Layer                  │
+│  - リクエストラッパー (llm_request_wrapper)  │
+│  - OpenAI/Geminiリクエストの統一I/F         │
+│  - リクエストロジックの共通化                │
+│  - プロバイダー間の切り替え                  │
+└─────────────────┬───────────────────────────┘
+                  │
+┌─────────────────▼───────────────────────────┐
+│      Fallback Coordination Layer            │
+│  - フォールバック統括 (fallback_coordinator)│
+│  - タイムアウト管理                          │
+│  - 3段階フォールバック戦略実行               │
+│  - 統計情報の追跡                            │
+│  - 戦略パターンによるディスパッチ            │
+└─────────────────┬───────────────────────────┘
+                  │
+┌─────────────────▼───────────────────────────┐
+│      Service Layer                          │
+│  - キャッシュマネージャー (cache_manager)   │
+│    • BaseCacheManager (基底クラス)         │
+│    • CacheManager (パラメーターキャッシュ)  │
+│    • SemanticCacheManager (セマンティック)  │
+│  - プロンプト生成 (prompt.py)               │
+│  - データモデル (model.py)                  │
+└─────────────────┬───────────────────────────┘
+                  │
+┌─────────────────▼───────────────────────────┐
+│      Infrastructure Layer                   │
+│  - 設定管理 (config.py)                     │
+│  - ログ管理 (logger.py)                     │
+│  - 外部API (OpenAI, Gemini)                 │
+│  - ファイルシステム（キャッシュ、出力）      │
+└─────────────────────────────────────────────┘
 ```
 
 ### 実装の詳細
 
-#### 1. Bridgeインターフェース (`src/service/interface.py`)
+#### 1. キャッシュマネージャー (`src/service/cache_manager.py`)
 
-ストレージ層と実行層を繋ぐ共通インターフェースを定義します：
+リファクタリングにより、3つのクラスで構成される階層構造になりました：
 
+**BaseCacheManager（基底クラス）:**
+共通機能を提供：
 ```python
-class ILLMService(ABC):
-    """LLMサービス操作の抽象インターフェース"""
-
-    @abstractmethod
-    async def generate_character(
-        self,
-        prompt: list[dict],
-        model: str,
-        provider: str,
-        cache_key: str | None = None,
-    ) -> CharacterResponse:
-        """キャラクターを生成"""
-        pass
-
-    @abstractmethod
-    async def invalidate_cache(self, cache_key: str) -> bool:
-        """キャッシュを無効化"""
-        pass
+class BaseCacheManager(ABC):
+    def __init__(self, cache_dir: str, ttl: Optional[int] = None)
+    def _get_cache_path(self, cache_key: str) -> Path
+    def _is_expired(self, cached_time: float) -> bool
+    def _load_cache_file(self, cache_path: Path) -> Optional[dict]
+    def _save_cache_file(self, cache_path: Path, data: dict) -> None
+    def clear_expired(self) -> int
+    def clear_all(self) -> int
 ```
 
-**ポイント**:
-- アプリケーションはこのインターフェースのみに依存
-- 実装の詳細（キャッシュ or 直接実行）を隠蔽
-- テスト時のモック化が容易
-
-#### 2. ストレージ層実装 (`src/service/storage.py`)
-
-キャッシュを管理する責務を持つ層です：
-
+**CacheManager（パラメーターキャッシュ）:**
+完全一致キャッシュ：
 ```python
-class CachedLLMService(ILLMService):
-    """キャッシング機能を持つストレージ層実装"""
+def _generate_cache_key(self, prompt: list, model: str) -> str:
+    cache_data = {"prompt": prompt, "model": model}
+    cache_str = json.dumps(cache_data, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(cache_str.encode()).hexdigest()
 
-    def __init__(self, execution_service: ILLMService):
-        self._execution_service = execution_service
-        # キャッシュバックエンドの初期化
-        if config.cache_backend == CacheBackend.MEMORY:
-            self._cache = InMemoryCache()
+def get(self, prompt: list, model: str) -> Optional[CharacterResponse]
+def set(self, prompt: list, model: str, response: CharacterResponse) -> None
+```
+
+**SemanticCacheManager（セマンティックキャッシュ）:**
+類似度ベースのキャッシュ：
+```python
+def _find_similar_cache(self, query_embedding: list[float], model: str) -> tuple[Optional[str], float]:
+    # コサイン類似度で最も類似したキャッシュを検索
+    ...
+
+async def get(self, prompt: list, model: str) -> Optional[CharacterResponse]
+async def set(self, prompt: list, model: str, response: CharacterResponse) -> None
+```
+
+**主要な改善点**:
+- **コードの重複削除**: ~150行のコード重複を削減
+- **単一責任の原則**: 各クラスが明確な責任を持つ
+- **保守性の向上**: 共通機能の修正が一箇所で済む
+- **拡張性**: 新しいキャッシュタイプの追加が容易
+
+#### 2. フォールバックコーディネーター (`src/service/fallback_coordinator.py`)
+
+リファクタリングにより、小さな責務を持つメソッドに分割されました：
+
+**データクラス**:
+```python
+@dataclass
+class RequestContext:
+    """リクエストコンテキストをカプセル化"""
+    prompt: Optional[list]
+    model: Optional[str]
+
+@dataclass
+class FallbackResult:
+    """フォールバック結果をカプセル化"""
+    response: CharacterResponse
+    strategy: FallbackStrategy
+    error_reason: Optional[str]
+```
+
+**フォールバック戦略の列挙型**:
+```python
+class FallbackStrategy(StrEnum):
+    PRIMARY = "primary"
+    PARAMETER_CACHE = "parameter_cache"
+    SEMANTIC_CACHE = "semantic_cache"
+    ALTERNATIVE_PROVIDER = "alternative_provider"
+```
+
+**主要メソッド（リファクタリング後）**:
+```python
+# メインエントリーポイント（簡潔に）
+async def request_with_fallback(...) -> tuple[CharacterResponse, FallbackStrategy, Optional[str]]:
+    context = RequestContext(prompt=prompt, model=model)
+    result = await self._try_primary_request(primary_provider, primary_request_func, context)
+    if result:
+        return result.response, result.strategy, result.error_reason
+
+    error_reason = "timeout" if self.stats["timeout_count"] > 0 else "error"
+    result = await self._execute_fallback_strategy(alternative_func, context, error_reason)
+    if result:
+        return result.response, result.strategy, result.error_reason
+
+    self._handle_fallback_failure(error_reason)
+
+# 各フォールバック戦略が独立したメソッドに
+async def _try_primary_request(...) -> Optional[FallbackResult]
+async def _execute_fallback_strategy(...) -> Optional[FallbackResult]
+async def _try_parameter_cache(...) -> Optional[FallbackResult]
+async def _try_semantic_cache(...) -> Optional[FallbackResult]
+async def _try_alternative_provider(...) -> Optional[FallbackResult]
+async def _cache_response(...) -> None
+```
+
+**戦略パターンの実装**:
+```python
+async def _execute_fallback_strategy(...):
+    strategy_handlers = {
+        FallbackStrategy.PARAMETER_CACHE: self._try_parameter_cache,
+        FallbackStrategy.SEMANTIC_CACHE: self._try_semantic_cache,
+        FallbackStrategy.ALTERNATIVE_PROVIDER: lambda ctx, err: self._try_alternative_provider(
+            alternative_func, ctx, err
+        ),
+    }
+    handler = strategy_handlers.get(self.fallback_strategy)
+    if handler:
+        return await handler(context, error_reason)
+```
+
+**統計情報の追跡（リファクタリング後）**:
+```python
+def get_stats(self) -> dict:
+    stats = self.stats.copy()
+    if stats["total_requests"] > 0:
+        stats.update(self._calculate_rates(stats, stats["total_requests"]))
+    else:
+        stats.update(self._zero_rates())
+    return stats
+
+def _calculate_rates(self, stats: dict, total: int) -> dict:
+    """成功率を計算"""
+    cache_hits = stats["parameter_cache_hits"] + stats["semantic_cache_hits"]
+    return {
+        "primary_success_rate": stats["primary_success"] / total * 100,
+        "parameter_cache_hit_rate": stats["parameter_cache_hits"] / total * 100,
+        # ...
+    }
+```
+
+**主要な改善点**:
+- **複雑度の削減**: 127行のメソッドを複数の小さなメソッド（最大35行）に分割
+- **テスタビリティ**: 各戦略を個別にテスト可能
+- **可読性**: 各メソッドが単一の責務を持つ
+- **保守性**: 新しい戦略の追加が容易
+
+#### 3. LLMリクエストラッパー (`src/client/llm_request_wrapper.py`)
+
+リファクタリングにより、重複コードを削減：
+
+**リファクタリング前**:
+- `request_openai`と`request_gemini`で重複したロジック
+- 誤ったdocstring
+
+**リファクタリング後**:
+```python
+class LLMRequestWrapper:
+    def __init__(self, fallback_coordinator: FallbackCoordinator):
+        self.fallback_coordinator = fallback_coordinator
+
+    async def request_openai(
+        self, prompt, model=OpenAIModel.GPT_4O_MINI,
+        alternative_model=GeminiModel.GEMINI_2_5_FLASH, with_fallback=True
+    ):
+        """OpenAIリクエスト（Geminiフォールバック付き）"""
+        return await self._make_request(
+            primary_provider=LLMProvider.OPENAI,
+            primary_func=lambda: self._request_openai_internal(prompt, model),
+            alternative_func=lambda: self._request_gemini_internal(prompt, alternative_model),
+            prompt=prompt, model=model, with_fallback=with_fallback
+        )
+
+    async def request_gemini(
+        self, prompt, model=GeminiModel.GEMINI_2_5_FLASH,
+        alternative_model=OpenAIModel.GPT_4O_MINI, with_fallback=True
+    ):
+        """Geminiリクエスト（OpenAIフォールバック付き）"""
+        return await self._make_request(
+            primary_provider=LLMProvider.GEMINI,
+            primary_func=lambda: self._request_gemini_internal(prompt, model),
+            alternative_func=lambda: self._request_openai_internal(prompt, alternative_model),
+            prompt=prompt, model=model, with_fallback=with_fallback
+        )
+
+    async def _make_request(self, primary_provider, primary_func, alternative_func,
+                           prompt, model, with_fallback):
+        """共通のリクエストロジック"""
+        if with_fallback:
+            return await self.fallback_coordinator.request_with_fallback(
+                primary_provider=primary_provider,
+                primary_request_func=primary_func,
+                alternative_request_func=alternative_func,
+                prompt=prompt, model=model
+            )
         else:
-            self._cache = redis_client
-
-    async def generate_character(
-        self, prompt, model, provider, cache_key=None
-    ) -> CharacterResponse:
-        key = self._generate_cache_key(prompt, model, provider, cache_key)
-
-        # キャッシュチェック
-        if self._cache_enabled:
-            cached_data = await self._cache.get(key)
-            if cached_data:
-                self._cache_hits += 1
-                return CharacterResponse(**cached_data)
-            self._cache_misses += 1
-
-        # キャッシュミス → 実行層に委譲
-        character = await self._execution_service.generate_character(
-            prompt, model, provider, cache_key
-        )
-
-        # 結果をキャッシュに保存
-        if self._cache_enabled:
-            await self._cache.set(key, character.model_dump())
-
-        return character
+            response = await primary_func()
+            return response, None, None
 ```
 
-**ポイント**:
-- 実行層サービスをコンストラクタで受け取る（DI）
-- キャッシュヒット/ミスのメトリクスを自動収集
-- キャッシュキーはリクエストパラメータのハッシュで生成
-- インメモリとRedisのバックエンドを透過的に切り替え可能
+**主要な改善点**:
+- **DRY原則**: ~30行の重複コード削減
+- **正確なdocstring**: すべてのメソッドに正しい説明
+- **拡張性**: 新しいプロバイダーの追加が容易
 
-#### 3. 実行層実装 (`src/service/execution.py`)
+#### 4. 設定管理 (`src/config.py`)
 
-LLM APIを呼び出す責務を持つ層です：
-
-```python
-class ExecutionLLMService(ILLMService):
-    """LLM API呼び出しを行う実行層実装"""
-
-    async def generate_character(
-        self, prompt, model, provider, cache_key=None
-    ) -> CharacterResponse:
-        if provider != LLMProvider.OPENAI:
-            raise ValueError(f"Unsupported LLM provider: {provider}")
-
-        logger.info(f"Executing LLM request: model={model}")
-        result = await openai_client.responses.parse(
-            model=model,
-            input=prompt,
-            text_format=CharacterResponse,
-        )
-        logger.info(f"OpenAI API call successful: {model}")
-        return result.output_parsed
-```
-
-**ポイント**:
-- キャッシュの存在を一切知らない（単一責任原則）
-- OpenAI Responses APIの構造化出力を使用して型安全な応答を取得
-
-#### 4. Factoryパターン (`src/service/factory.py`)
-
-依存性注入とサービスインスタンスの生成を管理します：
+環境変数から設定を読み込み、タイムアウトとキャッシュTTLを管理します。
 
 ```python
-class LLMServiceFactory:
-    """LLMサービスインスタンスを生成するFactory"""
-
-    @staticmethod
-    def create_service() -> ILLMService:
-        # 実行サービスを作成
-        execution_service = ExecutionLLMService()
-
-        # 設定に応じてキャッシュ層でラップ
-        if config.cache_enabled:
-            return CachedLLMService(execution_service)
-        else:
-            return execution_service
-
-# シングルトンインスタンス管理
-_service_instance: ILLMService = None
-
-def get_llm_service() -> ILLMService:
-    """シングルトンサービスインスタンスを取得"""
-    global _service_instance
-    if _service_instance is None:
-        _service_instance = LLMServiceFactory.create_service()
-    return _service_instance
-```
-
-**ポイント**:
-- 環境変数の設定に基づいて適切な実装を選択
-- シングルトンパターンでアプリケーション全体で単一インスタンスを共有
-- テスト用に `reset_llm_service()` で再初期化可能
-
-#### 5. キャッシュクライアント (`src/client/cache_client.py`)
-
-2種類のキャッシュバックエンドを提供します：
-
-```python
-class InMemoryCache:
-    """TTLサポート付きインメモリキャッシュ"""
-
-    def __init__(self):
-        self._cache: dict[str, tuple[dict, float]] = {}
-
-    async def get(self, key: str) -> Optional[dict]:
-        if key in self._cache:
-            value, expire_at = self._cache[key]
-            if expire_at == 0 or time.time() < expire_at:
-                return value
-            del self._cache[key]  # 期限切れを削除
-        return None
-
-class RedisClient:
-    """非同期Redisクライアント"""
-
-    async def connect(self):
-        self._client = redis.Redis(
-            host=config.redis_host,
-            port=config.redis_port,
-            db=config.redis_db,
-            password=password,
-        )
-        await self._client.ping()
-
-    async def get(self, key: str) -> Optional[dict]:
-        value = await self._client.get(key)
-        return json.loads(value) if value else None
-```
-
-**ポイント**:
-- 両クライアントは同一のインターフェース（`get`, `set`, `delete`）を実装
-- InMemoryCache: 開発・テスト環境向け、TTL機能付き
-- RedisClient: 本番環境向け、永続化と分散キャッシュに対応
-
-#### 6. REST APIサーバー (`src/api/llm_server.py`)
-
-FastAPIベースのエンドポイントを提供します：
-
-```python
-@app.post("/generate", response_model=LLMResponse)
-async def generate_character(request: LLMRequest):
-    """キャラクター生成エンドポイント"""
-    prompt = make_prompt(character_request=request.character_request)
-
-    # Factoryからサービスを取得（DI）
-    llm_service = get_llm_service()
-
-    # サービス層に処理を委譲
-    character = await llm_service.generate_character(
-        prompt=prompt,
-        model=request.model,
-        provider=request.provider.value
+class Config(BaseModel):
+    model_config = ConfigDict(
+        validate_assignment=True,
+        frozen=True,
+        extra="ignore",
+        arbitrary_types_allowed=True,
     )
 
-    return LLMResponse(character=character, ...)
+    if os.path.exists(".envrc"):
+        load_dotenv(".envrc")
 
-@app.get("/metrics")
-async def get_cache_metrics():
-    """キャッシュメトリクスを取得"""
-    llm_service = get_llm_service()
-    if isinstance(llm_service, CachedLLMService):
-        return llm_service.get_cache_metrics()
-    return {"cache_enabled": False}
+    gemini_api_key: Secret[str] = Field(default=os.environ["GEMINI_API_KEY"])
+    openai_api_key: Secret[str] = Field(default=os.environ["OPENAI_API_KEY"])
 
-@app.delete("/cache/{cache_key}")
-async def invalidate_cache(cache_key: str):
-    """キャッシュを手動で無効化"""
-    llm_service = get_llm_service()
-    result = await llm_service.invalidate_cache(cache_key)
-    return {"invalidated": result}
+    # タイムアウト設定（秒単位）
+    llm_request_timeout: float = Field(
+        default=float(os.getenv("LLM_REQUEST_TIMEOUT", "10.0")),
+        description="Timeout for LLM API requests in seconds"
+    )
+    # キャッシュTTL設定（秒単位）
+    cache_ttl: int = Field(
+        default=int(os.getenv("CACHE_TTL", "3600")),
+        description="Cache time-to-live in seconds (default: 1 hour)"
+    )
 ```
 
 **ポイント**:
-- サービス層の抽象インターフェースのみに依存
-- キャッシュの有無を意識せずに実装できる
-- メトリクス取得とキャッシュ無効化のエンドポイントを提供
+- `Secret[str]`型でAPIキーを保護（ログ出力時に自動マスキング）
+- 環境変数が未設定の場合は適切なデフォルト値を使用
+- Pydanticの検証機能で環境変数の存在をチェック
 
-#### 7. 設定管理 (`src/config.py`)
+#### 5. メインエントリーポイント (`src/main.py`)
 
-環境変数からAPIキーとキャッシュ設定を読み込みます：
+CLIインターフェースを提供し、フォールバック戦略を実行します。
 
 ```python
-class CacheBackend(StrEnum):
-    MEMORY = "memory"
-    REDIS = "redis"
+@click.command()
+@click.option("--llm-provider", "-lp", type=click.Choice(LLMProvider), default=LLMProvider.GEMINI)
+@click.option("--output-directory", "-od", type=click.Path(), default="outputs")
+@click.option("--timeout", "-t", type=float, default=None)
+@click.option("--disable-fallback", "-df", is_flag=True, default=False)
+@async_cmd
+async def main(llm_provider, output_directory, timeout, disable_fallback):
+    # フォールバックコーディネーターを初期化
+    coordinator = FallbackCoordinator(timeout=timeout)
+    wrapper = LLMRequestWrapper(fallback_coordinator=coordinator)
 
-class Config(BaseModel):
-    openai_api_key: Secret[str]
+    # フォールバックの有無でリクエスト実行
+    result, strategy, error_reason = await wrapper.request_openai(
+        with_fallback=not disable_fallback
+    )
 
-    # キャッシュ設定
-    cache_enabled: bool = True
-    cache_backend: CacheBackend = CacheBackend.MEMORY
-    cache_ttl: int = 3600  # 1時間
+    # 結果を保存
+    result.save_as_json(file_path)
 
-    # Redis設定
-    redis_host: str = "localhost"
-    redis_port: int = 6379
-    redis_db: int = 0
-    redis_password: Secret[str] | None = None
+    # 統計情報をログ出力
+    coordinator.log_stats()
 ```
 
-**ポイント**:
-- `Secret[str]`型でAPIキーを保護
-- デフォルト値により最小限の設定で動作
-- 環境変数の検証をPydanticが自動実行
+## リファクタリングによる改善
+
+### コード品質の向上
+
+**複雑度の削減**:
+- `fallback_coordinator.py`: 最大メソッド長を127行から35行に短縮（73%削減）
+- `cache_manager.py`: 440行から335行に削減（24%削減）、重複コード~150行削除
+- `llm_request_wrapper.py`: 重複コード~30行削除
+
+**保守性の向上**:
+- 小さく、焦点を絞ったメソッド
+- 単一責任の原則の適用
+- データクラスによる型安全性
+- 戦略パターンによる拡張性
+
+**テスタビリティ**:
+- 各フォールバック戦略を個別にテスト可能
+- モックの作成が容易
+- 依存関係の注入
 
 ## 使い方
 
@@ -365,40 +446,33 @@ class Config(BaseModel):
 
 - **Python**: 3.13.2以上
 - **依存ライブラリ**:
-  - fastapi>=0.119.0
-  - uvicorn>=0.37.0
-  - openai>=2.4.0
-  - pydantic>=2.12.2
-  - python-dotenv>=1.1.1
-  - redis>=7.0.0
-  - click>=8.3.0
-  - httpx>=0.28.1
-- **オプション**:
-  - Docker & Docker Compose（コンテナデプロイメント用）
-  - Redis Server（Redisキャッシュ使用時）
+  - **コア**:
+    - click>=8.3.0 - CLIフレームワーク
+    - google-genai>=1.45.0 - Google Gemini APIクライアント
+    - openai>=2.4.0 - OpenAI APIクライアント
+    - pydantic>=2.12.2 - データ検証とスキーマ
+    - python-dotenv>=1.1.1 - 環境変数管理
+  - **開発**:
+    - pytest>=8.4.2 - テストフレームワーク
+    - pytest-asyncio>=1.2.0 - 非同期テストサポート
+    - pytest-mock>=3.15.1 - モッキングサポート
 
 ### セットアップ
 
 1. **環境変数ファイルの作成**
 
 ```bash
-# .env.exampleをコピーして.envを作成
-cp .env.example .env
+# .envrc.exampleをコピーして.envrcを作成
+cp .envrc.example .envrc
 
-# エディタで.envを開き、APIキーを設定
-# .env
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
+# エディタで.envrcを開き、APIキーを設定
+# .envrc
+OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxx
+GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
 
-# キャッシュ設定（デフォルト）
-CACHE_ENABLED=true
-CACHE_BACKEND=memory
-CACHE_TTL=3600
-
-# Redis設定（CACHE_BACKEND=redisの場合）
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_DB=0
-REDIS_PASSWORD=
+# オプション設定（デフォルト値で問題なければ省略可）
+LLM_REQUEST_TIMEOUT=10.0    # リクエストタイムアウト（秒）
+CACHE_TTL=3600              # キャッシュTTL（秒、デフォルト: 1時間）
 ```
 
 2. **依存関係のインストール**
@@ -407,149 +481,152 @@ REDIS_PASSWORD=
 # uvを使用する場合（推奨）
 uv sync
 
-# pipを使用する場合
-pip install -e .
-```
-
-3. **Redisのセットアップ（Redisキャッシュ使用時のみ）**
-
-```bash
-# ローカルでRedisを起動
-docker run -d -p 6379:6379 redis:latest
-
-# または、Homebrewでインストール（macOS）
-brew install redis
-brew services start redis
+# 開発依存関係も含める場合
+uv sync --all-extras
 ```
 
 ### 使用方法、実行方法
 
-#### 方法1: ローカル実行
+#### 基本的な使い方
 
 ```bash
-# LLM APIサーバーを起動
-make run-llm-server
+# Gemini APIを使用（デフォルト、フォールバック有効）
+uv run python -m src.main
 
-# または直接uvicornで起動
-uv run uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000 --reload
+# OpenAI APIを使用（フォールバック有効）
+uv run python -m src.main --llm-provider OPENAI
+
+# 短縮オプション
+uv run python -m src.main -lp OPENAI
 ```
 
-#### 方法2: Docker Compose実行
+#### タイムアウトの設定
 
 ```bash
-# Dockerイメージをビルド
-make docker-build
+# カスタムタイムアウトを指定（5秒）
+uv run python -m src.main --timeout 5
 
-# サービスを起動（APIサーバー + Redis）
-make docker-up
+# 短縮オプション
+uv run python -m src.main -t 5
 
-# ログを確認
-make docker-logs
-
-# サービスを停止
-make docker-down
+# 非常に短いタイムアウト（3秒）でフォールバック動作をテスト
+uv run python -m src.main -t 3
 ```
 
-#### API使用例
-
-サーバーが起動したら、以下のようにAPIを呼び出します：
-
-**1. キャラクター生成（OpenAI）**
+#### フォールバックの制御
 
 ```bash
-curl -X POST "http://localhost:8000/generate" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "provider": "openai",
-    "model": "gpt-4o-mini",
-    "character_request": {
-      "gender": "male",
-      "age": 28,
-      "additional_instructions": "ファンタジー世界の魔法使い"
-    }
-  }'
+# フォールバックを無効化（プライマリプロバイダーのみ使用）
+uv run python -m src.main --disable-fallback
+
+# 短縮オプション
+uv run python -m src.main -df
+
+# デバッグ用: OpenAIのみ、フォールバックなし、短いタイムアウト
+uv run python -m src.main -lp OPENAI -df -t 5
 ```
 
-**2. ヘルスチェック**
+#### 出力先の指定
 
 ```bash
-curl http://localhost:8000/health
+# カスタム出力ディレクトリを指定
+uv run python -m src.main --output-directory ./custom_output
+
+# 短縮オプション
+uv run python -m src.main -od ./my_characters
 ```
 
-**3. キャッシュメトリクスの確認**
+#### 複合オプション
 
 ```bash
-curl http://localhost:8000/metrics
+# すべてのオプションを組み合わせ
+uv run python -m src.main -lp OPENAI -od ./outputs -t 15 -df
+
+# 本番環境向け設定例（長めのタイムアウト）
+uv run python -m src.main -lp GEMINI -t 30
+
+# 開発/テスト環境向け設定例（短いタイムアウトでフォールバックをテスト）
+uv run python -m src.main -lp GEMINI -t 2
 ```
-
-**4. キャッシュの無効化**
-
-```bash
-curl -X DELETE "http://localhost:8000/cache/{cache_key}"
-```
-
-#### APIドキュメント
-
-サーバー起動後、以下のURLで自動生成されたAPIドキュメントを参照できます：
-
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
 
 ### 出力例
 
-#### 1. キャラクター生成レスポンス
+#### 正常実行時（プライマリプロバイダー成功）
+
+**ファイル名**: `outputs/gemini_a1b2c3d4e5f6.json`
 
 ```json
 {
-  "character": {
-    "first_name": "アリス",
-    "last_name": "スターフィールド",
-    "gender": "female",
-    "age": 22,
+    "first_name": "蒼",
+    "last_name": "雨宮",
+    "gender": "male",
+    "age": 28,
     "personalities": [
-      {
-        "short_personality": "好奇心旺盛な探究者",
-        "description": "未知の領域や新しい発見に対して常に興味を持ち、リスクを恐れずチャレンジする。"
-      },
-      {
-        "short_personality": "冷静な判断力",
-        "description": "緊急事態でも感情に流されず、論理的かつ迅速に最適解を導き出す能力を持つ。"
-      },
-      {
-        "short_personality": "チームプレイヤー",
-        "description": "仲間との協力を重視し、全員が安全に任務を遂行できるようサポートする。"
-      }
+        {
+            "short_personality": "内向的な思索家",
+            "description": "常に深く物事を考え、静かな場所を好む。表面的な会話よりも、哲学的な議論に心を開く。"
+        },
+        {
+            "short_personality": "完璧主義者",
+            "description": "すべてのタスクに最高の基準を求め、細部にこだわる。しばしば自分自身に対して厳しすぎることがある。"
+        },
+        {
+            "short_personality": "忠実な友人",
+            "description": "一度信頼関係を築くと、どんな困難な状況でも友人を支える。約束を何よりも大切にする。"
+        }
     ]
-  },
-  "provider": "openai",
-  "model": "gpt-4o-mini",
-  "processing_time_ms": 1234.56
 }
 ```
 
-#### 2. キャッシュメトリクスレスポンス
-
-```json
-{
-  "cache_enabled": true,
-  "cache_backend": "redis",
-  "cache_hits": 42,
-  "cache_misses": 8,
-  "cache_hit_rate": 0.84,
-  "total_requests": 50
-}
+**実行ログ例**:
+```
+[2025-11-17 10:30:45] [INFO] Attempting primary request with gemini (timeout: 10.0s)
+[2025-11-17 10:30:47] [INFO] Primary request succeeded with gemini
+[2025-11-17 10:30:47] [INFO] Cached response: f0f84bef45c8...
+[2025-11-17 10:30:47] [INFO] File saved to outputs/gemini_a1b2c3d4e5f6.json
+[2025-11-17 10:30:47] [INFO] === Fallback Statistics ===
+[2025-11-17 10:30:47] [INFO] Total Requests: 1
+[2025-11-17 10:30:47] [INFO] Primary Success: 1 (100.0%)
+[2025-11-17 10:30:47] [INFO] Parameter Cache Hits: 0 (0.0%)
+[2025-11-17 10:30:47] [INFO] Semantic Cache Hits: 0 (0.0%)
+[2025-11-17 10:30:47] [INFO] Total Cache Hit Rate: 0.0%
+[2025-11-17 10:30:47] [INFO] Alternative Provider: 0
+[2025-11-17 10:30:47] [INFO] Fallback Failures: 0 (0.0%)
+[2025-11-17 10:30:47] [INFO] Timeouts: 0
+[2025-11-17 10:30:47] [INFO] Errors: 0
+[2025-11-17 10:30:47] [INFO] Fallback Rate: 0.0%
+[2025-11-17 10:30:47] [INFO] ===========================
 ```
 
-#### 3. サーバーログ出力例
+#### フォールバック実行時（パラメーターキャッシュヒット）
 
+**実行ログ例**:
 ```
-[2025-10-25 15:30:45] [INFO] Starting up LLM API server...
-[2025-10-25 15:30:45] [INFO] Cache enabled: True
-[2025-10-25 15:30:45] [INFO] Cache backend: redis
-[2025-10-25 15:30:45] [INFO] Redis connection initialized successfully
-[2025-10-25 15:30:47] [INFO] Cache miss for openai/gpt-4o-mini (hits: 0, misses: 1, hit_rate: 0.00%)
-[2025-10-25 15:30:47] [INFO] Executing LLM request: model=gpt-4o-mini
-[2025-10-25 15:30:49] [INFO] OpenAI API call successful: gpt-4o-mini
-[2025-10-25 15:30:49] [INFO] Successfully generated character using openai/gpt-4o-mini in 1234.56ms
-[2025-10-25 15:30:52] [INFO] Cache hit for openai/gpt-4o-mini (hits: 1, misses: 1, hit_rate: 50.00%)
+[2025-11-17 10:32:10] [WARNING] Primary request timed out after 3.0s. Initiating fallback strategy: parameter_cache
+[2025-11-17 10:32:10] [INFO] Cache hit: 7a8b9c0d1e2f... (age: 120.5s)
+[2025-11-17 10:32:10] [INFO] Fallback: Using parameter cache response (exact match)
+[2025-11-17 10:32:10] [INFO] Response obtained via fallback strategy: parameter_cache
+[2025-11-17 10:32:10] [WARNING] Primary provider failed due to: timeout
+```
+
+#### セマンティックキャッシュヒット時
+
+**実行ログ例**:
+```
+[2025-11-17 10:33:15] [WARNING] Primary request timed out after 3.0s. Initiating fallback strategy: semantic_cache
+[2025-11-17 10:33:15] [INFO] Semantic cache hit: 8b9c0d1e2f3a... (similarity: 0.967, threshold: 0.950)
+[2025-11-17 10:33:15] [INFO] Fallback: Using semantic cache response (similar prompt)
+[2025-11-17 10:33:15] [INFO] Response obtained via fallback strategy: semantic_cache
+```
+
+#### 代替プロバイダー使用時
+
+**実行ログ例**:
+```
+[2025-11-17 10:35:22] [WARNING] Primary request failed with error: Connection error. Initiating fallback strategy: alternative_provider
+[2025-11-17 10:35:22] [INFO] Fallback: Attempting alternative provider (timeout: 10.0s)
+[2025-11-17 10:35:24] [INFO] Fallback: Alternative provider succeeded
+[2025-11-17 10:35:24] [INFO] Cached response: e7f8g9h0i1j2...
+[2025-11-17 10:35:24] [INFO] Response obtained via fallback strategy: alternative_provider
+[2025-11-17 10:35:24] [WARNING] Primary provider failed due to: error
 ```

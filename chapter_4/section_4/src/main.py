@@ -1,35 +1,18 @@
-"""
-CLI entry point for the Personalized Learning Platform.
-
-This module provides a command-line interface for generating personalized
-learning plans using a hierarchical AI agent architecture.
-"""
-
 import asyncio
 import json
 import os
 from functools import wraps
-from pathlib import Path
-from uuid import uuid4
 
 import click
 
-from src.client.llm_client import OpenAIModel
+from src.client.llm_client import GeminiEmbeddingModel, GeminiModel
 from src.logger import make_logger
-from src.model.llm_pipeline_model import ContentType, LearnerProfile
-from src.service.llm_pipeline_service import run_personalized_learning
+from src.service.rag_pipeline import RAGPipeline
 
 logger = make_logger(__name__)
 
 
-# =============================================================================
-# Decorators
-# =============================================================================
-
-
 def async_cmd(func):
-    """Decorator to run async click commands."""
-
     @wraps(func)
     def wrapper(*args, **kwargs):
         return asyncio.run(func(*args, **kwargs))
@@ -37,203 +20,146 @@ def async_cmd(func):
     return wrapper
 
 
-# =============================================================================
-# Profile Loading Helpers
-# =============================================================================
+@click.group()
+def cli():
+    """RAG System CLI - A modular RAG system using strategy pattern."""
+    pass
 
 
-def _generate_learner_id() -> str:
-    """Generate a unique learner ID."""
-    return f"learner_{uuid4().hex[:8]}"
-
-
-def _parse_content_types(content_types: list[str]) -> list[ContentType]:
-    """Parse content type strings to ContentType enum values."""
-    return [ContentType(ct) for ct in content_types]
-
-
-def _load_profile_from_file(profile_file: str) -> LearnerProfile:
-    """Load learner profile from a JSON file."""
-    logger.info(f"Loading learner profile from: {profile_file}")
-    with open(profile_file, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    preferred_types = _parse_content_types(data.get("preferred_content_types", []))
-
-    return LearnerProfile(
-        learner_id=data.get("learner_id", _generate_learner_id()),
-        learning_goal=data["learning_goal"],
-        current_knowledge=data.get("current_knowledge", []),
-        available_hours_per_week=data.get("available_hours_per_week", 10),
-        preferred_content_types=preferred_types,
-        target_duration_weeks=data.get("target_duration_weeks", 12),
-    )
-
-
-def _create_profile_from_options(
-    goal: str,
-    hours_per_week: int,
-    duration_weeks: int,
-    current_knowledge: str,
-) -> LearnerProfile:
-    """Create learner profile from command-line options."""
-    logger.info("Creating learner profile from command-line options")
-    knowledge_list = [k.strip() for k in current_knowledge.split(",") if k.strip()]
-
-    return LearnerProfile(
-        learner_id=_generate_learner_id(),
-        learning_goal=goal,
-        current_knowledge=knowledge_list,
-        available_hours_per_week=hours_per_week,
-        preferred_content_types=[],
-        target_duration_weeks=duration_weeks,
-    )
-
-
-def _log_startup_info(
-    model: str,
-    learner_profile: LearnerProfile,
-    output_directory: str,
-) -> None:
-    """Log startup information."""
-    logger.info(
-        f"Personalized Learning Platform\n"
-        f"Model: {model}\n"
-        f"Learning Goal: {learner_profile.learning_goal}\n"
-        f"Hours/Week: {learner_profile.available_hours_per_week}\n"
-        f"Duration: {learner_profile.target_duration_weeks} weeks\n"
-        f"Output directory: {output_directory}"
-    )
-
-
-# =============================================================================
-# CLI Command
-# =============================================================================
-
-
-@click.command()
+@cli.command()
 @click.option(
-    "--model",
-    "-m",
-    type=click.Choice(OpenAIModel.list_str()),
-    required=False,
-    default=OpenAIModel.GPT_5_MINI,
-    help="The model to use for the request.",
-)
-@click.option(
-    "--output-directory",
-    "-od",
-    type=click.Path(),
-    required=False,
-    default="outputs",
-    help="The directory to save output files.",
-)
-@click.option(
-    "--profile-file",
-    "-p",
-    type=click.Path(exists=True),
-    required=False,
-    default=None,
-    help="Path to a JSON file containing the learner profile.",
-)
-@click.option(
-    "--goal",
-    "-g",
-    type=str,
-    required=False,
-    default=None,
-    help="Learning goal (e.g., '3ヶ月でデータ分析ができるようになりたい').",
-)
-@click.option(
-    "--hours-per-week",
-    "-h",
-    type=int,
-    required=False,
-    default=10,
-    help="Available study hours per week.",
-)
-@click.option(
-    "--duration-weeks",
+    "--data-directory",
     "-d",
-    type=int,
-    required=False,
-    default=12,
-    help="Target duration in weeks.",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True),
+    required=True,
+    default="data",
+    help="Directory containing documents to index.",
 )
 @click.option(
-    "--current-knowledge",
-    "-k",
-    type=str,
-    required=False,
-    default="",
-    help="Current knowledge/skills (comma-separated).",
+    "--chunker-model",
+    "-cm",
+    type=click.Choice(GeminiModel.list_str()),
+    default=GeminiModel.GEMINI_2_5_FLASH,
+    help="Model for semantic chunking.",
+)
+@click.option(
+    "--embedding-model",
+    "-em",
+    type=click.Choice(GeminiEmbeddingModel.list_str()),
+    default=GeminiEmbeddingModel.GEMINI_EMBEDDING_001,
+    help="Model for creating embeddings.",
 )
 @async_cmd
-async def main(
-    model: str,
-    output_directory: str,
-    profile_file: str | None,
-    goal: str | None,
-    hours_per_week: int,
-    duration_weeks: int,
-    current_knowledge: str,
+async def index(
+    data_directory: str,
+    chunker_model: str,
+    embedding_model: str,
 ):
-    """
-    Personalized Learning Platform - A Hierarchical AI Agent System
+    """Index documents from the data directory."""
+    logger.info(f"Indexing documents from: {data_directory}")
 
-    This system creates personalized learning plans using a hierarchical
-    multi-agent architecture with three layers:
+    pipeline = RAGPipeline(data_directory=data_directory, chunker_model=chunker_model, embedding_model=embedding_model)
 
-    \b
-    1. Strategy Layer: Creates learning roadmap and sets objectives
-    2. Tactics Layer: Designs weekly/daily curriculum
-    3. Execution Layer: Generates content and quizzes
+    await pipeline.index_documents()
 
-    You can provide a learner profile via JSON file or command-line options.
+    logger.info("Indexing completed successfully")
 
-    Examples:
 
-    \b
-        # Using command-line options
-        python -m src.main -g "3ヶ月でPythonプログラミングを習得したい" -h 10 -d 12
+@cli.command()
+@click.option(
+    "--data-directory",
+    "-d",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True),
+    required=True,
+    default="data",
+    help="Directory containing documents to index.",
+)
+@click.option(
+    "--question",
+    "-q",
+    type=str,
+    required=True,
+    help="Question to ask the RAG system.",
+)
+@click.option(
+    "--chunker-model",
+    "-cm",
+    type=click.Choice(GeminiModel.list_str()),
+    default=GeminiModel.GEMINI_2_5_FLASH,
+    help="Model for semantic chunking.",
+)
+@click.option(
+    "--embedding-model",
+    "-em",
+    type=click.Choice(GeminiEmbeddingModel.list_str()),
+    default=GeminiEmbeddingModel.GEMINI_EMBEDDING_001,
+    help="Model for creating embeddings.",
+)
+@click.option(
+    "--generator-model",
+    "-gm",
+    type=click.Choice(GeminiModel.list_str()),
+    default=GeminiModel.GEMINI_2_5_FLASH,
+    help="Model for answer generation.",
+)
+@click.option(
+    "--top-k",
+    "-k",
+    type=int,
+    default=5,
+    help="Number of top chunks to retrieve.",
+)
+@click.option(
+    "--output-file",
+    "-o",
+    type=click.Path(),
+    required=False,
+    help="Optional file path to save the answer as JSON.",
+)
+@async_cmd
+async def query(
+    data_directory: str,
+    question: str,
+    chunker_model: str,
+    embedding_model: str,
+    generator_model: str,
+    top_k: int,
+    output_file: str | None,
+):
+    """Query the RAG system with a question."""
+    logger.info(f"Processing query: {question}")
 
-        # Using a profile file
-        python -m src.main -p example/learner_profile.json
-
-        # With current knowledge
-        python -m src.main -g "データ分析を学びたい" -k "Excel基礎,統計基礎"
-    """
-    # Load or create learner profile
-    if profile_file:
-        learner_profile = _load_profile_from_file(profile_file)
-    elif goal:
-        learner_profile = _create_profile_from_options(
-            goal=goal,
-            hours_per_week=hours_per_week,
-            duration_weeks=duration_weeks,
-            current_knowledge=current_knowledge,
-        )
-    else:
-        raise click.UsageError("Either --profile-file or --goal must be provided.")
-
-    _log_startup_info(model, learner_profile, output_directory)
-
-    os.makedirs(output_directory, exist_ok=True)
-
-    # Run the hierarchical learning platform
-    plan = await run_personalized_learning(
-        learner_profile=learner_profile,
-        model=model,
+    pipeline = RAGPipeline(
+        data_directory=data_directory,
+        chunker_model=chunker_model,
+        embedding_model=embedding_model,
+        generator_model=generator_model,
+        top_k=top_k,
     )
 
-    if plan is None:
-        raise ValueError("Learning platform failed. Check logs for details.")
+    await pipeline.index_documents()
 
-    # Save the plan
-    output_path = Path(output_directory) / f"learning_plan_{uuid4().hex}.md"
-    output_path.write_text(plan.to_markdown(), encoding="utf-8")
-    logger.info(f"Plan saved: {output_path}")
+    answer = await pipeline.query(question)
+
+    logger.info("\n" + "=" * 80)
+    logger.info(f"Question: {answer.question}")
+    logger.info("=" * 80)
+    logger.info(f"\nAnswer:\n{answer.answer}")
+    logger.info("\n" + "-" * 80)
+    logger.info(f"Sources: {', '.join(answer.source_chunks)}")
+    logger.info("=" * 80 + "\n")
+
+    if output_file:
+        if output_file.endswith("/") or output_file.endswith("\\"):
+            output_file = os.path.join(output_file, "answer.json")
+        elif os.path.exists(output_file) and os.path.isdir(output_file):
+            output_file = os.path.join(output_file, "answer.json")
+
+        os.makedirs(os.path.dirname(output_file) or ".", exist_ok=True)
+        with open(output_file, "w", encoding="utf-8") as f:
+            json.dump(answer.model_dump(), f, indent=2, ensure_ascii=False)
+        logger.info(f"Answer saved to {output_file}")
 
 
 if __name__ == "__main__":
-    main()
+    cli()
