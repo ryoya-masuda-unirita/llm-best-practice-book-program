@@ -4,8 +4,7 @@ from functools import wraps
 from uuid import uuid4
 
 import click
-
-from src.client.llm_client import AnthropicModel
+from src.client.llm_client import GeminiModel
 from src.logger import make_logger
 from src.service.multi_agent_service import run_contract_review
 
@@ -24,10 +23,10 @@ def async_cmd(func):
 @click.option(
     "--model",
     "-m",
-    type=click.Choice(AnthropicModel.list_str()),
+    type=click.Choice(GeminiModel.list_str()),
     required=False,
-    default=AnthropicModel.CLAUDE_SONNET_4_5,
-    help="The Anthropic model to use for the review.",
+    default=GeminiModel.GEMINI_2_5_PRO,
+    help="The Google Gemini model to use for the review.",
 )
 @click.option(
     "--output-directory",

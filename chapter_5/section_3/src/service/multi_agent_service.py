@@ -1,23 +1,32 @@
-"""Multi-agent contract review service using LangGraph and Anthropic."""
+"""Multi-agent contract review service using LangGraph and Google Gemini.
 
-import json
-import re
+This module implements a multi-agent system using LangGraph subgraphs.
+Each agent is implemented as a separate subgraph, which are then composed
+into a parent graph for the complete contract review pipeline.
+"""
 
-from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
-from langgraph.graph import END, StateGraph
-
-from src.client.llm_client import AnthropicModel
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.state import CompiledStateGraph
+from src.client.llm_client import GeminiModel
+from src.config import config as global_config
 from src.logger import make_logger
 from src.model.multi_agent_model import (
     AgentState,
     AmendmentProposal,
+    AmendmentProposerResponse,
     ClauseCategory,
+    ClauseClassifierResponse,
     ClauseDiff,
     ContractClause,
     ContractReviewReport,
+    DiffCheckerResponse,
+    DocumentParserResponse,
+    ReportGeneratorResponse,
     RiskAssessment,
+    RiskAssessmentResponse,
 )
 from src.prompt.multi_agent_prompt import (
     AMENDMENT_PROPOSER_SYSTEM_PROMPT,
@@ -37,28 +46,6 @@ from src.prompt.multi_agent_prompt import (
 logger = make_logger(__name__)
 
 
-def extract_json_from_response(response_text: str) -> dict:
-    """Extract JSON from LLM response text.
-
-    Args:
-        response_text: Raw response text from LLM
-
-    Returns:
-        Parsed JSON as dictionary
-    """
-    json_match = re.search(r"```json\s*([\s\S]*?)\s*```", response_text)
-    if json_match:
-        json_str = json_match.group(1)
-    else:
-        json_match = re.search(r"\{[\s\S]*\}", response_text)
-        if json_match:
-            json_str = json_match.group(0)
-        else:
-            json_str = response_text
-
-    return json.loads(json_str)
-
-
 # =============================================================================
 # Agent Node Functions
 # =============================================================================
@@ -76,23 +63,26 @@ def document_parser_node(state: AgentState, config: RunnableConfig) -> dict:
     """
     logger.info("Document Parser Agent: Starting document parsing...")
 
-    model_name = config.get("configurable", {}).get("model", AnthropicModel.CLAUDE_SONNET_4_5)
-    model = ChatAnthropic(model=model_name, temperature=0)
+    model_name = config.get("configurable", {}).get("model", GeminiModel.GEMINI_2_5_PRO)
+    base_model = ChatGoogleGenerativeAI(
+        model=model_name,
+        temperature=0,
+        api_key=global_config.gemini_api_key,
+    )
+    model = base_model.with_structured_output(DocumentParserResponse)
 
     messages = [
         SystemMessage(content=DOCUMENT_PARSER_SYSTEM_PROMPT),
         HumanMessage(content=make_document_parser_prompt(state["contract_text"])),
     ]
 
-    response = model.invoke(messages)
-    logger.info("Document Parser Agent: Received response from LLM")
-
     try:
-        result = extract_json_from_response(response.content)
-        clauses = result.get("clauses", [])
+        response: DocumentParserResponse = model.invoke(messages)
+        logger.info("Document Parser Agent: Received response from LLM")
+        clauses = [clause.model_dump() for clause in response.clauses]
         logger.info(f"Document Parser Agent: Parsed {len(clauses)} clauses")
         return {"parsed_clauses": clauses}
-    except (json.JSONDecodeError, KeyError) as e:
+    except Exception as e:
         logger.error(f"Document Parser Agent: Failed to parse response: {e}")
         return {"parsed_clauses": []}
 
@@ -113,23 +103,26 @@ def clause_classifier_node(state: AgentState, config: RunnableConfig) -> dict:
         logger.warning("Clause Classifier Agent: No clauses to classify")
         return {"clause_categories": []}
 
-    model_name = config.get("configurable", {}).get("model", AnthropicModel.CLAUDE_SONNET_4_5)
-    model = ChatAnthropic(model=model_name, temperature=0)
+    model_name = config.get("configurable", {}).get("model", GeminiModel.GEMINI_2_5_PRO)
+    base_model = ChatGoogleGenerativeAI(
+        model=model_name,
+        temperature=0,
+        api_key=global_config.gemini_api_key,
+    )
+    model = base_model.with_structured_output(ClauseClassifierResponse)
 
     messages = [
         SystemMessage(content=CLAUSE_CLASSIFIER_SYSTEM_PROMPT),
         HumanMessage(content=make_clause_classifier_prompt(state["parsed_clauses"])),
     ]
 
-    response = model.invoke(messages)
-    logger.info("Clause Classifier Agent: Received response from LLM")
-
     try:
-        result = extract_json_from_response(response.content)
-        categories = result.get("categories", [])
+        response: ClauseClassifierResponse = model.invoke(messages)
+        logger.info("Clause Classifier Agent: Received response from LLM")
+        categories = [category.model_dump() for category in response.categories]
         logger.info(f"Clause Classifier Agent: Classified {len(categories)} clauses")
         return {"clause_categories": categories}
-    except (json.JSONDecodeError, KeyError) as e:
+    except Exception as e:
         logger.error(f"Clause Classifier Agent: Failed to parse response: {e}")
         return {"clause_categories": []}
 
@@ -150,23 +143,26 @@ def risk_assessment_node(state: AgentState, config: RunnableConfig) -> dict:
         logger.warning("Risk Assessment Agent: No clauses to assess")
         return {"risk_assessments": []}
 
-    model_name = config.get("configurable", {}).get("model", AnthropicModel.CLAUDE_SONNET_4_5)
-    model = ChatAnthropic(model=model_name, temperature=0)
+    model_name = config.get("configurable", {}).get("model", GeminiModel.GEMINI_2_5_PRO)
+    base_model = ChatGoogleGenerativeAI(
+        model=model_name,
+        temperature=0,
+        api_key=global_config.gemini_api_key,
+    )
+    model = base_model.with_structured_output(RiskAssessmentResponse)
 
     messages = [
         SystemMessage(content=RISK_ASSESSMENT_SYSTEM_PROMPT),
         HumanMessage(content=make_risk_assessment_prompt(state["parsed_clauses"], state["clause_categories"])),
     ]
 
-    response = model.invoke(messages)
-    logger.info("Risk Assessment Agent: Received response from LLM")
-
     try:
-        result = extract_json_from_response(response.content)
-        assessments = result.get("risk_assessments", [])
+        response: RiskAssessmentResponse = model.invoke(messages)
+        logger.info("Risk Assessment Agent: Received response from LLM")
+        assessments = [assessment.model_dump() for assessment in response.risk_assessments]
         logger.info(f"Risk Assessment Agent: Assessed {len(assessments)} clauses")
         return {"risk_assessments": assessments}
-    except (json.JSONDecodeError, KeyError) as e:
+    except Exception as e:
         logger.error(f"Risk Assessment Agent: Failed to parse response: {e}")
         return {"risk_assessments": []}
 
@@ -191,23 +187,26 @@ def diff_checker_node(state: AgentState, config: RunnableConfig) -> dict:
         logger.warning("Diff Checker Agent: No standard template provided")
         return {"diffs": []}
 
-    model_name = config.get("configurable", {}).get("model", AnthropicModel.CLAUDE_SONNET_4_5)
-    model = ChatAnthropic(model=model_name, temperature=0)
+    model_name = config.get("configurable", {}).get("model", GeminiModel.GEMINI_2_5_PRO)
+    base_model = ChatGoogleGenerativeAI(
+        model=model_name,
+        temperature=0,
+        api_key=global_config.gemini_api_key,
+    )
+    model = base_model.with_structured_output(DiffCheckerResponse)
 
     messages = [
         SystemMessage(content=DIFF_CHECKER_SYSTEM_PROMPT),
         HumanMessage(content=make_diff_checker_prompt(state["parsed_clauses"], state["standard_template"])),
     ]
 
-    response = model.invoke(messages)
-    logger.info("Diff Checker Agent: Received response from LLM")
-
     try:
-        result = extract_json_from_response(response.content)
-        diffs = result.get("diffs", [])
+        response: DiffCheckerResponse = model.invoke(messages)
+        logger.info("Diff Checker Agent: Received response from LLM")
+        diffs = [diff.model_dump() for diff in response.diffs]
         logger.info(f"Diff Checker Agent: Found {len(diffs)} diff entries")
         return {"diffs": diffs}
-    except (json.JSONDecodeError, KeyError) as e:
+    except Exception as e:
         logger.error(f"Diff Checker Agent: Failed to parse response: {e}")
         return {"diffs": []}
 
@@ -233,23 +232,26 @@ def amendment_proposer_node(state: AgentState, config: RunnableConfig) -> dict:
         logger.info("Amendment Proposer Agent: No high-risk clauses found")
         return {"amendments": []}
 
-    model_name = config.get("configurable", {}).get("model", AnthropicModel.CLAUDE_SONNET_4_5)
-    model = ChatAnthropic(model=model_name, temperature=0.3)
+    model_name = config.get("configurable", {}).get("model", GeminiModel.GEMINI_2_5_PRO)
+    base_model = ChatGoogleGenerativeAI(
+        model=model_name,
+        temperature=0.3,
+        api_key=global_config.gemini_api_key,
+    )
+    model = base_model.with_structured_output(AmendmentProposerResponse)
 
     messages = [
         SystemMessage(content=AMENDMENT_PROPOSER_SYSTEM_PROMPT),
         HumanMessage(content=make_amendment_proposer_prompt(state["parsed_clauses"], state["risk_assessments"])),
     ]
 
-    response = model.invoke(messages)
-    logger.info("Amendment Proposer Agent: Received response from LLM")
-
     try:
-        result = extract_json_from_response(response.content)
-        amendments = result.get("amendments", [])
+        response: AmendmentProposerResponse = model.invoke(messages)
+        logger.info("Amendment Proposer Agent: Received response from LLM")
+        amendments = [amendment.model_dump() for amendment in response.amendments]
         logger.info(f"Amendment Proposer Agent: Proposed {len(amendments)} amendments")
         return {"amendments": amendments}
-    except (json.JSONDecodeError, KeyError) as e:
+    except Exception as e:
         logger.error(f"Amendment Proposer Agent: Failed to parse response: {e}")
         return {"amendments": []}
 
@@ -266,8 +268,13 @@ def report_generator_node(state: AgentState, config: RunnableConfig) -> dict:
     """
     logger.info("Report Generator Agent: Starting report generation...")
 
-    model_name = config.get("configurable", {}).get("model", AnthropicModel.CLAUDE_SONNET_4_5)
-    model = ChatAnthropic(model=model_name, temperature=0.3)
+    model_name = config.get("configurable", {}).get("model", GeminiModel.GEMINI_2_5_PRO)
+    base_model = ChatGoogleGenerativeAI(
+        model=model_name,
+        temperature=0.3,
+        api_key=global_config.gemini_api_key,
+    )
+    model = base_model.with_structured_output(ReportGeneratorResponse)
 
     messages = [
         SystemMessage(content=REPORT_GENERATOR_SYSTEM_PROMPT),
@@ -282,11 +289,9 @@ def report_generator_node(state: AgentState, config: RunnableConfig) -> dict:
         ),
     ]
 
-    response = model.invoke(messages)
-    logger.info("Report Generator Agent: Received response from LLM")
-
     try:
-        result = extract_json_from_response(response.content)
+        response: ReportGeneratorResponse = model.invoke(messages)
+        logger.info("Report Generator Agent: Received response from LLM")
 
         clauses = [ContractClause(**c) for c in state["parsed_clauses"] if c]
         categories = [ClauseCategory(**c) for c in state["clause_categories"] if c]
@@ -295,11 +300,11 @@ def report_generator_node(state: AgentState, config: RunnableConfig) -> dict:
         amendments = [AmendmentProposal(**a) for a in state["amendments"] if a]
 
         report = ContractReviewReport(
-            overall_risk_level=result.get("overall_risk_level", "中"),
-            overall_risk_score=float(result.get("overall_risk_score", 5.0)),
-            executive_summary=result.get("executive_summary", ""),
-            key_issues=result.get("key_issues", []),
-            recommended_actions=result.get("recommended_actions", []),
+            overall_risk_level=response.overall_risk_level,
+            overall_risk_score=response.overall_risk_score,
+            executive_summary=response.executive_summary,
+            key_issues=response.key_issues,
+            recommended_actions=response.recommended_actions,
             clauses=clauses,
             categories=categories,
             risk_assessments=risk_assessments,
@@ -310,49 +315,153 @@ def report_generator_node(state: AgentState, config: RunnableConfig) -> dict:
         logger.info("Report Generator Agent: Report generated successfully")
         return {"final_report": report.to_markdown()}
 
-    except (json.JSONDecodeError, KeyError, ValueError) as e:
+    except Exception as e:
         logger.error(f"Report Generator Agent: Failed to generate report: {e}")
         return {"final_report": None}
 
 
 # =============================================================================
-# Graph Construction
+# Subgraph Construction
 # =============================================================================
 
 
-def create_contract_review_graph() -> StateGraph:
-    """Create the multi-agent contract review graph.
+def create_document_parser_subgraph() -> CompiledStateGraph:
+    """Create the document parser agent subgraph.
 
-    The graph implements the following pipeline:
+    Returns:
+        Compiled subgraph for document parsing
+    """
+    logger.info("Creating document parser subgraph...")
+    graph = StateGraph(AgentState)
+    graph.add_node("parse", document_parser_node)
+    graph.add_edge(START, "parse")
+    graph.add_edge("parse", END)
+    return graph.compile()
+
+
+def create_clause_classifier_subgraph() -> CompiledStateGraph:
+    """Create the clause classifier agent subgraph.
+
+    Returns:
+        Compiled subgraph for clause classification
+    """
+    logger.info("Creating clause classifier subgraph...")
+    graph = StateGraph(AgentState)
+    graph.add_node("classify", clause_classifier_node)
+    graph.add_edge(START, "classify")
+    graph.add_edge("classify", END)
+    return graph.compile()
+
+
+def create_risk_assessment_subgraph() -> CompiledStateGraph:
+    """Create the risk assessment agent subgraph.
+
+    Returns:
+        Compiled subgraph for risk assessment
+    """
+    logger.info("Creating risk assessment subgraph...")
+    graph = StateGraph(AgentState)
+    graph.add_node("assess", risk_assessment_node)
+    graph.add_edge(START, "assess")
+    graph.add_edge("assess", END)
+    return graph.compile()
+
+
+def create_diff_checker_subgraph() -> CompiledStateGraph:
+    """Create the diff checker agent subgraph.
+
+    Returns:
+        Compiled subgraph for diff checking
+    """
+    logger.info("Creating diff checker subgraph...")
+    graph = StateGraph(AgentState)
+    graph.add_node("check_diff", diff_checker_node)
+    graph.add_edge(START, "check_diff")
+    graph.add_edge("check_diff", END)
+    return graph.compile()
+
+
+def create_amendment_proposer_subgraph() -> CompiledStateGraph:
+    """Create the amendment proposer agent subgraph.
+
+    Returns:
+        Compiled subgraph for amendment proposals
+    """
+    logger.info("Creating amendment proposer subgraph...")
+    graph = StateGraph(AgentState)
+    graph.add_node("propose", amendment_proposer_node)
+    graph.add_edge(START, "propose")
+    graph.add_edge("propose", END)
+    return graph.compile()
+
+
+def create_report_generator_subgraph() -> CompiledStateGraph:
+    """Create the report generator agent subgraph.
+
+    Returns:
+        Compiled subgraph for report generation
+    """
+    logger.info("Creating report generator subgraph...")
+    graph = StateGraph(AgentState)
+    graph.add_node("generate", report_generator_node)
+    graph.add_edge(START, "generate")
+    graph.add_edge("generate", END)
+    return graph.compile()
+
+
+# =============================================================================
+# Parent Graph Construction
+# =============================================================================
+
+
+def create_contract_review_graph() -> CompiledStateGraph:
+    """Create the multi-agent contract review graph using subgraphs.
+
+    The graph implements the following pipeline using subgraphs:
     1. Document Parser -> 2. Clause Classifier -> 3. Risk Assessment
                                                 -> 4. Diff Checker
     5. Amendment Proposer -> 6. Report Generator
 
+    Each agent is implemented as a separate subgraph, allowing for:
+    - Better modularity and separation of concerns
+    - Independent testing of each agent
+    - Potential for parallel execution where applicable
+    - Easier maintenance and extension
+
     Returns:
         Compiled StateGraph for contract review
     """
-    logger.info("Creating contract review multi-agent graph...")
+    logger.info("Creating contract review multi-agent graph with subgraphs...")
 
-    graph = StateGraph(AgentState)
+    # Create subgraphs for each agent
+    document_parser_subgraph = create_document_parser_subgraph()
+    clause_classifier_subgraph = create_clause_classifier_subgraph()
+    risk_assessment_subgraph = create_risk_assessment_subgraph()
+    diff_checker_subgraph = create_diff_checker_subgraph()
+    amendment_proposer_subgraph = create_amendment_proposer_subgraph()
+    report_generator_subgraph = create_report_generator_subgraph()
 
-    graph.add_node("document_parser", document_parser_node)
-    graph.add_node("clause_classifier", clause_classifier_node)
-    graph.add_node("risk_assessment", risk_assessment_node)
-    graph.add_node("diff_checker", diff_checker_node)
-    graph.add_node("amendment_proposer", amendment_proposer_node)
-    graph.add_node("report_generator", report_generator_node)
+    # Create parent graph and add subgraphs as nodes
+    parent_graph = StateGraph(AgentState)
 
-    graph.set_entry_point("document_parser")
+    parent_graph.add_node("document_parser", document_parser_subgraph)
+    parent_graph.add_node("clause_classifier", clause_classifier_subgraph)
+    parent_graph.add_node("risk_assessment", risk_assessment_subgraph)
+    parent_graph.add_node("diff_checker", diff_checker_subgraph)
+    parent_graph.add_node("amendment_proposer", amendment_proposer_subgraph)
+    parent_graph.add_node("report_generator", report_generator_subgraph)
 
-    graph.add_edge("document_parser", "clause_classifier")
-    graph.add_edge("clause_classifier", "risk_assessment")
-    graph.add_edge("risk_assessment", "diff_checker")
-    graph.add_edge("diff_checker", "amendment_proposer")
-    graph.add_edge("amendment_proposer", "report_generator")
-    graph.add_edge("report_generator", END)
+    # Define the pipeline flow
+    parent_graph.add_edge(START, "document_parser")
+    parent_graph.add_edge("document_parser", "clause_classifier")
+    parent_graph.add_edge("clause_classifier", "risk_assessment")
+    parent_graph.add_edge("risk_assessment", "diff_checker")
+    parent_graph.add_edge("diff_checker", "amendment_proposer")
+    parent_graph.add_edge("amendment_proposer", "report_generator")
+    parent_graph.add_edge("report_generator", END)
 
-    logger.info("Contract review graph created successfully")
-    return graph.compile()
+    logger.info("Contract review graph with subgraphs created successfully")
+    return parent_graph.compile()
 
 
 # =============================================================================
@@ -363,14 +472,14 @@ def create_contract_review_graph() -> StateGraph:
 async def run_contract_review(
     contract_text: str,
     standard_template: str,
-    model: str = AnthropicModel.CLAUDE_SONNET_4_5,
+    model: str = GeminiModel.GEMINI_2_5_PRO,
 ) -> str | None:
     """Run the contract review multi-agent system.
 
     Args:
         contract_text: The contract document text to review
         standard_template: The standard template to compare against
-        model: The Anthropic model to use
+        model: The Google Gemini model to use
 
     Returns:
         The contract review report in markdown format, or None if failed

@@ -85,6 +85,58 @@ class AmendmentProposal(BaseModel):
     negotiation_points: list[str] = Field(..., description="Key negotiation points to discuss with counterparty")
 
 
+class DocumentParserResponse(BaseModel):
+    """Response model for document parser agent."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    clauses: list[ContractClause] = Field(..., description="List of parsed contract clauses")
+
+
+class ClauseClassifierResponse(BaseModel):
+    """Response model for clause classifier agent."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    categories: list[ClauseCategory] = Field(..., description="List of clause category classifications")
+
+
+class RiskAssessmentResponse(BaseModel):
+    """Response model for risk assessment agent."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    risk_assessments: list[RiskAssessment] = Field(..., description="List of risk assessments for each clause")
+
+
+class DiffCheckerResponse(BaseModel):
+    """Response model for diff checker agent."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    diffs: list[ClauseDiff] = Field(..., description="List of differences between contract and template")
+
+
+class AmendmentProposerResponse(BaseModel):
+    """Response model for amendment proposer agent."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    amendments: list[AmendmentProposal] = Field(..., description="List of proposed amendments for high-risk clauses")
+
+
+class ReportGeneratorResponse(BaseModel):
+    """Response model for report generator agent."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    overall_risk_level: str = Field(..., description="Overall risk level: 高, 中, 低")
+    overall_risk_score: float = Field(..., ge=1.0, le=10.0, description="Overall risk score from 1.0 to 10.0")
+    executive_summary: str = Field(..., description="Executive summary for non-legal stakeholders")
+    key_issues: list[str] = Field(..., description="List of key issues identified")
+    recommended_actions: list[str] = Field(..., description="List of recommended actions")
+
+
 class ContractReviewReport(BaseModel):
     """Final contract review report."""
 

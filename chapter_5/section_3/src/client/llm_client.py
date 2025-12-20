@@ -1,25 +1,15 @@
 from enum import StrEnum
 
-from anthropic import AsyncAnthropic
-
-from src.config import config
-
 
 class LLMProvider(StrEnum):
-    """Enum for LLM providers."""
-
-    ANTHROPIC = "anthropic"
+    GEMINI = "gemini"
 
 
-class AnthropicModel(StrEnum):
-    """Enum for Anthropic model identifiers."""
-
-    CLAUDE_SONNET_4_5 = "claude-sonnet-4-5"
-    CLAUDE_OPUS_4_1 = "claude-opus-4-1"
+class GeminiModel(StrEnum):
+    GEMINI_2_5_PRO = "gemini-2.5-pro"
+    GEMINI_2_5_FLASH = "gemini-2.5-flash"
+    GEMINI_2_5_FLASH_LITE = "gemini-2.5-flash-lite"
 
     @staticmethod
     def list_str() -> list[str]:
-        return [model for model in AnthropicModel]
-
-
-anthropic_client = AsyncAnthropic(api_key=config.anthropic_api_key)
+        return [model for model in GeminiModel]
