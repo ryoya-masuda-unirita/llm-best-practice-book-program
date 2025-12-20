@@ -1,9 +1,4 @@
-"""
-Base Agent Module for the Hierarchical AI Agent Architecture.
-
-This module provides the abstract base class for all layer agents,
-establishing common interfaces and utilities for JSON parsing and LLM invocation.
-"""
+"""Base Agent Module for the Hierarchical AI Agent Architecture."""
 
 import json
 import re
@@ -14,27 +9,16 @@ from typing import TypeVar
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI
-
 from src.client.llm_client import OpenAIModel
 from src.config import config as global_config
 from src.logger import make_logger
 
 logger = make_logger(__name__)
 
-# Type variable for parsed output
 T = TypeVar("T")
-
-# =============================================================================
-# Constants
-# =============================================================================
 
 MAX_RETRIES = 3
 RETRY_DELAY_SECONDS = 2
-
-
-# =============================================================================
-# JSON Parsing Utilities
-# =============================================================================
 
 
 def _try_fix_truncated_json(json_str: str) -> str:
@@ -102,28 +86,13 @@ def extract_json_from_response(response: str) -> dict:
             raise e
 
 
-# =============================================================================
-# Base Agent Class
-# =============================================================================
-
-
 class BaseAgent(ABC):
-    """
-    Abstract base class for all hierarchical layer agents.
-
-    Provides common utilities for LLM invocation, logging, JSON parsing,
-    and error handling. Subclasses implement the `execute` method for
-    layer-specific logic.
-    """
+    """Abstract base class for all hierarchical layer agents."""
 
     def __init__(self, layer_name: str, agent_name: str):
         self.layer_name = layer_name
         self.agent_name = agent_name
         self.logger = make_logger(f"{layer_name}.{agent_name}")
-
-    # -------------------------------------------------------------------------
-    # LLM Utilities
-    # -------------------------------------------------------------------------
 
     def _get_model_from_config(self, config: RunnableConfig) -> str:
         """Extract model name from config with default fallback."""
@@ -163,10 +132,6 @@ class BaseAgent(ABC):
 
         raise ValueError(f"{self.agent_name} failed after {MAX_RETRIES} attempts: {last_error}")
 
-    # -------------------------------------------------------------------------
-    # Parsing Utilities
-    # -------------------------------------------------------------------------
-
     def _safe_enum_parse(self, enum_class, value: str, default):
         """Safely parse an enum value with fallback to default."""
         try:
@@ -174,19 +139,11 @@ class BaseAgent(ABC):
         except ValueError:
             return default
 
-    # -------------------------------------------------------------------------
-    # Logging Utilities
-    # -------------------------------------------------------------------------
-
     def _log_layer_start(self, description: str) -> None:
         """Log the start of layer execution."""
         self.logger.info("=" * 60)
         self.logger.info(f"{self.layer_name} LAYER - {self.agent_name}: {description}")
         self.logger.info("=" * 60)
-
-    # -------------------------------------------------------------------------
-    # Template Method for Common LLM Workflow
-    # -------------------------------------------------------------------------
 
     def _invoke_and_parse(
         self,
@@ -194,11 +151,7 @@ class BaseAgent(ABC):
         system_prompt: str,
         user_prompt: str,
     ) -> dict:
-        """
-        Common workflow: build messages, invoke LLM with retry, parse JSON response.
-
-        This template method encapsulates the repetitive pattern used by all agents.
-        """
+        """Build messages, invoke LLM with retry, and parse JSON response."""
         model = self._create_chat_model(config)
         messages = self._build_messages(system_prompt, user_prompt)
         response_content = self._invoke_with_retry(model, messages, config)
@@ -211,20 +164,7 @@ class BaseAgent(ABC):
         if response_content:
             self.logger.error(f"Raw response: {response_content[:500]}...")
 
-    # -------------------------------------------------------------------------
-    # Abstract Method
-    # -------------------------------------------------------------------------
-
     @abstractmethod
     def execute(self, state: dict, config: RunnableConfig) -> dict:
-        """
-        Execute the agent's main logic.
-
-        Args:
-            state: Current hierarchical agent state
-            config: Runtime configuration including model settings
-
-        Returns:
-            Updated state dictionary with agent outputs
-        """
+        """Execute the agent's main logic."""
         pass

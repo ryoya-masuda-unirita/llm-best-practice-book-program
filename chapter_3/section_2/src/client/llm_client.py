@@ -4,7 +4,6 @@ from enum import StrEnum
 from google import genai
 from google.genai import types
 from openai import AsyncOpenAI
-
 from src.config import config
 
 

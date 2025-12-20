@@ -8,7 +8,6 @@ import json
 import time
 
 import redis.asyncio as redis
-
 from src.config import config
 from src.logger import make_logger
 

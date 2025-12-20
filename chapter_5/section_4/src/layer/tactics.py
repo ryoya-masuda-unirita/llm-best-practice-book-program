@@ -1,26 +1,15 @@
-"""
-Tactics Layer Module (戦術・マネジメント層).
-
-The Tactics Layer is the middle management, responsible for:
-- Transforming strategy into executable sub-tasks (ToDo lists)
-- Assigning tasks to appropriate execution agents
-- Managing progress and aggregating reports from execution layer
-- Providing feedback to the strategy layer
-
-Reference: REFERENCE.md Section "戦術・マネジメント層 (Tactics & Management Layer)"
-"""
+"""Tactics Layer Module (戦術・マネジメント層)."""
 
 from langchain_core.runnables import RunnableConfig
-
 from src.layer.base import BaseAgent
-from src.model.llm_pipeline_model import (
+from src.model.model import (
     ContentType,
     DailyTask,
     HierarchicalAgentState,
     TacticsOutput,
     WeeklyPlan,
 )
-from src.prompt.llm_pipeline_prompt import (
+from src.prompt.prompt import (
     make_tactics_system_prompt,
     make_tactics_user_prompt,
 )

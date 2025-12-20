@@ -5,7 +5,6 @@ from functools import wraps
 from typing import Any, Callable, Optional, TypeVar
 
 import redis.asyncio as redis
-
 from src.config import config
 from src.logger import make_logger
 

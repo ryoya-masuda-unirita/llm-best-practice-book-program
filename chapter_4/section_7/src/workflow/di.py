@@ -13,7 +13,6 @@ from typing import Any, Callable, Protocol, TypeVar, cast, runtime_checkable
 
 from google.genai.types import GenerateContentConfig
 from pydantic import BaseModel
-
 from src.client.llm_client import GeminiModel, OpenAIModel, google_genai_client, openai_client
 from src.logger import make_logger
 from src.workflow.base import ExecutionContext

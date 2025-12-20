@@ -1,25 +1,13 @@
-"""
-Reflection Layer Module (自己評価・省察層).
-
-The Reflection Layer is an independent auditor, responsible for:
-- Monitoring execution layer outputs
-- Evaluating alignment between outputs and original goals/strategy
-- Detecting errors or quality issues
-- Requesting plan corrections or retries from upper layers when needed
-- Preventing runaway execution in wrong directions
-
-Reference: REFERENCE.md Section "自己評価・省察層 (Reflection & Evaluation Layer)"
-"""
+"""Reflection Layer Module (自己評価・省察層)."""
 
 from langchain_core.runnables import RunnableConfig
-
 from src.layer.base import BaseAgent
-from src.model.llm_pipeline_model import (
+from src.model.model import (
     HierarchicalAgentState,
     ProgressMetrics,
     ProgressReport,
 )
-from src.prompt.llm_pipeline_prompt import (
+from src.prompt.prompt import (
     make_progress_system_prompt,
     make_progress_user_prompt,
 )

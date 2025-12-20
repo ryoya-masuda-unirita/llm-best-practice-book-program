@@ -1,53 +1,23 @@
-"""
-Hierarchical Personalized Learning Platform Service.
-
-This module implements a hierarchical multi-agent system for creating
-personalized learning plans using LangGraph.
-
-Architecture (4-Layer Hierarchical Pattern):
-    1. Strategy Layer (戦略・プランニング層)
-       - Interprets goals, creates roadmaps, sets high-level direction
-       - Does NOT involve in implementation details
-
-    2. Tactics Layer (戦術・マネジメント層)
-       - Transforms strategy into executable sub-tasks
-       - Manages task assignment and progress aggregation
-
-    3. Execution Layer (実行層)
-       - Performs concrete tasks (content/quiz generation)
-       - Operates external tools and creates deliverables
-
-    4. Reflection Layer (自己評価・省察層)
-       - Monitors outputs and evaluates quality
-       - Requests plan corrections when needed
-
-Reference: REFERENCE.md for architectural principles
-"""
+"""Hierarchical Personalized Learning Platform Service."""
 
 from typing import Literal
 from uuid import uuid4
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, StateGraph
-
 from src.client.llm_client import OpenAIModel
 from src.layer.execution import MAX_SESSIONS_FIRST_WEEK, execution_agent_node
 from src.layer.reflection import reflection_agent_node
 from src.layer.strategy import strategy_agent_node
 from src.layer.tactics import tactics_agent_node
 from src.logger import make_logger
-from src.model.llm_pipeline_model import (
+from src.model.model import (
     HierarchicalAgentState,
     LearnerProfile,
     PersonalizedLearningPlan,
 )
 
 logger = make_logger(__name__)
-
-
-# =============================================================================
-# Conditional Edge Functions
-# =============================================================================
 
 
 def _has_more_tasks(state: HierarchicalAgentState) -> bool:
@@ -66,24 +36,7 @@ def _has_more_tasks(state: HierarchicalAgentState) -> bool:
 
 
 def should_continue_execution(state: HierarchicalAgentState) -> Literal["execute", "reflect"]:
-    """
-    Determine whether to continue executing or move to reflection.
-
-    This is the routing decision point between the Execution Layer
-    and the Reflection Layer. The system continues execution until:
-    - Maximum sessions for the first week are generated, OR
-    - No more tasks are available
-
-    After execution completes, control passes to the Reflection Layer
-    for quality evaluation and goal alignment checking.
-
-    Args:
-        state: Current agent state
-
-    Returns:
-        "execute" to continue generating sessions
-        "reflect" to move to the Reflection Layer
-    """
+    """Determine whether to continue executing or move to reflection."""
     sessions = state["learning_sessions"]
 
     if len(sessions) < MAX_SESSIONS_FIRST_WEEK and _has_more_tasks(state):
@@ -94,93 +47,29 @@ def should_continue_execution(state: HierarchicalAgentState) -> Literal["execute
     return "reflect"
 
 
-# =============================================================================
-# Graph Construction
-# =============================================================================
-
-
 def create_learning_platform_graph() -> StateGraph:
-    """
-    Create the hierarchical personalized learning platform graph.
-
-    The graph implements the 4-layer hierarchical architecture:
-
-        ┌─────────────────┐
-        │  Strategy Layer │  (Goal setting, roadmap creation)
-        └────────┬────────┘
-                 │
-                 ▼
-        ┌─────────────────┐
-        │  Tactics Layer  │  (Curriculum design, task assignment)
-        └────────┬────────┘
-                 │
-                 ▼
-        ┌─────────────────┐
-        │ Execution Layer │◄──┐ (Content/quiz generation)
-        └────────┬────────┘   │
-                 │            │
-                 ▼            │
-        ┌────────┴────────┐   │
-        │  More tasks?    │───┘
-        └────────┬────────┘
-                 │ No
-                 ▼
-        ┌─────────────────┐
-        │ Reflection Layer│  (Quality evaluation, goal alignment)
-        └────────┬────────┘
-                 │
-                 ▼
-               [END]
-
-    Returns:
-        Compiled LangGraph state machine
-    """
+    """Create the hierarchical personalized learning platform graph."""
     logger.info("Creating hierarchical learning platform graph...")
 
     graph = StateGraph(HierarchicalAgentState)
 
-    # Add layer nodes
-    # Layer 1: Strategy (戦略・プランニング層)
     graph.add_node("strategy", strategy_agent_node)
-
-    # Layer 2: Tactics (戦術・マネジメント層)
     graph.add_node("tactics", tactics_agent_node)
-
-    # Layer 3: Execution (実行層)
     graph.add_node("execution", execution_agent_node)
-
-    # Layer 4: Reflection (自己評価・省察層)
     graph.add_node("reflection", reflection_agent_node)
 
-    # Define hierarchical flow
     graph.set_entry_point("strategy")
-
-    # Strategy -> Tactics (pass blueprint down)
     graph.add_edge("strategy", "tactics")
-
-    # Tactics -> Execution (pass task assignments down)
     graph.add_edge("tactics", "execution")
-
-    # Execution loop with Reflection as exit
     graph.add_conditional_edges(
         "execution",
         should_continue_execution,
-        {
-            "execute": "execution",  # Continue execution loop
-            "reflect": "reflection",  # Move to reflection layer
-        },
+        {"execute": "execution", "reflect": "reflection"},
     )
-
-    # Reflection -> END (evaluation complete)
     graph.add_edge("reflection", END)
 
     logger.info("Learning platform graph created successfully")
     return graph.compile()
-
-
-# =============================================================================
-# State Initialization
-# =============================================================================
 
 
 def _create_initial_state(learner_profile: LearnerProfile) -> HierarchicalAgentState:
@@ -196,11 +85,6 @@ def _create_initial_state(learner_profile: LearnerProfile) -> HierarchicalAgentS
         "current_task_index": 0,
         "messages": [],
     }
-
-
-# =============================================================================
-# Result Processing
-# =============================================================================
 
 
 def _create_plan_from_state(
@@ -227,32 +111,11 @@ def _create_plan_from_state(
     )
 
 
-# =============================================================================
-# Main Entry Point
-# =============================================================================
-
-
 async def run_personalized_learning(
     learner_profile: LearnerProfile,
     model: str = OpenAIModel.GPT_4O,
 ) -> PersonalizedLearningPlan | None:
-    """
-    Run the hierarchical personalized learning agent system.
-
-    This function orchestrates the 4-layer hierarchical architecture:
-
-    1. Strategy Layer analyzes goals and creates a learning roadmap
-    2. Tactics Layer designs weekly/daily curriculum
-    3. Execution Layer generates content and quizzes (loops)
-    4. Reflection Layer evaluates quality and goal alignment
-
-    Args:
-        learner_profile: Profile containing learner goals and constraints
-        model: OpenAI model to use for all agents
-
-    Returns:
-        PersonalizedLearningPlan if successful, None if failed
-    """
+    """Run the hierarchical personalized learning agent system."""
     logger.info("=" * 80)
     logger.info("HIERARCHICAL PERSONALIZED LEARNING PLATFORM")
     logger.info("4-Layer Architecture: Strategy -> Tactics -> Execution -> Reflection")

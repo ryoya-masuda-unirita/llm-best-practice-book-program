@@ -1,19 +1,8 @@
-"""
-Strategy Layer Module (戦略・プランニング層).
-
-The Strategy Layer is the top of the hierarchy, responsible for:
-- Interpreting user's goals and requirements
-- Setting overall learning objectives and architecture
-- Creating high-level learning roadmaps (blueprints)
-- Not involving itself in implementation details
-
-Reference: REFERENCE.md Section "戦略・プランニング層 (Strategy & Planning Layer)"
-"""
+"""Strategy Layer Module (戦略・プランニング層)."""
 
 from langchain_core.runnables import RunnableConfig
-
 from src.layer.base import BaseAgent
-from src.model.llm_pipeline_model import (
+from src.model.model import (
     HierarchicalAgentState,
     LearningModule,
     LearningModuleCategory,
@@ -21,7 +10,7 @@ from src.model.llm_pipeline_model import (
     SkillLevel,
     StrategyOutput,
 )
-from src.prompt.llm_pipeline_prompt import (
+from src.prompt.prompt import (
     make_strategy_system_prompt,
     make_strategy_user_prompt,
 )

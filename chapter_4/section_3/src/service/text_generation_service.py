@@ -1,5 +1,4 @@
 from anthropic import AsyncAnthropic
-
 from src.logger import make_logger
 from src.model.model import CharacterRequest, CharacterResponse, UserPlan
 from src.prompt.prompt import make_generation_prompt

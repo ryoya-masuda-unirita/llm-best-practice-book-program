@@ -3,7 +3,6 @@
 import time
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, status
-
 from src.client.llm_client import GeminiModel
 from src.logger import make_logger
 from src.model.knowledge import KnowledgeRegisterCommand

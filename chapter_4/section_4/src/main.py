@@ -4,7 +4,6 @@ import os
 from functools import wraps
 
 import click
-
 from src.client.llm_client import GeminiEmbeddingModel, GeminiModel
 from src.logger import make_logger
 from src.service.rag_pipeline import RAGPipeline

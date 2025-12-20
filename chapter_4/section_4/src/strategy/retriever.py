@@ -1,7 +1,6 @@
 """Vector store and retriever component."""
 
 import numpy as np
-
 from src.client.llm_client import GeminiEmbeddingModel, google_genai_client
 from src.logger import make_logger
 from src.model.rag_model import Chunk, ChunkWithEmbedding

@@ -1,7 +1,6 @@
 from enum import StrEnum
 
 from anthropic import AsyncAnthropic
-
 from src.config import config
 
 

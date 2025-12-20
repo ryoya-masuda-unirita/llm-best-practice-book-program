@@ -20,7 +20,6 @@ from pathlib import Path
 from uuid import uuid4
 
 import click
-
 from src.client.llm_client import OpenAIModel
 from src.logger import make_logger
 from src.model.llm_pipeline_model import (

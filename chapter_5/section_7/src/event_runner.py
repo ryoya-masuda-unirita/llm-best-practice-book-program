@@ -36,10 +36,6 @@ from functools import wraps
 from pathlib import Path
 
 import click
-from watchdog.events import FileCreatedEvent as WatchdogFileCreatedEvent
-from watchdog.events import FileSystemEventHandler
-from watchdog.observers import Observer
-
 from src.client.llm_client import OpenAIModel
 from src.logger import make_logger
 from src.model.event_model import (
@@ -49,6 +45,9 @@ from src.model.event_model import (
     FileCreatedEvent,
 )
 from src.service.event_handler import create_default_event_bus
+from watchdog.events import FileCreatedEvent as WatchdogFileCreatedEvent
+from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
 
 logger = make_logger(__name__)
 

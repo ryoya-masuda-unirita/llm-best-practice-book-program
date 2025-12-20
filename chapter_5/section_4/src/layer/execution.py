@@ -1,21 +1,10 @@
-"""
-Execution Layer Module (実行層).
-
-The Execution Layer performs concrete tasks, responsible for:
-- Content generation and quiz creation
-- Operating external tools (LLM for content generation)
-- Faithfully executing assigned tasks from the Tactics Layer
-- Reporting results back to upper layers
-
-Reference: REFERENCE.md Section "実行層 (Execution Layer)"
-"""
+"""Execution Layer Module (実行層)."""
 
 from uuid import uuid4
 
 from langchain_core.runnables import RunnableConfig
-
 from src.layer.base import BaseAgent
-from src.model.llm_pipeline_model import (
+from src.model.model import (
     ContentType,
     DailyTask,
     HierarchicalAgentState,
@@ -27,23 +16,14 @@ from src.model.llm_pipeline_model import (
     SkillLevel,
     TacticsOutput,
 )
-from src.prompt.llm_pipeline_prompt import (
+from src.prompt.prompt import (
     make_content_system_prompt,
     make_content_user_prompt,
     make_quiz_system_prompt,
     make_quiz_user_prompt,
 )
 
-# =============================================================================
-# Constants
-# =============================================================================
-
 MAX_SESSIONS_FIRST_WEEK = 5
-
-
-# =============================================================================
-# Content Generation Agent
-# =============================================================================
 
 
 class ContentAgent(BaseAgent):
@@ -90,11 +70,6 @@ class ContentAgent(BaseAgent):
         except (KeyError, ValueError) as e:
             self._handle_parse_error(e)
             raise ValueError(f"Content agent failed: {e}")
-
-
-# =============================================================================
-# Quiz Generation Agent
-# =============================================================================
 
 
 class QuizAgent(BaseAgent):
@@ -164,11 +139,6 @@ class QuizAgent(BaseAgent):
             raise ValueError(f"Quiz agent failed: {e}")
 
 
-# =============================================================================
-# Execution Coordinator
-# =============================================================================
-
-
 class ExecutionCoordinator(BaseAgent):
     """
     Execution Layer Coordinator (実行層コーディネーター).
@@ -209,18 +179,15 @@ class ExecutionCoordinator(BaseAgent):
         week_plan = tactics.weekly_plans[current_week - 1]
         day_tasks = week_plan.daily_tasks.get(current_day, [])
 
-        # More tasks in current day?
         if next_task_index < len(day_tasks):
             return current_week, current_day, next_task_index
 
-        # Move to next day
         day_keys = list(week_plan.daily_tasks.keys())
         current_day_idx = day_keys.index(current_day) if current_day in day_keys else 0
 
         if current_day_idx + 1 < len(day_keys):
             return current_week, day_keys[current_day_idx + 1], 0
 
-        # Move to next week
         if current_week < len(tactics.weekly_plans):
             next_week = current_week + 1
             next_day = list(tactics.weekly_plans[next_week - 1].daily_tasks.keys())[0]
@@ -261,12 +228,10 @@ class ExecutionCoordinator(BaseAgent):
 
         current_sessions = list(state["learning_sessions"])
 
-        # Check if max sessions reached
         if len(current_sessions) >= MAX_SESSIONS_FIRST_WEEK:
             self.logger.info(f"Reached maximum sessions ({MAX_SESSIONS_FIRST_WEEK})")
             return {"learning_sessions": current_sessions}
 
-        # Get current task
         task = self._get_current_task(state)
         if task is None:
             self.logger.info(f"No more tasks for {state['current_day']}")
@@ -275,7 +240,6 @@ class ExecutionCoordinator(BaseAgent):
         self._log_layer_start(f"Session {len(current_sessions) + 1}/{MAX_SESSIONS_FIRST_WEEK}")
         self.logger.info(f"Week {state['current_week']}, {state['current_day']}, Task: {task.task_id}")
 
-        # Create session
         session = self._create_learning_session(
             task=task,
             learner_level=strategy.roadmap.current_level.value,
@@ -284,7 +248,6 @@ class ExecutionCoordinator(BaseAgent):
         current_sessions.append(session)
         self.logger.info(f"Session created: {session.session_id}")
 
-        # Calculate next position
         new_week, new_day, new_task_index = self._calculate_next_task_position(state, tactics)
 
         return {

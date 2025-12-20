@@ -11,7 +11,6 @@ responsible for:
 from uuid import uuid4
 
 from langchain_core.runnables import RunnableConfig
-
 from src.layer.base import BaseAgent
 from src.model.contract_pipeline_model import (
     ContractPipelineState,

@@ -1,7 +1,6 @@
 """Knowledge Base API Server - CQRS implementation with separate Command and Query endpoints."""
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, status
-
 from src.logger import make_logger
 from src.model.knowledge import (
     KnowledgeRegisterCommand,

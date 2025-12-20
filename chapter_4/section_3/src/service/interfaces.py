@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 
 from anthropic import AsyncAnthropic
-
 from src.client.llm_client import AnthropicModel
 from src.model.model import CharacterResponse, ClassificationResult, UserPlan
 

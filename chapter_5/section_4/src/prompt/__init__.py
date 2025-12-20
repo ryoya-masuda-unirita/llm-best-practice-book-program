@@ -1,4 +1,4 @@
-from src.prompt.llm_pipeline_prompt import (
+from src.prompt.prompt import (
     make_content_system_prompt,
     make_content_user_prompt,
     make_progress_system_prompt,

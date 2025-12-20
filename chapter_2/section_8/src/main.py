@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import click
 
-from src.client.llm_client import AnthropicModel, GeminiModel, LLMProvider, OpenAIModel
+from src.client.llm_client import AnthropicModel, GeminiModel, LLMProvider, OpenAIModel, google_genai_client
 from src.logger import make_logger
 from src.model.model import CharacterRequest, Gender
 from src.service import request_with_judge
@@ -148,6 +148,9 @@ Output directory: {output_directory}""")
 
     if not judge_result.is_passing():
         logger.warning("The generated character did not meet the quality threshold (3.0/5.0)")
+
+    if llm_provider == LLMProvider.GEMINI:
+        await google_genai_client.aio.aclose()
 
 
 if __name__ == "__main__":

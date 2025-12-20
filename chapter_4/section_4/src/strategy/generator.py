@@ -1,7 +1,6 @@
 """Answer generator component using LLM."""
 
 from google.genai.types import GenerateContentConfig
-
 from src.client.llm_client import GeminiModel, google_genai_client
 from src.logger import make_logger
 from src.model.rag_model import Chunk, RAGAnswer

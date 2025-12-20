@@ -7,7 +7,6 @@ from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
-
 from src.client.llm_client import OpenAIModel
 from src.logger import make_logger
 from src.model.model import (

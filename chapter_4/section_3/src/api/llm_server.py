@@ -1,7 +1,6 @@
 import time
 
 from fastapi import FastAPI, HTTPException, status
-
 from src.logger import make_logger
 from src.model.model import (
     HealthResponse,

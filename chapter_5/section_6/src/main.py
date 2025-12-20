@@ -11,7 +11,6 @@ from functools import wraps
 from pathlib import Path
 
 import click
-
 from src.client.llm_client import OpenAIModel
 from src.logger import make_logger
 from src.service.contract_pipeline_service import run_contract_compliance_pipeline

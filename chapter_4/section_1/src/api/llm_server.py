@@ -6,7 +6,6 @@ This server implements the CQRS-based pattern with separated storage and executi
 import time
 
 from fastapi import FastAPI, HTTPException, status
-
 from src.client.cache_client import redis_client
 from src.client.llm_client import LLMProvider, OpenAIModel
 from src.config import CacheBackend, config

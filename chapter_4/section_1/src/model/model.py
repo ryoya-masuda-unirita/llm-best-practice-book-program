@@ -4,7 +4,6 @@ from enum import StrEnum
 from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
-
 from src.client.llm_client import LLMProvider
 
 # Shared configuration for all models

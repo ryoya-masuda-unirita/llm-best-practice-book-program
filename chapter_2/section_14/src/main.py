@@ -3,7 +3,6 @@ from functools import wraps
 from pathlib import Path
 
 import click
-
 from src.client.llm_client import AnthropicModel
 from src.logger import make_logger
 from src.service import extract_document_structure, save_extraction_results

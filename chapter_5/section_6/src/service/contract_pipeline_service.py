@@ -36,7 +36,6 @@ from uuid import uuid4
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, StateGraph
-
 from src.client.llm_client import OpenAIModel
 from src.layer.contract_pipeline import (
     extraction_stage_node,

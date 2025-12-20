@@ -1,21 +1,4 @@
-"""
-Pydantic models for the Hierarchical Personalized Learning Platform.
-
-This module defines all data models used across the 4-layer hierarchical AI agent system.
-
-Architecture Reference (REFERENCE.md):
-    1. Strategy Layer (戦略・プランニング層): LearningModule, LearningRoadmap, StrategyOutput
-    2. Tactics Layer (戦術・マネジメント層): DailyTask, WeeklyPlan, TacticsOutput
-    3. Execution Layer (実行層): LearningContent, Quiz, QuizQuestion, LearningSession
-    4. Reflection Layer (自己評価・省察層): ProgressMetrics, ProgressReport
-
-Model Categories:
-    - Enums: Type-safe categorization (SkillLevel, ContentType, QuestionType, etc.)
-    - Layer Inputs/Outputs: Structured data flowing between layers
-    - Session Models: LearnerProfile, LearningSession
-    - Final Output: PersonalizedLearningPlan
-    - Agent State: HierarchicalAgentState (TypedDict for LangGraph state machine)
-"""
+"""Pydantic models for the Hierarchical Personalized Learning Platform."""
 
 from enum import StrEnum
 from typing import Annotated, Sequence
@@ -24,11 +7,6 @@ from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
 from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import TypedDict
-
-# =============================================================================
-# Base Model Configuration
-# =============================================================================
-
 
 class FrozenModel(BaseModel):
     """
@@ -45,11 +23,6 @@ class FrozenModel(BaseModel):
         frozen=True,
         extra="ignore",
     )
-
-
-# =============================================================================
-# Enums for Personalized Learning Platform
-# =============================================================================
 
 
 class SkillLevel(StrEnum):
@@ -91,12 +64,6 @@ class LearningModuleCategory(StrEnum):
     PROJECT = "project"
 
 
-# =============================================================================
-# Strategy Layer Models (戦略・プランニング層)
-# Models for the top layer that creates high-level learning roadmaps
-# =============================================================================
-
-
 class LearningModule(FrozenModel):
     """A learning module in the roadmap."""
 
@@ -130,12 +97,6 @@ class StrategyOutput(FrozenModel):
     learning_style_notes: str = Field(..., description="Notes on recommended learning approach")
 
 
-# =============================================================================
-# Tactics Layer Models (戦術・マネジメント層)
-# Models for the middle layer that transforms strategy into actionable tasks
-# =============================================================================
-
-
 class DailyTask(FrozenModel):
     """A daily learning task."""
 
@@ -165,12 +126,6 @@ class TacticsOutput(FrozenModel):
     weekly_plans: list[WeeklyPlan] = Field(..., description="Detailed weekly plans")
     assessment_strategy: str = Field(..., description="Overall assessment strategy")
     adaptation_notes: str = Field(..., description="Notes on how curriculum may adapt")
-
-
-# =============================================================================
-# Execution Layer Models (実行層)
-# Models for the layer that performs concrete tasks (content/quiz generation)
-# =============================================================================
 
 
 class LearningContent(FrozenModel):
@@ -234,12 +189,6 @@ class LearnerFeedback(FrozenModel):
     recommended_next_steps: list[str] = Field(..., description="Recommended next steps")
 
 
-# =============================================================================
-# Reflection Layer Models (自己評価・省察層)
-# Models for the layer that evaluates quality and goal alignment
-# =============================================================================
-
-
 class ProgressMetrics(FrozenModel):
     """Progress metrics from the reflection agent for quality evaluation."""
 
@@ -274,11 +223,6 @@ class ProgressReport(FrozenModel):
     adjustment_reason: str = Field(default="", description="Reason for adjustment if needed")
 
 
-# =============================================================================
-# Session Models
-# =============================================================================
-
-
 class LearnerProfile(FrozenModel):
     """Profile of the learner."""
 
@@ -298,11 +242,6 @@ class LearningSession(FrozenModel):
     content: LearningContent = Field(..., description="Learning content for the session")
     quiz: Quiz = Field(..., description="Quiz for the session")
     feedback: LearnerFeedback | None = Field(default=None, description="Feedback if quiz taken")
-
-
-# =============================================================================
-# Final Output Models
-# =============================================================================
 
 
 class PersonalizedLearningPlan(FrozenModel):
@@ -339,11 +278,9 @@ class PersonalizedLearningPlan(FrozenModel):
             "### マイルストーン",
         ]
 
-        # Add milestones
         for i, milestone in enumerate(self.strategy.roadmap.milestones, 1):
             lines.append(f"{i}. {milestone}")
 
-        # Add modules
         lines.extend(["", "## 学習モジュール"])
         for m in self.strategy.roadmap.modules:
             lines.extend(
@@ -357,7 +294,6 @@ class PersonalizedLearningPlan(FrozenModel):
                 ]
             )
 
-        # Add curriculum details
         lines.extend(
             [
                 "## カリキュラム詳細",
@@ -371,7 +307,6 @@ class PersonalizedLearningPlan(FrozenModel):
             ]
         )
 
-        # Add weekly plans (first 2 weeks)
         for week in self.curriculum.weekly_plans[:2]:
             lines.extend(
                 [
@@ -396,7 +331,6 @@ class PersonalizedLearningPlan(FrozenModel):
                 ]
             )
 
-        # Add learning sessions (first 3)
         lines.append("## 今週の学習セッション")
         for session in self.first_week_sessions[:3]:
             lines.extend(
@@ -411,7 +345,6 @@ class PersonalizedLearningPlan(FrozenModel):
                 ]
             )
 
-        # Add progress report
         track_status = "順調" if self.progress_report.metrics.on_track else "調整が必要"
         lines.extend(
             [
@@ -428,31 +361,15 @@ class PersonalizedLearningPlan(FrozenModel):
         return "\n".join(lines)
 
 
-# =============================================================================
-# Agent State Models
-# =============================================================================
-
-
 class HierarchicalAgentState(TypedDict):
     """State for the hierarchical personalized learning agent system."""
 
-    # Input
     learner_profile: LearnerProfile
-
-    # Strategy layer output
     strategy_output: StrategyOutput | None
-
-    # Tactics layer output
     tactics_output: TacticsOutput | None
-
-    # Execution layer outputs
     learning_sessions: list[LearningSession]
     progress_report: ProgressReport | None
-
-    # Current execution context
     current_week: int
     current_day: str
     current_task_index: int
-
-    # Messages for agent communication
     messages: Annotated[Sequence[BaseMessage], add_messages]

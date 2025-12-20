@@ -5,7 +5,6 @@ from typing import Any, Callable
 
 from google.api_core import exceptions as google_exceptions
 from google.genai.types import GenerateContentConfig
-
 from src.client.llm_client import GeminiModel, google_genai_client
 from src.logger import make_logger
 from src.model.model import CharacterRequest, CharacterResponse

@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import click
 
-from src.client.llm_client import AnthropicModel, GeminiModel, LLMProvider, OpenAIModel
+from src.client.llm_client import AnthropicModel, GeminiModel, LLMProvider, OpenAIModel, google_genai_client
 from src.logger import make_logger
 from src.service import request_anthropic, request_gemini, request_openai
 
@@ -76,6 +76,9 @@ Output directory: {output_directory}""")
     file_path = os.path.join(output_directory, file_name)
     result.save_as_json(file_path)
     logger.info(f"""File saved to {file_path}""")
+
+    if llm_provider == LLMProvider.GEMINI:
+        await google_genai_client.aio.aclose()
 
 
 if __name__ == "__main__":

@@ -14,7 +14,6 @@ from typing import TypeVar
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI
-
 from src.client.llm_client import OpenAIModel
 from src.config import config as global_config
 from src.logger import make_logger

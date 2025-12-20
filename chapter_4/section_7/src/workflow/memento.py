@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
-
 from src.logger import make_logger
 from src.workflow.base import ExecutionContext
 from src.workflow.state import WorkflowState

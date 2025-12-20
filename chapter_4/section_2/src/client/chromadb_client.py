@@ -4,7 +4,6 @@ import os
 
 import chromadb
 from chromadb.config import Settings
-
 from src.logger import make_logger
 
 logger = make_logger(__name__)

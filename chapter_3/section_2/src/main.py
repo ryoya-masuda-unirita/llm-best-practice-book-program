@@ -5,7 +5,6 @@ from typing import Optional
 from uuid import uuid4
 
 import click
-
 from src.client.llm_client import (
     GeminiModel,
     LLMProvider,

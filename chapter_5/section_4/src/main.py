@@ -1,9 +1,4 @@
-"""
-CLI entry point for the Personalized Learning Platform.
-
-This module provides a command-line interface for generating personalized
-learning plans using a hierarchical AI agent architecture.
-"""
+"""CLI entry point for the Personalized Learning Platform."""
 
 import asyncio
 import json
@@ -13,18 +8,12 @@ from pathlib import Path
 from uuid import uuid4
 
 import click
-
 from src.client.llm_client import OpenAIModel
 from src.logger import make_logger
-from src.model.llm_pipeline_model import ContentType, LearnerProfile
-from src.service.llm_pipeline_service import run_personalized_learning
+from src.model.model import ContentType, LearnerProfile
+from src.service.service import run_personalized_learning
 
 logger = make_logger(__name__)
-
-
-# =============================================================================
-# Decorators
-# =============================================================================
 
 
 def async_cmd(func):
@@ -35,11 +24,6 @@ def async_cmd(func):
         return asyncio.run(func(*args, **kwargs))
 
     return wrapper
-
-
-# =============================================================================
-# Profile Loading Helpers
-# =============================================================================
 
 
 def _generate_learner_id() -> str:
@@ -104,11 +88,6 @@ def _log_startup_info(
         f"Duration: {learner_profile.target_duration_weeks} weeks\n"
         f"Output directory: {output_directory}"
     )
-
-
-# =============================================================================
-# CLI Command
-# =============================================================================
 
 
 @click.command()
@@ -203,7 +182,6 @@ async def main(
         # With current knowledge
         python -m src.main -g "データ分析を学びたい" -k "Excel基礎,統計基礎"
     """
-    # Load or create learner profile
     if profile_file:
         learner_profile = _load_profile_from_file(profile_file)
     elif goal:
@@ -220,7 +198,6 @@ async def main(
 
     os.makedirs(output_directory, exist_ok=True)
 
-    # Run the hierarchical learning platform
     plan = await run_personalized_learning(
         learner_profile=learner_profile,
         model=model,
@@ -229,7 +206,6 @@ async def main(
     if plan is None:
         raise ValueError("Learning platform failed. Check logs for details.")
 
-    # Save the plan
     output_path = Path(output_directory) / f"learning_plan_{uuid4().hex}.md"
     output_path.write_text(plan.to_markdown(), encoding="utf-8")
     logger.info(f"Plan saved: {output_path}")

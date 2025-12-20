@@ -6,7 +6,6 @@ from enum import StrEnum
 from typing import Any, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
-
 from src.model.model import CharacterRequest, CharacterResponse
 
 

@@ -6,7 +6,6 @@ from functools import wraps
 from typing import Optional
 
 import click
-
 from src.client.llm_client import (
     LLMProvider,
 )

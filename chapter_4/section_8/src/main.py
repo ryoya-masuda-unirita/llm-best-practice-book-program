@@ -5,7 +5,6 @@ import sys
 from functools import wraps
 
 import click
-
 from src.examples import (
     example_1_basic_agent,
     example_2_react_agent,
