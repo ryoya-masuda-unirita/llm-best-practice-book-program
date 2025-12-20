@@ -1,7 +1,7 @@
 [project]
-name = "chapter-6-section-4"
+name = "chapter-6-section-5"
 version = "0.1.0"
-description = "Add your description here"
+description = "Parallel World Pattern for Article Generation - Multiple LLM sessions with human-in-the-loop decision making"
 readme = "README.md"
 requires-python = ">=3.13.2"
 dependencies = [
@@ -11,6 +11,10 @@ dependencies = [
     "pydantic>=2.12.2",
     "python-dotenv>=1.1.1",
 ]
+
+[project.scripts]
+parallel-world = "src.parallel_world_cli:main"
+analyze-doc = "src.main:main"
 
 [dependency-groups]
 dev = [

@@ -7,7 +7,6 @@ from src.model.model import (
     ArticleHalf,
     ArticleOutline,
     ArticleReview,
-    BestArticleSelection,
 )
 
 
@@ -112,15 +111,10 @@ def make_choose_best_first_half_system_instruction(
 ) -> tuple[str, str]:
     lang_instruction = "in English" if language == "en" else "in Japanese (日本語)"
 
-    schema_fields = {}
-    for field_name, field_info in BestArticleSelection.model_fields.items():
-        field_type = field_info.annotation
-        schema_fields[field_name] = {
-            "type": str(field_type),
-            "description": field_info.description,
-        }
+    # Get the list of valid IDs for explicit reference in the prompt
+    valid_ids = list(first_halves.keys())
+    valid_ids_str = ", ".join(valid_ids)
 
-    schema_json = json.dumps(schema_fields, indent=2, ensure_ascii=False)
     outline_md = outline.to_markdown()
 
     system_instruction = f"""<role>
@@ -132,25 +126,36 @@ Your task is to choose the BEST version of the FIRST HALF of an article {lang_in
 </task>
 
 <instructions>
-- Review the provided first half content.
-- Evaluate how well it aligns with the outline in terms of content coverage, structure, and engagement.
+- Review the provided first half content variants.
+- Evaluate how well each aligns with the outline in terms of content coverage, structure, and engagement.
 - Consider the writing quality, clarity, and flow.
 - Choose the best version and provide a reason for your choice.
 </instructions>
 
 <output_format>
-Please respond strictly following this JSON structure:
-{schema_json}
+You must respond with a JSON object containing exactly two fields:
+- "reason": A string explaining your choice in 3-5 sentences ({lang_instruction})
+- "selected_id": The ID of the best variant (must be one of: {valid_ids_str})
 </output_format>
 
 <requirements>
 - Response must be valid JSON
-- Write reason of your choice in 3-5 sentences
+- The selected_id field must contain ONLY the variant ID string, nothing else
 - Reason must be written {lang_instruction}
 </requirements>
     """
 
-    first_half_content_list = [f"<{k}>\n{v}\n</{k}>" for k, v in first_halves.items()]
+    # Format each first half with its ID and content properly
+    first_half_content_list = []
+    for variant_id, article_half in first_halves.items():
+        content = f"""<variant id="{variant_id}">
+Reason: {article_half.reason}
+
+Content:
+{article_half.content}
+</variant>"""
+        first_half_content_list.append(content)
+
     first_half_content = "\n\n".join(first_half_content_list)
 
     user_content = f"""Please choose the BEST version of the FIRST HALF of an article.
@@ -158,8 +163,10 @@ Please respond strictly following this JSON structure:
 **Article Outline:**
 {outline_md}
 
-**First Half Variants:**
+**First Half Variants (choose one by its ID):**
 {first_half_content}
+
+Remember: Return the selected_id as just the variant ID string (e.g., "{valid_ids[0]}"), not wrapped in any other format.
 """
     return system_instruction, user_content
 
@@ -292,7 +299,7 @@ def make_second_half_regeneration_system_instruction(
     language: Literal["en", "ja"],
     previous_attempts: list[tuple[str, ArticleReview]],
 ) -> tuple[str, str]:
-    """Create system instruction for second half regeneration based on feedback."""
+    """Create system instruction for second half regeneration with feedback."""
     lang_instruction = "in English" if language == "en" else "in Japanese (日本語)"
 
     schema_fields = {}
@@ -305,7 +312,6 @@ def make_second_half_regeneration_system_instruction(
 
     schema_json = json.dumps(schema_fields, indent=2, ensure_ascii=False)
 
-    # Build feedback section from previous attempts
     feedback_section = ""
     if previous_attempts:
         feedback_section = "\n**Previous Attempts and Feedback:**\n\n"

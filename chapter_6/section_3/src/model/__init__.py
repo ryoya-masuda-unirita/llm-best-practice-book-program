@@ -1,17 +1,12 @@
-from src.model.model import (
-    ArticleHalf,
-    ArticleOutline,
-    ArticleReview,
-    CompletedArticle,
-    ParallelSession,
-    ParallelWorldState,
-)
+from src.model.llm_as_a_judge_model import EvaluationCriterion, JudgeRequest, JudgeResponse
+from src.model.model import CharacterPersonality, CharacterRequest, CharacterResponse, Gender
 
 __all__ = [
-    "ArticleHalf",
-    "ArticleOutline",
-    "ArticleReview",
-    "CompletedArticle",
-    "ParallelSession",
-    "ParallelWorldState",
+    "CharacterPersonality",
+    "CharacterResponse",
+    "Gender",
+    "CharacterRequest",
+    "EvaluationCriterion",
+    "JudgeRequest",
+    "JudgeResponse",
 ]

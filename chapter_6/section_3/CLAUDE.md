@@ -1,346 +1,213 @@
-# Chapter 6 Section 3: Forgetting Unnecessary Past - State-Based Rollback Pattern
+# Best-of-N with LLM-as-a-Judge
 
 ## Overview
 
-This project demonstrates the **"Forgetting Unnecessary Past"** pattern for LLM applications through a state-based rollback mechanism. Users can roll back to any previous phase of a multi-step pipeline, effectively "forgetting" contaminated context and regenerating content with fresh state.
+This project implements the "Best-of-N" pattern with LLM-as-a-Judge evaluation for quality control. It generates multiple candidate outputs in parallel, evaluates each using an LLM judge on three criteria (accuracy, comprehensiveness, clarity), and returns the best candidate that meets a quality threshold.
 
-The implementation is a parallel world article generation pipeline that:
-- Creates multiple content variants in parallel
-- Uses LLM-as-a-Judge for automated evaluation
-- Provides Human-in-the-Loop decision points with rollback capabilities
+Key features:
+- Parallel generation of N candidates (1-10)
+- LLM-as-a-Judge evaluation with structured scoring
+- Quality threshold filtering with automatic retry
+- Multi-provider support (OpenAI, Gemini, Anthropic)
+- Separate generation and judge model configuration
 
 ## Architecture
 
-### Core Design Principles
-
-1. **State as Memory**: The state object serves as the pipeline's memory. Presence or absence of state variables indicates phase completion.
-
-2. **Forgetting by Deletion**: Rolling back removes state variables for later phases, causing regeneration from scratch.
-
-3. **Idempotent Phases**: Each phase checks completion before executing, allowing resumption from any point.
-
-4. **Human-in-the-Loop**: Critical decision points allow users to review progress and roll back.
-
-### Pipeline Flow
-
 ```
-+-------------+     +-------------+     +-------------+     +-------------+
-|  Phase 1    |     |  Phase 2    |     |  Phase 3    |     |  Phase 4    |
-|  Outline    |---->|  Outline    |---->|  First Half |---->|  Second Half|
-|  Generation |     |  Selection  |     |  Generation |     |  Generation |
-+-------------+     +-------------+     +------+------+     +-------------+
-                                               |                   |
-                                               v                   |
-                                        +-----------+              |
-                                        | Rollback  |              |
-                                        | Point #1  |              |
-                                        +-----------+              |
-                                                                   v
-+-------------+     +-------------+     +-------------+     +-------------+
-|  Phase 9    |     |  Phase 7    |     |  Phase 6    |     |  Phase 5    |
-|  Save       |<----|  Approval   |<----|  Article    |<----|  Review     |
-|  Article    |     |  Decision   |     |  Selection  |     |  (LLM Judge)|
-+-------------+     +------+------+     +-------------+     +-------------+
-                           |
-                           v
-                    +-----------+
-                    | Rollback  |
-                    | Point #2  |
-                    +-----------+
-                           |
-                           v (if rejected)
-                    +-------------+
-                    |  Phase 8    |
-                    | Regenerate  |
-                    | with        |
-                    | Feedback    |
-                    +-------------+
++-------------------------------------------------------------------------+
+|                           CLI (main.py)                                 |
+|   --num-candidates, --quality-threshold, --max-retries                  |
++------------------------------------+------------------------------------+
+                                     |
+                                     v
++-------------------------------------------------------------------------+
+|                    request_with_best_of_n()                             |
+|                                                                         |
+|  +-------------------------------------------------------------------+  |
+|  |              Parallel Candidate Generation (asyncio.gather)       |  |
+|  |   +----------+  +----------+  +----------+      +----------+      |  |
+|  |   |Candidate |  |Candidate |  |Candidate | ...  |Candidate |      |  |
+|  |   |    1     |  |    2     |  |    3     |      |    N     |      |  |
+|  |   +----+-----+  +----+-----+  +----+-----+      +----+-----+      |  |
+|  +--------|-------------|-------------|----------------|-------------+  |
+|           |             |             |                |                |
+|           v             v             v                v                |
+|  +-------------------------------------------------------------------+  |
+|  |              LLM-as-a-Judge Evaluation (Parallel)                 |  |
+|  |   +----------+  +----------+  +----------+      +----------+      |  |
+|  |   | Score:   |  | Score:   |  | Score:   | ...  | Score:   |      |  |
+|  |   |  4.2/5   |  |  3.1/5   |  |  4.8/5   |      |  2.5/5   |      |  |
+|  |   +----------+  +----------+  +----------+      +----------+      |  |
+|  +-------------------------------------------------------------------+  |
+|                                     |                                   |
+|                                     v                                   |
+|  +-------------------------------------------------------------------+  |
+|  |                    Threshold Check                                |  |
+|  |   passing = [c for c in results if score >= threshold]           |  |
+|  |   if passing: return max(passing)                                 |  |
+|  |   else: retry or fallback                                         |  |
+|  +-------------------------------------------------------------------+  |
++-------------------------------------------------------------------------+
+                                     |
+                                     v
+                        +------------------------+
+                        |   Best Candidate +     |
+                        |   Judge Evaluation     |
+                        |   (JSON output)        |
+                        +------------------------+
 ```
 
 ### Directory Structure
 
 ```
-chapter_6/section_3/
+section_3/
++-- .envrc.example           # Environment variables template
++-- pyproject.toml           # Project configuration
++-- README.md                # Documentation (Japanese)
++-- CLAUDE.md                # This file
 +-- src/
-|   +-- client/
-|   |   +-- __init__.py
-|   |   +-- llm_client.py        # Gemini client initialization
-|   +-- model/
-|   |   +-- __init__.py
-|   |   +-- model.py             # State and data models (Pydantic)
-|   +-- prompt/
-|   |   +-- __init__.py
-|   |   +-- prompt.py            # System prompts for all phases
-|   +-- service/
-|   |   +-- __init__.py
-|   |   +-- generation_service.py # LLM generation logic
-|   |   +-- runner_service.py     # Pipeline orchestration and rollback
-|   |   +-- helper.py             # UI helpers and file I/O
-|   +-- __init__.py
-|   +-- config.py                 # Environment configuration
-|   +-- logger.py                 # Logging setup
-|   +-- main.py                   # CLI entry point
-+-- outputs/                       # Generated articles (auto-created)
-+-- .envrc.example                 # Environment variables template
-+-- pyproject.toml                 # Project dependencies
-+-- Makefile                       # Development commands
-+-- README.md                      # User documentation
-+-- CLAUDE.md                      # This file
+    +-- __init__.py
+    +-- main.py              # CLI entry point with Click
+    +-- config.py            # Configuration with Pydantic
+    +-- logger.py            # Logging setup
+    +-- client/
+    |   +-- __init__.py
+    |   +-- llm_client.py    # LLM client initialization and model enums
+    +-- model/
+    |   +-- __init__.py
+    |   +-- model.py         # CharacterRequest/Response models
+    |   +-- llm_as_a_judge_model.py  # JudgeRequest/Response models
+    +-- prompt/
+    |   +-- __init__.py
+    |   +-- prompt.py        # Character generation prompts
+    |   +-- llm_as_a_judge_prompt.py  # Evaluation prompts
+    +-- service/
+        +-- __init__.py
+        +-- request_llm.py   # Best-of-N generation logic
+        +-- llm_as_a_judge.py  # Judge evaluation logic
 ```
 
 ## Key Components
 
-### State Model (`src/model/model.py`)
+### Core Functions (src/service/request_llm.py)
 
-The `ParallelWorldState` TypedDict uses `total=False` to make phase-specific fields optional:
+| Function | Description |
+|----------|-------------|
+| `request_with_best_of_n()` | Main orchestrator: generates N candidates in parallel, evaluates each, returns best passing candidate |
+| `generate_and_evaluate_candidate()` | Generates single candidate and evaluates it |
+| `generate_single_candidate()` | Routes to provider-specific generation |
+| `evaluate_candidate()` | Evaluates candidate using LLM-as-a-Judge |
 
-```python
-class ParallelWorldState(TypedDict, total=False):
-    # Required: Pipeline configuration
-    theme: str
-    language: Literal["en", "ja"]
-    llm_provider: str
-    model: str
-    num_outline_variants: int
-    num_second_half_variants: int
+### Data Models (src/model/)
 
-    # Optional: Phase-specific state (presence indicates completion)
-    outline_sessions: list[ParallelSession]           # Phase 1
-    selected_outline_session_id: str | None           # Phase 2
-    first_half_session: ParallelSession | None        # Phase 3
-    second_half_sessions: list[ParallelSession]       # Phase 4
-    reviewed_sessions: list[ParallelSession]          # Phase 5
-    final_selected_session_id: str | None             # Phase 6
-    human_approved: bool | None                       # Phase 7
-```
+| Model | Description |
+|-------|-------------|
+| `CharacterRequest` | Input: gender, age, additional_instructions |
+| `CharacterResponse` | Output: first_name, last_name, gender, age, personalities |
+| `JudgeRequest` | Evaluation input: question, response, context, request_parameters |
+| `JudgeResponse` | Evaluation output: evaluations list, overall_score, summary |
+| `CandidateResult` | Internal: candidate + judge_result + index |
 
-### Pydantic Models
+### Evaluation Criteria
 
-- `ArticleOutline`: Title, summary, structure (3-10 sections)
-- `ArticleHalf`: Content with reasoning
-- `ArticleReview`: Grade (1-5), strengths, weaknesses
-- `BestArticleSelection`: Selection decision with reasoning
-- `ParallelSession`: Session tracking with all variants
-- `CompletedArticle`: Final article with all components
-
-### Phase Detection (`src/service/runner_service.py`)
-
-```python
-def get_current_phase(state: ParallelWorldState) -> int:
-    if state.get("human_approved") is not None:
-        return 7
-    elif state.get("final_selected_session_id") is not None:
-        return 6
-    elif state.get("reviewed_sessions"):
-        return 5
-    # ... continues checking earlier phases
-    else:
-        return 0
-```
-
-### Rollback Implementation (`src/service/runner_service.py`)
-
-```python
-def forget_phases_after(state: ParallelWorldState, target_phase: int) -> ParallelWorldState:
-    if target_phase < 7:
-        state.pop("human_approved", None)
-        state.pop("rejected_session_ids", None)
-        state.pop("review_loop_iteration", None)
-    if target_phase < 6:
-        state.pop("final_selected_session_id", None)
-    # ... continues for all phases
-    state.pop("error", None)
-    return state
-```
+The LLM-as-a-Judge evaluates on three axes (1-5 scale):
+- **accuracy**: Response is correct and faithful to requirements
+- **comprehensiveness**: All required information is included
+- **clarity**: Response is clear and well-written
 
 ## Dependencies
 
-Core dependencies:
-- `click>=8.3.0`: CLI framework
-- `google-genai>=1.45.0`: Google Gemini integration
-- `pydantic>=2.12.2`: Data validation and structured outputs
-- `python-dotenv>=1.1.1`: Environment configuration
-
-Development dependencies:
-- `pytest>=8.4.2`: Testing framework
-- `pytest-asyncio>=1.2.0`: Async test support
-- `pytest-mock>=3.15.1`: Mocking utilities
+- `click` - CLI framework
+- `pydantic` - Data validation and models
+- `openai` - OpenAI API client (AsyncOpenAI)
+- `google-genai` - Google Gemini API client
+- `anthropic` - Anthropic API client (AsyncAnthropic)
+- `python-dotenv` - Environment variable loading
 
 ## Usage
 
 ### Setup
 
-1. Create environment file:
 ```bash
+# Copy environment template
 cp .envrc.example .envrc
-```
 
-2. Configure API key:
-```bash
-# .envrc
-export GEMINI_API_KEY="your-gemini-api-key-here"
-```
+# Set API keys in .envrc
+OPENAI_API_KEY=<your_key>
+GEMINI_API_KEY=<your_key>
+ANTHROPIC_API_KEY=<your_key>
 
-3. Install dependencies:
-```bash
+# Install dependencies
 uv sync
 ```
 
 ### Run
 
-**Interactive mode** (with rollback options):
 ```bash
-uv run python -m src.main \
-  --theme "The Future of AI" \
-  --language en \
-  --model gemini-2.5-flash
-```
+# Basic usage
+uv run python -m src.main -lp gemini -m gemini-2.5-flash
 
-**Auto-select mode** (no user prompts):
-```bash
+# With Best-of-N parameters
 uv run python -m src.main \
-  --theme "Quantum Computing" \
-  --language ja \
-  --model gemini-2.5-flash \
-  --auto-select
-```
+  -lp gemini -m gemini-2.5-flash \
+  -n 5 -qt 4.0 -mr 3
 
-**With custom variants**:
-```bash
+# Different models for generation and evaluation
 uv run python -m src.main \
-  --theme "Space Exploration" \
-  --language ja \
-  --model gemini-2.5-pro \
-  --num-outline-variants 5 \
-  --num-second-half-variants 5
+  -lp gemini -m gemini-2.5-flash \
+  -jp openai -jm gpt-4o
 ```
 
 ### CLI Options
 
-| Option | Short | Required | Default | Description |
-|--------|-------|----------|---------|-------------|
-| `--theme` | `-t` | Yes | - | Article theme/topic |
-| `--language` | `-l` | Yes | - | Language (`en` or `ja`) |
-| `--model` | `-m` | Yes | - | Gemini model name |
-| `--output-directory` | `-od` | No | `outputs` | Output directory |
-| `--num-outline-variants` | `-no` | No | `3` | Number of outline variants |
-| `--num-second-half-variants` | `-ns` | No | `3` | Number of second half variants |
-| `--auto-select` | `-a` | No | `False` | Auto-select mode flag |
+| Option | Short | Description | Default |
+|--------|-------|-------------|---------|
+| `--gender` | `-g` | Character gender (female/male) | female |
+| `--age` | `-a` | Character age (0-100) | 25 |
+| `--additional-instructions` | `-ai` | Extra generation instructions | "" |
+| `--llm-provider` | `-lp` | Generation provider | gemini |
+| `--model` | `-m` | Generation model | (required) |
+| `--output-directory` | `-od` | Output directory | outputs |
+| `--judge-provider` | `-jp` | Judge provider | (same as generation) |
+| `--judge-model` | `-jm` | Judge model | (same as generation) |
+| `--num-candidates` | `-n` | Number of candidates | 3 |
+| `--quality-threshold` | `-qt` | Quality threshold (1.0-5.0) | 3.0 |
+| `--max-retries` | `-mr` | Max retry attempts | 3 |
 
-Available models:
-- `gemini-2.5-pro`
-- `gemini-2.5-flash`
-- `gemini-2.5-flash-lite`
+### Supported Models
 
-## Development Commands
-
-```bash
-# Lint and format code
-make fix
-
-# Lint only
-make lint
-
-# Format only
-make fmt
-
-# Type checking
-make mypy
-```
+| Provider | Models |
+|----------|--------|
+| OpenAI | gpt-5, gpt-5-mini, gpt-5-nano, gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, gpt-4o, gpt-4o-mini |
+| Gemini | gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite |
+| Anthropic | claude-sonnet-4-5, claude-opus-4-1 |
 
 ## Implementation Notes
 
-### Parallel Generation
+### Parallel Processing
 
-Uses `asyncio.gather()` for concurrent variant generation:
+All candidates are generated and evaluated in parallel using `asyncio.gather()`:
 
 ```python
-tasks = [
-    generate_outline(theme, language, model, provider)
-    for _ in range(num_outline_variants)
-]
-outlines = await asyncio.gather(*tasks)
+tasks = [generate_and_evaluate_candidate(...) for i in range(num_candidates)]
+results = await asyncio.gather(*tasks)
 ```
 
-### LLM-as-a-Judge
+### Threshold and Fallback
 
-Articles are graded on a 1-5 scale with detailed feedback:
-- **5 (Excellent)**: Outstanding, exceeds expectations
-- **4 (Good)**: High-quality with minor improvements possible
-- **3 (Acceptable)**: Adequate but with noticeable gaps
-- **2 (Poor)**: Significant issues
-- **1 (Very Poor)**: Fails basic quality standards
+1. Filter candidates by threshold: `passing = [r for r in results if r.judge_result.is_passing(threshold)]`
+2. If passing candidates exist: return best score
+3. If all below threshold: retry up to max_retries
+4. If retries exhausted: return best available (with warning)
 
-Auto-select mode approves articles with grade >= 4.
+### Provider-Specific Configuration
 
-### Human-in-the-Loop Decision Points
-
-1. **Outline Selection** (Phase 2): Choose from generated outlines
-2. **Rollback Option** (After Phase 3): Continue or roll back
-3. **Article Selection** (Phase 6): Choose best reviewed article
-4. **Approval Decision** (Phase 7): Approve or reject with regeneration
-5. **Rollback Option** (After Phase 7): Continue or roll back
+- **Gemini**: Uses `temperature=2.0` for diversity, structured output with `response_schema`
+- **OpenAI**: Uses `responses.parse()` with `text_format` for structured output
+- **Anthropic**: Uses `beta.messages.parse()` with `output_format` for structured output
 
 ### Output Files
 
-```
-outputs/
-+-- parallel_world_article_{session_id}/
-    +-- parallel_world_article_{session_id}.json
-    +-- parallel_world_article_{session_id}.md
-    +-- all_variants/
-        +-- variant_1_grade_5.md
-        +-- variant_2_grade_4.md
-        +-- variant_3_grade_3.md
-```
-
-### Error Handling
-
-Errors are tracked in state and checked at each phase:
-```python
-if state.get("error"):
-    return None
-```
-
-### Feedback Loop
-
-When an article is rejected, the system:
-1. Tracks the rejected session ID
-2. Regenerates second halves with feedback from previous attempts
-3. Re-reviews all new variants
-4. Repeats up to 5 iterations maximum
-
-## Key Takeaways
-
-1. **State-based rollback** eliminates complex checkpoint management
-2. **Forgetting by deletion** prevents context contamination
-3. **Phase detection** enables resumption from any point
-4. **Human-in-the-loop** at critical junctures improves quality
-5. **Parallel world pattern** generates variants for better selection
-6. **LLM-as-a-Judge** automates consistent quality evaluation
-7. **Feedback loops** enable iterative improvement
-8. **Type-safe structured outputs** ensure reliability
-
-## Extending the System
-
-### Adding New Phases
-
-1. Add state variable in `ParallelWorldState`
-2. Update `get_current_phase()` to check the new variable
-3. Update `forget_phases_after()` to handle rollback
-4. Implement phase logic in runner service
-5. Add conditional execution in main loop
-
-### Adding New LLM Providers
-
-1. Add provider enum to `LLMProvider`
-2. Add model enum (e.g., `ClaudeModel`)
-3. Implement `_generate_with_provider()` helper in generation_service.py
-4. Update CLI to accept new provider/model combinations
-
-### Custom Review Criteria
-
-Modify prompts in `src/prompt/prompt.py`:
-- `make_article_review_system_instruction()` for review criteria
-- Grading scale and evaluation weights
-- Feedback format and detail level
+Two JSON files are generated per run:
+- `{uuid}_{provider}_character.json` - Generated character data
+- `{uuid}_{provider}_judge.json` - Evaluation results with scores and reasoning

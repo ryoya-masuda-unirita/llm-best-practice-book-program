@@ -1,341 +1,346 @@
-# Parallel World Pattern Article Generation System
+# Chapter 6 Section 3: Forgetting Unnecessary Past - State-Based Rollback Pattern
 
 ## Overview
 
-This project implements an AI agent article generation system utilizing the **Parallel World Pattern**. It combines multiple parallel LLM sessions with Human-in-the-Loop decision-making and LLM-as-a-Judge evaluation to generate high-quality article content.
+This project demonstrates the **"Forgetting Unnecessary Past"** pattern for LLM applications through a state-based rollback mechanism. Users can roll back to any previous phase of a multi-step pipeline, effectively "forgetting" contaminated context and regenerating content with fresh state.
 
-The Parallel World Pattern is a workflow technique in AI agent systems where multiple different execution paths (parallel worlds) are generated simultaneously, and the optimal result is selected from among them. This approach ensures content diversity while maintaining quality and controllability through strategic human intervention at key decision points.
-
-**Key Features**:
-- **Parallel World Article Generation**: Generate multiple article variations simultaneously
-- **Human-in-the-Loop**: User intervention at critical decision points
-- **LLM-as-a-Judge**: Automated article quality evaluation and review
-- **Feedback Loop**: Regeneration based on feedback from rejected articles
-- **Bilingual Support**: Generate articles in English or Japanese
+The implementation is a parallel world article generation pipeline that:
+- Creates multiple content variants in parallel
+- Uses LLM-as-a-Judge for automated evaluation
+- Provides Human-in-the-Loop decision points with rollback capabilities
 
 ## Architecture
 
-```
-+------------------------------------------------------------------------------+
-|                           CLI Layer (main.py)                                |
-|   - Command-line argument parsing                                            |
-|   - User input and interaction                                               |
-|   - Output directory management                                              |
-+----------------------------------+-------------------------------------------+
-                                   |
-                                   v
-+----------------------------------+-------------------------------------------+
-|                 Orchestration Layer (runner_service.py)                      |
-|   - Workflow phase management                                                |
-|   - Human-in-the-Loop control                                                |
-|   - Review loop orchestration                                                |
-|   - File saving and output management                                        |
-+----------------------------------+-------------------------------------------+
-                                   |
-                                   v
-+----------------------------------+-------------------------------------------+
-|             AI Agent Pipeline Layer (generation_service.py)                  |
-|   - LLM generation functions (outline, halves, review)                       |
-|   - Pipeline nodes (parallel generation, review, regeneration)               |
-|   - Parallel World branching and merging logic                               |
-+----------------------------------+-------------------------------------------+
-                                   |
-                                   v
-+------------------------------------------------------------------------------+
-|                         Infrastructure Layer                                 |
-|   - LLM clients (llm_client.py)                                              |
-|   - Prompt generation (prompt.py)                                            |
-|   - Data models (model.py)                                                   |
-|   - Configuration (config.py)                                                |
-|   - Logging (logger.py)                                                      |
-+------------------------------------------------------------------------------+
-```
+### Core Design Principles
 
-### Workflow Phases
+1. **State as Memory**: The state object serves as the pipeline's memory. Presence or absence of state variables indicates phase completion.
 
-The system orchestrates a 9-phase pipeline:
+2. **Forgetting by Deletion**: Rolling back removes state variables for later phases, causing regeneration from scratch.
+
+3. **Idempotent Phases**: Each phase checks completion before executing, allowing resumption from any point.
+
+4. **Human-in-the-Loop**: Critical decision points allow users to review progress and roll back.
+
+### Pipeline Flow
 
 ```
-START
-  |
-  v
-Phase 1: Generate Multiple Outlines (Parallel World Branching #1)
-  |
-  v
-Phase 2: User Selects Outline (Human-in-the-Loop #1)
-  |
-  v
-Phase 3: Generate First Half of Article
-  |
-  v
-Phase 4: Generate Multiple Second Halves (Parallel World Branching #2)
-  |
-  v
-Phase 5: Review All Articles with LLM-as-a-Judge
-  |
-  v
-Phase 6: User Selects Final Article (Human-in-the-Loop #2)
-  |
-  v
-Phase 7: User Approves or Rejects (Human-in-the-Loop #3)
-  |
-  +--[Approved]--> Phase 9: Save Article --> END
-  |
-  +--[Rejected]--> Phase 8: Regenerate with Feedback --> Loop to Phase 5
++-------------+     +-------------+     +-------------+     +-------------+
+|  Phase 1    |     |  Phase 2    |     |  Phase 3    |     |  Phase 4    |
+|  Outline    |---->|  Outline    |---->|  First Half |---->|  Second Half|
+|  Generation |     |  Selection  |     |  Generation |     |  Generation |
++-------------+     +-------------+     +------+------+     +-------------+
+                                               |                   |
+                                               v                   |
+                                        +-----------+              |
+                                        | Rollback  |              |
+                                        | Point #1  |              |
+                                        +-----------+              |
+                                                                   v
++-------------+     +-------------+     +-------------+     +-------------+
+|  Phase 9    |     |  Phase 7    |     |  Phase 6    |     |  Phase 5    |
+|  Save       |<----|  Approval   |<----|  Article    |<----|  Review     |
+|  Article    |     |  Decision   |     |  Selection  |     |  (LLM Judge)|
++-------------+     +------+------+     +-------------+     +-------------+
+                           |
+                           v
+                    +-----------+
+                    | Rollback  |
+                    | Point #2  |
+                    +-----------+
+                           |
+                           v (if rejected)
+                    +-------------+
+                    |  Phase 8    |
+                    | Regenerate  |
+                    | with        |
+                    | Feedback    |
+                    +-------------+
 ```
 
 ### Directory Structure
 
 ```
-chapter_6/section_4/
-|-- src/
-|   |-- __init__.py              # Package initialization
-|   |-- config.py                # Configuration management (API keys)
-|   |-- logger.py                # Logging configuration
-|   |-- main.py                  # Main entry point (CLI commands)
-|   |-- client/
-|   |   |-- __init__.py
-|   |   +-- llm_client.py        # LLM client initialization (OpenAI)
-|   |-- model/
-|   |   |-- __init__.py
-|   |   +-- model.py             # Pydantic data model definitions
-|   |-- prompt/
-|   |   |-- __init__.py
-|   |   +-- prompt.py            # Prompt generation logic
+chapter_6/section_3/
++-- src/
+|   +-- client/
+|   |   +-- __init__.py
+|   |   +-- llm_client.py        # Gemini client initialization
+|   +-- model/
+|   |   +-- __init__.py
+|   |   +-- model.py             # State and data models (Pydantic)
+|   +-- prompt/
+|   |   +-- __init__.py
+|   |   +-- prompt.py            # System prompts for all phases
 |   +-- service/
-|       |-- __init__.py
-|       |-- generation_service.py # LLM generation and pipeline nodes
-|       |-- helper.py            # UI display and file saving helpers
-|       +-- runner_service.py    # Workflow orchestration
-|-- outputs/                     # Generated results (auto-created)
-|   +-- parallel_world_article_<uuid>/
-|       |-- parallel_world_article_<uuid>.json  # Selected article (JSON)
-|       |-- parallel_world_article_<uuid>.md    # Selected article (Markdown)
-|       +-- all_variants/        # All candidate variants
-|           |-- variant_1_grade_5.md
-|           |-- variant_2_grade_4.md
-|           +-- variant_3_grade_3.md
-|-- pyproject.toml               # Project dependencies
-|-- README.md                    # Project documentation (Japanese)
-+-- CLAUDE.md                    # This file
+|   |   +-- __init__.py
+|   |   +-- generation_service.py # LLM generation logic
+|   |   +-- runner_service.py     # Pipeline orchestration and rollback
+|   |   +-- helper.py             # UI helpers and file I/O
+|   +-- __init__.py
+|   +-- config.py                 # Environment configuration
+|   +-- logger.py                 # Logging setup
+|   +-- main.py                   # CLI entry point
++-- outputs/                       # Generated articles (auto-created)
++-- .envrc.example                 # Environment variables template
++-- pyproject.toml                 # Project dependencies
++-- Makefile                       # Development commands
++-- README.md                      # User documentation
++-- CLAUDE.md                      # This file
 ```
 
 ## Key Components
 
-### Data Models (src/model/model.py)
+### State Model (`src/model/model.py`)
 
-| Model | Description |
-|-------|-------------|
-| `ArticleOutline` | Article outline with title, summary, and section structure |
-| `ArticleHalf` | First or second half of article content |
-| `BestArticleSelection` | Selection result when choosing best variant |
-| `ArticleReview` | LLM-as-a-Judge review with grade and feedback |
-| `CompletedArticle` | Complete article with all components |
-| `ParallelSession` | Single parallel world session state |
-| `ParallelWorldState` | TypedDict for entire pipeline state |
+The `ParallelWorldState` TypedDict uses `total=False` to make phase-specific fields optional:
 
-### Generation Service (src/service/generation_service.py)
+```python
+class ParallelWorldState(TypedDict, total=False):
+    # Required: Pipeline configuration
+    theme: str
+    language: Literal["en", "ja"]
+    llm_provider: str
+    model: str
+    num_outline_variants: int
+    num_second_half_variants: int
 
-**LLM Generation Functions**:
-- `generate_outline()` - Generate article outline
-- `generate_first_half()` - Generate first half of article
-- `choose_best_first_half()` - Select best first half from candidates
-- `generate_second_half()` - Generate second half of article
-- `review_article()` - Review article with LLM-as-a-Judge
-- `regenerate_second_half()` - Regenerate with feedback
+    # Optional: Phase-specific state (presence indicates completion)
+    outline_sessions: list[ParallelSession]           # Phase 1
+    selected_outline_session_id: str | None           # Phase 2
+    first_half_session: ParallelSession | None        # Phase 3
+    second_half_sessions: list[ParallelSession]       # Phase 4
+    reviewed_sessions: list[ParallelSession]          # Phase 5
+    final_selected_session_id: str | None             # Phase 6
+    human_approved: bool | None                       # Phase 7
+```
 
-**Pipeline Nodes**:
-- `generate_multiple_outlines_node()` - Parallel outline generation
-- `generate_first_half_node()` - First half generation with selection
-- `generate_multiple_second_halves_node()` - Parallel second half generation
-- `review_all_articles_node()` - Parallel article review
-- `regenerate_second_halves_after_rejection_node()` - Feedback-based regeneration
+### Pydantic Models
 
-### Runner Service (src/service/runner_service.py)
+- `ArticleOutline`: Title, summary, structure (3-10 sections)
+- `ArticleHalf`: Content with reasoning
+- `ArticleReview`: Grade (1-5), strengths, weaknesses
+- `BestArticleSelection`: Selection decision with reasoning
+- `ParallelSession`: Session tracking with all variants
+- `CompletedArticle`: Final article with all components
 
-Orchestrates workflow phases:
-- `generate_outlines()` - Phase 1
-- `select_outline()` - Phase 2
-- `generate_first_half()` - Phase 3
-- `generate_second_halves()` - Phase 4
-- `review_articles()` - Phase 5
-- `review_loop()` - Phases 6-8 (selection, approval, regeneration loop)
-- `save_article()` - Phase 9
+### Phase Detection (`src/service/runner_service.py`)
+
+```python
+def get_current_phase(state: ParallelWorldState) -> int:
+    if state.get("human_approved") is not None:
+        return 7
+    elif state.get("final_selected_session_id") is not None:
+        return 6
+    elif state.get("reviewed_sessions"):
+        return 5
+    # ... continues checking earlier phases
+    else:
+        return 0
+```
+
+### Rollback Implementation (`src/service/runner_service.py`)
+
+```python
+def forget_phases_after(state: ParallelWorldState, target_phase: int) -> ParallelWorldState:
+    if target_phase < 7:
+        state.pop("human_approved", None)
+        state.pop("rejected_session_ids", None)
+        state.pop("review_loop_iteration", None)
+    if target_phase < 6:
+        state.pop("final_selected_session_id", None)
+    # ... continues for all phases
+    state.pop("error", None)
+    return state
+```
 
 ## Dependencies
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| click | >=8.3.0 | CLI framework |
-| openai | >=2.4.0 | OpenAI API client |
-| pydantic | >=2.12.2 | Data validation and models |
-| python-dotenv | >=1.1.1 | Environment variable loading |
-| google-genai | >=1.45.0 | Google Gemini API (optional) |
+Core dependencies:
+- `click>=8.3.0`: CLI framework
+- `google-genai>=1.45.0`: Google Gemini integration
+- `pydantic>=2.12.2`: Data validation and structured outputs
+- `python-dotenv>=1.1.1`: Environment configuration
+
+Development dependencies:
+- `pytest>=8.4.2`: Testing framework
+- `pytest-asyncio>=1.2.0`: Async test support
+- `pytest-mock>=3.15.1`: Mocking utilities
 
 ## Usage
 
 ### Setup
 
-1. **Create environment variables file**
-
+1. Create environment file:
 ```bash
-cat > .envrc << EOF
-export OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
-EOF
-
-# If using direnv
-direnv allow
-
-# Or manually export
-source .envrc
+cp .envrc.example .envrc
 ```
 
-2. **Install dependencies**
-
+2. Configure API key:
 ```bash
-# Using uv (recommended)
-uv sync
+# .envrc
+export GEMINI_API_KEY="your-gemini-api-key-here"
+```
 
-# Using pip
-pip install -e .
+3. Install dependencies:
+```bash
+uv sync
 ```
 
 ### Run
 
-#### Basic Usage
-
+**Interactive mode** (with rollback options):
 ```bash
-# English article
 uv run python -m src.main \
-  --theme "The Future of Artificial Intelligence" \
+  --theme "The Future of AI" \
   --language en \
-  --model gpt-4o
+  --model gemini-2.5-flash
+```
 
-# Japanese article
+**Auto-select mode** (no user prompts):
+```bash
 uv run python -m src.main \
-  --theme "人工知能の未来" \
+  --theme "Quantum Computing" \
   --language ja \
-  --model gpt-4o
+  --model gemini-2.5-flash \
+  --auto-select
 ```
 
-#### Advanced Configuration
-
+**With custom variants**:
 ```bash
 uv run python -m src.main \
-  -t "Quantum Computing Breakthrough" \
-  -l en \
-  -m gpt-4o \
-  -od ./my_articles \
-  -no 5 \
-  -ns 4
-```
-
-#### Auto Mode (No Human Interaction)
-
-```bash
-uv run python -m src.main \
-  -t "Climate Change Solutions" \
-  -l en \
-  -m gpt-4o \
-  -a
+  --theme "Space Exploration" \
+  --language ja \
+  --model gemini-2.5-pro \
+  --num-outline-variants 5 \
+  --num-second-half-variants 5
 ```
 
 ### CLI Options
 
-| Option | Short | Type | Default | Description |
-|--------|-------|------|---------|-------------|
-| `--theme` | `-t` | TEXT | Required | Article theme/topic |
-| `--language` | `-l` | en/ja | Required | Article language |
-| `--model` | `-m` | Choice | Required | OpenAI model to use |
-| `--output-directory` | `-od` | PATH | outputs | Output directory |
-| `--num-outline-variants` | `-no` | INT | 3 | Number of outline variants |
-| `--num-second-half-variants` | `-ns` | INT | 3 | Number of second half variants |
-| `--auto-select` | `-a` | FLAG | False | Auto-select without human input |
+| Option | Short | Required | Default | Description |
+|--------|-------|----------|---------|-------------|
+| `--theme` | `-t` | Yes | - | Article theme/topic |
+| `--language` | `-l` | Yes | - | Language (`en` or `ja`) |
+| `--model` | `-m` | Yes | - | Gemini model name |
+| `--output-directory` | `-od` | No | `outputs` | Output directory |
+| `--num-outline-variants` | `-no` | No | `3` | Number of outline variants |
+| `--num-second-half-variants` | `-ns` | No | `3` | Number of second half variants |
+| `--auto-select` | `-a` | No | `False` | Auto-select mode flag |
 
-**Available Models**: gpt-5, gpt-5-mini, gpt-5-nano, gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, gpt-4o, gpt-4o-mini
+Available models:
+- `gemini-2.5-pro`
+- `gemini-2.5-flash`
+- `gemini-2.5-flash-lite`
 
 ## Development Commands
 
 ```bash
-# Run the CLI
-uv run python -m src.main --help
+# Lint and format code
+make fix
 
-# Run tests
-uv run pytest
+# Lint only
+make lint
 
-# Sync dependencies
-uv sync
+# Format only
+make fmt
 
-# Install dev dependencies
-uv sync --group dev
+# Type checking
+make mypy
 ```
 
 ## Implementation Notes
 
-### Parallel World Pattern
+### Parallel Generation
 
-**Branching Points**:
-- Phase 1: Generate N outline variants in parallel using `asyncio.gather()`
-- Phase 4: Generate N second half variants in parallel
-
-**Selection Points**:
-- Phase 2: User selects preferred outline
-- Phase 6: User selects final article from reviewed candidates
-
-**Feedback Loop**:
-- Phase 7-8: If rejected, collect feedback from reviews and regenerate
-
-### LLM-as-a-Judge Evaluation Criteria
-
-| Criterion | Weight | Description |
-|-----------|--------|-------------|
-| Content Quality | 30% | Accuracy, informativeness, value |
-| Structure & Flow | 25% | Adherence to outline, logical flow |
-| Writing Quality | 20% | Clarity, engagement, craftsmanship |
-| Completeness | 15% | Coverage of theme and sections |
-| Language Quality | 10% | Appropriateness, consistency |
-
-**Grading Scale**:
-- 5 (Excellent): Outstanding, exceeds expectations
-- 4 (Good): High quality with minor improvements needed
-- 3 (Acceptable): Adequate but with noticeable gaps
-- 2 (Poor): Significant issues
-- 1 (Very Poor): Fails basic standards
-
-### Auto-Select Mode Behavior
-
-When `--auto-select` is enabled:
-- Phase 2: Auto-selects first outline variant
-- Phase 6: Auto-selects highest graded article
-- Phase 7: Auto-approves if grade >= 4, auto-rejects otherwise
-
-### State Management
-
-The pipeline uses explicit state management with `ParallelWorldState` TypedDict:
-- Each phase receives state and returns updated state
-- Immutable updates: `{**state, "key": value}`
-- Error states tracked in `state["error"]`
-- Maximum 5 iterations for review loop to prevent infinite loops
-
-### Async Parallel Processing
-
-Uses `asyncio.gather()` for efficient parallel LLM calls:
+Uses `asyncio.gather()` for concurrent variant generation:
 
 ```python
-tasks = [generate_outline(...) for _ in range(num_variants)]
+tasks = [
+    generate_outline(theme, language, model, provider)
+    for _ in range(num_outline_variants)
+]
 outlines = await asyncio.gather(*tasks)
 ```
 
-### Environment Variables
+### LLM-as-a-Judge
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `OPENAI_API_KEY` | Yes | OpenAI API key |
-| `LOG_LEVEL` | No | Logging level (default: DEBUG) |
+Articles are graded on a 1-5 scale with detailed feedback:
+- **5 (Excellent)**: Outstanding, exceeds expectations
+- **4 (Good)**: High-quality with minor improvements possible
+- **3 (Acceptable)**: Adequate but with noticeable gaps
+- **2 (Poor)**: Significant issues
+- **1 (Very Poor)**: Fails basic quality standards
+
+Auto-select mode approves articles with grade >= 4.
+
+### Human-in-the-Loop Decision Points
+
+1. **Outline Selection** (Phase 2): Choose from generated outlines
+2. **Rollback Option** (After Phase 3): Continue or roll back
+3. **Article Selection** (Phase 6): Choose best reviewed article
+4. **Approval Decision** (Phase 7): Approve or reject with regeneration
+5. **Rollback Option** (After Phase 7): Continue or roll back
 
 ### Output Files
 
-Each generation creates a unique directory:
-- `parallel_world_article_<uuid>.json` - Complete article data
-- `parallel_world_article_<uuid>.md` - Article in Markdown format
-- `all_variants/` - All generated variants for comparison
+```
+outputs/
++-- parallel_world_article_{session_id}/
+    +-- parallel_world_article_{session_id}.json
+    +-- parallel_world_article_{session_id}.md
+    +-- all_variants/
+        +-- variant_1_grade_5.md
+        +-- variant_2_grade_4.md
+        +-- variant_3_grade_3.md
+```
+
+### Error Handling
+
+Errors are tracked in state and checked at each phase:
+```python
+if state.get("error"):
+    return None
+```
+
+### Feedback Loop
+
+When an article is rejected, the system:
+1. Tracks the rejected session ID
+2. Regenerates second halves with feedback from previous attempts
+3. Re-reviews all new variants
+4. Repeats up to 5 iterations maximum
+
+## Key Takeaways
+
+1. **State-based rollback** eliminates complex checkpoint management
+2. **Forgetting by deletion** prevents context contamination
+3. **Phase detection** enables resumption from any point
+4. **Human-in-the-loop** at critical junctures improves quality
+5. **Parallel world pattern** generates variants for better selection
+6. **LLM-as-a-Judge** automates consistent quality evaluation
+7. **Feedback loops** enable iterative improvement
+8. **Type-safe structured outputs** ensure reliability
+
+## Extending the System
+
+### Adding New Phases
+
+1. Add state variable in `ParallelWorldState`
+2. Update `get_current_phase()` to check the new variable
+3. Update `forget_phases_after()` to handle rollback
+4. Implement phase logic in runner service
+5. Add conditional execution in main loop
+
+### Adding New LLM Providers
+
+1. Add provider enum to `LLMProvider`
+2. Add model enum (e.g., `ClaudeModel`)
+3. Implement `_generate_with_provider()` helper in generation_service.py
+4. Update CLI to accept new provider/model combinations
+
+### Custom Review Criteria
+
+Modify prompts in `src/prompt/prompt.py`:
+- `make_article_review_system_instruction()` for review criteria
+- Grading scale and evaluation weights
+- Feedback format and detail level

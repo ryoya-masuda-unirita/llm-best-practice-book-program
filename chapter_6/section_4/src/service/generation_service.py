@@ -2,7 +2,8 @@ import asyncio
 from typing import Any, Literal
 from uuid import uuid4
 
-from src.client.llm_client import LLMProvider, openai_client
+from google.genai.types import GenerateContentConfig
+from src.client.llm_client import LLMProvider, google_genai_client
 from src.logger import make_logger
 from src.model.model import (
     ArticleHalf,
@@ -24,23 +25,23 @@ from src.prompt.prompt import (
 logger = make_logger(__name__)
 
 
-# =============================================================================
-# LLM Generation Functions
-# =============================================================================
-
-
-async def _generate_with_openai(
-    prompt: list[dict[str, str]],
-    response_format: type,
+async def _generate_with_gemini(
+    system_instruction: str,
+    user_content: str,
+    response_schema: type,
     model: str,
 ) -> Any:
-    """Generic OpenAI generation helper."""
-    result = await openai_client.beta.chat.completions.parse(
+    """Generic Gemini generation helper."""
+    result = await google_genai_client.aio.models.generate_content(
         model=model,
-        messages=prompt,
-        response_format=response_format,
+        contents=user_content,
+        config=GenerateContentConfig(
+            system_instruction=system_instruction,
+            response_mime_type="application/json",
+            response_schema=response_schema,
+        ),
     )
-    return result.choices[0].message.parsed
+    return result.parsed
 
 
 async def generate_outline(
@@ -52,11 +53,7 @@ async def generate_outline(
     """Generate article outline using specified LLM provider."""
     system_instruction, user_content = make_outline_generation_system_instruction(theme, language)
     try:
-        prompt = [
-            {"role": "system", "content": system_instruction},
-            {"role": "user", "content": user_content},
-        ]
-        return await _generate_with_openai(prompt, ArticleOutline, model)
+        return await _generate_with_gemini(system_instruction, user_content, ArticleOutline, model)
     except Exception as e:
         logger.error(f"Failed to generate outline with {provider.value}: {e}")
         return None
@@ -71,11 +68,7 @@ async def generate_first_half(
     """Generate first half of article using specified LLM provider."""
     system_instruction, user_content = make_first_half_generation_system_instruction(outline, language)
     try:
-        prompt = [
-            {"role": "system", "content": system_instruction},
-            {"role": "user", "content": user_content},
-        ]
-        result = await _generate_with_openai(prompt, ArticleHalf, model)
+        result = await _generate_with_gemini(system_instruction, user_content, ArticleHalf, model)
         return result
     except Exception as e:
         logger.error(f"Failed to generate first half with {provider.value}: {e}")
@@ -93,23 +86,7 @@ async def choose_best_first_half(
     first_halves = {uuid4().hex: candidate for candidate in first_half_candidates}
     system_instruction, user_content = make_choose_best_first_half_system_instruction(outline, first_halves, language)
     try:
-        prompt = [
-            {"role": "system", "content": system_instruction},
-            {"role": "user", "content": user_content},
-        ]
-        result = await _generate_with_openai(prompt, BestArticleSelection, model)
-
-        # Validate that the selected_id is one of the valid options
-        if result.selected_id not in first_halves:
-            valid_ids = list(first_halves.keys())
-            logger.error(
-                f"LLM returned invalid selected_id: '{result.selected_id}'. "
-                f"Valid IDs were: {valid_ids}"
-            )
-            # Fallback: return the first candidate if the LLM returned an invalid ID
-            logger.warning("Falling back to first candidate due to invalid selection")
-            return first_half_candidates[0] if first_half_candidates else None
-
+        result = await _generate_with_gemini(system_instruction, user_content, BestArticleSelection, model)
         return first_halves[result.selected_id]
     except Exception as e:
         logger.error(f"Failed to choose best first half with {provider.value}: {e}")
@@ -126,11 +103,7 @@ async def generate_second_half(
     """Generate second half of article using specified LLM provider."""
     system_instruction, user_content = make_second_half_generation_system_instruction(outline, first_half, language)
     try:
-        prompt = [
-            {"role": "system", "content": system_instruction},
-            {"role": "user", "content": user_content},
-        ]
-        result = await _generate_with_openai(prompt, ArticleHalf, model)
+        result = await _generate_with_gemini(system_instruction, user_content, ArticleHalf, model)
         return result.content
     except Exception as e:
         logger.error(f"Failed to generate second half with {provider.value}: {e}")
@@ -147,11 +120,7 @@ async def review_article(
     """Review article using LLM-as-a-Judge with specified provider."""
     system_instruction, user_content = make_article_review_system_instruction(theme, outline, full_article)
     try:
-        prompt = [
-            {"role": "system", "content": system_instruction},
-            {"role": "user", "content": user_content},
-        ]
-        return await _generate_with_openai(prompt, ArticleReview, model)
+        return await _generate_with_gemini(system_instruction, user_content, ArticleReview, model)
     except Exception as e:
         logger.error(f"Failed to review article with {provider.value}: {e}")
         return None
@@ -170,20 +139,11 @@ async def regenerate_second_half(
         outline, first_half, language, previous_attempts
     )
     try:
-        prompt = [
-            {"role": "system", "content": system_instruction},
-            {"role": "user", "content": user_content},
-        ]
-        result = await _generate_with_openai(prompt, ArticleHalf, model)
+        result = await _generate_with_gemini(system_instruction, user_content, ArticleHalf, model)
         return result.content
     except Exception as e:
         logger.error(f"Failed to regenerate second half with {provider.value}: {e}")
         return None
-
-
-# =============================================================================
-# Pipeline Nodes
-# =============================================================================
 
 
 def return_error_state(state: ParallelWorldState, error_msg: str) -> ParallelWorldState:
@@ -195,11 +155,7 @@ def return_error_state(state: ParallelWorldState, error_msg: str) -> ParallelWor
 async def generate_multiple_outlines_node(
     state: ParallelWorldState,
 ) -> ParallelWorldState:
-    """
-    Generate multiple article outlines in parallel.
-
-    This implements the first parallel world branching point.
-    """
+    """Generate multiple article outlines in parallel."""
     logger.info(f"Generating {state['num_outline_variants']} parallel outline variants for theme: {state['theme']}")
 
     tasks = [
@@ -296,11 +252,7 @@ async def generate_first_half_node(state: ParallelWorldState) -> ParallelWorldSt
 async def generate_multiple_second_halves_node(
     state: ParallelWorldState,
 ) -> ParallelWorldState:
-    """
-    Generate multiple second half variants in parallel.
-
-    This implements the second parallel world branching point.
-    """
+    """Generate multiple second half variants in parallel."""
     logger.info(f"Generating {state['num_second_half_variants']} parallel second half variants...")
 
     first_half_session = state.get("first_half_session")
@@ -405,11 +357,7 @@ async def review_all_articles_node(state: ParallelWorldState) -> ParallelWorldSt
 async def regenerate_second_halves_after_rejection_node(
     state: ParallelWorldState,
 ) -> ParallelWorldState:
-    """
-    Regenerate multiple second half variants after human rejection.
-
-    This uses feedback from rejected sessions to generate improved versions.
-    """
+    """Regenerate multiple second half variants after human rejection."""
     logger.info("Regenerating second half variants based on previous feedback...")
 
     first_half_session = state.get("first_half_session")

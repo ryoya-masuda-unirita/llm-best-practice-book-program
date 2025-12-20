@@ -13,6 +13,11 @@ from src.model.model import (
 logger = make_logger(__name__)
 
 
+# =============================================================================
+# Display Utilities
+# =============================================================================
+
+
 def print_separator() -> None:
     """Print a visual separator for terminal output."""
     click.echo("\n" + "=" * 80 + "\n")
@@ -53,10 +58,14 @@ def display_reviews(reviewed_sessions: list[ParallelSession]) -> None:
                 for weakness in review.weaknesses:
                     click.echo(f"  ✗ {weakness}")
 
-            # Show preview of second half
             if session.second_half:
                 click.echo("\nSecond Half Preview:")
                 print_article_preview(session.second_half)
+
+
+# =============================================================================
+# User Input Utilities
+# =============================================================================
 
 
 def get_outline_selection(outline_sessions: list[ParallelSession], auto_select: bool) -> int:
@@ -129,41 +138,9 @@ def get_human_approval(completed_article: CompletedArticle, auto_select: bool) -
             return False
 
 
-def get_rollback_choice(available_phases: list[tuple[int, str]], auto_select: bool) -> int | None:
-    """Ask user if they want to rollback to a previous phase."""
-    if auto_select:
-        return None
-
-    if not available_phases:
-        return None
-
-    click.echo("\n🔄 Rollback Option Available")
-    click.echo("You can go back to a previous phase if you want to try different choices.")
-    click.echo("This will 'forget' all subsequent phases and regenerate them.\n")
-    click.echo("Available phases:")
-    click.echo("  0. Continue without rollback (keep current progress)")
-
-    for i, (phase_num, phase_name) in enumerate(available_phases, 1):
-        click.echo(f"  {i}. Rollback to Phase {phase_num}: {phase_name}")
-
-    while True:
-        try:
-            choice = click.prompt(
-                f"\nSelect phase to rollback to (0-{len(available_phases)}, 0=continue)",
-                type=int,
-                default=0,
-            )
-
-            if choice == 0:
-                return None
-            elif 1 <= choice <= len(available_phases):
-                phase_num, _ = available_phases[choice - 1]
-                return phase_num
-            else:
-                click.echo(f"Please enter a number between 0 and {len(available_phases)}")
-        except (ValueError, click.Abort):
-            click.echo("Invalid input. Continuing without rollback.")
-            return None
+# =============================================================================
+# File Output Utilities
+# =============================================================================
 
 
 def save_article_files(

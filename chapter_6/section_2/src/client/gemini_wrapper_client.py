@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any
 
 from google import genai
-
 from src.config import config
 
 

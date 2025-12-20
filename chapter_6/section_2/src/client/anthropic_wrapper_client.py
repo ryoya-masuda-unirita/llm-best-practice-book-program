@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any
 
 from anthropic import Anthropic, AsyncAnthropic
-
 from src.config import config
 
 

@@ -1,5 +1,4 @@
 from google.genai.types import GenerateContentConfig
-
 from src.client.llm_client import GeminiModel, OpenAIModel, google_genai_client, openai_client
 from src.logger import make_logger
 from src.model.model import CharacterRequest, CharacterResponse

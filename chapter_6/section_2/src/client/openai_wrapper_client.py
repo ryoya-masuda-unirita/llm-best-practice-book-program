@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any
 
 from openai import AsyncOpenAI, OpenAI
-
 from src.config import config
 
 

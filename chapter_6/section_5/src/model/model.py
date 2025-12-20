@@ -234,34 +234,11 @@ class ParallelSession(BaseModel):
         )
 
 
-class ParallelWorldState(TypedDict, total=False):
-    """
-    State for parallel world article generation pipeline.
+class ParallelWorldState(TypedDict):
+    """State for parallel world article generation pipeline."""
 
-    The state itself serves as the memory of which phases have been completed.
-    Phases are determined by which fields are populated:
-
-    Phase 0: Initial state (only theme, language, metadata)
-    Phase 1: outline_sessions populated
-    Phase 2: selected_outline_session_id populated
-    Phase 3: first_half_session populated
-    Phase 4: second_half_sessions populated
-    Phase 5: reviewed_sessions populated
-    Phase 6-7: final_selected_session_id and human_approved populated
-
-    To "forget the past" and rollback to a phase, simply remove the state
-    variables that come after that phase.
-    """
-
-    # Required: Pipeline configuration (always present)
     theme: str
     language: Literal["en", "ja"]
-    llm_provider: str
-    model: str
-    num_outline_variants: int
-    num_second_half_variants: int
-
-    # Optional: Phase-specific state (presence indicates phase completion)
     # Phase 1: Multiple outlines generated in parallel
     outline_sessions: list[ParallelSession]
     # Phase 2: User selects one outline
@@ -278,6 +255,10 @@ class ParallelWorldState(TypedDict, total=False):
     human_approved: bool | None  # True if approved, False if needs revision
     rejected_session_ids: list[str]  # Track rejected sessions to avoid re-showing
     review_loop_iteration: int  # Track how many times we've looped
-
-    # Error tracking
+    # Pipeline metadata
+    llm_provider: str
+    model: str
     error: str | None
+    # Number of parallel sessions to create
+    num_outline_variants: int
+    num_second_half_variants: int
