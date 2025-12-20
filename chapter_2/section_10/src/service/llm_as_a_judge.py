@@ -1,7 +1,6 @@
 """LLM-as-a-Judge service for evaluating LLM responses."""
 
 from google.genai.types import GenerateContentConfig
-
 from src.client.llm_client import (
     AnthropicModel,
     GeminiModel,

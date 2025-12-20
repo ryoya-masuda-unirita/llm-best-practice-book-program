@@ -5,15 +5,11 @@ from uuid import uuid4
 from langchain_core.runnables import RunnableConfig
 from src.layer.base import BaseAgent
 from src.model.model import (
-    ContentType,
     DailyTask,
     HierarchicalAgentState,
     LearningContent,
     LearningSession,
-    QuestionType,
     Quiz,
-    QuizQuestion,
-    SkillLevel,
     TacticsOutput,
 )
 from src.prompt.prompt import (
@@ -36,18 +32,6 @@ class ContentAgent(BaseAgent):
     def __init__(self):
         super().__init__(layer_name="EXECUTION", agent_name="ContentAgent")
 
-    def _parse_learning_content(self, result: dict, task: DailyTask) -> LearningContent:
-        """Parse learning content from JSON result with safe defaults."""
-        return LearningContent(
-            content_id=result.get("content_id", f"content_{task.task_id}"),
-            task_id=result.get("task_id", task.task_id),
-            title=result.get("title", task.title),
-            content_type=self._safe_enum_parse(ContentType, result.get("content_type", "article"), ContentType.ARTICLE),
-            content_body=result.get("content_body", ""),
-            key_concepts=result.get("key_concepts", task.learning_objectives or []),
-            resources=result.get("resources", []),
-        )
-
     def execute(self, task: DailyTask, learner_level: str, config: RunnableConfig) -> LearningContent:
         """Generate learning content for a specific task."""
         self.logger.info(f"Creating content for task: {task.task_id}")
@@ -62,12 +46,13 @@ class ContentAgent(BaseAgent):
         )
 
         try:
-            result = self._invoke_and_parse(config, make_content_system_prompt(), user_prompt)
-            content = self._parse_learning_content(result, task)
+            content = self._invoke_with_structured_output(
+                config, make_content_system_prompt(), user_prompt, LearningContent
+            )
             self.logger.info(f"Content created: {content.title}")
             return content
 
-        except (KeyError, ValueError) as e:
+        except Exception as e:
             self._handle_parse_error(e)
             raise ValueError(f"Content agent failed: {e}")
 
@@ -81,34 +66,6 @@ class QuizAgent(BaseAgent):
 
     def __init__(self):
         super().__init__(layer_name="EXECUTION", agent_name="QuizAgent")
-
-    def _parse_quiz_question(self, data: dict, index: int, key_concepts: list[str]) -> QuizQuestion:
-        """Parse a quiz question from JSON data with safe defaults."""
-        return QuizQuestion(
-            question_id=data.get("question_id", f"q_{index + 1:03d}"),
-            question_type=self._safe_enum_parse(
-                QuestionType, data.get("question_type", "multiple_choice"), QuestionType.MULTIPLE_CHOICE
-            ),
-            question_text=data.get("question_text", ""),
-            options=data.get("options", []),
-            correct_answer=data.get("correct_answer", ""),
-            explanation=data.get("explanation", ""),
-            difficulty=self._safe_enum_parse(SkillLevel, data.get("difficulty", "beginner"), SkillLevel.BEGINNER),
-            related_concepts=data.get("related_concepts", key_concepts or []),
-        )
-
-    def _parse_quiz(self, result: dict, task_id: str, title: str, key_concepts: list[str]) -> Quiz:
-        """Parse quiz from JSON result with safe defaults."""
-        questions = [self._parse_quiz_question(q, i, key_concepts) for i, q in enumerate(result.get("questions", []))]
-
-        return Quiz(
-            quiz_id=result.get("quiz_id", f"quiz_{task_id}"),
-            task_id=result.get("task_id", task_id),
-            title=result.get("title", f"Quiz: {title}"),
-            questions=questions,
-            passing_score=result.get("passing_score", 70),
-            time_limit_minutes=result.get("time_limit_minutes", 0),
-        )
 
     def execute(
         self,
@@ -129,12 +86,11 @@ class QuizAgent(BaseAgent):
         )
 
         try:
-            result = self._invoke_and_parse(config, make_quiz_system_prompt(), user_prompt)
-            quiz = self._parse_quiz(result, task_id, title, key_concepts)
+            quiz = self._invoke_with_structured_output(config, make_quiz_system_prompt(), user_prompt, Quiz)
             self.logger.info(f"Quiz created: {quiz.title} ({len(quiz.questions)} questions)")
             return quiz
 
-        except (KeyError, ValueError) as e:
+        except Exception as e:
             self._handle_parse_error(e)
             raise ValueError(f"Quiz agent failed: {e}")
 

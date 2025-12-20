@@ -7,7 +7,6 @@ allowing services to request LLM completions without managing API keys directly.
 from typing import Any, Optional
 
 import httpx
-
 from src.config import config
 from src.logger import make_logger
 

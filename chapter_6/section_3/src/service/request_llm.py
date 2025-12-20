@@ -2,7 +2,6 @@ import asyncio
 from dataclasses import dataclass
 
 from google.genai.types import GenerateContentConfig
-
 from src.client.llm_client import (
     AnthropicModel,
     GeminiModel,

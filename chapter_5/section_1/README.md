@@ -1,4 +1,4 @@
-# Chapter 5 Section 1: ReAct型AIエージェント
+# Chapter 5 Section 1: ReAct型AIエージェント - 夕食メニューアドバイザー
 
 ## 概要
 
@@ -75,7 +75,7 @@ chapter_5/section_1/
 │      Infrastructure Layer               │
 │  - 設定管理 (config.py)                 │
 │  - ログ管理 (logger.py)                 │
-│  - 外部API (OpenAI)                     │
+│  - 外部API (Anthropic Claude)           │
 └─────────────────────────────────────────┘
 ```
 
@@ -115,10 +115,9 @@ chapter_5/section_1/
 
 - **Python**: 3.13.2以上
 - **依存ライブラリ**:
-  - click>=8.3.0
-  - langchain-openai>=1.1.0
+  - langchain-anthropic>=1.2.0
   - langgraph>=1.0.0
-  - openai>=2.4.0
+  - click>=8.3.0
   - pydantic>=2.12.2
   - python-dotenv>=1.1.1
 
@@ -132,7 +131,7 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
+ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
 ```
 
 2. **依存関係のインストール**
@@ -163,12 +162,19 @@ uv run python -m src.main -r "30分以内で作れるイタリアン"
 #### モデルの指定
 
 ```bash
-# デフォルト（gpt-5-mini）
+# デフォルト（claude-haiku-4-5）
 uv run python -m src.main -r "簡単な夕食"
 
 # 別のモデルを使用
-uv run python -m src.main -m gpt-4o -r "簡単な夕食"
+uv run python -m src.main -m claude-sonnet-4-5 -r "簡単な夕食"
+uv run python -m src.main -m claude-opus-4-5 -r "本格的なフレンチ"
 ```
+
+利用可能なモデル:
+- `claude-haiku-4-5`（デフォルト）
+- `claude-sonnet-4-5`
+- `claude-opus-4-5`
+- `claude-opus-4-1`
 
 #### 出力先の指定
 
@@ -204,7 +210,7 @@ Usage: python -m src.main [OPTIONS]
       python -m src.main -r "30分以内で作れるイタリアン"
 
 Options:
-  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI]
+  -m, --model [claude-opus-4-5|claude-haiku-4-5|claude-sonnet-4-5|claude-opus-4-1]
                                   The model to use for the request.
   -od, --output-directory PATH    The directory to save output files.
   -r, --request TEXT              Your dinner request in natural language.
@@ -245,4 +251,47 @@ Options:
 4. 蓋をして中火にかけ、沸騰したら弱めの中火〜中火で約15〜20分、白菜がしんなりして豚肉に火が通るまで煮る。
 5. 好みで豆腐やしめじを一緒に入れても良い。火から下ろして器に盛り、刻みねぎを散らす。ポン酢や柚子胡椒を添えて召し上がれ。
 6. 後片付けを楽にするため、使った鍋はぬるま湯に浸けておくと簡単です。
+```
+
+## 開発コマンド
+
+```bash
+make lint   # ruffでリンターを実行（自動修正付き）
+make fmt    # ruffでコードをフォーマット
+make fix    # lintとfmtを両方実行
+make mypy   # 型チェックを実行
+```
+
+## 実装のポイント
+
+### 無限ループ防止
+
+`MAX_ITERATIONS = 10`により、ツール実行のサイクル数を制限し、エージェントの暴走を防止しています。
+
+```python
+if tool_message_count >= MAX_ITERATIONS:
+    logger.warning(f"Agent: Max iterations ({MAX_ITERATIONS}) reached, forcing response")
+    return "respond"
+```
+
+### 構造化出力
+
+`tool_choice="any"`と`DinnerRecommendation`をレスポンスツールとして使用することで、モデルが必ずツールを呼び出し、構造化された出力を生成するよう強制しています。
+
+```python
+model_with_tools = model.bind_tools(all_tools, tool_choice="any")
+```
+
+### データソース
+
+レシピ、栄養情報、旬の食材データは`model.py`内に定数として定義されています。本番環境では、外部APIやデータベースに接続することを想定しています。
+
+```python
+RECIPES_DATABASE: dict[str, list[dict]] = {
+    "Japanese": [
+        {"name": "鶏の照り焼き", "ingredients": ["鶏もも肉", "醤油", "みりん", "砂糖"], "time": 25},
+        # ...
+    ],
+    # ...
+}
 ```

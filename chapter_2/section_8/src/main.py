@@ -4,7 +4,6 @@ from functools import wraps
 from uuid import uuid4
 
 import click
-
 from src.client.llm_client import AnthropicModel, GeminiModel, LLMProvider, OpenAIModel, google_genai_client
 from src.logger import make_logger
 from src.model.model import CharacterRequest, Gender

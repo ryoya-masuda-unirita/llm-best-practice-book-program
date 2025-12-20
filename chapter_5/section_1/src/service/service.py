@@ -2,12 +2,13 @@ import json
 from datetime import datetime
 from typing import Literal
 
+from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
-from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
-from src.client.llm_client import OpenAIModel
+from src.client.llm_client import AnthropicModel
+from src.config import config as global_config
 from src.logger import make_logger
 from src.model.model import (
     BASE_COOKING_TIMES,
@@ -136,9 +137,9 @@ def call_model(state: AgentState, config: RunnableConfig) -> dict:
     """Call the LLM model with the current state (Thought + Action part of ReAct loop)."""
     logger.info("Agent: Calling model for reasoning...")
 
-    model_name = config.get("configurable", {}).get("model", OpenAIModel.GPT_5_MINI)
+    model_name = config.get("configurable", {}).get("model", AnthropicModel.CLAUDE_HAIKU_4_5)
 
-    model = ChatOpenAI(model=model_name)
+    model = ChatAnthropic(model=model_name, api_key=global_config.anthropic_api_key)
     model_with_tools = model.bind_tools(all_tools, tool_choice="any")
 
     system_message = SystemMessage(content=make_dinner_advisor_system_prompt())
@@ -256,7 +257,7 @@ def create_dinner_advisor_graph() -> StateGraph:
 
 async def run_dinner_advisor(
     user_request: str,
-    model: str = OpenAIModel.GPT_5_MINI,
+    model: str = AnthropicModel.CLAUDE_HAIKU_4_5,
 ) -> DinnerRecommendation | None:
     """Run the dinner advisor agent with a user's request."""
     logger.info(f"Starting dinner advisor for request: {user_request}")

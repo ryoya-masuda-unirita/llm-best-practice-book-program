@@ -1,4 +1,5 @@
-from typing import Annotated, Sequence
+import operator
+from typing import Annotated, Literal, Sequence
 
 from langchain_core.messages import BaseMessage
 from langgraph.graph.message import add_messages
@@ -137,6 +138,56 @@ class ReportGeneratorResponse(BaseModel):
     recommended_actions: list[str] = Field(..., description="List of recommended actions")
 
 
+# =============================================================================
+# Orchestrator Models
+# =============================================================================
+
+WorkerType = Literal[
+    "document_parser",
+    "clause_classifier",
+    "risk_assessment",
+    "diff_checker",
+    "amendment_proposer",
+    "report_generator",
+]
+
+
+class TaskAssignment(BaseModel):
+    """Task assignment from orchestrator to worker."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    worker: WorkerType = Field(..., description="Worker agent to assign the task to")
+    task_description: str = Field(..., description="Description of the task for the worker")
+    priority: int = Field(default=1, ge=1, le=10, description="Task priority (1=highest)")
+    depends_on: list[WorkerType] = Field(
+        default_factory=list,
+        description="List of workers that must complete before this task",
+    )
+
+
+class OrchestratorPlan(BaseModel):
+    """Orchestrator's plan for contract review."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    tasks: list[TaskAssignment] = Field(..., description="List of task assignments")
+    strategy: str = Field(..., description="Overall strategy for the review")
+    focus_areas: list[str] = Field(
+        default_factory=list,
+        description="Specific areas to focus on during review",
+    )
+
+
+class OrchestratorResponse(BaseModel):
+    """Response model for orchestrator agent."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    plan: OrchestratorPlan = Field(..., description="The review plan")
+    reasoning: str = Field(..., description="Reasoning behind the plan")
+
+
 class ContractReviewReport(BaseModel):
     """Final contract review report."""
 
@@ -216,8 +267,36 @@ class ContractReviewReport(BaseModel):
         return "".join(md_parts)
 
 
+def reduce_list(left: list | None, right: list | None) -> list:
+    """Reducer for concurrent list updates. Prefers non-empty right (newer) value."""
+    if left is None:
+        left = []
+    if right is None:
+        right = []
+    if right:
+        return right
+    return left
+
+
 class AgentState(TypedDict):
     """State for the multi-agent contract review system."""
+
+    messages: Annotated[Sequence[BaseMessage], add_messages]
+    contract_text: str
+    standard_template: str
+    parsed_clauses: Annotated[list[dict], reduce_list]
+    clause_categories: Annotated[list[dict], reduce_list]
+    risk_assessments: Annotated[list[dict], reduce_list]
+    diffs: Annotated[list[dict], reduce_list]
+    amendments: Annotated[list[dict], reduce_list]
+    final_report: str | None
+    orchestrator_plan: OrchestratorPlan | None
+    completed_tasks: Annotated[list[str], operator.add]
+    current_phase: str
+
+
+class WorkerState(TypedDict):
+    """State for individual worker agents in orchestrator pattern."""
 
     messages: Annotated[Sequence[BaseMessage], add_messages]
     contract_text: str
@@ -227,4 +306,6 @@ class AgentState(TypedDict):
     risk_assessments: list[dict]
     diffs: list[dict]
     amendments: list[dict]
-    final_report: str | None
+    worker_type: str
+    task_description: str
+    completed_tasks: Annotated[list[str], operator.add]

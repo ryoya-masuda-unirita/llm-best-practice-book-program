@@ -1,46 +1,44 @@
-# Chapter 5 Section 3: マルチAIエージェント
+# Chapter 5 Section 3: マルチエージェント契約書レビューシステム
 
 ## 概要
 
-本プロジェクトは、マルチAIエージェントアーキテクチャを用いた契約書レビューシステムです。単一のLLMでは対応が困難な複雑な契約書レビュータスクを、6つの専門エージェントが協調して処理することで、高精度なリスク評価と修正提案を実現します。
+本プロジェクトは、LangGraphとGoogle Geminiを活用したマルチエージェントAIシステムによる契約書レビューシステムです。6つの専門エージェントが協調して契約書を分析し、リスク評価、標準テンプレートとの比較、包括的なレビューレポートを生成します。
 
-マルチAIエージェントは、それぞれが特定の役割や専門知識を持つ複数のAIエージェントを協調させて動作させるアーキテクチャパターンです。タスクの分解、各エージェントへの割り当て、そして結果の統合という一連のプロセスを通じて、システム全体として高度な問題解決能力を実現します。
-
-本システムでは、契約書のアップロードから、条項の抽出、カテゴリ分類、リスク評価、標準契約との差分検出、修正案の提案、最終レポートの生成までを自動化します。法務部門の支援ツールとして、「どこを重点的に確認すべきか」のナビゲーションを提供します。
+複雑なタスクを分解して専門エージェントに委任し、結果を統合するマルチAIエージェントアーキテクチャパターンを実装しています。オーケストレーター・ワーカーパターンにより、Document Parserによる条項抽出後、Clause Classifier、Risk Assessment、Diff Checkerが並列で動作し、効率的な処理を実現します。
 
 ## 機能
 
-- **契約書構造解析**: マークダウン形式の契約書を条項ごとに構造化データとして抽出
-- **条項カテゴリ分類**: 守秘義務、損害賠償、再委託、知的財産など9種類のカテゴリに自動分類
-- **リスク評価**: 各条項を1-10のスコアでリスク評価し、リスク要因を特定
-- **標準契約との差分検出**: 自社標準テンプレートとの差分を検出し、追加・削除・修正を明示
-- **修正案の自動提案**: 高リスク条項に対する修正文案と交渉ポイントを提案
-- **レビューレポート生成**: 非法務ステークホルダー向けのエグゼクティブサマリーを含む包括的レポートを生成
+- **契約書構造解析**: 契約書テキストを条項単位で構造化データに変換
+- **条項分類**: 守秘義務、責任制限、知的財産など8カテゴリへの自動分類
+- **リスク評価**: 受領者（乙）視点での1-10スケールリスクスコアリング
+- **差分検出**: 自社標準テンプレートとの差分を追加/削除/修正として検出
+- **修正案提案**: 高リスク条項に対する修正文言と交渉ポイントの提案
+- **レポート生成**: 非法務ステークホルダー向けMarkdown形式レポート出力
 
 ## プロジェクト構成
 
 ### ディレクトリ構成
 
 ```
-chapter_4/section_3/
+chapter_5/section_3/
 ├── src/
 │   ├── __init__.py
 │   ├── main.py                      # CLIエントリーポイント
 │   ├── config.py                    # 環境設定
-│   ├── logger.py                    # ロギング設定
+│   ├── logger.py                    # ログ設定
 │   ├── client/
 │   │   ├── __init__.py
-│   │   └── llm_client.py            # Anthropic LLMクライアント
+│   │   └── llm_client.py            # LLMクライアント・モデル定義
 │   ├── model/
 │   │   ├── __init__.py
-│   │   └── multi_agent_model.py     # データモデル定義
+│   │   └── multi_agent_model.py     # Pydanticデータモデル・AgentState
 │   ├── prompt/
 │   │   ├── __init__.py
-│   │   └── multi_agent_prompt.py    # 各エージェントのプロンプト
+│   │   └── multi_agent_prompt.py    # 各エージェント用システムプロンプト
 │   └── service/
 │       ├── __init__.py
-│       └── multi_agent_service.py   # マルチエージェントサービス
-├── example/                          # サンプル契約書
+│       └── multi_agent_service.py   # LangGraphパイプライン実装
+├── example/                          # サンプル契約書・テンプレート
 │   ├── standard_nda_template.md
 │   ├── sample_nda.md
 │   ├── sample_nda_02.md
@@ -51,271 +49,176 @@ chapter_4/section_3/
 │   ├── standard_consulting_template.md
 │   ├── sample_consulting_01.md
 │   └── sample_consulting_02.md
-├── outputs/                          # 出力レポート保存先
+├── outputs/                          # 生成されたレビューレポート
 ├── pyproject.toml
+├── Makefile
 ├── .envrc.example
-├── CLAUDE.md
 └── README.md
 ```
 
 ### アーキテクチャ
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        Contract Review Pipeline                          │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐               │
-│  │   Contract   │───▶│  Document    │───▶│   Clause     │               │
-│  │    Input     │    │   Parser     │    │  Classifier  │               │
-│  └──────────────┘    │   Agent      │    │    Agent     │               │
-│                      └──────────────┘    └──────┬───────┘               │
-│                                                 │                        │
-│                                                 ▼                        │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐               │
-│  │   Standard   │───▶│    Diff      │◀───│    Risk      │               │
-│  │   Template   │    │   Checker    │    │  Assessment  │               │
-│  └──────────────┘    │    Agent     │    │    Agent     │               │
-│                      └──────┬───────┘    └──────────────┘               │
-│                             │                                            │
-│                             ▼                                            │
-│                      ┌──────────────┐    ┌──────────────┐               │
-│                      │  Amendment   │───▶│   Report     │               │
-│                      │  Proposer    │    │  Generator   │               │
-│                      │    Agent     │    │    Agent     │               │
-│                      └──────────────┘    └──────┬───────┘               │
-│                                                 │                        │
-│                                                 ▼                        │
-│                                          ┌──────────────┐               │
-│                                          │   Review     │               │
-│                                          │   Report     │               │
-│                                          └──────────────┘               │
-└─────────────────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------------------+
+|                   オーケストレーター・ワーカーパイプライン                    |
++-------------------------------------------------------------------------+
+|                                                                          |
+|  +----------------+    +-------------------+                             |
+|  |   契約書入力    |--->|   Orchestrator    |                             |
+|  | (Contract/     |    |      Agent        |                             |
+|  |  Template)     |    +--------+----------+                             |
+|  +----------------+             |                                        |
+|                                 v                                        |
+|                    +-------------------+                                 |
+|                    | Document Parser   |                                 |
+|                    |     Worker        |                                 |
+|                    +--------+----------+                                 |
+|                             |                                            |
+|          +------------------+------------------+                         |
+|          |                  |                  |                         |
+|          v                  v                  v                         |
+|  +---------------+  +---------------+  +---------------+                 |
+|  |    Clause     |  |     Risk      |  |     Diff      |  (並列処理)     |
+|  |  Classifier   |  |  Assessment   |  |    Checker    |                 |
+|  |    Worker     |  |    Worker     |  |    Worker     |                 |
+|  +-------+-------+  +-------+-------+  +-------+-------+                 |
+|          |                  |                  |                         |
+|          +------------------+------------------+                         |
+|                             |                                            |
+|                             v                                            |
+|                    +-------------------+                                 |
+|                    |     Collector     |                                 |
+|                    +--------+----------+                                 |
+|                             |                                            |
+|                             v                                            |
+|                    +-------------------+                                 |
+|                    |    Amendment      |                                 |
+|                    |    Proposer       |                                 |
+|                    +--------+----------+                                 |
+|                             |                                            |
+|                             v                                            |
+|                    +-------------------+                                 |
+|                    |   Synthesizer     |                                 |
+|                    | (Report Generator)|                                 |
+|                    +--------+----------+                                 |
+|                             |                                            |
+|                             v                                            |
+|                    +-------------------+                                 |
+|                    |  レビューレポート   |                                 |
+|                    |   (Markdown)      |                                 |
+|                    +-------------------+                                 |
++-------------------------------------------------------------------------+
 ```
 
-### 実装の詳細
+### エージェント一覧
 
-#### 1. エージェント状態管理 (`src/model/multi_agent_model.py`)
+| エージェント | 機能 | 出力 |
+|------------|------|------|
+| Orchestrator | ワークフロー計画・タスク割当 | `orchestrator_plan` |
+| Document Parser | 契約書を条項ごとに構造化 | `parsed_clauses` |
+| Clause Classifier | 条項をカテゴリ分類 | `clause_categories` |
+| Risk Assessment | リスクレベル評価（1-10） | `risk_assessments` |
+| Diff Checker | 標準テンプレートとの差分検出 | `diffs` |
+| Amendment Proposer | 高リスク条項の修正案提案 | `amendments` |
+| Report Generator | 最終Markdownレポート生成 | `final_report` |
 
-LangGraphの`TypedDict`を使用して、エージェント間で共有される状態を管理します。
-
-```python
-class AgentState(TypedDict):
-    """State for the multi-agent contract review system."""
-
-    messages: Annotated[Sequence[BaseMessage], add_messages]
-    contract_text: str
-    standard_template: str
-    parsed_clauses: list[dict]
-    clause_categories: list[dict]
-    risk_assessments: list[dict]
-    diffs: list[dict]
-    amendments: list[dict]
-    final_report: str | None
-```
-
-**ポイント**: 各エージェントの出力が次のエージェントの入力となるパイプライン構造を、`AgentState`で一元管理しています。
-
-#### 2. データモデル (`src/model/multi_agent_model.py`)
-
-契約書レビューの各段階で生成されるデータをPydanticモデルで定義しています。
+### データモデル
 
 ```python
+# 条項データ
+class ContractClause(BaseModel):
+    clause_number: str   # 例: "第1条"
+    title: str           # 条項タイトル
+    content: str         # 条項本文
+
+# カテゴリ分類
+class ClauseCategory(BaseModel):
+    clause_number: str
+    category: str        # 守秘義務, 責任制限, 知的財産, etc.
+    reason: str
+
+# リスク評価
 class RiskAssessment(BaseModel):
-    """Risk assessment for a clause."""
+    clause_number: str
+    risk_level: str      # 高, 中, 低
+    risk_score: int      # 1-10
+    risk_factors: list[str]
+    explanation: str
 
-    clause_number: str = Field(..., description="Clause number")
-    risk_level: str = Field(..., description="Risk level: 高, 中, 低")
-    risk_score: int = Field(..., ge=1, le=10, description="Risk score from 1 to 10")
-    risk_factors: list[str] = Field(..., description="List of risk factors identified")
-    explanation: str = Field(..., description="Detailed explanation of risk assessment")
+# 差分
+class ClauseDiff(BaseModel):
+    clause_number: str
+    diff_type: str       # 追加, 削除, 修正, 一致
+    original_text: str
+    standard_text: str
+    summary: str
+
+# 修正提案
+class AmendmentProposal(BaseModel):
+    clause_number: str
+    original_text: str
+    proposed_text: str
+    rationale: str
+    negotiation_points: list[str]
 ```
-
-**ポイント**: `Field`のバリデーション機能（`ge=1, le=10`）により、LLMの出力が期待される範囲内であることを保証します。
-
-#### 3. エージェントプロンプト (`src/prompt/multi_agent_prompt.py`)
-
-各専門エージェントのシステムプロンプトと、動的なユーザープロンプト生成関数を定義しています。
-
-```python
-RISK_ASSESSMENT_SYSTEM_PROMPT = """あなたは契約リスクを評価する専門AIエージェントです。
-
-## 役割
-各契約条項のリスクレベルを評価し、リスク要因を特定します。
-
-## 評価基準
-以下の観点からリスクを評価してください：
-
-1. **一方的な不利益**: 受領者（乙）に一方的に不利な条件
-2. **過度な義務**: 通常の商慣習を超えた義務の課せられ方
-3. **曖昧な表現**: 解釈の余地が大きく紛争の原因になりうる表現
-4. **実務上の困難**: 実際の業務遂行上、遵守が困難な条件
-5. **法的リスク**: 法令違反や公序良俗に反する可能性
-6. **財務リスク**: 過大な損害賠償、違約金のリスク
-
-## リスクレベル
-- 高（スコア7-10）: 直ちに修正交渉が必要
-- 中（スコア4-6）: 注意が必要、可能であれば修正を検討
-- 低（スコア1-3）: 標準的な条項、特段の問題なし
-"""
-```
-
-**ポイント**: 各エージェントの役割と評価基準を明確に定義することで、一貫性のある分析結果を得られます。
-
-#### 4. LangGraphによるパイプライン構築 (`src/service/multi_agent_service.py`)
-
-6つのエージェントノードを順次接続するグラフを構築します。
-
-```python
-def create_contract_review_graph() -> StateGraph:
-    """Create the multi-agent contract review graph."""
-    graph = StateGraph(AgentState)
-
-    # ノードの追加
-    graph.add_node("document_parser", document_parser_node)
-    graph.add_node("clause_classifier", clause_classifier_node)
-    graph.add_node("risk_assessment", risk_assessment_node)
-    graph.add_node("diff_checker", diff_checker_node)
-    graph.add_node("amendment_proposer", amendment_proposer_node)
-    graph.add_node("report_generator", report_generator_node)
-
-    # エントリーポイントの設定
-    graph.set_entry_point("document_parser")
-
-    # エッジの定義（パイプライン構造）
-    graph.add_edge("document_parser", "clause_classifier")
-    graph.add_edge("clause_classifier", "risk_assessment")
-    graph.add_edge("risk_assessment", "diff_checker")
-    graph.add_edge("diff_checker", "amendment_proposer")
-    graph.add_edge("amendment_proposer", "report_generator")
-    graph.add_edge("report_generator", END)
-
-    return graph.compile()
-```
-
-**ポイント**: LangGraphの`StateGraph`を使用することで、エージェント間のデータフローを宣言的に定義できます。
-
-#### 5. LLM応答のJSON抽出 (`src/service/multi_agent_service.py`)
-
-LLMの応答からJSONを安全に抽出するユーティリティ関数を実装しています。
-
-```python
-def extract_json_from_response(response_text: str) -> dict:
-    """Extract JSON from LLM response text."""
-    # ```json ... ``` 形式の抽出を試みる
-    json_match = re.search(r"```json\s*([\s\S]*?)\s*```", response_text)
-    if json_match:
-        json_str = json_match.group(1)
-    else:
-        # 直接JSONオブジェクトを探す
-        json_match = re.search(r"\{[\s\S]*\}", response_text)
-        if json_match:
-            json_str = json_match.group(0)
-        else:
-            json_str = response_text
-
-    return json.loads(json_str)
-```
-
-**ポイント**: LLMの出力形式の揺らぎに対応するため、複数のパターンでJSON抽出を試みます。
 
 ## 使い方
 
 ### 環境構成
 
-- Python: 3.13.2以上
-- 主要な依存ライブラリ:
-  - `anthropic>=0.74.1` - Anthropic API クライアント
-  - `langchain-anthropic>=1.2.0` - LangChain Anthropic統合
-  - `langgraph>=1.0.0` - マルチエージェントグラフ構築
-  - `pydantic>=2.12.2` - データバリデーション
+- **Python**: 3.13.2以上
+- **主要依存ライブラリ**:
+  - `langchain-google-genai>=3.2.0` - LangChain Google Gemini統合
+  - `langgraph>=1.0.0` - マルチエージェントグラフオーケストレーション
+  - `anthropic>=0.74.1` - Anthropic APIクライアント
+  - `pydantic>=2.12.2` - データバリデーション・モデル
   - `click>=8.3.0` - CLIフレームワーク
+  - `python-dotenv>=1.1.1` - 環境変数管理
 
 ### セットアップ
 
-1. 環境変数の設定
-
 ```bash
+# 環境変数テンプレートをコピー
 cp .envrc.example .envrc
-```
 
-`.envrc`を編集してAPIキーを設定:
+# .envrcを編集してAPIキーを設定
+GEMINI_API_KEY=<your_gemini_api_key_here>
 
-```
-ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
-```
-
-2. 依存関係のインストール
-
-```bash
+# 依存関係をインストール
 uv sync
 ```
 
-### 使用方法、実行方法
-
-#### 基本的な使い方
+### 使用方法
 
 ```bash
+# 基本的な使用方法
 python -m src.main -c <契約書ファイル> -t <テンプレートファイル>
-```
 
-#### CLIオプション
-
-```
-Usage: python -m src.main [OPTIONS]
-
-  Contract Review Multi-Agent System
-
-  This system reviews contract documents using multiple specialized AI agents:
-
-  1. Document Parser Agent - Parses contract into structured clauses
-  2. Clause Classifier Agent - Categorizes each clause
-  3. Risk Assessment Agent - Evaluates risk levels
-  4. Diff Checker Agent - Compares with standard template
-  5. Amendment Proposer Agent - Suggests modifications for high-risk clauses
-  6. Report Generator Agent - Creates comprehensive review report
-
-Options:
-  -m, --model [claude-sonnet-4-5|claude-opus-4-1]
-                                  The Anthropic model to use for the review.
-  -od, --output-directory PATH    The directory to save output files.
-  -c, --contract-file PATH        Path to the contract file to review (markdown format). [required]
-  -t, --template-file PATH        Path to the standard contract template file (markdown format). [required]
-  --help                          Show this message and exit.
-```
-
-#### 実行例
-
-**NDA契約書のレビュー:**
-
-```bash
+# 例: NDA契約書のレビュー
 python -m src.main \
   -c example/sample_nda.md \
-  -t example/standard_nda_template.md \
-  -od outputs
-```
+  -t example/standard_nda_template.md
 
-**物品売買契約書のレビュー:**
-
-```bash
+# モデル選択とカスタム出力ディレクトリ
 python -m src.main \
-  -c example/sample_purchase_order_01.md \
-  -t example/standard_purchase_order_template.md
-```
-
-**コンサルティング契約書のレビュー（モデル指定）:**
-
-```bash
-python -m src.main \
-  -m claude-opus-4-1 \
+  -m gemini-2.5-flash \
   -c example/sample_consulting_02.md \
   -t example/standard_consulting_template.md \
   -od reports
 ```
 
+### CLIオプション
+
+| オプション | 短縮形 | 必須 | デフォルト | 説明 |
+|-----------|-------|------|-----------|------|
+| `--contract-file` | `-c` | Yes | - | 契約書ファイルパス（Markdown形式） |
+| `--template-file` | `-t` | Yes | - | 標準テンプレートファイルパス |
+| `--model` | `-m` | No | `gemini-2.5-pro` | 使用モデル（`gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`） |
+| `--output-directory` | `-od` | No | `outputs` | 出力ディレクトリ |
+
 ### 出力例
 
-レビュー結果は`outputs/`ディレクトリにMarkdown形式で保存されます。
+レビュー実行後、以下のようなMarkdownレポートが生成されます:
 
 ```markdown
 # 契約書レビューレポート
@@ -324,58 +227,120 @@ python -m src.main \
 **総合リスクレベル**: 高
 **総合リスクスコア**: 7.5 / 10.0
 
-本契約書には、受領者（乙）にとって重大なリスクを含む条項が複数存在します。
-特に、第4条（再委託）、第7条（損害賠償）、第9条（知的財産権）、第11条（契約解除）
-については、自社標準から大きく逸脱しており、早急な修正交渉が必要です。
+本契約書には受領者（乙）にとって重大なリスクを伴う条項が複数含まれています...
 
 ## 主要な論点
-1. 再委託条項で受領者の責任が免除されており、管理リスクが高い
-2. 損害賠償の上限が1万円と極端に低く設定されている
-3. 独自開発した知的財産も開示者に帰属する条項がある
-4. 事前通知なしの監査権限が付与されている
+1. 第4条：再委託に関する責任免除条項
+2. 第7条：過度に低い損害賠償上限
+3. 第9条：乙の独自開発知財の無償譲渡
+4. 第10条：無制限の監査権限
 
 ## 推奨アクション
-1. 相手方に修正依頼（第4条、第7条、第9条、第11条）
-2. 上長決裁が必要
-3. 法務部門の詳細レビュー必要
+1. 相手方に修正依頼（第4条、第7条、第9条）
+2. 法務部門の詳細レビュー必要
+3. 上長決裁が必要
 
 ## リスク評価詳細
 
 ### 高リスク条項
 
-#### 第7条
+#### 第4条
 - **リスクスコア**: 9/10
 - **リスク要因**:
-  - 損害賠償上限が1万円と極端に低い
-  - 間接損害・逸失利益が完全に免責されている
-- **詳細説明**: 契約違反による損害が発生しても、実質的な補償を受けられない...
+  - 再委託先の選定権限が乙に無制限
+  - 再委託先の行為に対する責任免除
+- **詳細説明**: 秘密情報の管理において...
 
 ## 修正提案
 
 ### 第7条
 **現行文言**:
-> 乙が本契約に違反し、甲に損害を与えた場合、乙は甲に対し、直接損害に限り、
-> 上限1万円までの賠償責任を負うものとする。
+> 乙は甲に対し、直接損害に限り、上限1万円までの賠償責任を負うものとする。
 
 **修正案**:
-> 甲または乙が本契約に違反し、相手方に損害を与えた場合、違反当事者は
-> 相手方に対し、通常かつ直接の損害について賠償責任を負う。
+> 乙は甲に対し、直接損害について、本契約に基づく報酬総額を上限として賠償責任を負うものとする。
 
-**修正理由**: 双方対等な損害賠償責任とし、適切な賠償範囲を設定する
+**修正理由**: 損害賠償上限が著しく低く設定されており...
 
 **交渉ポイント**:
-- 現行の上限1万円では実質的に無責任であり、契約の拘束力が弱まる
-- 双方向の義務とすることで、相手方にもメリットがある
+- 業界標準では報酬総額が上限とされることが多い
+- 双方にとって予測可能性が高まるメリットがある
 ```
 
-## サンプル契約書
+## 開発コマンド
 
-`example/`ディレクトリには、3種類の契約書タイプのサンプルとテンプレートが含まれています：
+```bash
+# ruffによるリント
+make lint
 
-| 契約タイプ | テンプレート | サンプル |
-|-----------|-------------|---------|
-| NDA（秘密保持契約） | `standard_nda_template.md` | `sample_nda.md`, `sample_nda_02.md`, `sample_nda_03.md` |
-| 物品売買契約 | `standard_purchase_order_template.md` | `sample_purchase_order_01.md`, `sample_purchase_order_02.md` |
-| コンサルティング契約 | `standard_consulting_template.md` | `sample_consulting_01.md`, `sample_consulting_02.md` |
+# ruffによるフォーマット
+make fmt
 
-サンプル契約書には意図的に問題のある条項（一方的な責任制限、過度な知的財産権の帰属など）が含まれており、システムの動作確認に使用できます。
+# リントとフォーマットを両方実行
+make fix
+
+# mypyによる型チェック
+make mypy
+```
+
+## 実装のポイント
+
+### オーケストレーター・ワーカーパターン
+
+本システムはLangGraphの`Send` APIを使用したオーケストレーター・ワーカーパターンを採用しています。
+
+```python
+def dispatch_to_parallel_analyzers(state: AgentState) -> list[Send]:
+    """並列分析ワーカーへのタスクディスパッチ"""
+    return [
+        Send("clause_classifier_worker", {...}),
+        Send("risk_assessment_worker", {...}),
+        Send("diff_checker_worker", {...}),
+    ]
+```
+
+**ポイント**: Document Parser完了後、Clause Classifier、Risk Assessment、Diff Checkerが並列実行され、Collectorで結果を集約します。
+
+### エージェント間状態共有
+
+エージェント間はTypedDictベースの`AgentState`で状態を共有します。
+
+```python
+class AgentState(TypedDict):
+    messages: Annotated[Sequence[BaseMessage], add_messages]
+    contract_text: str
+    standard_template: str
+    parsed_clauses: Annotated[list[dict], reduce_list]
+    clause_categories: Annotated[list[dict], reduce_list]
+    risk_assessments: Annotated[list[dict], reduce_list]
+    diffs: Annotated[list[dict], reduce_list]
+    amendments: Annotated[list[dict], reduce_list]
+    final_report: str | None
+    orchestrator_plan: OrchestratorPlan | None
+    completed_tasks: Annotated[list[str], operator.add]
+    current_phase: str
+```
+
+**ポイント**: `reduce_list`カスタムリデューサーにより、並列ワーカーからの結果更新を適切にマージします。
+
+### リスク評価基準
+
+受領者（乙）の立場から以下の観点でリスクを評価:
+
+| 観点 | 説明 |
+|-----|------|
+| 一方的な不利益 | 受領者に一方的に不利な条件 |
+| 過度な義務 | 通常の商慣習を超えた義務 |
+| 曖昧な表現 | 紛争原因となりうる解釈余地 |
+| 実務上の困難 | 遵守困難な条件 |
+| 法的リスク | 法令違反・公序良俗違反の可能性 |
+| 財務リスク | 過大な損害賠償・違約金 |
+
+### サンプル契約書
+
+`example/`ディレクトリには、システムのリスク検出能力をテストするため、意図的に問題のある条項を含む契約書が用意されています:
+
+- 無制限の責任条項
+- 一方的な知財帰属
+- 無制限の監査権限
+- 過少な損害賠償上限

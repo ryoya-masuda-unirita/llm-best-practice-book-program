@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-
 from src.client.llm_client import OpenAIModel, openai_client
 from src.logger import make_logger
 from src.model.model import CharacterResponse

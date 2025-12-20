@@ -7,6 +7,7 @@ from langchain_core.tools import tool
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import END, StateGraph
 from src.client.llm_client import GeminiModel
+from src.config import config as global_config
 from src.logger import make_logger
 from src.model.model import (
     CHARACTER_TEMPLATES,
@@ -171,6 +172,7 @@ def call_model(state: AgentState, config: RunnableConfig) -> dict:
         temperature=1.0,  # Required for thinking mode
         thinking_budget=10000,
         include_thoughts=True,
+        google_api_key=global_config.gemini_api_key,
     )
     model_with_tools = model.bind_tools(tools)
 

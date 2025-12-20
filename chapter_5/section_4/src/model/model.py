@@ -8,6 +8,7 @@ from langgraph.graph.message import add_messages
 from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import TypedDict
 
+
 class FrozenModel(BaseModel):
     """
     Base model with common configuration for all learning platform models.
@@ -115,7 +116,9 @@ class WeeklyPlan(FrozenModel):
     module_id: str = Field(..., description="Associated module ID")
     theme: str = Field(..., description="Theme for the week")
     learning_goals: list[str] = Field(..., description="Goals for this week")
-    daily_tasks: dict[str, list[DailyTask]] = Field(..., description="Tasks organized by day (day1, day2, etc.)")
+    daily_tasks: dict[str, list[DailyTask]] = Field(
+        default_factory=dict, description="Tasks organized by day (day1, day2, etc.)"
+    )
     weekly_assessment: str = Field(..., description="Description of weekly assessment")
 
 

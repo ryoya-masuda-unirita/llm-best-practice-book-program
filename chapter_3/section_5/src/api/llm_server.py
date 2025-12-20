@@ -3,7 +3,6 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, status
-
 from src.client.llm_client import LLMProvider, OpenAIModel
 from src.logger import make_logger
 from src.model.model import (

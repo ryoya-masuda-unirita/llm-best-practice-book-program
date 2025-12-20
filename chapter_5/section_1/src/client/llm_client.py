@@ -1,28 +1,18 @@
 from enum import StrEnum
 
-from openai import AsyncOpenAI
-from src.config import config
-
 
 class LLMProvider(StrEnum):
     """Enum for LLM providers."""
 
-    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
 
 
-class OpenAIModel(StrEnum):
-    GPT_5 = "gpt-5"
-    GPT_5_MINI = "gpt-5-mini"
-    GPT_5_NANO = "gpt-5-nano"
-    GPT_4_1 = "gpt-4.1"
-    GPT_4_1_MINI = "gpt-4.1-mini"
-    GPT_4_1_NANO = "gpt-4.1-nano"
-    GPT_4O = "gpt-4o"
-    GPT_4O_MINI = "gpt-4o-mini"
+class AnthropicModel(StrEnum):
+    CLAUDE_OPUS_4_5 = "claude-opus-4-5"
+    CLAUDE_HAIKU_4_5 = "claude-haiku-4-5"
+    CLAUDE_SONNET_4_5 = "claude-sonnet-4-5"
+    CLAUDE_OPUS_4_1 = "claude-opus-4-1"
 
     @staticmethod
     def list_str() -> list[str]:
-        return list(OpenAIModel)
-
-
-openai_client = AsyncOpenAI(api_key=config.openai_api_key)
+        return [model for model in AnthropicModel]

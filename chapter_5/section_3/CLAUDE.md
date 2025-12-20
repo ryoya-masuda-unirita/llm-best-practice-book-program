@@ -2,57 +2,76 @@
 
 ## Overview
 
-A multi-agent AI system for contract document review using LangGraph and Anthropic Claude. The system employs 6 specialized agents that collaborate to analyze contracts, assess risks, compare against standard templates, and generate comprehensive review reports.
+A multi-agent AI system for contract document review using LangGraph and Google Gemini. The system employs 7 specialized agents (including orchestrator) that collaborate to analyze contracts, assess risks, compare against standard templates, and generate comprehensive review reports.
 
-This project demonstrates the Multi-AI Agent architecture pattern, where complex tasks are decomposed and delegated to specialized expert agents, then results are integrated into a cohesive output.
+This project demonstrates the Orchestrator-Worker pattern for Multi-AI Agent architecture, where an orchestrator plans the workflow and dispatches tasks to specialized worker agents, with some workers executing in parallel for efficiency.
 
 ## Architecture
 
 ```
 +-------------------------------------------------------------------------+
-|                     Contract Review Pipeline                             |
+|                   Orchestrator-Worker Pipeline                           |
 +-------------------------------------------------------------------------+
 |                                                                          |
-|  +------------+    +------------+    +------------+                      |
-|  |  Contract  |--->|  Document  |--->|   Clause   |                      |
-|  |   Input    |    |   Parser   |    | Classifier |                      |
-|  +------------+    |   Agent    |    |   Agent    |                      |
-|                    +------------+    +-----+------+                      |
-|                                            |                             |
-|                                            v                             |
-|  +------------+    +------------+    +------------+                      |
-|  |  Standard  |--->|    Diff    |<---|    Risk    |                      |
-|  |  Template  |    |  Checker   |    | Assessment |                      |
-|  +------------+    |   Agent    |    |   Agent    |                      |
-|                    +-----+------+    +------------+                      |
-|                          |                                               |
-|                          v                                               |
-|                    +------------+    +------------+                      |
-|                    | Amendment  |--->|   Report   |                      |
-|                    |  Proposer  |    | Generator  |                      |
-|                    |   Agent    |    |   Agent    |                      |
-|                    +------------+    +-----+------+                      |
-|                                            |                             |
-|                                            v                             |
-|                                      +------------+                      |
-|                                      |   Review   |                      |
-|                                      |   Report   |                      |
-|                                      +------------+                      |
+|  +----------------+    +-------------------+                             |
+|  | Contract Input |--->|   Orchestrator    |                             |
+|  | (Contract/     |    |      Agent        |                             |
+|  |  Template)     |    +--------+----------+                             |
+|  +----------------+             |                                        |
+|                                 v                                        |
+|                    +-------------------+                                 |
+|                    | Document Parser   |                                 |
+|                    |     Worker        |                                 |
+|                    +--------+----------+                                 |
+|                             |                                            |
+|          +------------------+------------------+                         |
+|          |                  |                  |                         |
+|          v                  v                  v                         |
+|  +---------------+  +---------------+  +---------------+                 |
+|  |    Clause     |  |     Risk      |  |     Diff      |  (Parallel)    |
+|  |  Classifier   |  |  Assessment   |  |    Checker    |                 |
+|  |    Worker     |  |    Worker     |  |    Worker     |                 |
+|  +-------+-------+  +-------+-------+  +-------+-------+                 |
+|          |                  |                  |                         |
+|          +------------------+------------------+                         |
+|                             |                                            |
+|                             v                                            |
+|                    +-------------------+                                 |
+|                    |     Collector     |                                 |
+|                    +--------+----------+                                 |
+|                             |                                            |
+|                             v                                            |
+|                    +-------------------+                                 |
+|                    |    Amendment      |                                 |
+|                    |    Proposer       |                                 |
+|                    +--------+----------+                                 |
+|                             |                                            |
+|                             v                                            |
+|                    +-------------------+                                 |
+|                    |   Synthesizer     |                                 |
+|                    | (Report Generator)|                                 |
+|                    +--------+----------+                                 |
+|                             |                                            |
+|                             v                                            |
+|                    +-------------------+                                 |
+|                    |  Review Report    |                                 |
+|                    |   (Markdown)      |                                 |
+|                    +-------------------+                                 |
 +-------------------------------------------------------------------------+
 ```
 
 ### Directory Structure
 
 ```
-chapter_4/section_3/
+chapter_5/section_3/
 |-- src/
 |   |-- __init__.py
 |   |-- main.py                      # CLI entry point
-|   |-- config.py                    # Environment configuration
+|   |-- config.py                    # Environment configuration (Gemini API key)
 |   |-- logger.py                    # Logging setup
 |   |-- client/
 |   |   |-- __init__.py
-|   |   +-- llm_client.py            # Anthropic LLM client setup
+|   |   +-- llm_client.py            # Gemini model definitions
 |   |-- model/
 |   |   |-- __init__.py
 |   |   +-- multi_agent_model.py     # Pydantic data models and AgentState
@@ -86,6 +105,7 @@ chapter_4/section_3/
 
 | Agent | Function | Output |
 |-------|----------|--------|
+| Orchestrator | Plans workflow and dispatches tasks | `orchestrator_plan` |
 | Document Parser | Extracts clauses from contract text | `parsed_clauses` |
 | Clause Classifier | Categorizes clauses (confidentiality, liability, IP, etc.) | `clause_categories` |
 | Risk Assessment | Evaluates risk level (1-10) for each clause | `risk_assessments` |
@@ -100,22 +120,24 @@ chapter_4/section_3/
 - `RiskAssessment` - Risk evaluation with score and factors
 - `ClauseDiff` - Difference between contract and template
 - `AmendmentProposal` - Suggested modification with rationale
+- `OrchestratorPlan` - Task assignments and review strategy
 - `ContractReviewReport` - Final report with `to_markdown()` method
 - `AgentState` - LangGraph state management TypedDict
+- `WorkerState` - State for individual worker agents
 
 ### Prompts (src/prompt/multi_agent_prompt.py)
 
 Each agent has:
-- System prompt defining role and evaluation criteria
+- System prompt defining role and evaluation criteria (in Japanese)
 - Prompt generator function for dynamic user prompts
 
 ## Dependencies
 
 | Package | Purpose |
 |---------|---------|
-| `langchain-anthropic` | LangChain integration for Claude |
+| `langchain-google-genai` | LangChain integration for Gemini |
 | `langgraph` | Multi-agent graph orchestration |
-| `anthropic` | Anthropic API client |
+| `google-genai` | Google Gemini API client |
 | `pydantic` | Data validation and models |
 | `click` | CLI framework |
 | `python-dotenv` | Environment variable management |
@@ -129,7 +151,7 @@ Each agent has:
 cp .envrc.example .envrc
 
 # Edit .envrc and set API key
-ANTHROPIC_API_KEY=<your_key>
+GEMINI_API_KEY=<your_key>
 
 # Install dependencies
 uv sync
@@ -148,7 +170,7 @@ python -m src.main \
 
 # With model selection and custom output
 python -m src.main \
-  -m claude-opus-4-1 \
+  -m gemini-2.5-flash \
   -c example/sample_consulting_02.md \
   -t example/standard_consulting_template.md \
   -od reports
@@ -160,7 +182,7 @@ python -m src.main \
 |--------|-------|----------|---------|-------------|
 | `--contract-file` | `-c` | Yes | - | Path to contract file (markdown) |
 | `--template-file` | `-t` | Yes | - | Path to standard template (markdown) |
-| `--model` | `-m` | No | claude-sonnet-4-5 | Model: claude-sonnet-4-5 or claude-opus-4-1 |
+| `--model` | `-m` | No | gemini-2.5-pro | Model: gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite |
 | `--output-directory` | `-od` | No | outputs | Directory for output files |
 
 ## Development Commands
@@ -181,18 +203,25 @@ make mypy
 
 ## Implementation Notes
 
+### Orchestrator-Worker Pattern
+
+- Uses LangGraph `Send` API to dispatch tasks to worker agents
+- Parallel execution of Clause Classifier, Risk Assessment, and Diff Checker
+- Collector node aggregates results from parallel workers
+- Synthesizer generates final report from all worker outputs
+
 ### Agent Communication Pattern
 
 - Agents communicate through shared `AgentState` TypedDict
 - Each agent receives full state and returns partial update
+- `reduce_list` custom reducer handles concurrent list updates from parallel workers
 - LangGraph manages state merging automatically
 
-### JSON Extraction
+### Structured Output
 
-LLM responses may contain JSON in various formats. The `extract_json_from_response()` function handles:
-1. Markdown code blocks: ```json ... ```
-2. Direct JSON objects: { ... }
-3. Raw response text as fallback
+- All agents use `with_structured_output()` for type-safe responses
+- Pydantic models define expected response schemas
+- Automatic JSON parsing and validation
 
 ### Risk Evaluation Criteria
 

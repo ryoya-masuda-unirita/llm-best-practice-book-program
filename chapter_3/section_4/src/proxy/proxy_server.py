@@ -8,7 +8,6 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import JSONResponse
 from httpx_retries import Retry, RetryTransport
 from pydantic import BaseModel, ConfigDict, Field
-
 from src.config import config
 from src.logger import make_logger
 from src.model.model import LLMRequest, LLMResponse

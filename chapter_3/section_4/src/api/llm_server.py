@@ -3,7 +3,6 @@
 import time
 
 from fastapi import FastAPI, HTTPException, status
-
 from src.client.llm_client import GeminiModel
 from src.logger import make_logger
 from src.model.model import HealthResponse, LLMRequest, LLMResponse

@@ -2,7 +2,6 @@ import time
 from typing import Optional
 
 import redis.asyncio as aioredis
-
 from src.config import config
 from src.logger import make_logger
 from src.model.model import Priority, QueuedTask, TaskStatus, UserTier

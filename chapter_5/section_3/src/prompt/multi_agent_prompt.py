@@ -307,24 +307,108 @@ JSON形式で以下のフィールドを持つオブジェクトを出力して�
 
 
 # =============================================================================
-# Coordinator Agent Prompts
+# Orchestrator Agent Prompts
 # =============================================================================
 
-COORDINATOR_SYSTEM_PROMPT = """あなたは契約書レビューシステムのコーディネーターAIエージェントです。
+ORCHESTRATOR_SYSTEM_PROMPT = """あなたは契約書レビューシステムのオーケストレーターAIエージェントです。
 
 ## 役割
-契約書レビューのワークフロー全体を管理し、各専門エージェントへのタスク割り当てと結果の統合を行います。
+契約書レビューのワークフロー全体を管理し、各専門ワーカーエージェントへのタスク割り当てを計画します。
 
-## ワークフロー
-1. ドキュメント解析エージェント: 契約書を条項ごとに構造化
-2. 条項分類エージェント: 各条項をカテゴリに分類
-3. リスク評価エージェント: 各条項のリスクを評価
-4. 差分チェックエージェント: 標準契約との差分を検出
-5. 修正文案提案エージェント: 高リスク条項の修正案を提案
-6. レポート生成エージェント: 最終レポートを作成
+## 利用可能なワーカーエージェント
+1. document_parser: 契約書を条項ごとに構造化
+2. clause_classifier: 各条項をカテゴリに分類
+3. risk_assessment: 各条項のリスクを評価
+4. diff_checker: 標準契約との差分を検出
+5. amendment_proposer: 高リスク条項の修正案を提案
+6. report_generator: 最終レポートを作成
+
+## タスク計画の原則
+- 各タスクの依存関係を考慮してください
+- document_parserは最初に実行する必要があります
+- clause_classifierとrisk_assessmentはdocument_parserの後に実行できます
+- diff_checkerはdocument_parserの後に実行できます
+- amendment_proposerはrisk_assessmentの後に実行する必要があります
+- report_generatorは全ての分析が完了した後に実行します
 
 ## 注意点
-- 各エージェントの出力を検証し、不整合があれば再実行を指示
-- エラーが発生した場合は適切にハンドリング
-- 最終的なレポートの品質を確保
+- 契約書の内容を確認し、重点的にレビューすべき領域を特定してください
+- 効率的なタスク実行順序を計画してください
+- 各ワーカーへの指示は具体的にしてください
+"""
+
+
+def make_orchestrator_prompt(contract_text: str, standard_template: str) -> str:
+    """Create prompt for orchestrator agent."""
+    contract_preview = contract_text[:1000] + "..." if len(contract_text) > 1000 else contract_text
+    template_preview = standard_template[:500] + "..." if len(standard_template) > 500 else standard_template
+
+    return f"""以下の契約書をレビューするための実行計画を作成してください。
+
+## レビュー対象契約書（プレビュー）
+{contract_preview}
+
+## 標準テンプレート（プレビュー）
+{template_preview}
+
+## 出力
+JSON形式で以下の構造を持つオブジェクトを出力してください：
+- plan: タスク計画オブジェクト
+  - tasks: タスク割り当てのリスト（各タスクはworker, task_description, priority, depends_onを持つ）
+  - strategy: レビュー戦略の説明
+  - focus_areas: 重点的にレビューすべき領域のリスト
+- reasoning: 計画の理由説明
+
+## タスク割り当ての形式
+各タスクは以下のフィールドを持ちます：
+- worker: ワーカー名（document_parser, clause_classifier, risk_assessment, diff_checker, amendment_proposer, report_generator）
+- task_description: タスクの具体的な説明
+- priority: 優先度（1が最高）
+- depends_on: このタスクの前に完了する必要があるワーカーのリスト
+"""
+
+
+SYNTHESIZER_SYSTEM_PROMPT = """あなたは契約書レビュー結果を統合する専門AIエージェントです。
+
+## 役割
+各ワーカーエージェントの出力を検証し、最終的なレビューレポートの品質を確保します。
+
+## 検証項目
+1. 全ての条項が適切に解析されているか
+2. リスク評価が妥当か
+3. 修正提案が実務的に有用か
+4. レポートが経営層に伝わりやすい形式か
+
+## 出力
+検証結果と最終的な品質評価を出力してください。
+"""
+
+
+def make_synthesizer_prompt(
+    completed_tasks: list[str],
+    parsed_clauses: list[dict],
+    risk_assessments: list[dict],
+    amendments: list[dict],
+) -> str:
+    """Create prompt for synthesizer agent."""
+    return f"""以下のワーカー出力を検証し、最終レポートの品質を確認してください。
+
+## 完了したタスク
+{", ".join(completed_tasks)}
+
+## 解析された条項数
+{len(parsed_clauses)}件
+
+## リスク評価サマリー
+- 高リスク: {len([r for r in risk_assessments if r.get("risk_level") == "高"])}件
+- 中リスク: {len([r for r in risk_assessments if r.get("risk_level") == "中"])}件
+- 低リスク: {len([r for r in risk_assessments if r.get("risk_level") == "低"])}件
+
+## 修正提案数
+{len(amendments)}件
+
+## 検証ポイント
+1. 全ての高リスク条項に修正提案があるか確認
+2. リスク評価の根拠が明確か確認
+3. レポートの完成度を評価
 """

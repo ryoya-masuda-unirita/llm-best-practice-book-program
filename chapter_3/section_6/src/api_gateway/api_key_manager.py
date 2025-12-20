@@ -7,7 +7,6 @@ and are never exposed to client applications.
 from typing import Dict
 
 from pydantic import Secret
-
 from src.config import config
 from src.logger import make_logger
 

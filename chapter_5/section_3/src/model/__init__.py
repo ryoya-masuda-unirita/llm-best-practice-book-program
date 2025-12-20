@@ -5,7 +5,12 @@ from src.model.multi_agent_model import (
     ClauseDiff,
     ContractClause,
     ContractReviewReport,
+    OrchestratorPlan,
+    OrchestratorResponse,
     RiskAssessment,
+    TaskAssignment,
+    WorkerState,
+    WorkerType,
 )
 
 __all__ = [
@@ -15,5 +20,10 @@ __all__ = [
     "ClauseDiff",
     "ContractClause",
     "ContractReviewReport",
+    "OrchestratorPlan",
+    "OrchestratorResponse",
     "RiskAssessment",
+    "TaskAssignment",
+    "WorkerState",
+    "WorkerType",
 ]

@@ -11,7 +11,6 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, create_model
-
 from src.api_gateway.gateway_service import gateway_service
 from src.api_gateway.models import (
     GatewayErrorResponse,

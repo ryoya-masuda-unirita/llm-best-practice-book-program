@@ -2,13 +2,7 @@
 
 from langchain_core.runnables import RunnableConfig
 from src.layer.base import BaseAgent
-from src.model.model import (
-    ContentType,
-    DailyTask,
-    HierarchicalAgentState,
-    TacticsOutput,
-    WeeklyPlan,
-)
+from src.model.model import HierarchicalAgentState, TacticsOutput
 from src.prompt.prompt import (
     make_tactics_system_prompt,
     make_tactics_user_prompt,
@@ -25,39 +19,6 @@ class TacticsAgent(BaseAgent):
 
     def __init__(self):
         super().__init__(layer_name="TACTICS", agent_name="TacticsAgent")
-
-    def _parse_daily_task(self, data: dict) -> DailyTask:
-        """Parse a daily task from JSON data."""
-        return DailyTask(
-            task_id=data["task_id"],
-            title=data["title"],
-            description=data["description"],
-            content_type=ContentType(data["content_type"]),
-            estimated_minutes=data["estimated_minutes"],
-            learning_objectives=data["learning_objectives"],
-        )
-
-    def _parse_weekly_plan(self, data: dict) -> WeeklyPlan:
-        """Parse a weekly plan from JSON data."""
-        daily_tasks = {day: [self._parse_daily_task(t) for t in tasks] for day, tasks in data["daily_tasks"].items()}
-
-        return WeeklyPlan(
-            week_number=data["week_number"],
-            module_id=data["module_id"],
-            theme=data["theme"],
-            learning_goals=data["learning_goals"],
-            daily_tasks=daily_tasks,
-            weekly_assessment=data["weekly_assessment"],
-        )
-
-    def _parse_tactics_output(self, result: dict) -> TacticsOutput:
-        """Parse tactics output from JSON result."""
-        return TacticsOutput(
-            curriculum_summary=result["curriculum_summary"],
-            weekly_plans=[self._parse_weekly_plan(wp) for wp in result["weekly_plans"]],
-            assessment_strategy=result["assessment_strategy"],
-            adaptation_notes=result["adaptation_notes"],
-        )
 
     def _format_modules_for_prompt(self, strategy) -> str:
         """Format modules list for the user prompt."""
@@ -91,8 +52,9 @@ class TacticsAgent(BaseAgent):
         )
 
         try:
-            result = self._invoke_and_parse(config, make_tactics_system_prompt(), user_prompt)
-            tactics_output = self._parse_tactics_output(result)
+            tactics_output = self._invoke_with_structured_output(
+                config, make_tactics_system_prompt(), user_prompt, TacticsOutput
+            )
 
             self.logger.info(f"Weekly plans created: {len(tactics_output.weekly_plans)}")
 
@@ -104,7 +66,7 @@ class TacticsAgent(BaseAgent):
                 "learning_sessions": [],
             }
 
-        except (KeyError, ValueError) as e:
+        except Exception as e:
             self._handle_parse_error(e)
             raise ValueError(f"Tactics agent failed to produce valid output: {e}")
 

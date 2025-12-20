@@ -11,7 +11,6 @@ from google import genai
 from google.genai.types import GenerateContentConfig
 from openai import AsyncOpenAI
 from pydantic import BaseModel
-
 from src.api_gateway.api_key_manager import api_key_manager
 from src.api_gateway.monitoring import gateway_monitor
 from src.logger import make_logger

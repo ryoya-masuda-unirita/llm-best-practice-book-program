@@ -2,11 +2,7 @@
 
 from langchain_core.runnables import RunnableConfig
 from src.layer.base import BaseAgent
-from src.model.model import (
-    HierarchicalAgentState,
-    ProgressMetrics,
-    ProgressReport,
-)
+from src.model.model import HierarchicalAgentState, ProgressReport
 from src.prompt.prompt import (
     make_progress_system_prompt,
     make_progress_user_prompt,
@@ -23,33 +19,6 @@ class ReflectionAgent(BaseAgent):
 
     def __init__(self):
         super().__init__(layer_name="REFLECTION", agent_name="ReflectionAgent")
-
-    def _parse_progress_metrics(self, data: dict) -> ProgressMetrics:
-        """Parse progress metrics from JSON data with safe defaults."""
-        return ProgressMetrics(
-            modules_completed=data.get("modules_completed", 0),
-            total_modules=data.get("total_modules", 0),
-            current_week=data.get("current_week", 1),
-            tasks_completed_this_week=data.get("tasks_completed_this_week", 0),
-            total_tasks_this_week=data.get("total_tasks_this_week", 0),
-            average_quiz_score=data.get("average_quiz_score") or 0.0,
-            study_hours_logged=data.get("study_hours_logged") or 0.0,
-            streak_days=data.get("streak_days") or 0,
-            competencies_acquired=data.get("competencies_acquired", []),
-            on_track=data.get("on_track", True),
-        )
-
-    def _parse_progress_report(self, result: dict) -> ProgressReport:
-        """Parse progress report from JSON result."""
-        return ProgressReport(
-            report_id=result["report_id"],
-            metrics=self._parse_progress_metrics(result.get("metrics", {})),
-            progress_summary=result["progress_summary"],
-            achievements=result["achievements"],
-            recommendations=result["recommendations"],
-            curriculum_adjustment_needed=result["curriculum_adjustment_needed"],
-            adjustment_reason=result.get("adjustment_reason", ""),
-        )
 
     def _summarize_sessions(self, state: HierarchicalAgentState) -> str:
         """Summarize learning sessions for evaluation prompt."""
@@ -84,8 +53,9 @@ class ReflectionAgent(BaseAgent):
         )
 
         try:
-            result = self._invoke_and_parse(config, make_progress_system_prompt(), user_prompt)
-            progress_report = self._parse_progress_report(result)
+            progress_report = self._invoke_with_structured_output(
+                config, make_progress_system_prompt(), user_prompt, ProgressReport
+            )
 
             self.logger.info(f"Progress report created: {progress_report.report_id}")
             self.logger.info(f"On track: {progress_report.metrics.on_track}")
@@ -97,7 +67,7 @@ class ReflectionAgent(BaseAgent):
 
             return {"progress_report": progress_report}
 
-        except (KeyError, ValueError) as e:
+        except Exception as e:
             self._handle_parse_error(e)
             raise ValueError(f"Reflection agent failed: {e}")
 

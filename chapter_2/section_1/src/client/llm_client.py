@@ -3,7 +3,6 @@ from enum import StrEnum
 from anthropic import AsyncAnthropic
 from google import genai
 from openai import AsyncOpenAI
-
 from src.config import config
 
 

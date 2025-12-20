@@ -2,14 +2,7 @@
 
 from langchain_core.runnables import RunnableConfig
 from src.layer.base import BaseAgent
-from src.model.model import (
-    HierarchicalAgentState,
-    LearningModule,
-    LearningModuleCategory,
-    LearningRoadmap,
-    SkillLevel,
-    StrategyOutput,
-)
+from src.model.model import HierarchicalAgentState, StrategyOutput
 from src.prompt.prompt import (
     make_strategy_system_prompt,
     make_strategy_user_prompt,
@@ -27,40 +20,6 @@ class StrategyAgent(BaseAgent):
     def __init__(self):
         super().__init__(layer_name="STRATEGY", agent_name="StrategyAgent")
 
-    def _parse_learning_module(self, data: dict) -> LearningModule:
-        """Parse a learning module from JSON data."""
-        return LearningModule(
-            module_id=data["module_id"],
-            name=data["name"],
-            category=LearningModuleCategory(data["category"]),
-            description=data["description"],
-            prerequisites=data.get("prerequisites", []),
-            estimated_hours=data["estimated_hours"],
-            target_competencies=data["target_competencies"],
-        )
-
-    def _parse_strategy_output(self, result: dict) -> StrategyOutput:
-        """Parse strategy output from JSON result."""
-        roadmap_data = result["roadmap"]
-        modules = [self._parse_learning_module(m) for m in roadmap_data["modules"]]
-
-        roadmap = LearningRoadmap(
-            goal_summary=roadmap_data["goal_summary"],
-            target_level=SkillLevel(roadmap_data["target_level"]),
-            current_level=SkillLevel(roadmap_data["current_level"]),
-            total_duration_weeks=roadmap_data["total_duration_weeks"],
-            modules=modules,
-            milestones=roadmap_data["milestones"],
-            success_criteria=roadmap_data["success_criteria"],
-        )
-
-        return StrategyOutput(
-            learning_domain=result["learning_domain"],
-            roadmap=roadmap,
-            recommended_study_hours_per_week=result["recommended_study_hours_per_week"],
-            learning_style_notes=result["learning_style_notes"],
-        )
-
     def execute(self, state: HierarchicalAgentState, config: RunnableConfig) -> dict:
         """Execute the strategy layer to create a learning roadmap."""
         self._log_layer_start("Creating learning roadmap (blueprint)")
@@ -76,8 +35,9 @@ class StrategyAgent(BaseAgent):
         )
 
         try:
-            result = self._invoke_and_parse(config, make_strategy_system_prompt(), user_prompt)
-            strategy_output = self._parse_strategy_output(result)
+            strategy_output = self._invoke_with_structured_output(
+                config, make_strategy_system_prompt(), user_prompt, StrategyOutput
+            )
 
             self.logger.info(f"Learning domain: {strategy_output.learning_domain}")
             self.logger.info(f"Modules created: {len(strategy_output.roadmap.modules)}")
@@ -87,7 +47,7 @@ class StrategyAgent(BaseAgent):
 
             return {"strategy_output": strategy_output}
 
-        except (KeyError, ValueError) as e:
+        except Exception as e:
             self._handle_parse_error(e)
             raise ValueError(f"Strategy agent failed to produce valid output: {e}")
 

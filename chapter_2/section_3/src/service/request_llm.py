@@ -1,5 +1,4 @@
 from google.genai.types import File, GenerateContentConfig
-
 from src.client.llm_client import (
     GeminiModel,
     google_genai_client,

@@ -15,7 +15,7 @@ class Config(BaseModel):
         arbitrary_types_allowed=True,
     )
 
-    openai_api_key: Secret[str] = Field(default=os.environ["OPENAI_API_KEY"], description="API key for OpenAI")
+    anthropic_api_key: Secret[str] = Field(default=os.environ["ANTHROPIC_API_KEY"], description="API key for Anthropic")
 
 
 config = Config()

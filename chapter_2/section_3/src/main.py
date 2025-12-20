@@ -6,7 +6,6 @@ from uuid import uuid4
 
 import click
 from google.genai.types import File
-
 from src.client.llm_client import GeminiModel, LLMProvider, google_genai_client
 from src.logger import make_logger
 from src.service import request_gemini

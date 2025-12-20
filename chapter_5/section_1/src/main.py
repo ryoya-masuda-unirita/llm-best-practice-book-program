@@ -4,7 +4,7 @@ from functools import wraps
 from uuid import uuid4
 
 import click
-from src.client.llm_client import OpenAIModel
+from src.client.llm_client import AnthropicModel
 from src.logger import make_logger
 from src.service.service import run_dinner_advisor
 
@@ -23,9 +23,9 @@ def async_cmd(func):
 @click.option(
     "--model",
     "-m",
-    type=click.Choice(OpenAIModel.list_str()),
+    type=click.Choice(AnthropicModel.list_str()),
     required=False,
-    default=OpenAIModel.GPT_5_MINI,
+    default=AnthropicModel.CLAUDE_HAIKU_4_5,
     help="The model to use for the request.",
 )
 @click.option(
