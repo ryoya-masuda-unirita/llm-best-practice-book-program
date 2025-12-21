@@ -1624,6 +1624,7 @@ dependencies = [
     { name = "pydantic" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
+    { name = "watchdog" },
 ]
 
 [package.dev-dependencies]
@@ -1646,6 +1647,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.12.2" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "watchdog", specifier = ">=6.0.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -1671,7 +1673,6 @@ dependencies = [
     { name = "pydantic" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
-    { name = "watchdog" },
 ]
 
 [package.dev-dependencies]
@@ -1694,7 +1695,6 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.12.2" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
     { name = "pyyaml", specifier = ">=6.0.3" },
-    { name = "watchdog", specifier = ">=6.0.0" },
 ]
 
 [package.metadata.requires-dev]

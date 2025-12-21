@@ -19,10 +19,6 @@ from langgraph.graph.message import add_messages
 from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import TypedDict
 
-# =============================================================================
-# Base Model Configuration
-# =============================================================================
-
 
 class FrozenModel(BaseModel):
     """
@@ -39,11 +35,6 @@ class FrozenModel(BaseModel):
         frozen=True,
         extra="ignore",
     )
-
-
-# =============================================================================
-# Enums for Contract Risk Compliance Pipeline
-# =============================================================================
 
 
 class RiskLevel(StrEnum):
@@ -78,9 +69,91 @@ class ComplianceStatus(StrEnum):
     NON_COMPLIANT = "non_compliant"
 
 
-# =============================================================================
-# Input Stage Models
-# =============================================================================
+class SectionResponse(BaseModel):
+    """LLM response model for a contract section."""
+
+    section_id: str = Field(..., description="Section identifier")
+    section_number: str = Field(..., description="Section number (e.g., '第1条')")
+    title: str = Field(..., description="Title of the section")
+    content: str = Field(..., description="Full text content of the section")
+
+
+class ChapterResponse(BaseModel):
+    """LLM response model for a contract chapter."""
+
+    chapter_id: str = Field(..., description="Chapter identifier")
+    chapter_number: str = Field(..., description="Chapter number (e.g., '第1章')")
+    title: str = Field(..., description="Title of the chapter")
+    sections: list[SectionResponse] = Field(..., description="Sections in this chapter")
+
+
+class ExtractionResponse(BaseModel):
+    """LLM response model for extraction stage."""
+
+    title: str = Field(..., description="Title of the contract")
+    parties: list[str] = Field(..., description="Parties involved in the contract")
+    effective_date: str = Field(..., description="Effective date of the contract")
+    chapters: list[ChapterResponse] = Field(..., description="Chapters in the contract")
+    extraction_notes: str = Field(..., description="Notes about the extraction process")
+
+
+class FindingResponse(BaseModel):
+    """LLM response model for a risk finding."""
+
+    finding_id: str = Field(..., description="Finding identifier")
+    description: str = Field(..., description="Description of the risk")
+    risk_level: RiskLevel = Field(..., description="Severity level")
+    risk_category: RiskCategory = Field(..., description="Category of the risk")
+    affected_clause: str = Field(..., description="The specific clause text affected")
+    recommendation: str = Field(..., description="Recommendation to mitigate the risk")
+
+
+class RiskScoringResponse(BaseModel):
+    """LLM response model for risk scoring stage."""
+
+    section_id: str = Field(..., description="Section identifier")
+    section_title: str = Field(..., description="Section title")
+    overall_risk_level: RiskLevel = Field(..., description="Overall risk level")
+    is_compliant: bool = Field(..., description="Whether the section is compliant")
+    findings: list[FindingResponse] = Field(..., description="Risk findings")
+    notes: str = Field(..., description="Additional notes")
+
+
+class SeverityDistribution(BaseModel):
+    """Severity distribution for risk breakdown."""
+
+    low: int = Field(..., description="Count of low severity findings")
+    medium: int = Field(..., description="Count of medium severity findings")
+    high: int = Field(..., description="Count of high severity findings")
+    critical: int = Field(..., description="Count of critical severity findings")
+
+
+class ExecutiveSummaryResponse(BaseModel):
+    """LLM response model for executive summary."""
+
+    overall_status: ComplianceStatus = Field(..., description="Overall status")
+    overall_risk_score: int = Field(..., description="Risk score 0-100")
+    key_concerns: list[str] = Field(..., description="Key concerns")
+    immediate_actions: list[str] = Field(..., description="Immediate actions")
+    summary_text: str = Field(..., description="Summary text")
+
+
+class RiskBreakdownResponse(BaseModel):
+    """LLM response model for risk breakdown."""
+
+    category: RiskCategory = Field(..., description="Risk category")
+    count: int = Field(..., description="Number of findings")
+    severity_distribution: SeverityDistribution = Field(..., description="Distribution by severity")
+    key_issues: list[str] = Field(..., description="Key issues")
+
+
+class ReportResponse(BaseModel):
+    """LLM response model for report generation stage."""
+
+    executive_summary: ExecutiveSummaryResponse = Field(..., description="Executive summary")
+    risk_breakdown: list[RiskBreakdownResponse] = Field(..., description="Risk breakdown")
+    recommendations: list[str] = Field(..., description="Recommendations")
+    conclusion: str = Field(..., description="Conclusion")
 
 
 class ContractInput(FrozenModel):
@@ -89,11 +162,6 @@ class ContractInput(FrozenModel):
     contract_id: str = Field(..., description="Unique identifier for the contract")
     file_path: str = Field(..., description="Path to the contract document")
     raw_content: str = Field(..., description="Raw text content of the contract")
-
-
-# =============================================================================
-# Extraction Stage Models
-# =============================================================================
 
 
 class ContractSection(FrozenModel):
@@ -133,11 +201,6 @@ class ExtractionOutput(FrozenModel):
     extraction_notes: str = Field(default="", description="Notes about the extraction process")
 
 
-# =============================================================================
-# Risk Scoring Stage Models
-# =============================================================================
-
-
 class RiskFinding(FrozenModel):
     """A specific risk finding within a section."""
 
@@ -167,11 +230,6 @@ class RiskScoringOutput(FrozenModel):
     assessed_sections: list[SectionRiskAssessment] = Field(..., description="Risk assessments for each section")
     high_risk_count: int = Field(..., description="Number of high/critical risk findings")
     total_findings: int = Field(..., description="Total number of risk findings")
-
-
-# =============================================================================
-# Report Generation Stage Models
-# =============================================================================
 
 
 class ExecutiveSummary(FrozenModel):
@@ -373,32 +431,14 @@ class ComplianceReport(FrozenModel):
         return mapping.get(category, str(category))
 
 
-# =============================================================================
-# Pipeline State Model
-# =============================================================================
-
-
 class ContractPipelineState(TypedDict):
     """State for the contract risk compliance pipeline."""
 
-    # Input
     contract_input: ContractInput
-
-    # Extraction stage output
     extraction_output: ExtractionOutput | None
-
-    # Risk scoring stage output
     risk_scoring_output: RiskScoringOutput | None
-
-    # Report generation stage output
     compliance_report: ComplianceReport | None
-
-    # Current pipeline stage
     current_stage: str
-
-    # Sections pending risk assessment
     pending_sections: list[ContractSection]
     current_section_index: int
-
-    # Messages for agent communication
     messages: Annotated[Sequence[BaseMessage], add_messages]

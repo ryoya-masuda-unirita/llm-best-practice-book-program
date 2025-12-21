@@ -1,4 +1,12 @@
-from src.model.contract_pipeline_model import (
+from src.model.event_model import (
+    BaseEvent,
+    ContractReviewCompletedEvent,
+    ContractReviewFailedEvent,
+    ContractReviewRequestedEvent,
+    EventType,
+    FileCreatedEvent,
+)
+from src.model.model import (
     ComplianceReport,
     ComplianceStatus,
     ContractChapter,
@@ -17,15 +25,21 @@ from src.model.contract_pipeline_model import (
 )
 
 __all__ = [
+    "BaseEvent",
     "ComplianceReport",
     "ComplianceStatus",
     "ContractChapter",
     "ContractInput",
     "ContractPipelineState",
+    "ContractReviewCompletedEvent",
+    "ContractReviewFailedEvent",
+    "ContractReviewRequestedEvent",
     "ContractSection",
     "ContractStructure",
+    "EventType",
     "ExecutiveSummary",
     "ExtractionOutput",
+    "FileCreatedEvent",
     "RiskBreakdown",
     "RiskCategory",
     "RiskFinding",

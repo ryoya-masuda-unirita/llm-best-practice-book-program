@@ -13,15 +13,14 @@ from uuid import uuid4
 
 from langchain_core.runnables import RunnableConfig
 from src.layer.base import BaseAgent
-from src.model.contract_pipeline_model import (
+from src.model.model import (
     ComplianceReport,
-    ComplianceStatus,
     ContractPipelineState,
     ExecutiveSummary,
+    ReportResponse,
     RiskBreakdown,
-    RiskCategory,
 )
-from src.prompt.contract_pipeline_prompt import (
+from src.prompt.prompt import (
     make_report_system_prompt,
     make_report_user_prompt,
 )
@@ -53,54 +52,36 @@ class ReportAgent(BaseAgent):
 
             if assessment.findings:
                 lines.append("- 主な発見事項:")
-                for finding in assessment.findings[:3]:  # Limit to first 3
+                for finding in assessment.findings[:3]:
                     lines.append(f"  - [{finding.risk_level}] {finding.description}")
 
         return "\n".join(lines)
 
-    def _parse_executive_summary(self, data: dict) -> ExecutiveSummary:
-        """Parse executive summary from JSON data."""
-        return ExecutiveSummary(
-            overall_status=self._safe_enum_parse(
-                ComplianceStatus,
-                data.get("overall_status", "needs_review"),
-                ComplianceStatus.NEEDS_REVIEW,
-            ),
-            overall_risk_score=min(100, max(0, data.get("overall_risk_score", 50))),
-            key_concerns=data.get("key_concerns", []),
-            immediate_actions=data.get("immediate_actions", []),
-            summary_text=data.get("summary_text", ""),
-        )
-
-    def _parse_risk_breakdown(self, data: dict) -> RiskBreakdown:
-        """Parse risk breakdown from JSON data."""
-        severity_dist = data.get("severity_distribution", {})
-        return RiskBreakdown(
-            category=self._safe_enum_parse(RiskCategory, data.get("category", "other"), RiskCategory.OTHER),
-            count=data.get("count", 0),
-            severity_distribution={
-                "low": severity_dist.get("low", 0),
-                "medium": severity_dist.get("medium", 0),
-                "high": severity_dist.get("high", 0),
-                "critical": severity_dist.get("critical", 0),
-            },
-            key_issues=data.get("key_issues", []),
-        )
-
-    def _parse_report_result(self, result: dict, state: ContractPipelineState) -> ComplianceReport:
-        """Parse the complete report from JSON result."""
+    def _convert_response_to_report(self, response: ReportResponse, state: ContractPipelineState) -> ComplianceReport:
+        """Convert LLM response to domain report model."""
         extraction = state["extraction_output"]
         risk_output = state["risk_scoring_output"]
 
         if extraction is None or risk_output is None:
             raise ValueError("Report requires extraction and risk scoring outputs")
 
-        # Parse executive summary
-        exec_summary_data = result.get("executive_summary", {})
-        executive_summary = self._parse_executive_summary(exec_summary_data)
+        executive_summary = ExecutiveSummary(
+            overall_status=response.executive_summary.overall_status,
+            overall_risk_score=min(100, max(0, response.executive_summary.overall_risk_score)),
+            key_concerns=response.executive_summary.key_concerns,
+            immediate_actions=response.executive_summary.immediate_actions,
+            summary_text=response.executive_summary.summary_text,
+        )
 
-        # Parse risk breakdown
-        risk_breakdown = [self._parse_risk_breakdown(rb) for rb in result.get("risk_breakdown", [])]
+        risk_breakdown = [
+            RiskBreakdown(
+                category=rb.category,
+                count=rb.count,
+                severity_distribution=rb.severity_distribution.model_dump(),
+                key_issues=rb.key_issues,
+            )
+            for rb in response.risk_breakdown
+        ]
 
         return ComplianceReport(
             report_id=f"report_{uuid4().hex[:8]}",
@@ -110,8 +91,8 @@ class ReportAgent(BaseAgent):
             executive_summary=executive_summary,
             risk_breakdown=risk_breakdown,
             section_assessments=risk_output.assessed_sections,
-            recommendations=result.get("recommendations", []),
-            conclusion=result.get("conclusion", ""),
+            recommendations=response.recommendations,
+            conclusion=response.conclusion,
         )
 
     def execute(self, state: ContractPipelineState, config: RunnableConfig) -> dict:
@@ -136,22 +117,20 @@ class ReportAgent(BaseAgent):
             section_assessments=self._format_section_assessments(state),
         )
 
-        try:
-            result = self._invoke_and_parse(config, make_report_system_prompt(), user_prompt)
-            report = self._parse_report_result(result, state)
+        response = self._invoke_structured(
+            config,
+            make_report_system_prompt(),
+            user_prompt,
+            ReportResponse,
+        )
 
-            self.logger.info(
-                f"Report generated: {report.report_id} - Status: {report.executive_summary.overall_status}"
-            )
+        report = self._convert_response_to_report(response, state)
+        self.logger.info(f"Report generated: {report.report_id} - Status: {report.executive_summary.overall_status}")
 
-            return {
-                "compliance_report": report,
-                "current_stage": "complete",
-            }
-
-        except (KeyError, ValueError) as e:
-            self._handle_parse_error(e)
-            raise ValueError(f"Report generation failed: {e}")
+        return {
+            "compliance_report": report,
+            "current_stage": "complete",
+        }
 
 
 def report_stage_node(state: ContractPipelineState, config: RunnableConfig) -> dict:

@@ -22,8 +22,6 @@ Architecture:
                │
                ▼
     ContractReviewCompletedEvent / ContractReviewFailedEvent
-
-Reference: CLAUDE.md for event-driven AI agent pattern
 """
 
 import os
@@ -41,7 +39,7 @@ from src.model.event_model import (
     EventType,
     FileCreatedEvent,
 )
-from src.service.contract_pipeline_service import run_contract_compliance_pipeline
+from src.service.service import run_contract_compliance_pipeline
 
 logger = make_logger(__name__)
 
@@ -59,15 +57,7 @@ class EventHandler(ABC):
 
     @abstractmethod
     async def handle(self, event: BaseEvent) -> BaseEvent | None:
-        """
-        Process the event and optionally return a new event.
-
-        Args:
-            event: The event to process
-
-        Returns:
-            A new event to publish, or None if no follow-up event
-        """
+        """Process the event and optionally return a new event to publish."""
         pass
 
 
@@ -233,16 +223,7 @@ def create_default_event_bus(
     model: str = OpenAIModel.GPT_4O_MINI,
     output_directory: str = "outputs",
 ) -> EventBus:
-    """
-    Create an event bus with default handlers configured.
-
-    Args:
-        model: The LLM model to use for contract review
-        output_directory: Directory to save compliance reports
-
-    Returns:
-        Configured EventBus instance
-    """
+    """Create an event bus with default handlers configured."""
     bus = EventBus()
     bus.register_handler(FileCreatedHandler(model=model, output_directory=output_directory))
     bus.register_handler(ContractReviewHandler())

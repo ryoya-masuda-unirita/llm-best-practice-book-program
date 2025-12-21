@@ -136,5 +136,5 @@ class BaseAgent(ABC):
 
     @abstractmethod
     def execute(self, state: dict, config: RunnableConfig) -> dict:
-        """Execute the agent's main logic and return updated state."""
+        """Execute the agent's main logic."""
         pass

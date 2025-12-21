@@ -1,0 +1,15 @@
+{
+  "user_id": "user_analysis",
+  "learning_goal": "Pythonプログラミングを習得して、データ分析ができるようになりたい",
+  "current_knowledge": [
+    "基本的なPC操作",
+    "Excel"
+  ],
+  "skill_level": "beginner",
+  "available_hours_per_week": 10,
+  "preferred_content_types": [
+    "video",
+    "exercise"
+  ],
+  "learning_pace": "moderate"
+}

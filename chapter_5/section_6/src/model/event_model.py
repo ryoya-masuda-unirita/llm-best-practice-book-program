@@ -6,8 +6,6 @@ Events follow a publish-subscribe pattern where:
 - FileCreatedEvent: Published when a new file is detected in the watched directory
 - ContractReviewRequestedEvent: Published to trigger contract review pipeline
 - ContractReviewCompletedEvent: Published when review is complete
-
-Reference: CLAUDE.md for event-driven AI agent pattern
 """
 
 from dataclasses import dataclass, field

@@ -25,8 +25,6 @@ Usage:
 
     # With custom model and output
     python -m src.event_runner -w data/ -m gpt-4o -od reports/
-
-Reference: CLAUDE.md for event-driven AI agent pattern
 """
 
 import asyncio

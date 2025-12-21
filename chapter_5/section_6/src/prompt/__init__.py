@@ -1,4 +1,4 @@
-from src.prompt.contract_pipeline_prompt import (
+from src.prompt.prompt import (
     make_extraction_system_prompt,
     make_extraction_user_prompt,
     make_report_system_prompt,

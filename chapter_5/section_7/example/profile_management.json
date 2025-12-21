@@ -1,0 +1,15 @@
+{
+  "user_id": "user_management",
+  "learning_goal": "エンジニアリングマネージャーになってチームをリードする",
+  "current_knowledge": [
+    "PythonやTypeScriptでの開発",
+    "プロジェクトマネジメント"
+  ],
+  "skill_level": "elementary",
+  "available_hours_per_week": 10,
+  "preferred_content_types": [
+    "video",
+    "exercise"
+  ],
+  "learning_pace": "moderate"
+}

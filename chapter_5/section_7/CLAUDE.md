@@ -1,252 +1,298 @@
-# Event-Driven AI Agent for Contract Review
+# Learning AI Agent - Training Plan Generator
 
 ## Overview
 
-This project implements an event-driven AI agent system that monitors a directory for new contract files and automatically triggers a contract risk compliance pipeline. When a new file is detected, the system publishes events through an event bus, which coordinates handlers to process the contract and generate a compliance report.
-
-The architecture demonstrates the event-driven pattern for AI agents, enabling loose coupling between components, extensibility, and real-time responsiveness.
+A learning AI agent that generates personalized 1-week training plans. The system accumulates user feedback and learning history as external memory (JSON files), dynamically injecting learned patterns into prompts for increasingly personalized recommendations.
 
 ## Architecture
 
 ```
-+-----------------------------------------------------------------------+
-|                       Event-Driven AI Agent                           |
-|                                                                       |
-|  +----------------+     +----------------+     +--------------------+ |
-|  |   Watchdog     |---->|   Event Bus    |---->|  Event Handlers    | |
-|  | (File Monitor) |     | (Pub/Sub)      |     |                    | |
-|  +----------------+     +----------------+     +--------------------+ |
-|         |                      |                       |              |
-|         v                      v                       v              |
-|  FileCreatedEvent      Publish/Subscribe       Contract Pipeline     |
-|                                                                       |
-+-----------------------------------------------------------------------+
-
-Event Flow:
-    FileCreatedEvent
-          |
-          v
-    +---------------------+
-    | FileCreatedHandler  |  (Filter & transform)
-    +----------+----------+
-               |
-               v
-    ContractReviewRequestedEvent
-               |
-               v
-    +-----------------------------+
-    | ContractReviewHandler       |  (Execute pipeline)
-    +----------+------------------+
-               |
-               v
-    ContractReviewCompletedEvent / ContractReviewFailedEvent
-
-Contract Review Pipeline (LangGraph):
-    +-------------------+
-    |   Input Stage     |  (Read contract file)
-    +---------+---------+
-              |
-              v
-    +-------------------+
-    | Extraction Stage  |  (Parse chapters/sections)
-    +---------+---------+
-              |
-              v
-    +-------------------+
-    | Risk Scoring      |  (Evaluate each section)
-    |     Stage         |
-    +---------+---------+
-              |
-              v
-    +-------------------+
-    |  Report Stage     |  (Generate compliance report)
-    +---------+---------+
-              |
-              v
-            [END]
++------------------------------------------------------------------+
+|                    Pattern Analyzer Agent                         |
+|              (Extracts patterns from user feedback)               |
++---------------------------------+--------------------------------+
+                                  |
+                                  | Injects learned patterns
+                                  v
++------------------------------------------------------------------+
+|                Training Plan Generator Agent                      |
+|           (Generates plans using learned patterns)                |
++------------------------------------------------------------------+
+                                  |
+                                  v
++------------------------------------------------------------------+
+|                         User Memory                               |
+|       (Stores profile, history, feedback, learned patterns)       |
+|                     memory/{user_id}_{timestamp}.json             |
++------------------------------------------------------------------+
 ```
 
-### Directory Structure
+### Learning Feedback Loop
+
+1. **Inference and Recording**: Agent generates training plan, user feedback is saved to memory
+2. **Pattern Extraction**: Accumulated feedback is analyzed to learn user preferences
+3. **Adaptive Generation**: Learned patterns are injected into prompts for personalized plans
+
+## Directory Structure
 
 ```
-chapter_4/section_7/
-|-- CLAUDE.md                    # This file
-|-- README.md                    # User documentation
-|-- pyproject.toml               # Project configuration
-|-- Makefile                     # Development commands
+chapter_5/section_5/
+|-- src/
+|   |-- __init__.py
+|   |-- config.py                # Configuration (API keys)
+|   |-- logger.py                # Logging setup
+|   |-- main.py                  # CLI entry point
+|   |-- client/
+|   |   |-- __init__.py
+|   |   +-- llm_client.py        # OpenAI model definitions
+|   |-- model/
+|   |   |-- __init__.py
+|   |   +-- model.py             # Pydantic data models
+|   |-- prompt/
+|   |   |-- __init__.py
+|   |   +-- prompt.py            # Prompt templates
+|   +-- service/
+|       |-- __init__.py
+|       |-- memory_service.py    # Memory persistence operations
+|       +-- service.py           # Agent implementation
+|-- memory/                      # User memory storage directory
+|   +-- {user_id}_{timestamp}.json
+|-- example/
+|   +-- profile.json             # Sample user profile
+|-- outputs/                     # Generated plans (auto-created)
 |-- .envrc.example               # Environment variable template
-|-- data/                        # Contract files (watched directory)
-|   |-- contract_0.md
-|   |-- contract_1.md
-|   +-- ...
-|-- outputs/                     # Generated reports
-+-- src/
-    |-- __init__.py
-    |-- main.py                  # CLI entry point (manual execution)
-    |-- event_runner.py          # Event-driven runner (automatic)
-    |-- config.py                # Configuration management
-    |-- logger.py                # Logging setup
-    |-- client/
-    |   +-- llm_client.py        # LLM model definitions
-    |-- model/
-    |   |-- __init__.py
-    |   |-- contract_pipeline_model.py  # Pipeline data models
-    |   +-- event_model.py       # Event definitions
-    |-- service/
-    |   |-- __init__.py
-    |   |-- contract_pipeline_service.py  # Pipeline orchestration
-    |   +-- event_handler.py     # Event handlers and bus
-    |-- layer/
-    |   |-- base.py              # Base layer utilities
-    |   +-- contract_pipeline/
-    |       |-- extraction.py    # Extraction stage node
-    |       |-- risk_scoring.py  # Risk scoring stage node
-    |       +-- report.py        # Report generation stage node
-    +-- prompt/
-        +-- contract_pipeline_prompt.py  # Prompt templates
+|-- pyproject.toml               # Dependencies
+|-- Makefile                     # Build commands
++-- CLAUDE.md                    # This file
 ```
 
 ## Key Components
 
-### Event Models (`src/model/event_model.py`)
-- `EventType`: Enum of event types (FILE_CREATED, CONTRACT_REVIEW_REQUESTED, etc.)
-- `BaseEvent`: Base class with event_id, correlation_id, timestamp
-- `FileCreatedEvent`: Published when a new file is detected
-- `ContractReviewRequestedEvent`: Triggers the review pipeline
-- `ContractReviewCompletedEvent`: Published on successful review
-- `ContractReviewFailedEvent`: Published on failure
+### Data Models (`src/model/model.py`)
 
-### Event Handlers (`src/service/event_handler.py`)
-- `EventHandler`: Abstract base class for all handlers
-- `FileCreatedHandler`: Filters files and emits review requests
-- `ContractReviewHandler`: Executes the contract pipeline
-- `EventBus`: In-memory pub/sub system (replaceable with Kafka/RabbitMQ)
+| Model | Purpose |
+|-------|---------|
+| `UserProfile` | User's learning goal, skill level, available time |
+| `TrainingPlan` | 1-week training plan with daily tasks and assessment |
+| `DailyPlan` / `DailyTask` | Daily plans and individual tasks |
+| `TrainingFeedback` | User feedback on completed training |
+| `LearnedPattern` | Patterns extracted from feedback |
+| `UserMemory` | Complete user memory (profile, history, patterns) |
+| `LearningProgress` | Learning progress statistics |
 
-### Event Runner (`src/event_runner.py`)
-- `ContractFileEventHandler`: Bridges watchdog events to the event bus
-- `EventDrivenRunner`: Main runner coordinating file watching and event processing
+### Service Functions (`src/service/service.py`)
 
-### Pipeline Service (`src/service/contract_pipeline_service.py`)
-- `create_contract_pipeline_graph()`: Creates LangGraph state machine
-- `run_contract_compliance_pipeline()`: Executes the full pipeline
+| Function | Purpose |
+|----------|---------|
+| `run_training_plan_generation()` | Main workflow - complete plan generation |
+| `generate_training_plan()` | Generate training plan with pattern injection |
+| `analyze_feedback_patterns()` | Extract patterns from feedback |
+| `create_user_profile()` | Create user profile |
 
-### Pipeline Stages (`src/layer/contract_pipeline/`)
-- `extraction_stage_node`: Parses contract structure (chapters, sections)
-- `risk_scoring_stage_node`: Evaluates risk for each section
-- `report_stage_node`: Generates comprehensive compliance report
+### Memory Service (`src/service/memory_service.py`)
 
-## Dependencies
+| Function | Purpose |
+|----------|---------|
+| `save_memory()` | Save memory to JSON file |
+| `load_memory()` | Load latest memory for user |
+| `create_new_memory()` | Create new memory instance |
+| `add_feedback_to_memory()` | Add feedback and save |
+| `list_user_memories()` | List all users and memory files |
 
-| Package | Purpose |
-|---------|---------|
-| langgraph | Pipeline AI agent state machine |
-| langchain-openai | OpenAI LLM integration |
-| watchdog | File system monitoring |
-| click | CLI framework |
-| pydantic | Data validation and models |
-| python-dotenv | Environment variable loading |
+### Prompt Templates (`src/prompt/prompt.py`)
+
+| Template | Purpose |
+|----------|---------|
+| `TRAINING_PLAN_SYSTEM_PROMPT` | System prompt for plan generation |
+| `TRAINING_PLAN_USER_PROMPT_TEMPLATE` | User prompt for plan generation |
+| `PATTERN_ANALYZER_SYSTEM_PROMPT` | System prompt for pattern analysis |
+| `LEARNED_CONTEXT_TEMPLATE` | Template for injecting learned patterns |
 
 ## Usage
 
 ### Setup
 
 ```bash
-# Copy environment template
+# Set environment variables
 cp .envrc.example .envrc
-
-# Edit .envrc and set your API key
-# OPENAI_API_KEY=sk-...
+# Edit .envrc to set OPENAI_API_KEY
 
 # Install dependencies
 uv sync
 ```
 
-### Run
+### CLI Commands
 
-#### Event-Driven Mode (Automatic)
-
-Watch a directory and process new files automatically:
+#### Generate Plan
 
 ```bash
-# Watch data/ directory (default)
-uv run python -m src.event_runner
+# New user with command-line options
+uv run python -m src.main generate -g "Learn Python programming" -h 10 -s beginner
 
-# Watch custom directory
-uv run python -m src.event_runner -w contracts/
+# Use profile file
+uv run python -m src.main generate -p example/profile.json
 
-# With custom model
-uv run python -m src.event_runner -m gpt-4o
-
-# With custom output directory
-uv run python -m src.event_runner -od reports/
+# Existing user (loads from memory)
+uv run python -m src.main generate -u user_example
 ```
 
-#### Manual Mode
-
-Process a specific file:
+#### Submit Feedback
 
 ```bash
-uv run python -m src.main -c data/contract_0.md
-uv run python -m src.main -c data/contract_0.md -m gpt-4o
+uv run python -m src.main feedback -u user_example -r good -d just_right
+uv run python -m src.main feedback -u user_example -r excellent -d challenging -ft "Great content!"
+```
+
+#### List Users
+
+```bash
+uv run python -m src.main list
+```
+
+#### Show User Details
+
+```bash
+uv run python -m src.main show -u user_example --show-plans --show-patterns
 ```
 
 ### CLI Options
 
-#### Event Runner (`src.event_runner`)
+#### generate command
 
-| Option | Short | Default | Description |
-|--------|-------|---------|-------------|
-| --watch-directory | -w | data | Directory to watch for new files |
-| --model | -m | gpt-4o-mini | LLM model to use |
-| --output-directory | -od | outputs | Directory for reports |
+| Option | Short | Description |
+|--------|-------|-------------|
+| `--model` | `-m` | OpenAI model to use |
+| `--output-dir` | `-o` | Output directory |
+| `--profile-file` | `-p` | Path to profile JSON file |
+| `--user-id` | `-u` | User ID (loads existing memory) |
+| `--goal` | `-g` | Learning goal |
+| `--hours-per-week` | `-h` | Weekly available hours |
+| `--skill-level` | `-s` | Skill level (beginner/intermediate/advanced) |
+| `--learning-pace` | `-lp` | Learning pace (slow/moderate/fast) |
+| `--skip-analysis` | | Skip pattern analysis |
 
-#### Manual Mode (`src.main`)
+#### feedback command
 
-| Option | Short | Default | Description |
-|--------|-------|---------|-------------|
-| --contract-file | -c | (required) | Path to contract file |
-| --model | -m | gpt-4o-mini | LLM model to use |
-| --output-directory | -od | outputs | Directory for reports |
+| Option | Short | Description |
+|--------|-------|-------------|
+| `--user-id` | `-u` | User ID (required) |
+| `--plan-id` | `-pid` | Plan ID (uses latest if not specified) |
+| `--rating` | `-r` | Overall rating (required) |
+| `--difficulty` | `-d` | Difficulty rating (required) |
+| `--improvement-suggestions` | `-is` | Suggestions (comma-separated) |
+| `--free-text` | `-ft` | Free text feedback |
+
+## Memory Structure
+
+### File Naming Convention
+
+```
+memory/{user_id}_{timestamp}.json
+```
+
+Example: `memory/user_example_20241221_143052.json`
+
+The latest file contains the most up-to-date memory.
+
+### Memory JSON Schema
+
+```json
+{
+  "user_id": "user_example",
+  "created_at": "2024-12-21T14:30:52",
+  "updated_at": "2024-12-21T15:45:30",
+  "profile": {
+    "user_id": "user_example",
+    "learning_goal": "Learn Python programming",
+    "skill_level": "beginner",
+    "available_hours_per_week": 10
+  },
+  "training_history": [
+    {
+      "plan": { ... },
+      "feedback": { ... }
+    }
+  ],
+  "learned_patterns": [
+    {
+      "pattern_type": "preference",
+      "description": "Prefers video content",
+      "confidence_score": 0.8
+    }
+  ],
+  "progress": {
+    "total_weeks_completed": 3,
+    "total_tasks_completed": 42,
+    "average_completion_rate": 0.85
+  }
+}
+```
+
+## Learning Mechanism
+
+### Pattern Extraction
+
+Pattern analysis runs when 2+ feedback entries exist:
+
+1. **preference**: Content type and learning style preferences
+2. **difficulty**: Difficulty-related patterns
+3. **pace**: Learning pace patterns
+4. **content**: Specific content patterns
+5. **time**: Time allocation patterns
+
+### Prompt Injection
+
+Patterns with confidence_score >= 0.6 are injected into prompts:
+
+```
+## Insights from Past Learning
+
+### User Preferences
+- Prefers video content
+- Prefers short learning units (under 30 minutes)
+
+### Difficulty Information
+- Slightly easier difficulty is appropriate
+
+### Specific Recommendations
+- Include more video content
+- Set each task under 30 minutes
+```
+
+## Dependencies
+
+| Package | Purpose |
+|---------|---------|
+| `langchain-openai` | OpenAI LLM integration |
+| `openai` | OpenAI API client |
+| `pydantic` | Data validation and models |
+| `click` | CLI framework |
+| `python-dotenv` | Environment variable loading |
 
 ## Development Commands
 
 ```bash
-# Lint code with ruff
+# Install dependencies
+uv sync
+
+# Show help
+uv run python -m src.main --help
+
+# Generate plan
+uv run python -m src.main generate -p example/profile.json
+
+# Run tests
+uv run pytest
+
+# Lint code
 make lint
 
-# Format code with ruff
+# Format code
 make fmt
 
 # Run both lint and format
 make fix
 
-# Type check with mypy
+# Type check
 make mypy
 ```
-
-## Implementation Notes
-
-### Event-Driven Design
-- All inter-component communication happens via events
-- Correlation IDs track event chains for observability
-- Handlers are independent and can be added/removed without affecting others
-
-### File Monitoring
-- Uses watchdog library for cross-platform file system events
-- Debounce logic (1 second) prevents duplicate processing
-- Supports .md and .txt file extensions
-
-### Error Handling
-- Failed reviews emit `ContractReviewFailedEvent` with error details
-- Handlers catch exceptions and log errors without crashing the system
-- Pipeline failures are captured and reported
-
-### Extensibility
-- Add new handlers by implementing `EventHandler` interface
-- Replace `EventBus` with Kafka/RabbitMQ for production
-- Add new pipeline stages by creating nodes and updating the graph
-
-### Observability
-- All events are logged with correlation IDs
-- Event callbacks can be registered for monitoring
-- Completion events include status, risk score, and report path

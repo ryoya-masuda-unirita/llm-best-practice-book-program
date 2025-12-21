@@ -1,219 +1,236 @@
-# Contract Risk Compliance Pipeline
+# Event-Driven AI Agent for Contract Review
 
 ## Overview
 
-This project implements a Pipeline AI Agent pattern for contract risk compliance evaluation. It demonstrates how to decompose complex LLM processing into a series of sequential stages, where each stage has a specific responsibility and passes its output to the next stage.
+This project implements an event-driven AI agent system that monitors a directory for new contract files and automatically triggers a contract risk compliance pipeline. When a new file is detected, the system publishes events through an event bus, which coordinates handlers to process the contract and generate a compliance report.
 
-The pipeline reads a contract document, extracts its structure (chapters and sections), evaluates risk for each section, and generates a comprehensive compliance report.
+The architecture demonstrates the event-driven pattern for AI agents, enabling loose coupling between components, extensibility, and real-time responsiveness.
 
 ## Architecture
 
 ```
-+------------------------------------------------------------------+
-|                    Contract Pipeline                              |
-+------------------------------------------------------------------+
-|                                                                   |
-|  +-------------------+                                            |
-|  |   Input Stage     |  Read contract file from disk              |
-|  |   (main.py)       |                                            |
-|  +---------+---------+                                            |
-|            |                                                      |
-|            v                                                      |
-|  +-------------------+                                            |
-|  | Extraction Stage  |  Parse document structure                  |
-|  | (extraction.py)   |  -> Extract chapters and sections          |
-|  |                   |  -> Identify parties                       |
-|  +---------+---------+                                            |
-|            |                                                      |
-|            v                                                      |
-|  +-------------------+                                            |
-|  | Risk Scoring      |  Evaluate each section                     |
-|  | Stage             |  -> Assess risk level (low/med/high/crit)  |
-|  | (risk_scoring.py) |  -> Categorize findings                    |
-|  +---------+---------+                                            |
-|            |                                                      |
-|            v                                                      |
-|  +-------------------+                                            |
-|  | Report Stage      |  Generate final report                     |
-|  | (report.py)       |  -> Executive summary                      |
-|  |                   |  -> Recommendations                        |
-|  +---------+---------+                                            |
-|            |                                                      |
-|            v                                                      |
-|        [Output]         Markdown compliance report                |
-|                                                                   |
-+------------------------------------------------------------------+
++-----------------------------------------------------------------------+
+|                       Event-Driven AI Agent                           |
+|                                                                       |
+|  +----------------+     +----------------+     +--------------------+ |
+|  |   Watchdog     |---->|   Event Bus    |---->|  Event Handlers    | |
+|  | (File Monitor) |     | (Pub/Sub)      |     |                    | |
+|  +----------------+     +----------------+     +--------------------+ |
+|         |                      |                       |              |
+|         v                      v                       v              |
+|  FileCreatedEvent      Publish/Subscribe       Contract Pipeline     |
+|                                                                       |
++-----------------------------------------------------------------------+
+
+Event Flow:
+    FileCreatedEvent
+          |
+          v
+    +---------------------+
+    | FileCreatedHandler  |  (Filter & transform)
+    +----------+----------+
+               |
+               v
+    ContractReviewRequestedEvent
+               |
+               v
+    +-----------------------------+
+    | ContractReviewHandler       |  (Execute pipeline)
+    +----------+------------------+
+               |
+               v
+    ContractReviewCompletedEvent / ContractReviewFailedEvent
+
+Contract Review Pipeline (LangGraph):
+    +-------------------+
+    |   Input Stage     |  (Read contract file)
+    +---------+---------+
+              |
+              v
+    +-------------------+
+    | Extraction Stage  |  (Parse chapters/sections)
+    +---------+---------+
+              |
+              v
+    +-------------------+
+    | Risk Scoring      |  (Evaluate each section)
+    |     Stage         |
+    +---------+---------+
+              |
+              v
+    +-------------------+
+    |  Report Stage     |  (Generate compliance report)
+    +---------+---------+
+              |
+              v
+            [END]
 ```
 
 ### Directory Structure
 
 ```
-src/
-|-- __init__.py
-|-- main.py                         # CLI entry point
-|-- config.py                       # Environment configuration
-|-- logger.py                       # Logging utilities
-|-- client/
-|   |-- __init__.py
-|   +-- llm_client.py               # OpenAI model definitions
-|-- model/
-|   |-- __init__.py
-|   +-- contract_pipeline_model.py  # Pydantic data models
-|-- prompt/
-|   |-- __init__.py
-|   +-- contract_pipeline_prompt.py # System/user prompt templates
-|-- layer/
-|   |-- __init__.py
-|   |-- base.py                     # Abstract base agent class
-|   +-- contract_pipeline/
-|       |-- __init__.py
-|       |-- extraction.py           # Extraction stage agent
-|       |-- risk_scoring.py         # Risk scoring stage agent
-|       +-- report.py               # Report generation stage agent
-+-- service/
+chapter_5/section_7/
+|-- CLAUDE.md                    # This file
+|-- README.md                    # User documentation
+|-- pyproject.toml               # Project configuration
+|-- Makefile                     # Development commands
+|-- .envrc.example               # Environment variable template
+|-- contract/                    # Contract files (watched directory)
+|   |-- contract_0.md
+|   |-- contract_1.md
+|   +-- ...
+|-- outputs/                     # Generated reports
++-- src/
     |-- __init__.py
-    +-- contract_pipeline_service.py # LangGraph pipeline orchestration
+    |-- event_runner.py          # Event-driven runner (entry point)
+    |-- config.py                # Configuration management
+    |-- logger.py                # Logging setup
+    |-- client/
+    |   +-- llm_client.py        # LLM model definitions
+    |-- model/
+    |   |-- __init__.py
+    |   |-- model.py             # Pipeline data models
+    |   +-- event_model.py       # Event definitions
+    |-- service/
+    |   |-- __init__.py
+    |   |-- service.py           # Pipeline orchestration
+    |   +-- event_handler.py     # Event handlers and bus
+    |-- layer/
+    |   |-- base.py              # Base layer utilities
+    |   +-- contract_pipeline/
+    |       |-- extraction.py    # Extraction stage node
+    |       |-- risk_scoring.py  # Risk scoring stage node
+    |       +-- report.py        # Report generation stage node
+    +-- prompt/
+        +-- prompt.py            # Prompt templates
 ```
 
 ## Key Components
 
-### Data Models (`src/model/contract_pipeline_model.py`)
+### Event Models (`src/model/event_model.py`)
+- `EventType`: Enum of event types (FILE_CREATED, CONTRACT_REVIEW_REQUESTED, etc.)
+- `BaseEvent`: Base class with event_id, correlation_id, timestamp
+- `FileCreatedEvent`: Published when a new file is detected
+- `ContractReviewRequestedEvent`: Triggers the review pipeline
+- `ContractReviewCompletedEvent`: Published on successful review
+- `ContractReviewFailedEvent`: Published on failure
 
-- **ContractPipelineState**: TypedDict for LangGraph state management
-- **RiskLevel**: Enum (low, medium, high, critical)
-- **RiskCategory**: Enum (10 categories: intellectual_property, liability, etc.)
-- **ComplianceStatus**: Enum (compliant, needs_review, non_compliant)
-- **ContractSection/Chapter**: Document structure models
-- **RiskFinding/SectionRiskAssessment**: Risk evaluation results
-- **ComplianceReport**: Final output with `to_markdown()` method
+### Event Handlers (`src/service/event_handler.py`)
+- `EventHandler`: Abstract base class for all handlers
+- `FileCreatedHandler`: Filters files and emits review requests
+- `ContractReviewHandler`: Executes the contract pipeline
+- `EventBus`: In-memory pub/sub system (replaceable with Kafka/RabbitMQ)
+
+### Event Runner (`src/event_runner.py`)
+- `ContractFileEventHandler`: Bridges watchdog events to the event bus
+- `EventDrivenRunner`: Main runner coordinating file watching and event processing
+
+### Pipeline Service (`src/service/service.py`)
+- `create_contract_pipeline_graph()`: Creates LangGraph state machine
+- `run_contract_compliance_pipeline()`: Executes the full pipeline
 
 ### Pipeline Stages (`src/layer/contract_pipeline/`)
-
-- **ExtractionAgent**: Parses raw contract text into structured chapters/sections
-- **RiskScoringAgent**: Evaluates each section for risks with severity and category
-- **ReportAgent**: Aggregates findings and generates executive summary
-
-### Base Agent (`src/layer/base.py`)
-
-Abstract base class providing:
-- LLM invocation with retry logic
-- JSON parsing from LLM responses
-- Error handling and logging
-
-### Pipeline Service (`src/service/contract_pipeline_service.py`)
-
-Uses LangGraph StateGraph to orchestrate the linear pipeline flow:
-```
-extraction -> risk_scoring -> report -> END
-```
+- `extraction_stage_node`: Parses contract structure (chapters, sections)
+- `risk_scoring_stage_node`: Evaluates risk for each section
+- `report_stage_node`: Generates comprehensive compliance report
 
 ## Dependencies
 
 | Package | Purpose |
 |---------|---------|
-| langchain-openai | OpenAI API client |
-| langgraph | Pipeline orchestration |
-| pydantic | Data model validation |
+| langgraph | Pipeline AI agent state machine |
+| langchain-openai | OpenAI LLM integration |
+| langchain-anthropic | Anthropic LLM integration |
+| langchain-google-genai | Google Gemini LLM integration |
+| watchdog | File system monitoring |
 | click | CLI framework |
+| pydantic | Data validation and models |
 | python-dotenv | Environment variable loading |
 
 ## Usage
 
 ### Setup
 
-1. Copy environment template:
 ```bash
+# Copy environment template
 cp .envrc.example .envrc
-```
 
-2. Set your OpenAI API key in `.envrc`:
-```
-OPENAI_API_KEY=your_api_key_here
-```
+# Edit .envrc and set your API keys
+# OPENAI_API_KEY=sk-...
+# GEMINI_API_KEY=...
+# ANTHROPIC_API_KEY=...
 
-3. Install dependencies:
-```bash
+# Install dependencies
 uv sync
 ```
 
 ### Run
 
+Watch a directory and process new files automatically:
+
 ```bash
-# Basic usage
-python -m src.main -c data/contract_0.md
+# Watch data/ directory (default)
+uv run python -m src.event_runner
 
-# Specify model
-python -m src.main -c data/contract_0.md -m gpt-4o
+# Watch custom directory
+uv run python -m src.event_runner -w contracts/
 
-# Custom output directory
-python -m src.main -c data/contract_0.md -od reports
+# With custom model
+uv run python -m src.event_runner -m gpt-4o
+
+# With custom output directory
+uv run python -m src.event_runner -od reports/
 ```
 
 ### CLI Options
 
-| Option | Short | Description | Default |
-|--------|-------|-------------|---------|
-| --contract-file | -c | Path to contract file (required) | - |
-| --model | -m | OpenAI model to use | gpt-4o-mini |
-| --output-directory | -od | Output directory for reports | outputs |
-| --help | - | Show help message | - |
+#### Event Runner (`src.event_runner`)
 
-### Available Models
-
-- gpt-4o, gpt-4o-mini
-- gpt-4.1, gpt-4.1-mini, gpt-4.1-nano
-- gpt-5, gpt-5-mini, gpt-5-nano
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| --watch-directory | -w | data | Directory to watch for new files |
+| --model | -m | gpt-4o-mini | LLM model to use |
+| --output-directory | -od | outputs | Directory for reports |
 
 ## Development Commands
 
 ```bash
-# Lint code
+# Lint code with ruff
 make lint
 
-# Format code
+# Format code with ruff
 make fmt
 
 # Run both lint and format
 make fix
 
-# Type check
+# Type check with mypy
 make mypy
 ```
 
 ## Implementation Notes
 
-### Pipeline State Flow
+### Event-Driven Design
+- All inter-component communication happens via events
+- Correlation IDs track event chains for observability
+- Handlers are independent and can be added/removed without affecting others
 
-Each stage updates the shared `ContractPipelineState`:
-1. **extraction**: Populates `extraction_output` and `pending_sections`
-2. **risk_scoring**: Populates `risk_scoring_output` from all sections
-3. **report**: Populates `compliance_report` with final analysis
-
-### Risk Evaluation Categories
-
-The system evaluates contracts across 10 risk categories:
-- Intellectual Property
-- Liability
-- Confidentiality
-- Termination
-- Payment
-- Compliance
-- Warranty
-- Indemnification
-- Dispute Resolution
-- Other
+### File Monitoring
+- Uses watchdog library for cross-platform file system events
+- Debounce logic (1 second) prevents duplicate processing
+- Supports .md and .txt file extensions
 
 ### Error Handling
+- Failed reviews emit `ContractReviewFailedEvent` with error details
+- Handlers catch exceptions and log errors without crashing the system
+- Pipeline failures are captured and reported
 
-- LLM calls include retry logic (3 attempts with 2s delay)
-- JSON parsing includes truncation fix for incomplete responses
-- Failed section assessments get default MEDIUM risk level
+### Extensibility
+- Add new handlers by implementing `EventHandler` interface
+- Replace `EventBus` with Kafka/RabbitMQ for production
+- Add new pipeline stages by creating nodes and updating the graph
 
-### Output Format
-
-Reports are generated as Markdown with:
-- Executive summary with overall status and risk score
-- Risk breakdown by category
-- Section-by-section assessment details
-- Prioritized recommendations
-- Conclusion with action items
+### Observability
+- All events are logged with correlation IDs
+- Event callbacks can be registered for monitoring
+- Completion events include status, risk score, and report path

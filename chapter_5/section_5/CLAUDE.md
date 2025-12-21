@@ -1,240 +1,228 @@
-# Learning AI Agent - Personalized Learning Platform
+# Contract Risk Compliance Pipeline
 
 ## Overview
 
-This project implements a **Learning AI Agent** pattern - a design where AI agents learn from accumulated experiences (user feedback, interaction history) and continuously improve their behavior and output quality. Unlike static prompt-based systems, this platform builds a feedback loop that enables the system to adapt and grow through operation.
+This project implements a Pipeline AI Agent pattern for contract risk compliance evaluation. It demonstrates how to decompose complex LLM processing into a series of sequential stages, where each stage has a specific responsibility and passes its output to the next stage.
 
-The system generates personalized learning plans using a hierarchical multi-agent architecture built with LangGraph. It features a learning feedback loop that analyzes past experiences to extract patterns and inject them into agent prompts for improved output quality.
+The pipeline reads a contract document, extracts its structure (chapters and sections), evaluates risk for each section, and generates a comprehensive compliance report.
 
 ## Architecture
 
 ```
 +------------------------------------------------------------------+
-|                       Learning Agent                              |
-|            (Analyzes past experiences, extracts patterns)         |
-+---------------------------------+--------------------------------+
-                                  |
-                                  | Injects learned patterns
-                                  v
+|                    Contract Pipeline                              |
 +------------------------------------------------------------------+
-|  +------------+   +------------+   +------------+   +---------+  |
-|  |  Strategy  |-->|  Tactics   |-->| Execution  |-->| Progress|  |
-|  |   Agent    |   |   Agent    |   |   Agent    |   |  Agent  |  |
-|  | (Roadmap)  |   | (Weekly/   |   | (Content/  |   | (Track) |  |
-|  |            |   |  Daily)    |   |  Quiz)     |   |         |  |
-|  +------------+   +------------+   +-----+------+   +---------+  |
-|                                          |                       |
-|                                          | Loop for sessions     |
-|                                          v                       |
-+------------------------------------------------------------------+
-                                  |
-                                  v
-+------------------------------------------------------------------+
-|                      Experience Store                             |
-|    (Accumulates experiences, stores patterns, tracks feedback)    |
+|                                                                   |
+|  +-------------------+                                            |
+|  |   Input Stage     |  Read contract file from disk              |
+|  |   (main.py)       |                                            |
+|  +---------+---------+                                            |
+|            |                                                      |
+|            v                                                      |
+|  +-------------------+                                            |
+|  | Extraction Stage  |  Parse document structure                  |
+|  | (extraction.py)   |  -> Extract chapters and sections          |
+|  |                   |  -> Identify parties                       |
+|  +---------+---------+                                            |
+|            |                                                      |
+|            v                                                      |
+|  +-------------------+                                            |
+|  | Risk Scoring      |  Evaluate each section                     |
+|  | Stage             |  -> Assess risk level (low/med/high/crit)  |
+|  | (risk_scoring.py) |  -> Categorize findings                    |
+|  +---------+---------+                                            |
+|            |                                                      |
+|            v                                                      |
+|  +-------------------+                                            |
+|  | Report Stage      |  Generate final report                     |
+|  | (report.py)       |  -> Executive summary                      |
+|  |                   |  -> Recommendations                        |
+|  +---------+---------+                                            |
+|            |                                                      |
+|            v                                                      |
+|        [Output]         Markdown compliance report                |
+|                                                                   |
 +------------------------------------------------------------------+
 ```
-
-### Agent Flow
-
-1. **Learning Agent**: Analyzes accumulated experiences before plan generation
-2. **Strategy Agent**: Creates learning roadmap based on learner profile
-3. **Tactics Agent**: Designs weekly/daily curriculum from roadmap
-4. **Execution Agent**: Generates learning content and quizzes (loops for multiple sessions)
-5. **Progress Agent**: Creates progress report and recommendations
 
 ### Directory Structure
 
 ```
-chapter_4/section_5/
-|-- src/
-|   |-- __init__.py              # Package init
-|   |-- config.py                # Configuration (API keys)
-|   |-- logger.py                # Logging setup
-|   |-- main.py                  # CLI entry point
-|   |-- client/
-|   |   |-- __init__.py
-|   |   +-- llm_client.py        # OpenAI model definitions
-|   |-- model/
-|   |   |-- __init__.py
-|   |   +-- llm_pipeline_model.py  # Pydantic data models
-|   |-- prompt/
-|   |   |-- __init__.py
-|   |   +-- llm_pipeline_prompt.py # Prompt templates
-|   +-- service/
+src/
+|-- __init__.py
+|-- main.py                         # CLI entry point
+|-- config.py                       # Environment configuration
+|-- logger.py                       # Logging utilities
+|-- client/
+|   |-- __init__.py
+|   +-- llm_client.py               # OpenAI model definitions
+|-- model/
+|   |-- __init__.py
+|   +-- model.py                    # Pydantic data models
+|-- prompt/
+|   |-- __init__.py
+|   +-- prompt.py                   # System/user prompt templates
+|-- layer/
+|   |-- __init__.py
+|   |-- base.py                     # Abstract base agent class
+|   +-- contract_pipeline/
 |       |-- __init__.py
-|       +-- llm_pipeline_service.py # Agent implementations
-|-- example/
-|   |-- learner_profile.json     # Sample learner profile
-|   +-- experience_store.json    # Sample experience store
-|-- outputs/                     # Generated plans (auto-created)
-|-- .envrc.example               # Environment variables template
-|-- pyproject.toml               # Project dependencies
-|-- Makefile                     # Build commands
-+-- README.md                    # Documentation
+|       |-- extraction.py           # Extraction stage agent
+|       |-- risk_scoring.py         # Risk scoring stage agent
+|       +-- report.py               # Report generation stage agent
++-- service/
+    |-- __init__.py
+    +-- service.py                  # LangGraph pipeline orchestration
 ```
 
 ## Key Components
 
-### Data Models (`src/model/llm_pipeline_model.py`)
+### Data Models (`src/model/model.py`)
 
-| Model | Purpose |
-|-------|---------|
-| `LearnerProfile` | Learner information (goal, knowledge, availability) |
-| `StrategyOutput` | Learning roadmap with modules and milestones |
-| `TacticsOutput` | Weekly/daily curriculum plans |
-| `LearningContent` | Generated learning content |
-| `Quiz` / `QuizQuestion` | Assessment quizzes |
-| `ExperienceRecord` | Single experience (input, output, feedback) |
-| `ExperienceStore` | Accumulated experiences and learned patterns |
-| `ExperiencePattern` | Pattern extracted from multiple experiences |
-| `HierarchicalAgentState` | LangGraph state for agent workflow |
+- **ContractPipelineState**: TypedDict for LangGraph state management
+- **RiskLevel**: Enum (low, medium, high, critical)
+- **RiskCategory**: Enum (10 categories: intellectual_property, liability, etc.)
+- **ComplianceStatus**: Enum (compliant, needs_review, non_compliant)
+- **ContractSection/Chapter**: Document structure models
+- **RiskFinding/SectionRiskAssessment**: Risk evaluation results
+- **ComplianceReport**: Final output with `to_markdown()` method
 
-### Service Functions (`src/service/llm_pipeline_service.py`)
+### Pipeline Stages (`src/layer/contract_pipeline/`)
 
-| Function | Purpose |
-|----------|---------|
-| `run_personalized_learning()` | Main entry - runs complete pipeline |
-| `learning_agent()` | Analyzes experiences, extracts patterns |
-| `run_learning_cycle()` | Runs learning analysis for all agent types |
-| `strategy_agent()` | Creates learning roadmap |
-| `tactics_agent()` | Designs curriculum |
-| `content_agent()` | Generates learning content |
-| `quiz_agent()` | Creates assessment quizzes |
-| `progress_agent()` | Generates progress reports |
-| `record_experience()` | Records new experience to store |
-| `get_learned_context_for_agent()` | Gets formatted patterns for prompt injection |
+- **ExtractionAgent**: Parses raw contract text into structured chapters/sections
+- **RiskScoringAgent**: Evaluates each section for risks with severity and category
+- **ReportAgent**: Aggregates findings and generates executive summary
 
-### Prompt Templates (`src/prompt/llm_pipeline_prompt.py`)
+### Base Agent (`src/layer/base.py`)
 
-Each agent has system and user prompt templates:
-- `STRATEGY_AGENT_SYSTEM_PROMPT` - Learning strategy design
-- `TACTICS_AGENT_SYSTEM_PROMPT` - Curriculum planning
-- `CONTENT_AGENT_SYSTEM_PROMPT` - Content generation
-- `QUIZ_AGENT_SYSTEM_PROMPT` - Quiz creation
-- `PROGRESS_AGENT_SYSTEM_PROMPT` - Progress monitoring
-- `LEARNING_AGENT_SYSTEM_PROMPT` - Experience analysis
-- `LEARNED_PATTERNS_INJECTION_TEMPLATE` - Pattern injection format
+Abstract base class providing:
+- LLM invocation with structured output (`with_structured_output`)
+- Retry logic (3 attempts with 2s delay)
+- Error handling and logging
+
+### Pipeline Service (`src/service/service.py`)
+
+Uses LangGraph StateGraph to orchestrate the linear pipeline flow:
+```
+extraction -> risk_scoring -> report -> END
+```
 
 ## Dependencies
 
 | Package | Purpose |
 |---------|---------|
-| `langchain-openai` | OpenAI LLM integration |
-| `langgraph` | State graph for agent workflow |
-| `openai` | OpenAI API client |
-| `pydantic` | Data validation and models |
-| `click` | CLI framework |
-| `python-dotenv` | Environment variable loading |
+| langchain-openai | OpenAI API client with LangChain integration |
+| langgraph | Pipeline orchestration with StateGraph |
+| pydantic | Data model validation and structured output |
+| click | CLI framework |
+| python-dotenv | Environment variable loading |
+| openai | OpenAI Python SDK |
+| anthropic | Anthropic Claude API (optional) |
+| google-genai | Google Gemini API (optional) |
 
 ## Usage
 
 ### Setup
 
-1. Copy environment template and set API key:
+1. Copy environment template:
 ```bash
 cp .envrc.example .envrc
-# Edit .envrc and set OPENAI_API_KEY
 ```
 
-2. Install dependencies:
+2. Set your OpenAI API key in `.envrc`:
+```
+OPENAI_API_KEY=your_api_key_here
+```
+
+3. Install dependencies:
 ```bash
 uv sync
 ```
 
 ### Run
 
-Basic usage with command-line options:
 ```bash
-uv run python -m src.main -g "Learn Python programming in 3 months" -h 10 -d 12
-```
+# Basic usage
+python -m src.main -c data/contract_0.md
 
-Using a profile file:
-```bash
-uv run python -m src.main -p example/learner_profile.json
-```
+# Specify model
+python -m src.main -c data/contract_0.md -m gpt-4o
 
-With experience-based learning:
-```bash
-uv run python -m src.main -p example/learner_profile.json -e example/experience_store.json
-```
-
-Save experiences for future learning:
-```bash
-uv run python -m src.main -p example/learner_profile.json -se outputs/experience_store.json
+# Custom output directory
+python -m src.main -c data/contract_0.md -od reports
 ```
 
 ### CLI Options
 
-| Option | Short | Description |
-|--------|-------|-------------|
-| `--model` | `-m` | OpenAI model to use (default: gpt-5-mini) |
-| `--output-directory` | `-od` | Output directory (default: outputs) |
-| `--profile-file` | `-p` | Path to learner profile JSON |
-| `--goal` | `-g` | Learning goal text |
-| `--hours-per-week` | `-h` | Available study hours per week |
-| `--duration-weeks` | `-d` | Target duration in weeks |
-| `--current-knowledge` | `-k` | Current knowledge (comma-separated) |
-| `--experience-store` | `-e` | Path to load experience store |
-| `--save-experience-store` | `-se` | Path to save updated experience store |
-| `--skip-learning` | | Skip learning cycle |
+| Option | Short | Description | Default |
+|--------|-------|-------------|---------|
+| --contract-file | -c | Path to contract file (required) | - |
+| --model | -m | OpenAI model to use | gpt-4o-mini |
+| --output-directory | -od | Output directory for reports | outputs |
+| --help | - | Show help message | - |
+
+### Available Models
+
+- gpt-4o, gpt-4o-mini
+- gpt-4.1, gpt-4.1-mini, gpt-4.1-nano
+- gpt-5, gpt-5-mini, gpt-5-nano
 
 ## Development Commands
 
 ```bash
-# Install dependencies
-uv sync
+# Lint code
+make lint
 
-# Run the platform
-uv run python -m src.main --help
+# Format code
+make fmt
 
-# Run with profile
-uv run python -m src.main -p example/learner_profile.json
+# Run both lint and format
+make fix
 
-# Run tests
-uv run pytest
+# Type check
+make mypy
 ```
 
 ## Implementation Notes
 
-### Learning Feedback Loop
+### Pipeline State Flow
 
-The learning feedback loop works as follows:
+Each stage updates the shared `ContractPipelineState`:
+1. **extraction**: Populates `extraction_output` and `pending_sections`
+2. **risk_scoring**: Populates `risk_scoring_output` from all sections
+3. **report**: Populates `compliance_report` with final analysis
 
-1. **Experience Recording**: Each agent's input/output is recorded with optional user feedback
-2. **Pattern Extraction**: Learning agent analyzes experiences (min 3 required)
-3. **Pattern Injection**: Extracted patterns are injected into agent prompts
-4. **Continuous Improvement**: System improves as more experiences accumulate
+### Risk Evaluation Categories
 
-### Experience Store Structure
+The system evaluates contracts across 10 risk categories:
+- Intellectual Property
+- Liability
+- Confidentiality
+- Termination
+- Payment
+- Compliance
+- Warranty
+- Indemnification
+- Dispute Resolution
+- Other
 
-```json
-{
-  "store_id": "store_001",
-  "experiences": [...],
-  "learned_patterns": [...],
-  "total_positive_feedback": 5,
-  "total_negative_feedback": 1
-}
-```
+### Concurrency
 
-### Pattern Injection
+- Risk scoring stage uses async processing with semaphore-based concurrency control
+- Default concurrency limit: 20 parallel section assessments
+- Other stages run synchronously
 
-Learned patterns are injected into agent system prompts:
-- Positive patterns: Things that worked well
-- Negative patterns: Things to avoid
-- Improvement notes: Specific recommendations
+### Error Handling
 
-### Safety Mechanisms
+- LLM calls include retry logic (3 attempts with 2s delay)
+- Uses structured output mode for type-safe responses
+- Failed section assessments log warnings but continue processing
 
-- Minimum 3 experiences required before learning cycle runs
-- Confidence scores (0-1) for each pattern
-- Fallback to base prompts when no patterns available
-- Retry logic with exponential backoff for API calls
+### Output Format
 
-### State Management
-
-LangGraph `StateGraph` manages workflow:
-- `HierarchicalAgentState` TypedDict holds all state
-- Conditional edges control execution flow
-- Maximum 5 sessions per execution to limit API calls
+Reports are generated as Markdown with:
+- Executive summary with overall status and risk score
+- Risk breakdown by category
+- Section-by-section assessment details
+- Prioritized recommendations
+- Conclusion with action items
