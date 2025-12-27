@@ -1,104 +1,220 @@
-# Chapter 6 Section 4: パラレルワールドパターンによる記事生成システム
+# Chapter 6 Section 5: Parallel Worldパターンによる記事生成システム
 
 ## 概要
 
-本プロジェクトは、**パラレルワールドパターン**を活用したAIエージェント記事生成システムです。複数の並列LLMセッションとHuman-in-the-Loop（人間参加型）の意思決定、LLM-as-a-Judge評価を組み合わせて、高品質な記事コンテンツを生成します。
+このプロジェクトは、**Parallel World（パラレルワールド）パターン**を活用したAIエージェント記事生成システムを実装しています。複数の並列LLMセッション、Human-in-the-Loop（人間参加型）意思決定、およびLLM-as-a-Judge（LLM審査員）評価を組み合わせることで、高品質な記事コンテンツを生成します。
 
-パラレルワールドパターンとは、AIエージェントシステムにおけるワークフロー技法で、複数の異なる実行パス（並列世界）を同時に生成し、その中から最適な結果を選択するアプローチです。このアプローチにより、コンテンツの多様性を確保しながら、重要な決定ポイントでの戦略的な人間の介入を通じて品質と制御性を維持します。
-
-**主な特徴**: 複数の記事バリアントを並列に作成し、LLM-as-a-Judgeで体系的に評価し、継続的な品質向上のためのレビューループで人間のフィードバックを取り入れることで、自動化と人間の監視のバランスを実現しています。
+Parallel Worldパターンとは、AIエージェントシステムにおけるワークフロー技法の一つで、複数の異なる実行パス（並行世界）を同時に生成し、その中から最適な結果を選択する手法です。このアプローチにより、コンテンツの多様性を確保しながら、重要な意思決定ポイントでの戦略的な人間介入を通じて品質と制御性を維持できます。
 
 ## 機能
 
-- **パラレルワールド記事生成**: 複数の記事バリエーションを同時並列で生成
-- **Human-in-the-Loop**: 重要な決定ポイントでのユーザー介入
+- **Parallel World記事生成**: 複数の記事バリエーションを同時並列で生成
+- **Human-in-the-Loop**: 重要な意思決定ポイントでのユーザー介入
 - **LLM-as-a-Judge**: 自動化された記事品質評価とレビュー
-- **フィードバックループ**: 却下された記事からのフィードバックに基づく再生成
-- **バイリンガル対応**: 英語または日本語での記事生成
+- **フィードバックループ**: 拒否された記事のフィードバックに基づく再生成
+- **バイリンガル対応**: 英語または日本語での記事生成をサポート
 
 ## プロジェクト構成
 
 ### ディレクトリ構成
 
 ```
-src/
-├── __init__.py
-├── client/
-│   ├── __init__.py
-│   └── llm_client.py        # LLMクライアント初期化
-├── config.py                 # 設定管理（APIキー）
-├── logger.py                 # ロギング設定
-├── main.py                   # メインエントリーポイント（CLI）
-├── model/
-│   ├── __init__.py
-│   └── model.py              # Pydanticデータモデル定義
-├── prompt/
-│   ├── __init__.py
-│   └── prompt.py             # プロンプト生成ロジック
-└── service/
-    ├── __init__.py
-    ├── generation_service.py # LLM生成とパイプラインノード
-    ├── helper.py             # UI表示とファイル保存ヘルパー
-    └── runner_service.py     # ワークフローオーケストレーション
+chapter_6/section_5/
+├── src/
+│   ├── __init__.py              # パッケージ初期化
+│   ├── config.py                # 設定管理（APIキー）
+│   ├── logger.py                # ログ設定
+│   ├── main.py                  # メインエントリーポイント（CLIコマンド）
+│   ├── client/
+│   │   ├── __init__.py
+│   │   └── llm_client.py        # LLMクライアント初期化（OpenAI）
+│   ├── model/
+│   │   ├── __init__.py
+│   │   └── model.py             # Pydanticデータモデル定義
+│   ├── prompt/
+│   │   ├── __init__.py
+│   │   └── prompt.py            # プロンプト生成ロジック
+│   └── service/
+│       ├── __init__.py
+│       ├── generation_service.py # LLM生成およびパイプラインノード
+│       ├── helper.py            # UI表示およびファイル保存ヘルパー
+│       └── runner_service.py    # ワークフローオーケストレーション
+├── outputs/                     # 生成結果（自動作成）
+│   └── parallel_world_article_<uuid>/
+│       ├── parallel_world_article_<uuid>.json  # 選択された記事（JSON）
+│       ├── parallel_world_article_<uuid>.md    # 選択された記事（Markdown）
+│       └── all_variants/        # 全候補バリアント
+│           ├── variant_1_grade_5.md
+│           ├── variant_2_grade_4.md
+│           └── variant_3_grade_3.md
+├── pyproject.toml               # プロジェクト依存関係
+├── .envrc.example               # 環境変数サンプル
+├── CLAUDE.md                    # Claude Code用プロジェクト指示書
+└── README.md                    # このファイル
 ```
 
 ### アーキテクチャ
 
 ```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                           CLIレイヤー (main.py)                              │
-│   - コマンドライン引数解析                                                   │
-│   - ユーザー入力とインタラクション                                            │
-│   - 出力ディレクトリ管理                                                      │
-└───────────────────────────────────┬──────────────────────────────────────────┘
-                                    │
-┌───────────────────────────────────▼──────────────────────────────────────────┐
-│                    オーケストレーションレイヤー (runner_service.py)           │
-│   - ワークフローフェーズ管理                                                  │
-│   - Human-in-the-Loop制御                                                    │
-│   - レビューループオーケストレーション                                        │
-│   - ファイル保存と出力管理                                                    │
-└───────────────────────────────────┬──────────────────────────────────────────┘
-                                    │
-┌───────────────────────────────────▼──────────────────────────────────────────┐
-│                AIエージェントパイプラインレイヤー (generation_service.py)     │
-│   - LLM生成関数（アウトライン、記事半分、レビュー）                          │
-│   - パイプラインノード（並列生成、レビュー、再生成）                          │
-│   - パラレルワールド分岐とマージロジック                                      │
-└───────────────────────────────────┬──────────────────────────────────────────┘
-                                    │
-┌───────────────────────────────────▼──────────────────────────────────────────┘
-│                         インフラストラクチャレイヤー                          │
-│   - LLMクライアント (llm_client.py)                                          │
-│   - プロンプト生成 (prompt.py)                                               │
-│   - データモデル (model.py)                                                  │
-│   - 設定 (config.py)                                                         │
-│   - ロギング (logger.py)                                                     │
-└──────────────────────────────────────────────────────────────────────────────┘
++------------------------------------------------------------------------------+
+|                           CLI Layer (main.py)                                |
+|   - コマンドライン引数パース                                                    |
+|   - ユーザー入力とインタラクション                                               |
+|   - 出力ディレクトリ管理                                                        |
++----------------------------------+-------------------------------------------+
+                                   |
+                                   v
++----------------------------------+-------------------------------------------+
+|                 Orchestration Layer (runner_service.py)                      |
+|   - ワークフローフェーズ管理                                                    |
+|   - Human-in-the-Loop制御                                                    |
+|   - レビューループオーケストレーション                                            |
+|   - ファイル保存と出力管理                                                      |
++----------------------------------+-------------------------------------------+
+                                   |
+                                   v
++----------------------------------+-------------------------------------------+
+|             AI Agent Pipeline Layer (generation_service.py)                  |
+|   - LLM生成関数（アウトライン、前半・後半、レビュー）                               |
+|   - パイプラインノード（並列生成、レビュー、再生成）                                |
+|   - Parallel World分岐・マージロジック                                          |
++----------------------------------+-------------------------------------------+
+                                   |
+                                   v
++------------------------------------------------------------------------------+
+|                         Infrastructure Layer                                 |
+|   - LLMクライアント (llm_client.py)                                           |
+|   - プロンプト生成 (prompt.py)                                                 |
+|   - データモデル (model.py)                                                    |
+|   - 設定 (config.py)                                                          |
+|   - ロギング (logger.py)                                                      |
++------------------------------------------------------------------------------+
 ```
 
 ### ワークフローフェーズ
 
-システムは9フェーズのパイプラインを管理します：
+システムは9フェーズのパイプラインをオーケストレーションします：
 
 ```
-START → Phase 1: アウトライン並列生成 (パラレルワールド分岐点 #1)
-          ↓
-        Phase 2: ユーザーがアウトライン選択 (Human-in-the-Loop #1)
-          ↓
-        Phase 3: 記事前半生成
-          ↓
-        Phase 4: 記事後半並列生成 (パラレルワールド分岐点 #2)
-          ↓
-        Phase 5: LLM-as-a-Judgeでレビュー
-          ↓
-        Phase 6: ユーザーが最終記事選択 (Human-in-the-Loop #2)
-          ↓
-        Phase 7: ユーザーが承認/却下 (Human-in-the-Loop #3)
-          ↓
-          ├─ [承認] → Phase 9: 保存 → END
-          └─ [却下] → Phase 8: フィードバックで再生成 → Phase 5へループ
+START
+  |
+  v
+Phase 1: 複数アウトライン生成 (Parallel World分岐 #1)
+  |
+  v
+Phase 2: ユーザーがアウトライン選択 (Human-in-the-Loop #1)
+  |
+  v
+Phase 3: 記事前半を生成
+  |
+  v
+Phase 4: 複数の記事後半を生成 (Parallel World分岐 #2)
+  |
+  v
+Phase 5: LLM-as-a-Judgeで全記事をレビュー
+  |
+  v
+Phase 6: ユーザーが最終記事を選択 (Human-in-the-Loop #2)
+  |
+  v
+Phase 7: ユーザーが承認または拒否 (Human-in-the-Loop #3)
+  |
+  +--[承認]--> Phase 9: 記事を保存 --> END
+  |
+  +--[拒否]--> Phase 8: フィードバックに基づき再生成 --> Phase 5へループ
 ```
+
+### 実装の詳細
+
+#### データモデル (src/model/model.py)
+
+| モデル | 説明 |
+|-------|------|
+| `ArticleOutline` | タイトル、要約、セクション構造を含む記事アウトライン |
+| `ArticleHalf` | 記事の前半または後半のコンテンツ |
+| `BestArticleSelection` | 最適なバリアントを選択した結果 |
+| `ArticleReview` | LLM-as-a-Judgeによる評価とフィードバック |
+| `CompletedArticle` | 全コンポーネントを含む完成記事 |
+| `ParallelSession` | 単一のパラレルワールドセッション状態 |
+| `ParallelWorldState` | パイプライン全体の状態を表すTypedDict |
+
+#### 生成サービス (src/service/generation_service.py)
+
+**LLM生成関数**:
+- `generate_outline()` - 記事アウトラインを生成
+- `generate_first_half()` - 記事前半を生成
+- `choose_best_first_half()` - 候補から最適な前半を選択
+- `generate_second_half()` - 記事後半を生成
+- `review_article()` - LLM-as-a-Judgeで記事をレビュー
+- `regenerate_second_half()` - フィードバックに基づき再生成
+
+**パイプラインノード**:
+- `generate_multiple_outlines_node()` - 並列アウトライン生成
+- `generate_first_half_node()` - 前半生成と選択
+- `generate_multiple_second_halves_node()` - 並列後半生成
+- `review_all_articles_node()` - 並列記事レビュー
+- `regenerate_second_halves_after_rejection_node()` - フィードバックベース再生成
+
+#### ランナーサービス (src/service/runner_service.py)
+
+ワークフローフェーズをオーケストレーション:
+- `generate_outlines()` - Phase 1
+- `select_outline()` - Phase 2
+- `generate_first_half()` - Phase 3
+- `generate_second_halves()` - Phase 4
+- `review_articles()` - Phase 5
+- `review_loop()` - Phases 6-8（選択、承認、再生成ループ）
+- `save_article()` - Phase 9
+
+#### Parallel Worldパターンの実装ポイント
+
+**分岐ポイント**:
+
+Phase 1およびPhase 4では、`asyncio.gather()`を使用してN個のバリアントを並列生成します：
+
+```python
+tasks = [generate_outline(...) for _ in range(num_variants)]
+outlines = await asyncio.gather(*tasks)
+```
+
+**選択ポイント**:
+- Phase 2: ユーザーが好みのアウトラインを選択
+- Phase 6: ユーザーがレビュー済み候補から最終記事を選択
+
+**フィードバックループ**:
+- Phase 7-8: 拒否された場合、レビューからフィードバックを収集して再生成
+
+#### LLM-as-a-Judge評価基準
+
+| 基準 | 重み | 説明 |
+|------|------|------|
+| コンテンツ品質 | 30% | 正確性、情報量、価値 |
+| 構造と流れ | 25% | アウトラインへの準拠、論理的な流れ |
+| 文章品質 | 20% | 明確さ、読みやすさ、技巧 |
+| 完成度 | 15% | テーマとセクションの網羅性 |
+| 言語品質 | 10% | 適切さ、一貫性 |
+
+**評価スケール**:
+- 5 (Excellent): 全ての基準で期待を超える優れた記事
+- 4 (Good): 軽微な改善点がある高品質な記事
+- 3 (Acceptable): 顕著なギャップがある適切な記事
+- 2 (Poor): 重大な問題がある記事
+- 1 (Very Poor): 基本的な品質基準を満たさない記事
+
+#### 自動選択モードの動作
+
+`--auto-select`が有効な場合:
+- Phase 2: 最初のアウトラインバリアントを自動選択
+- Phase 6: 最高評価の記事を自動選択
+- Phase 7: グレード >= 4 なら自動承認、それ以外は自動拒否
+
+#### 状態管理
+
+パイプラインは`ParallelWorldState` TypedDictを使用した明示的な状態管理を採用:
+- 各フェーズが状態を受け取り、更新された状態を返す
+- 不変更新: `{**state, "key": value}`
+- エラー状態は`state["error"]`で追跡
+- 無限ループ防止のため、レビューループは最大5回まで
 
 ## 使い方
 
@@ -106,22 +222,25 @@ START → Phase 1: アウトライン並列生成 (パラレルワールド分�
 
 - **Python**: 3.13.2以上
 - **依存ライブラリ**:
-  - click>=8.3.0
-  - openai>=2.4.0
-  - pydantic>=2.12.2
-  - python-dotenv>=1.1.1
+
+| パッケージ | バージョン | 用途 |
+|-----------|-----------|------|
+| click | >=8.3.0 | CLIフレームワーク |
+| openai | >=2.4.0 | OpenAI APIクライアント |
+| pydantic | >=2.12.2 | データバリデーションとモデル |
+| python-dotenv | >=1.1.1 | 環境変数読み込み |
+| google-genai | >=1.45.0 | Google Gemini API（オプション） |
 
 ### セットアップ
 
 1. **環境変数ファイルの作成**
 
 ```bash
-# .envrcファイルを作成
 cat > .envrc << EOF
-export OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
+export OPENAI_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxx"
 EOF
 
-# direnvを使用している場合
+# direnvを使用する場合
 direnv allow
 
 # または手動でエクスポート
@@ -138,18 +257,18 @@ uv sync
 pip install -e .
 ```
 
-### 使用方法
+### 使用方法、実行方法
 
-#### 基本的な使用方法
+#### 基本的な使い方
 
 ```bash
-# 英語記事を生成
+# 英語記事の生成
 uv run python -m src.main \
   --theme "The Future of Artificial Intelligence" \
   --language en \
   --model gpt-4o
 
-# 日本語記事を生成
+# 日本語記事の生成
 uv run python -m src.main \
   --theme "人工知能の未来" \
   --language ja \
@@ -159,7 +278,6 @@ uv run python -m src.main \
 #### 詳細設定
 
 ```bash
-# カスタム設定
 uv run python -m src.main \
   -t "量子コンピューティングの革新" \
   -l ja \
@@ -167,66 +285,41 @@ uv run python -m src.main \
   -od ./my_articles \
   -no 5 \
   -ns 4
-
-# オプション説明:
-# -t, --theme: 記事テーマ/トピック
-# -l, --language: 言語 (en または ja)
-# -m, --model: 使用するモデル
-# -od, --output-directory: 出力ディレクトリ
-# -no, --num-outline-variants: アウトラインバリエーション数（デフォルト: 3）
-# -ns, --num-second-half-variants: 後半バリエーション数（デフォルト: 3）
 ```
 
 #### 自動モード（人間介入なし）
 
 ```bash
-# 完全自動実行
 uv run python -m src.main \
-  -t "Climate Change Solutions" \
-  -l en \
+  -t "気候変動への解決策" \
+  -l ja \
   -m gpt-4o \
   -a
-
-# -a, --auto-select フラグの動作:
-# - Phase 2: 最初のアウトラインを自動選択
-# - Phase 6: 最高グレードの記事を自動選択
-# - Phase 7: グレード >= 4 なら自動承認、それ以外は自動却下
 ```
 
-#### ヘルプ表示
+#### ヘルプの表示
 
 ```bash
 uv run python -m src.main --help
 ```
 
-**出力**:
-```
-Usage: python -m src.main [OPTIONS]
+### CLIオプション
 
-  Generate an article using parallel world pattern with human-in-the-loop.
+| オプション | 短縮形 | 型 | デフォルト | 説明 |
+|-----------|--------|-----|----------|------|
+| `--theme` | `-t` | TEXT | 必須 | 記事のテーマ/トピック |
+| `--language` | `-l` | en/ja | 必須 | 記事の言語 |
+| `--model` | `-m` | Choice | 必須 | 使用するOpenAIモデル |
+| `--output-directory` | `-od` | PATH | outputs | 出力ディレクトリ |
+| `--num-outline-variants` | `-no` | INT | 3 | アウトラインバリアント数 |
+| `--num-second-half-variants` | `-ns` | INT | 3 | 後半バリアント数 |
+| `--auto-select` | `-a` | FLAG | False | 人間介入なしで自動選択 |
 
-Options:
-  -t, --theme TEXT                Article theme/topic.  [required]
-  -l, --language [en|ja]          Article language (en: English, ja:
-                                  Japanese).  [required]
-  -m, --model [gpt-5|gpt-5-mini|gpt-5-nano|gpt-4.1|gpt-4.1-mini|gpt-4.1-nano|gpt-4o|gpt-4o-mini]
-                                  The model to use (e.g., gpt-4o, gpt-4o-
-                                  mini).  [required]
-  -od, --output-directory PATH    The directory to save output files.
-  -no, --num-outline-variants INTEGER
-                                  Number of outline variants to generate
-                                  (default: 3).
-  -ns, --num-second-half-variants INTEGER
-                                  Number of second half variants to generate
-                                  (default: 3).
-  -a, --auto-select               Automatically select best options without
-                                  human interaction.
-  --help                          Show this message and exit.
-```
+**利用可能なモデル**: gpt-5, gpt-5-mini, gpt-5-nano, gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, gpt-4o, gpt-4o-mini
 
 ### 出力例
 
-#### ワークフロー実行出力
+実行すると以下のような出力が表示されます：
 
 ```
 ╔════════════════════════════════════════════════════════════════════════════╗
@@ -252,26 +345,22 @@ Creating 3 different article outlines in parallel...
 👤 PHASE 2: Human-in-the-Loop - Select Your Preferred Outline
 
 [Variant 1]
-Reason: このアウトラインは技術と社会の両面からAIの未来を包括的に...
-Title: 人工知能の未来：技術革新と社会変革の展望
-Summary: 人工知能技術は急速に進化しており、私たちの生活や働き方を...
+Reason: このアウトラインは...
+Title: 人工知能が切り開く未来
+Summary: 本記事では...
 Structure:
-  1. はじめに：AI革命の現在地
-  2. 最新AI技術の動向
-  3. 産業への影響と活用事例
-  4. 社会的課題と倫理的考慮
-  5. 未来への展望
-
-[Variant 2]
-...
+  1. はじめに
+  2. AIの現状と課題
+  3. 技術革新の方向性
+  ...
 
 Select an outline (1-3): 1
-✅ Selected: 人工知能の未来：技術革新と社会変革の展望
+✅ Selected: 人工知能が切り開く未来
 
 ================================================================================
 
 📝 PHASE 3: Generating First Half of Article
-✅ Generated first half (2847 characters)
+✅ Generated first half (1234 characters)
 
 ================================================================================
 
@@ -289,22 +378,20 @@ Creating 3 different endings in parallel...
 👤 PHASE 6: Human-in-the-Loop - Select Your Preferred Article (Iteration 1)
 
 [Article Variant 1] - Grade: 5/5
-Reasoning: この記事は技術的な深さとアクセシビリティのバランスが取れて...
+Reasoning: この記事は...
 Strengths:
-  ✓ 読者の興味を維持する明確で魅力的な文章
-  ✓ 複数のドメインにわたるAI応用の包括的なカバレッジ
-  ✓ 現状から将来予測への論理的な流れ
+  ✓ 論理的な構成
+  ✓ 専門用語の適切な説明
 Weaknesses:
-  (重大な弱点は特定されませんでした)
+  ✗ 具体例がやや少ない
 
 Select final article (1-3): 1
 
 ================================================================================
 
 ✅ PHASE 7: Human-in-the-Loop - Approve or Reject Article
-
 📝 Selected Article Preview:
-Title: 人工知能の未来：技術革新と社会変革の展望
+Title: 人工知能が切り開く未来
 Grade: 5/5
 
 ✅ Do you approve this article? (yes/no): yes
@@ -318,101 +405,47 @@ Grade: 5/5
 ✅ Article Generation Complete!
 
 Selected Article Details:
-  Title: 人工知能の未来：技術革新と社会変革の展望
+  Title: 人工知能が切り開く未来
   Grade: 5/5
-  Total Length: 5482 characters
+  Total Length: 2456 characters
   Review Loop Iterations: 1
 
 Files saved:
-  📄 JSON: outputs/parallel_world_article_a1b2c3d4.../parallel_world_article_a1b2c3d4....json
-  📝 Markdown: outputs/parallel_world_article_a1b2c3d4.../parallel_world_article_a1b2c3d4....md
+  📄 JSON: outputs/parallel_world_article_xxxxx/parallel_world_article_xxxxx.json
+  📝 Markdown: outputs/parallel_world_article_xxxxx/parallel_world_article_xxxxx.md
 
-📁 All variants saved to: outputs/parallel_world_article_a1b2c3d4.../all_variants
+📁 All variants saved to: outputs/parallel_world_article_xxxxx/all_variants
 
 ================================================================================
-
 🎉 Parallel World Article Generation Complete!
 ```
 
-#### 生成ファイル
+### 環境変数
 
-**ディレクトリ構造**:
-```
-outputs/parallel_world_article_a1b2c3d4e5f6.../
-├── parallel_world_article_a1b2c3d4e5f6....json     # 選択された記事 (JSON)
-├── parallel_world_article_a1b2c3d4e5f6....md       # 選択された記事 (Markdown)
-└── all_variants/                                   # 全候補
-    ├── variant_1_grade_5.md
-    ├── variant_2_grade_4.md
-    └── variant_3_grade_3.md
-```
-
-**Markdown出力例** (`parallel_world_article_<uuid>.md`):
-
-```markdown
-# 人工知能の未来：技術革新と社会変革の展望
-
-## はじめに：AI革命の現在地
-
-人工知能技術は2025年現在、重要な転換点を迎えています...
-
-## 最新AI技術の動向
-
-今日のAIシステムは単純なパターン認識を超えて進化しています...
-
-[... 記事コンテンツ続く ...]
-
-## 未来への展望
-
-この岐路に立つ今、AIの未来は私たちの選択にかかっています...
-
----
-
-# Article Review
-
-## Review Grade: 5/5
-
-### Reasoning
-この記事は技術的な深さとアクセシビリティのバランスが優れており...
-
-### Strengths
-- 読者の興味を維持する明確で魅力的な文章
-- 複数のドメインにわたるAI応用の包括的なカバレッジ
-- 現状から将来予測への論理的な流れ
-- 倫理的考慮と課題への思慮深い議論
-
-### Weaknesses
-No significant weaknesses identified.
-```
-
-## 設計パターンと実装特徴
-
-### パラレルワールドパターン
-
-**分岐ポイント**:
-- **分岐 #1 (Phase 1)**: 複数のアウトラインバリアントを並列生成
-- **分岐 #2 (Phase 4)**: 複数の後半バリアントを並列生成
-
-**選択ポイント**:
-- **選択 #1 (Phase 2)**: ユーザーがアウトラインを選択 (Human-in-the-Loop)
-- **選択 #2 (Phase 6)**: ユーザーが最終記事を選択 (Human-in-the-Loop)
-
-**フィードバックループ**:
-- **Phase 7-8**: 却下された記事のレビューを次の生成にフィードバック
-
-### LLM-as-a-Judge評価基準
-
-| 基準 | 重み | 説明 |
+| 変数 | 必須 | 説明 |
 |------|------|------|
-| コンテンツ品質 | 30% | 正確性、情報量、価値 |
-| 構造と流れ | 25% | アウトラインへの準拠、論理的な流れ |
-| 文章品質 | 20% | 明確さ、魅力、技巧 |
-| 完全性 | 15% | テーマとセクションのカバレッジ |
-| 言語品質 | 10% | 適切さ、一貫性、エラーフリー |
+| `OPENAI_API_KEY` | Yes | OpenAI APIキー |
+| `LOG_LEVEL` | No | ログレベル（デフォルト: DEBUG） |
 
-**グレードスケール**:
-- **5 (Excellent)**: 優れた記事、全基準で期待を超える
-- **4 (Good)**: 高品質、軽微な改善点あり
-- **3 (Acceptable)**: 適切だが顕著なギャップあり
-- **2 (Poor)**: 重大な問題あり
-- **1 (Very Poor)**: 基本的な品質基準を満たさない
+### 出力ファイル
+
+各生成は一意のディレクトリを作成:
+- `parallel_world_article_<uuid>.json` - 完全な記事データ
+- `parallel_world_article_<uuid>.md` - Markdown形式の記事
+- `all_variants/` - 比較用の全候補バリアント
+
+## 開発コマンド
+
+```bash
+# CLIを実行
+uv run python -m src.main --help
+
+# テストを実行
+uv run pytest
+
+# 依存関係を同期
+uv sync
+
+# 開発用依存関係をインストール
+uv sync --group dev
+```

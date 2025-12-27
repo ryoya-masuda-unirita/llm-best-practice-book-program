@@ -1,0 +1,90 @@
+{
+  "quarter": 2,
+  "classes": {
+    "japanese": {
+      "plan": [
+        "Poetry analysis: haiku and tanka",
+        "Comparative literature studies",
+        "Persuasive essay writing",
+        "Kanji study: 100 new characters",
+        "Oral presentation skills"
+      ],
+      "actual_progress": [
+        "Poetry unit completed",
+        "Comparative studies ongoing",
+        "Persuasive essays practiced",
+        "95 kanji characters taught",
+        "All students presented"
+      ],
+      "completion_rate": 92
+    },
+    "math": {
+      "plan": [
+        "Advanced trigonometry",
+        "Exponential and logarithmic functions",
+        "Sequences and series",
+        "Applied mathematics problems",
+        "Mid-term and final examinations"
+      ],
+      "actual_progress": [
+        "Trigonometry completed",
+        "Exponential functions covered",
+        "Sequences introduced",
+        "Application problems practiced",
+        "Both examinations conducted"
+      ],
+      "completion_rate": 95
+    },
+    "physics": {
+      "plan": [
+        "Waves and oscillations",
+        "Sound and light properties",
+        "Optics: mirrors and lenses",
+        "Laboratory experiments (4 sessions)",
+        "Physics project presentations"
+      ],
+      "actual_progress": [
+        "Wave mechanics completed",
+        "Sound fully covered, light ongoing",
+        "Basic optics introduced",
+        "All 4 lab sessions completed",
+        "Projects presented successfully"
+      ],
+      "completion_rate": 88
+    },
+    "history": {
+      "plan": [
+        "Early modern period (1500-1800)",
+        "Industrial revolution",
+        "Historical essay writing (from Q1)",
+        "Document-based questions practice",
+        "Debate: historical perspectives"
+      ],
+      "actual_progress": [
+        "Early modern period completed",
+        "Industrial revolution covered",
+        "Essay writing unit completed",
+        "DBQ practice sessions held",
+        "Two debates conducted"
+      ],
+      "completion_rate": 100
+    },
+    "pe": {
+      "plan": [
+        "Soccer fundamentals and tactics",
+        "Track and field events",
+        "Flexibility and stretching",
+        "Sports injury prevention",
+        "Inter-class soccer tournament"
+      ],
+      "actual_progress": [
+        "Soccer unit completed",
+        "Track events practiced",
+        "Stretching routines taught",
+        "Injury prevention covered",
+        "Tournament successfully held"
+      ],
+      "completion_rate": 100
+    }
+  }
+}

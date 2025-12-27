@@ -1,4 +1,4 @@
-# Chapter 6 Section 3: Forgetting Unnecessary Past - State-Based Rollback Pattern
+# Chapter 6 Section 4: Forgetting Unnecessary Past - State-Based Rollback Pattern
 
 ## Overview
 
@@ -60,7 +60,7 @@ The implementation is a parallel world article generation pipeline that:
 ### Directory Structure
 
 ```
-chapter_6/section_3/
+chapter_6/section_4/
 +-- src/
 |   +-- client/
 |   |   +-- __init__.py
@@ -158,6 +158,7 @@ def forget_phases_after(state: ParallelWorldState, target_phase: int) -> Paralle
 Core dependencies:
 - `click>=8.3.0`: CLI framework
 - `google-genai>=1.45.0`: Google Gemini integration
+- `openai>=2.4.0`: OpenAI API (reserved for future use)
 - `pydantic>=2.12.2`: Data validation and structured outputs
 - `python-dotenv>=1.1.1`: Environment configuration
 

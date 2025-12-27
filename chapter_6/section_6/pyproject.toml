@@ -1,0 +1,9 @@
+[project]
+name = "chapter-6-section-6"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13.2"
+dependencies = [
+    "polars>=1.36.1",
+]

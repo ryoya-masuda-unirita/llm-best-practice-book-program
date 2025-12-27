@@ -1,0 +1,42 @@
+[
+  {
+    "student_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+    "japanese": 72,
+    "math": 95,
+    "physics": 92,
+    "history": 38,
+    "pe": 65
+  },
+  {
+    "student_id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+    "japanese": 88,
+    "math": 85,
+    "physics": 58,
+    "history": 70,
+    "pe": 90
+  },
+  {
+    "student_id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+    "japanese": 91,
+    "math": 94,
+    "physics": 89,
+    "history": 92,
+    "pe": 88
+  },
+  {
+    "student_id": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a",
+    "japanese": 68,
+    "math": 65,
+    "physics": 62,
+    "history": 70,
+    "pe": 92
+  },
+  {
+    "student_id": "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b",
+    "japanese": 75,
+    "math": 100,
+    "physics": 100,
+    "history": 68,
+    "pe": 35
+  }
+]

@@ -87,7 +87,7 @@ Phase 7: User Approves or Rejects (Human-in-the-Loop #3)
 ### Directory Structure
 
 ```
-chapter_6/section_4/
+chapter_6/section_5/
 |-- src/
 |   |-- __init__.py              # Package initialization
 |   |-- config.py                # Configuration management (API keys)
@@ -116,6 +116,8 @@ chapter_6/section_4/
 |           |-- variant_2_grade_4.md
 |           +-- variant_3_grade_3.md
 |-- pyproject.toml               # Project dependencies
+|-- Makefile                     # Development commands
+|-- .envrc.example               # Environment variables sample
 |-- README.md                    # Project documentation (Japanese)
 +-- CLAUDE.md                    # This file
 ```
@@ -162,6 +164,15 @@ Orchestrates workflow phases:
 - `review_loop()` - Phases 6-8 (selection, approval, regeneration loop)
 - `save_article()` - Phase 9
 
+### Helper Functions (src/service/helper.py)
+
+- `display_outlines()` - Display outline variants to user
+- `display_reviews()` - Display reviewed articles with grades
+- `get_outline_selection()` - Get user outline selection
+- `get_final_article_selection()` - Get user final article selection
+- `get_human_approval()` - Get user approval/rejection
+- `save_article_files()` - Save article to JSON and Markdown
+
 ## Dependencies
 
 | Package | Version | Purpose |
@@ -171,6 +182,13 @@ Orchestrates workflow phases:
 | pydantic | >=2.12.2 | Data validation and models |
 | python-dotenv | >=1.1.1 | Environment variable loading |
 | google-genai | >=1.45.0 | Google Gemini API (optional) |
+
+**Dev Dependencies**:
+| Package | Version | Purpose |
+|---------|---------|---------|
+| pytest | >=8.4.2 | Testing framework |
+| pytest-asyncio | >=1.2.0 | Async test support |
+| pytest-mock | >=3.15.1 | Mocking utilities |
 
 ## Usage
 
@@ -213,7 +231,7 @@ uv run python -m src.main \
 
 # Japanese article
 uv run python -m src.main \
-  --theme "人工知能の未来" \
+  --theme "AI no Mirai" \
   --language ja \
   --model gpt-4o
 ```
@@ -268,6 +286,18 @@ uv sync
 
 # Install dev dependencies
 uv sync --group dev
+
+# Lint code
+make lint
+
+# Format code
+make fmt
+
+# Lint and format
+make fix
+
+# Type check
+make mypy
 ```
 
 ## Implementation Notes
@@ -331,6 +361,7 @@ outlines = await asyncio.gather(*tasks)
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `OPENAI_API_KEY` | Yes | OpenAI API key |
+| `GEMINI_API_KEY` | No | Google Gemini API key (optional) |
 | `LOG_LEVEL` | No | Logging level (default: DEBUG) |
 
 ### Output Files

@@ -1,0 +1,57 @@
+[
+  {
+    "student_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+    "grades": {
+      "japanese": "C",
+      "math": "A",
+      "physics": "A",
+      "history": "F",
+      "pe": "D"
+    },
+    "teacher_advice": "Consistent excellence in math and physics! History unfortunately dropped further this quarter. We need to have a parent-teacher meeting to discuss a recovery plan. Japanese improved slightly. Please prioritize history immediately."
+  },
+  {
+    "student_id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+    "grades": {
+      "japanese": "A",
+      "math": "B",
+      "physics": "D",
+      "history": "D",
+      "pe": "A"
+    },
+    "teacher_advice": "Japanese improved to an A - wonderful progress! PE is also excellent. Physics improved from F to D, showing effort. History dropped slightly. Continue the balanced approach and focus on bringing physics up to passing level."
+  },
+  {
+    "student_id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+    "grades": {
+      "japanese": "A",
+      "math": "A",
+      "physics": "B",
+      "history": "A",
+      "pe": "A"
+    },
+    "teacher_advice": "Exceptional quarter with A grades in most subjects! Your consistent hard work is paying off. Consider participating in academic competitions or advanced programs. You are ready for more challenging material."
+  },
+  {
+    "student_id": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a",
+    "grades": {
+      "japanese": "C",
+      "math": "D",
+      "physics": "D",
+      "history": "C",
+      "pe": "A"
+    },
+    "teacher_advice": "Japanese and history improved to C this quarter! PE remains excellent. Math and physics still need work. The study schedule is showing results in some subjects. Apply the same effort to math and physics."
+  },
+  {
+    "student_id": "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b",
+    "grades": {
+      "japanese": "C",
+      "math": "A",
+      "physics": "A",
+      "history": "D",
+      "pe": "F"
+    },
+    "teacher_advice": "Perfect scores in math and physics again! History dropped back to D. PE remains failing and is now a serious concern for graduation requirements. Please meet with the school counselor to discuss PE alternatives."
+  }
+]

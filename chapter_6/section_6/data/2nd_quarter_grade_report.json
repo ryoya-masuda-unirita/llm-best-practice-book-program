@@ -1,0 +1,57 @@
+[
+  {
+    "student_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+    "grades": {
+      "japanese": "C",
+      "math": "A",
+      "physics": "A",
+      "history": "F",
+      "pe": "D"
+    },
+    "teacher_advice": "Math and physics remain strong! History shows slight improvement but still failing. Please continue attending the study group and consider meeting with the history teacher for additional support. PE has improved slightly."
+  },
+  {
+    "student_id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+    "grades": {
+      "japanese": "B",
+      "math": "B",
+      "physics": "F",
+      "history": "C",
+      "pe": "B"
+    },
+    "teacher_advice": "Good progress in math! Physics remains a concern with a failing grade. The tutoring sessions should continue. History improved to C level. Keep working on building a stronger foundation in physics fundamentals."
+  },
+  {
+    "student_id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+    "grades": {
+      "japanese": "B",
+      "math": "A",
+      "physics": "A",
+      "history": "A",
+      "pe": "B"
+    },
+    "teacher_advice": "Continued excellence across all subjects! Physics improved to an A this quarter. Maintain your consistent study habits and positive attitude. You are an exemplary student and a great role model for your peers."
+  },
+  {
+    "student_id": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a",
+    "grades": {
+      "japanese": "D",
+      "math": "D",
+      "physics": "D",
+      "history": "D",
+      "pe": "A"
+    },
+    "teacher_advice": "PE performance remains excellent! Academic subjects are consistent but need improvement. Please make use of the study schedule we discussed. Small daily improvements will lead to better results next quarter."
+  },
+  {
+    "student_id": "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b",
+    "grades": {
+      "japanese": "C",
+      "math": "A",
+      "physics": "A",
+      "history": "C",
+      "pe": "F"
+    },
+    "teacher_advice": "History improved to C this quarter - great effort! Math and physics remain perfect. PE is still failing. Please work with the PE teacher to find activities that suit you better. Physical fitness is essential for long-term health."
+  }
+]
