@@ -182,11 +182,13 @@ class GraphMediator(ABC):
 class SimpleGraphMediator(GraphMediator):
     """Simple implementation of graph mediator."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.nodes: dict[str, Node] = {}
         self.edges: dict[str, list[Edge]] = {}
         self.message_log: list[Message] = []
         self.execution_log: list[ExecutionLogEntry] = []
+        self._visited: set[str] = set()
+        self._results: dict[str, NodeResult] = {}
 
     def add_node(self, node: Node) -> None:
         self.nodes[node.node_id] = node
@@ -197,130 +199,134 @@ class SimpleGraphMediator(GraphMediator):
 
     def execute_graph(self, start_node_id: str, input_data: str | dict | list) -> GraphExecutionResult:
         if start_node_id not in self.nodes:
-            return GraphExecutionResult(
-                success=False,
-                results={},
-                final_output=None,
-                execution_log=[],
-                message_log=[],
-                error=f"Start node '{start_node_id}' not found",
-            )
+            return self._create_error_result(f"Start node '{start_node_id}' not found")
 
-        visited: set[str] = set()
-        results: dict[str, NodeResult] = {}
+        self._reset_execution_state()
+        final_result = self._execute_node(start_node_id, input_data)
+        return self._create_success_result(final_result)
 
-        def execute_node(node_id: str, data: str | dict | list) -> NodeResult:
-            if node_id in visited:
-                return NodeResult(node_id=node_id, success=False, output=None, error="Cycle detected")
+    def _reset_execution_state(self) -> None:
+        """Reset state for new execution."""
+        self._visited = set()
+        self._results = {}
 
-            visited.add(node_id)
-            result = self.nodes[node_id].execute(data)
-            results[node_id] = result
+    def _create_error_result(self, error: str) -> GraphExecutionResult:
+        """Create an error result."""
+        return GraphExecutionResult(
+            success=False, results={}, final_output=None, execution_log=[], message_log=[], error=error
+        )
 
-            self.execution_log.append(
-                ExecutionLogEntry(
-                    timestamp=datetime.now(),
-                    node_id=node_id,
-                    success=result.success,
-                    output=result.output,
-                )
-            )
-
-            if result.success and node_id in self.edges:
-                for edge in self.edges[node_id]:
-                    if edge.edge_type == EdgeType.CONDITIONAL:
-                        if edge.condition and not edge.condition(result.output):
-                            continue
-                    execute_node(edge.target_id, result.output or "")
-
-            return result
-
-        final_result = execute_node(start_node_id, input_data)
+    def _create_success_result(self, final_result: NodeResult) -> GraphExecutionResult:
+        """Create a success result from final node result."""
         return GraphExecutionResult(
             success=final_result.success,
-            results=results,
+            results=self._results.copy(),
             final_output=final_result.output,
             execution_log=self.execution_log.copy(),
             message_log=self.message_log.copy(),
         )
+
+    def _execute_node(self, node_id: str, data: str | dict | list) -> NodeResult:
+        """Execute a single node and process its edges."""
+        if node_id in self._visited:
+            return NodeResult(node_id=node_id, success=False, output=None, error="Cycle detected")
+
+        self._visited.add(node_id)
+        result = self.nodes[node_id].execute(data)
+        self._results[node_id] = result
+        self._log_execution(node_id, result)
+
+        if result.success:
+            self._process_edges(node_id, result.output)
+
+        return result
+
+    def _log_execution(self, node_id: str, result: NodeResult, parallel: bool = False) -> None:
+        """Log node execution."""
+        self.execution_log.append(
+            ExecutionLogEntry(
+                timestamp=datetime.now(),
+                node_id=node_id,
+                success=result.success,
+                output=result.output,
+                parallel=parallel,
+            )
+        )
+
+    def _process_edges(self, node_id: str, output: str | dict | list | None) -> None:
+        """Process outgoing edges from a node."""
+        if node_id not in self.edges:
+            return
+        for edge in self.edges[node_id]:
+            if self._should_follow_edge(edge, output):
+                self._execute_node(edge.target_id, output or "")
+
+    def _should_follow_edge(self, edge: Edge, output: str | dict | list | None) -> bool:
+        """Check if an edge should be followed."""
+        if edge.edge_type == EdgeType.CONDITIONAL:
+            return edge.condition is None or edge.condition(output)
+        return True
 
     def route_message(self, message: Message) -> None:
         self.message_log.append(message)
         if message.receiver_id and message.receiver_id in self.nodes:
             self.nodes[message.receiver_id].execute(message.content)
-        elif not message.receiver_id:  # Broadcast
-            for node_id, node in self.nodes.items():
-                if node_id != message.sender_id:
-                    node.execute(message.content)
+        elif not message.receiver_id:
+            self._broadcast_message(message)
+
+    def _broadcast_message(self, message: Message) -> None:
+        """Broadcast message to all nodes except sender."""
+        for node_id, node in self.nodes.items():
+            if node_id != message.sender_id:
+                node.execute(message.content)
 
 
 class ParallelGraphMediator(SimpleGraphMediator):
     """Graph mediator with support for parallel execution."""
 
-    def execute_graph(self, start_node_id: str, input_data: str | dict | list) -> GraphExecutionResult:
-        if start_node_id not in self.nodes:
-            return GraphExecutionResult(
-                success=False,
-                results={},
-                final_output=None,
-                execution_log=[],
-                message_log=[],
-                error=f"Start node '{start_node_id}' not found",
-            )
+    def _execute_node(self, node_id: str, data: str | dict | list) -> NodeResult:
+        """Execute a node with support for parallel edges."""
+        if node_id in self._visited:
+            cached = self._results.get(node_id)
+            if cached:
+                return cached
+            return NodeResult(node_id=node_id, success=False, output=None, error="Cycle")
 
-        visited: set[str] = set()
-        results: dict[str, NodeResult] = {}
+        self._visited.add(node_id)
+        result = self.nodes[node_id].execute(data)
+        self._results[node_id] = result
+        self._log_execution(node_id, result, parallel=False)
 
-        def execute_sequential(node_id: str, data: str | dict | list) -> NodeResult:
-            if node_id in visited:
-                cached = results.get(node_id)
-                if cached:
-                    return cached
-                return NodeResult(node_id=node_id, success=False, output=None, error="Cycle")
+        if result.success:
+            self._process_parallel_and_sequential_edges(node_id, result.output)
 
-            visited.add(node_id)
-            result = self.nodes[node_id].execute(data)
-            results[node_id] = result
+        return result
 
-            self.execution_log.append(
-                ExecutionLogEntry(
-                    timestamp=datetime.now(),
-                    node_id=node_id,
-                    success=result.success,
-                    output=result.output,
-                    parallel=False,
-                )
-            )
+    def _process_parallel_and_sequential_edges(self, node_id: str, output: str | dict | list | None) -> None:
+        """Process edges with parallel/sequential distinction."""
+        if node_id not in self.edges:
+            return
 
-            if result.success and node_id in self.edges:
-                parallel_next = [e.target_id for e in self.edges[node_id] if e.edge_type == EdgeType.PARALLEL]
-                sequential_next = [e.target_id for e in self.edges[node_id] if e.edge_type != EdgeType.PARALLEL]
+        parallel_targets, sequential_targets = self._categorize_edges(node_id)
+        self._execute_parallel_nodes(parallel_targets, output)
+        self._execute_sequential_nodes(sequential_targets, output)
 
-                for pid in parallel_next:
-                    if pid not in visited:
-                        visited.add(pid)
-                        pres = self.nodes[pid].execute(result.output or "")
-                        results[pid] = pres
-                        self.execution_log.append(
-                            ExecutionLogEntry(
-                                timestamp=datetime.now(),
-                                node_id=pid,
-                                success=pres.success,
-                                output=pres.output,
-                                parallel=True,
-                            )
-                        )
+    def _categorize_edges(self, node_id: str) -> tuple[list[str], list[str]]:
+        """Categorize edges into parallel and sequential targets."""
+        parallel = [e.target_id for e in self.edges[node_id] if e.edge_type == EdgeType.PARALLEL]
+        sequential = [e.target_id for e in self.edges[node_id] if e.edge_type != EdgeType.PARALLEL]
+        return parallel, sequential
 
-                for sid in sequential_next:
-                    execute_sequential(sid, result.output or "")
+    def _execute_parallel_nodes(self, targets: list[str], output: str | dict | list | None) -> None:
+        """Execute parallel nodes."""
+        for target_id in targets:
+            if target_id not in self._visited:
+                self._visited.add(target_id)
+                result = self.nodes[target_id].execute(output or "")
+                self._results[target_id] = result
+                self._log_execution(target_id, result, parallel=True)
 
-            return result
-
-        final_result = execute_sequential(start_node_id, input_data)
-        return GraphExecutionResult(
-            success=final_result.success,
-            results=results,
-            final_output=final_result.output,
-            execution_log=self.execution_log.copy(),
-            message_log=self.message_log.copy(),
-        )
+    def _execute_sequential_nodes(self, targets: list[str], output: str | dict | list | None) -> None:
+        """Execute sequential nodes."""
+        for target_id in targets:
+            self._execute_node(target_id, output or "")

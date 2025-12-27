@@ -1,7 +1,7 @@
 """AI Agent Framework with comprehensive design patterns."""
 
 from src.agent.agent import BaseAgent, ConfigurableAgent, MultiStrategyAgent
-from src.agent.base import Action, ActionType, Memory, Strategy, Tool, ToolResult
+from src.agent.base import Action, ActionType, AgentExecutionError, Memory, Strategy, Tool, ToolResult
 from src.agent.controller import (
     CostLimitHandler,
     DangerousActionHandler,
@@ -56,15 +56,20 @@ from src.agent.strategies import (
     TreeOfThoughtStrategy,
 )
 from src.agent.toolbox import (
+    BrainstormTool,
     CalculatorTool,
     CategorizableToolBox,
+    EditTextTool,
+    GenerateTitleTool,
     ToolBox,
     WebSearchTool,
+    WriteDraftTool,
 )
 
 __all__ = [
     "Action",
     "ActionType",
+    "AgentExecutionError",
     "Memory",
     "Strategy",
     "Tool",
@@ -80,6 +85,10 @@ __all__ = [
     "CategorizableToolBox",
     "CalculatorTool",
     "WebSearchTool",
+    "BrainstormTool",
+    "WriteDraftTool",
+    "EditTextTool",
+    "GenerateTitleTool",
     "ChainOfThoughtStrategy",
     "ReActStrategy",
     "TreeOfThoughtStrategy",

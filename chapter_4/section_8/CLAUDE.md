@@ -1,4 +1,4 @@
-# Chapter 3, Section 15: AI Agent Abstraction Design
+# Chapter 4, Section 8: AI Agent Abstraction Design
 
 ## Overview
 
@@ -127,7 +127,7 @@ src/
 ### Setup
 
 ```bash
-cd chapter_3/section_15
+cd chapter_4/section_8
 
 # Environment setup
 cp .envrc.example .envrc

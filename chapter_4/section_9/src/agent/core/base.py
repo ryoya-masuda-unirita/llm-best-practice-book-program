@@ -1,18 +1,22 @@
-"""Base abstractions for AI Agent system."""
+"""Core abstractions for AI Agent system.
+
+This module defines the fundamental interfaces and data structures that form
+the foundation of the agent system. These abstractions are designed to be stable
+and rarely change, allowing extension layer implementations to evolve independently.
+"""
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from src.agent.memory import MemorySnapshot
 
 
 class AgentExecutionError(Exception):
-    """Exception raised when agent execution fails or terminates without a result."""
+    """Exception raised when agent execution fails before completion."""
 
-    pass
+    def __init__(self, message: str, reason: str | None = None):
+        self.message = message
+        self.reason = reason
+        super().__init__(message)
 
 
 ParamValue = str | int | float | bool | list | dict | None
@@ -64,7 +68,11 @@ class ContextData:
 
 
 class Tool(ABC):
-    """Abstract base class for tools that agents can use."""
+    """Abstract base class for tools that agents can use.
+
+    This interface defines the contract for all tools in the system.
+    Concrete tool implementations should be placed in the extensions layer.
+    """
 
     def __init__(self, name: str, description: str):
         self.name = name
@@ -95,7 +103,12 @@ class StepInfo:
 
 
 class Strategy(ABC):
-    """Abstract base class for thinking strategies."""
+    """Abstract base class for thinking strategies.
+
+    This interface defines how agents reason about goals and decide actions.
+    Concrete strategy implementations (e.g., CoT, ReAct) should be placed
+    in the extensions layer.
+    """
 
     def __init__(self, name: str):
         self.name = name
@@ -108,37 +121,3 @@ class Strategy(ABC):
     def update_context(self, context: dict[str, object], action: Action, result: ToolResult | str) -> dict[str, object]:
         """Update context after an action. Default implementation."""
         return context
-
-
-class Memory(ABC):
-    """Abstract base class for context/memory management."""
-
-    @abstractmethod
-    def get_context(self) -> dict[str, object]:
-        """Get the current context."""
-        pass
-
-    @abstractmethod
-    def add_observation(self, observation: str | ToolResult) -> None:
-        """Add an observation to memory."""
-        pass
-
-    @abstractmethod
-    def add_action(self, action: Action) -> None:
-        """Add an action to memory."""
-        pass
-
-    @abstractmethod
-    def clear(self) -> None:
-        """Clear the memory."""
-        pass
-
-    @abstractmethod
-    def save_snapshot(self) -> "MemorySnapshot":
-        """Save a snapshot of current memory state (Memento pattern)."""
-        pass
-
-    @abstractmethod
-    def restore_snapshot(self, snapshot: "MemorySnapshot") -> None:
-        """Restore memory from a snapshot."""
-        pass

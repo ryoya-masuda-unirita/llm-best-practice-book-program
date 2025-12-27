@@ -135,14 +135,24 @@ class LoopDetectionHandler(ExecutionHandler):
         self.action_history: list[str] = []
 
     def _check(self, request: ExecutionRequest) -> ExecutionResponse:
-        signature = f"{request.action.type.value}:{request.action.tool_name}:{str(request.action.params)}"
-        self.action_history.append(signature)
-        self.action_history = self.action_history[-self.window_size :]
+        action = request.action
+        # Only check for loops on TOOL_CALL actions - THINK and FINAL_ANSWER are not loops
+        if action.type != ActionType.TOOL_CALL:
+            return ExecutionResponse(allowed=True)
 
-        if self.action_history.count(signature) >= self.threshold:
+        signature = f"{action.type.value}:{action.tool_name}:{str(action.params)}"
+
+        # Check if this would be a loop BEFORE adding to history
+        # This way, blocked actions don't accumulate in history
+        current_count = self.action_history.count(signature)
+        if current_count >= self.threshold:
             return ExecutionResponse(
                 allowed=False, reason=f"Possible infinite loop detected: action repeated {self.threshold} times"
             )
+
+        # Only add to history if action is allowed
+        self.action_history.append(signature)
+        self.action_history = self.action_history[-self.window_size :]
         return ExecutionResponse(allowed=True)
 
     def reset(self) -> None:

@@ -1,27 +1,21 @@
 """Factory and Builder patterns for agent construction."""
 
-from src.agent.agent import BaseAgent, ConfigurableAgent, MultiStrategyAgent
-from src.agent.base import Memory, Strategy, Tool
-from src.agent.controller import (
+from src.agent.core.agent import BaseAgent
+from src.agent.core.base import Strategy, Tool
+from src.agent.core.controller import ExecutionController
+from src.agent.core.memory import Memory
+from src.agent.core.toolbox import ToolBox
+from src.agent.extensions.agents import ConfigurableAgent, MultiStrategyAgent
+from src.agent.extensions.handlers import (
     CostLimitHandler,
     DangerousActionHandler,
-    ExecutionController,
     LoopDetectionHandler,
     MaxStepsHandler,
     ToolRateLimitHandler,
 )
-from src.agent.memory import ContextMemory, ConversationalMemory
-from src.agent.strategies import ChainOfThoughtStrategy, ReActStrategy, TreeOfThoughtStrategy
-from src.agent.toolbox import (
-    BrainstormTool,
-    CalculatorTool,
-    CategorizableToolBox,
-    EditTextTool,
-    GenerateTitleTool,
-    ToolBox,
-    WebSearchTool,
-    WriteDraftTool,
-)
+from src.agent.extensions.memory import ContextMemory, ConversationalMemory
+from src.agent.extensions.strategies import ChainOfThoughtStrategy, ReActStrategy, TreeOfThoughtStrategy
+from src.agent.extensions.tools import CalculatorTool, CategorizableToolBox, TextGeneratorTool, WebSearchTool
 from src.client.llm_client import GeminiModel
 
 StrategyConfig = dict[str, str | int]
@@ -98,7 +92,7 @@ class AgentBuilder:
             if not isinstance(strategies, dict) or not isinstance(default, str):
                 raise ValueError("Multi-strategy agent requires 'strategies' and 'default_strategy'")
             return MultiStrategyAgent(strategies, default, self.toolbox, self.memory, self.controller)
-        else:
+        else:  # base
             return BaseAgent(self.strategy, self.toolbox, self.memory, self.controller)  # type: ignore[arg-type]
 
     def _create_strategy(self, config: StrategyConfig) -> Strategy:
@@ -117,7 +111,7 @@ class AgentBuilder:
                 int(max_depth) if isinstance(max_depth, (int, float)) else 3,
                 int(branch) if isinstance(branch, (int, float)) else 3,
             )
-        else:
+        else:  # chain_of_thought
             max_steps = config.get("max_steps", 10)
             return ChainOfThoughtStrategy(model, int(max_steps) if isinstance(max_steps, (int, float)) else 10)
 
@@ -184,23 +178,23 @@ class AgentBuilder:
 
     def _add_dangerous_action_handler(self, controller: ExecutionController, handlers: HandlersConfig) -> None:
         """Add dangerous action handler if enabled."""
-        if handlers.get("enable_dangerous_action_filter", True):
-            dangerous_tools = handlers.get("dangerous_tools")
-            controller.add_handler(
-                DangerousActionHandler(dangerous_tools if isinstance(dangerous_tools, list) else None)
-            )
+        if not handlers.get("enable_dangerous_action_filter", True):
+            return
+        dangerous_tools = handlers.get("dangerous_tools")
+        controller.add_handler(DangerousActionHandler(dangerous_tools if isinstance(dangerous_tools, list) else None))
 
     def _add_loop_detection_handler(self, controller: ExecutionController, handlers: HandlersConfig) -> None:
         """Add loop detection handler if enabled."""
-        if handlers.get("enable_loop_detection", True):
-            window = handlers.get("loop_window_size", 5)
-            threshold = handlers.get("loop_threshold", 3)
-            controller.add_handler(
-                LoopDetectionHandler(
-                    int(window) if isinstance(window, (int, float)) else 5,
-                    int(threshold) if isinstance(threshold, (int, float)) else 3,
-                )
+        if not handlers.get("enable_loop_detection", True):
+            return
+        window = handlers.get("loop_window_size", 5)
+        threshold = handlers.get("loop_threshold", 3)
+        controller.add_handler(
+            LoopDetectionHandler(
+                int(window) if isinstance(window, (int, float)) else 5,
+                int(threshold) if isinstance(threshold, (int, float)) else 3,
             )
+        )
 
     def _create_tool(self, config: ToolConfig) -> Tool | None:
         """Create tool from config."""
@@ -208,10 +202,7 @@ class AgentBuilder:
         tool_map: dict[str, Tool] = {
             "calculator": CalculatorTool(),
             "web_search": WebSearchTool(),
-            "brainstorm": BrainstormTool(),
-            "write_draft": WriteDraftTool(),
-            "edit_text": EditTextTool(),
-            "generate_title": GenerateTitleTool(),
+            "text_generator": TextGeneratorTool(),
         }
         return tool_map.get(ttype) if isinstance(ttype, str) else None
 

@@ -19,8 +19,19 @@ class ToolBox(Tool):
         return self._tools.pop(tool_name, None) is not None
 
     def get_tool(self, tool_name: str) -> Tool | None:
-        """Get a tool by name."""
-        return self._tools.get(tool_name)
+        """Get a tool by name, searching recursively in nested toolboxes."""
+        if tool_name in self._tools:
+            tool = self._tools[tool_name]
+            if not isinstance(tool, ToolBox):  # Don't return ToolBoxes as tools
+                return tool
+
+        for tool in self._tools.values():
+            if isinstance(tool, ToolBox):
+                found = tool.get_tool(tool_name)
+                if found is not None:
+                    return found
+
+        return None
 
     def get_all_tools(self) -> list[Tool]:
         """Get all tools recursively."""
@@ -151,3 +162,93 @@ class WebSearchTool(Tool):
 
     def validate_params(self, params: ToolParams) -> bool:
         return isinstance(params.get("query"), str)
+
+
+class BrainstormTool(Tool):
+    """Creative writing tool: Generates ideas for a given topic."""
+
+    def __init__(self):
+        super().__init__("brainstorm", "Generates creative ideas for a given topic or theme")
+
+    def execute(self, params: ToolParams) -> ToolResult:
+        topic = params.get("topic")
+        if not isinstance(topic, str):
+            return ToolResult(success=False, data=None, error="topic is required")
+        count = params.get("count", 3)
+        if not isinstance(count, int):
+            count = 3
+        ideas = [f"Idea {i + 1} for '{topic}': A creative concept exploring {topic}" for i in range(count)]
+        return ToolResult(
+            success=True,
+            data={"topic": topic, "ideas": ideas},
+        )
+
+    def validate_params(self, params: ToolParams) -> bool:
+        return isinstance(params.get("topic"), str)
+
+
+class WriteDraftTool(Tool):
+    """Creative writing tool: Writes a draft based on a prompt."""
+
+    def __init__(self):
+        super().__init__("write_draft", "Writes a creative draft based on a prompt and style")
+
+    def execute(self, params: ToolParams) -> ToolResult:
+        prompt = params.get("prompt")
+        style = params.get("style", "narrative")
+        if not isinstance(prompt, str):
+            return ToolResult(success=False, data=None, error="prompt is required")
+        draft = f"[Draft in {style} style]\n\n{prompt}\n\nThis is a creative draft exploring the theme..."
+        return ToolResult(
+            success=True,
+            data={"prompt": prompt, "style": style, "draft": draft},
+        )
+
+    def validate_params(self, params: ToolParams) -> bool:
+        return isinstance(params.get("prompt"), str)
+
+
+class EditTextTool(Tool):
+    """Creative writing tool: Edits and improves text."""
+
+    def __init__(self):
+        super().__init__("edit_text", "Edits and improves text based on specified criteria")
+
+    def execute(self, params: ToolParams) -> ToolResult:
+        text = params.get("text")
+        edit_type = params.get("edit_type", "polish")
+        if not isinstance(text, str):
+            return ToolResult(success=False, data=None, error="text is required")
+        edited = f"[Edited ({edit_type})]: {text}"
+        return ToolResult(
+            success=True,
+            data={"original": text, "edit_type": edit_type, "edited": edited},
+        )
+
+    def validate_params(self, params: ToolParams) -> bool:
+        return isinstance(params.get("text"), str)
+
+
+class GenerateTitleTool(Tool):
+    """Creative writing tool: Generates titles for content."""
+
+    def __init__(self):
+        super().__init__("generate_title", "Generates creative titles for content")
+
+    def execute(self, params: ToolParams) -> ToolResult:
+        content = params.get("content")
+        genre = params.get("genre", "general")
+        if not isinstance(content, str):
+            return ToolResult(success=False, data=None, error="content is required")
+        titles = [
+            f"Title 1: The Art of {genre.title()}",
+            f"Title 2: A {genre.title()} Journey",
+            f"Title 3: Beyond {genre.title()}",
+        ]
+        return ToolResult(
+            success=True,
+            data={"content_preview": content[:50], "genre": genre, "titles": titles},
+        )
+
+    def validate_params(self, params: ToolParams) -> bool:
+        return isinstance(params.get("content"), str)

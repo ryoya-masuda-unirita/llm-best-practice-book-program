@@ -1,6 +1,6 @@
 """Base Agent implementation with Strategy pattern."""
 
-from src.agent.base import Action, ActionType, Memory, Strategy, ToolResult
+from src.agent.base import Action, ActionType, AgentExecutionError, Memory, Strategy, ToolResult
 from src.agent.controller import ExecutionController, ExecutionRequest, create_default_controller
 from src.agent.memory import ConversationalMemory
 from src.agent.states import (
@@ -37,36 +37,43 @@ class BaseAgent:
     def execute(self, goal: str) -> str:
         """Execute the agent to achieve a goal."""
         self.agent_context.transition_to(ThinkingState())
+        final_answer: str | None = None
 
         try:
             while not self._is_task_complete(goal):
                 context = self.memory.get_context()
                 action = self.strategy.think(goal, context, self.toolbox.get_all_tools())
 
-                # Check if action is allowed
                 exec_response = self.controller.check_execution(ExecutionRequest(action=action, context=context))
                 if not exec_response.allowed:
                     error_msg = f"Action blocked: {exec_response.reason}"
                     self.agent_context.transition_to(ErrorState(error_msg))
-                    return error_msg
+                    raise AgentExecutionError(error_msg)
 
-                # Record and execute action
                 self.memory.add_action(action)
                 result = self._execute_action(action)
 
-                if action.type != ActionType.FINAL_ANSWER:
+                if action.type == ActionType.FINAL_ANSWER:
+                    final_answer = result if isinstance(result, str) else str(result)
+                else:
                     self.memory.add_observation(result)
                     self.strategy.update_context(context, action, result)
 
                 if self.agent_context.is_terminal():
                     break
 
-            return "Task completed" if not self.agent_context.is_terminal() else "Task execution terminated"
+            if final_answer is not None:
+                return final_answer
+            if self.agent_context.is_terminal():
+                raise AgentExecutionError("Task execution terminated without a final answer")
+            return "Task completed"
 
+        except AgentExecutionError:
+            raise
         except Exception as e:
             error_msg = f"Agent error: {str(e)}"
             self.agent_context.transition_to(ErrorState(error_msg))
-            return error_msg
+            raise AgentExecutionError(error_msg) from e
         finally:
             self.agent_context.transition_to(IdleState())
 
@@ -77,7 +84,7 @@ class BaseAgent:
         elif action.type == ActionType.FINAL_ANSWER:
             self.agent_context.transition_to(CompletedState())
             return action.answer or ""
-        else:  # THINK
+        else:
             return action.thought or ""
 
     def _execute_tool_call(self, action: Action) -> ToolResult:
@@ -143,16 +150,19 @@ class ConfigurableAgent(BaseAgent):
     def execute(self, goal: str) -> str:
         """Execute with iteration counting and logging."""
         self.current_iteration = 0
-        result = super().execute(goal)
-        if self.enable_logging:
-            self._log_execution()
-        return result
+        try:
+            result = super().execute(goal)
+            return result
+        finally:
+            if self.enable_logging:
+                self._log_execution()
 
     def _is_task_complete(self, goal: str) -> bool:
         """Check if task complete with iteration limit."""
         self.current_iteration += 1
         if self.current_iteration >= self.max_iterations:
             self.agent_context.add_event(f"Maximum iterations ({self.max_iterations}) reached")
+            self.agent_context.transition_to(CompletedState())
             return True
         return super()._is_task_complete(goal)
 
