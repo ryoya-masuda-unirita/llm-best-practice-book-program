@@ -2,16 +2,14 @@ from src.model.model import (
     ArticleHalf,
     ArticleOutline,
     ArticleReview,
+    BestArticleSelection,
     CompletedArticle,
-    ParallelSession,
-    ParallelWorldState,
 )
 
 __all__ = [
     "ArticleHalf",
     "ArticleOutline",
     "ArticleReview",
+    "BestArticleSelection",
     "CompletedArticle",
-    "ParallelSession",
-    "ParallelWorldState",
 ]

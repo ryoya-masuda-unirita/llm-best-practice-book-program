@@ -13,11 +13,6 @@ from src.model.model import (
 logger = make_logger(__name__)
 
 
-# =============================================================================
-# Display Utilities
-# =============================================================================
-
-
 def print_separator() -> None:
     """Print a visual separator for terminal output."""
     click.echo("\n" + "=" * 80 + "\n")
@@ -61,11 +56,6 @@ def display_reviews(reviewed_sessions: list[ParallelSession]) -> None:
             if session.second_half:
                 click.echo("\nSecond Half Preview:")
                 print_article_preview(session.second_half)
-
-
-# =============================================================================
-# User Input Utilities
-# =============================================================================
 
 
 def get_outline_selection(outline_sessions: list[ParallelSession], auto_select: bool) -> int:
@@ -136,11 +126,6 @@ def get_human_approval(completed_article: CompletedArticle, auto_select: bool) -
         except click.Abort:
             click.echo("\nOperation cancelled. Treating as rejection.")
             return False
-
-
-# =============================================================================
-# File Output Utilities
-# =============================================================================
 
 
 def save_article_files(

@@ -1,0 +1,90 @@
+{
+  "quarter": 3,
+  "classes": {
+    "japanese": {
+      "plan": [
+        "Modern Japanese authors study",
+        "Critical analysis techniques",
+        "Research paper introduction",
+        "Kanji study: 100 new characters",
+        "Creative writing workshop"
+      ],
+      "actual_progress": [
+        "Three modern authors studied",
+        "Critical analysis practiced",
+        "Research paper basics covered",
+        "90 kanji characters taught",
+        "Creative writing sessions held"
+      ],
+      "completion_rate": 88
+    },
+    "math": {
+      "plan": [
+        "Differential calculus introduction",
+        "Limits and continuity",
+        "Derivatives and applications",
+        "Optimization problems",
+        "Mid-term and final examinations"
+      ],
+      "actual_progress": [
+        "Calculus introduction completed",
+        "Limits fully covered",
+        "Basic derivatives taught",
+        "Simple optimization practiced",
+        "Both examinations conducted"
+      ],
+      "completion_rate": 100
+    },
+    "physics": {
+      "plan": [
+        "Electricity: circuits and components",
+        "Magnetism fundamentals",
+        "Electromagnetic induction",
+        "Laboratory experiments (5 sessions)",
+        "Circuit building project"
+      ],
+      "actual_progress": [
+        "Electric circuits completed",
+        "Magnetism covered",
+        "Induction introduction started",
+        "4 of 5 lab sessions completed",
+        "Projects in progress"
+      ],
+      "completion_rate": 82
+    },
+    "history": {
+      "plan": [
+        "19th century nationalism",
+        "World War I causes and effects",
+        "Interwar period analysis",
+        "Research methodology",
+        "Historical simulation activity"
+      ],
+      "actual_progress": [
+        "Nationalism unit completed",
+        "WWI fully covered",
+        "Interwar period introduced",
+        "Research methods taught",
+        "WWI simulation conducted"
+      ],
+      "completion_rate": 90
+    },
+    "pe": {
+      "plan": [
+        "Volleyball skills and strategies",
+        "Badminton fundamentals",
+        "Cardiovascular fitness training",
+        "Mental health and exercise",
+        "Volleyball tournament"
+      ],
+      "actual_progress": [
+        "Volleyball unit completed",
+        "Badminton basics covered",
+        "Cardio training ongoing",
+        "Mental health session held",
+        "Tournament completed"
+      ],
+      "completion_rate": 95
+    }
+  }
+}

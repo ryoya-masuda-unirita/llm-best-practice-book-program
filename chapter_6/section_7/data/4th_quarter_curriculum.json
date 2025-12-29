@@ -1,0 +1,90 @@
+{
+  "quarter": 4,
+  "classes": {
+    "japanese": {
+      "plan": [
+        "Research paper completion",
+        "Literature review and synthesis",
+        "Advanced grammar structures",
+        "Kanji study: review and 50 new characters",
+        "Year-end presentations"
+      ],
+      "actual_progress": [
+        "All research papers submitted",
+        "Literature synthesis practiced",
+        "Advanced grammar covered",
+        "Kanji review and 45 new characters",
+        "All presentations completed"
+      ],
+      "completion_rate": 94
+    },
+    "math": {
+      "plan": [
+        "Integral calculus introduction",
+        "Applications of integration",
+        "Vectors in 2D and 3D",
+        "Year-end comprehensive review",
+        "Final examination"
+      ],
+      "actual_progress": [
+        "Basic integration covered",
+        "Area and volume applications",
+        "2D vectors completed",
+        "Comprehensive review held",
+        "Final exam conducted"
+      ],
+      "completion_rate": 90
+    },
+    "physics": {
+      "plan": [
+        "Modern physics introduction",
+        "Atomic structure basics",
+        "Nuclear physics overview",
+        "Year-end project presentations",
+        "Comprehensive laboratory review"
+      ],
+      "actual_progress": [
+        "Modern physics introduced",
+        "Atomic structure covered",
+        "Nuclear basics touched upon",
+        "All projects presented",
+        "Lab skills reviewed"
+      ],
+      "completion_rate": 85
+    },
+    "history": {
+      "plan": [
+        "World War II comprehensive study",
+        "Cold War era analysis",
+        "Contemporary global issues",
+        "Final research project",
+        "Year-end historical reflection"
+      ],
+      "actual_progress": [
+        "WWII fully covered",
+        "Cold War era completed",
+        "Contemporary issues discussed",
+        "Research projects submitted",
+        "Reflection essays written"
+      ],
+      "completion_rate": 100
+    },
+    "pe": {
+      "plan": [
+        "Table tennis skills",
+        "Dance and rhythmic movement",
+        "Year-end fitness assessment",
+        "Personal fitness goal review",
+        "Sports day preparation"
+      ],
+      "actual_progress": [
+        "Table tennis unit completed",
+        "Dance basics taught",
+        "Fitness assessments completed",
+        "Goal reviews conducted",
+        "Sports day successfully held"
+      ],
+      "completion_rate": 100
+    }
+  }
+}

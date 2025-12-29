@@ -1,4 +1,4 @@
-"""Interactive CLI for parallel world article generation with human-in-the-loop."""
+"""Interactive CLI for article generation with state-based rollback (forget the past pattern)."""
 
 import asyncio
 import os
@@ -7,7 +7,7 @@ from functools import wraps
 import click
 from src.client.llm_client import GeminiModel, LLMProvider, google_genai_client
 from src.logger import make_logger
-from src.service.runner_service import run_parallel_world_article_generation
+from src.service.runner_service import run_forget_past_article_generation
 
 logger = make_logger(__name__)
 
@@ -51,20 +51,6 @@ def async_cmd(func):  # type: ignore
     help="The directory to save output files.",
 )
 @click.option(
-    "--num-outline-variants",
-    "-no",
-    type=int,
-    default=3,
-    help="Number of outline variants to generate (default: 3).",
-)
-@click.option(
-    "--num-second-half-variants",
-    "-ns",
-    type=int,
-    default=3,
-    help="Number of second half variants to generate (default: 3).",
-)
-@click.option(
     "--auto-select",
     "-a",
     is_flag=True,
@@ -76,15 +62,13 @@ async def main(
     language: str,
     model: str,
     output_directory: str = "outputs",
-    num_outline_variants: int = 3,
-    num_second_half_variants: int = 3,
     auto_select: bool = False,
 ) -> None:
-    """Generate an article using parallel world pattern with human-in-the-loop."""
+    """Generate an article using state-based rollback pattern (forget the past)."""
     click.echo(
         f"""
 ╔════════════════════════════════════════════════════════════════════════════╗
-║         Parallel World Article Generation - Human-in-the-Loop             ║
+║       Article Generation with State-Based Rollback (Forget the Past)      ║
 ╚════════════════════════════════════════════════════════════════════════════╝
 
 Configuration:
@@ -92,8 +76,6 @@ Configuration:
   Language: {language}
   LLM Provider: {LLMProvider.GEMINI.value}
   Model: {model}
-  Outline Variants: {num_outline_variants}
-  Second Half Variants: {num_second_half_variants}
   Mode: {"Automatic" if auto_select else "Interactive"}
 """
     )
@@ -103,14 +85,12 @@ Configuration:
 
     os.makedirs(output_directory, exist_ok=True)
 
-    await run_parallel_world_article_generation(
+    await run_forget_past_article_generation(
         theme=theme,
         language=language,  # type: ignore
         llm_provider=LLMProvider.GEMINI,
         model=model.lower(),
         output_directory=output_directory,
-        num_outline_variants=num_outline_variants,
-        num_second_half_variants=num_second_half_variants,
         auto_select=auto_select,
     )
 

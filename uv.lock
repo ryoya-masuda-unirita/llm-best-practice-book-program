@@ -36,6 +36,7 @@ members = [
     "chapter-4-section-6",
     "chapter-4-section-7",
     "chapter-4-section-8",
+    "chapter-4-section-9",
     "chapter-5-section-1",
     "chapter-5-section-2",
     "chapter-5-section-3",
@@ -49,6 +50,7 @@ members = [
     "chapter-6-section-4",
     "chapter-6-section-5",
     "chapter-6-section-6",
+    "chapter-6-section-7",
     "llm-best-practice-book-program",
 ]
 
@@ -1375,6 +1377,43 @@ dev = [
 ]
 
 [[package]]
+name = "chapter-4-section-9"
+version = "0.1.0"
+source = { virtual = "chapter_4/section_9" }
+dependencies = [
+    { name = "anthropic" },
+    { name = "click" },
+    { name = "google-genai" },
+    { name = "openai" },
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-mock" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anthropic", specifier = ">=0.74.1" },
+    { name = "click", specifier = ">=8.3.0" },
+    { name = "google-genai", specifier = ">=1.45.0" },
+    { name = "openai", specifier = ">=2.4.0" },
+    { name = "pydantic", specifier = ">=2.12.2" },
+    { name = "python-dotenv", specifier = ">=1.1.1" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.4.2" },
+    { name = "pytest-asyncio", specifier = ">=1.2.0" },
+    { name = "pytest-mock", specifier = ">=3.15.1" },
+]
+
+[[package]]
 name = "chapter-5-section-1"
 version = "0.1.0"
 source = { virtual = "chapter_5/section_1" }
@@ -1781,6 +1820,7 @@ name = "chapter-6-section-4"
 version = "0.1.0"
 source = { virtual = "chapter_6/section_4" }
 dependencies = [
+    { name = "anthropic" },
     { name = "click" },
     { name = "google-genai" },
     { name = "openai" },
@@ -1797,6 +1837,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", specifier = ">=0.74.1" },
     { name = "click", specifier = ">=8.3.0" },
     { name = "google-genai", specifier = ">=1.45.0" },
     { name = "openai", specifier = ">=2.4.0" },
@@ -1851,11 +1892,78 @@ name = "chapter-6-section-6"
 version = "0.1.0"
 source = { virtual = "chapter_6/section_6" }
 dependencies = [
+    { name = "anthropic" },
+    { name = "click" },
+    { name = "google-genai" },
+    { name = "openai" },
     { name = "polars" },
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-mock" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "polars", specifier = ">=1.36.1" }]
+requires-dist = [
+    { name = "anthropic", specifier = ">=0.74.1" },
+    { name = "click", specifier = ">=8.3.0" },
+    { name = "google-genai", specifier = ">=1.45.0" },
+    { name = "openai", specifier = ">=2.4.0" },
+    { name = "polars", specifier = ">=1.36.1" },
+    { name = "pydantic", specifier = ">=2.12.2" },
+    { name = "python-dotenv", specifier = ">=1.1.1" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.4.2" },
+    { name = "pytest-asyncio", specifier = ">=1.2.0" },
+    { name = "pytest-mock", specifier = ">=3.15.1" },
+]
+
+[[package]]
+name = "chapter-6-section-7"
+version = "0.1.0"
+source = { virtual = "chapter_6/section_7" }
+dependencies = [
+    { name = "anthropic" },
+    { name = "click" },
+    { name = "google-genai" },
+    { name = "openai" },
+    { name = "polars" },
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-mock" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anthropic", specifier = ">=0.74.1" },
+    { name = "click", specifier = ">=8.3.0" },
+    { name = "google-genai", specifier = ">=1.45.0" },
+    { name = "openai", specifier = ">=2.4.0" },
+    { name = "polars", specifier = ">=1.36.1" },
+    { name = "pydantic", specifier = ">=2.12.2" },
+    { name = "python-dotenv", specifier = ">=1.1.1" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.4.2" },
+    { name = "pytest-asyncio", specifier = ">=1.2.0" },
+    { name = "pytest-mock", specifier = ">=3.15.1" },
+]
 
 [[package]]
 name = "charset-normalizer"

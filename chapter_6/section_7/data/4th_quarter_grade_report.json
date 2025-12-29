@@ -1,0 +1,57 @@
+[
+  {
+    "student_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+    "grades": {
+      "japanese": "D",
+      "math": "A",
+      "physics": "A",
+      "history": "F",
+      "pe": "C"
+    },
+    "teacher_advice": "Math and physics excellence continues! PE improved to C - good effort! However, history remains failing and Japanese dropped. Summer school for history is strongly recommended. Focus on balancing your academic efforts across all subjects."
+  },
+  {
+    "student_id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+    "grades": {
+      "japanese": "B",
+      "math": "B",
+      "physics": "D",
+      "history": "C",
+      "pe": "B"
+    },
+    "teacher_advice": "Solid performance across most subjects! Physics improved and is now passing. History maintained at C. Continue your steady progress. Consider physics tutoring over the summer to strengthen your foundation for next year."
+  },
+  {
+    "student_id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+    "grades": {
+      "japanese": "A",
+      "math": "A",
+      "physics": "A",
+      "history": "B",
+      "pe": "B"
+    },
+    "teacher_advice": "Another excellent quarter! Your dedication and hard work have resulted in top performance. You are recommended for the honors program next year. Continue to challenge yourself and maintain your excellent study habits."
+  },
+  {
+    "student_id": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a",
+    "grades": {
+      "japanese": "C",
+      "math": "D",
+      "physics": "F",
+      "history": "D",
+      "pe": "A"
+    },
+    "teacher_advice": "PE excellence as always! Japanese maintained at C. Unfortunately, physics dropped to failing. Summer school for physics is required. Please work on building stronger study habits for science subjects before next year begins."
+  },
+  {
+    "student_id": "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b",
+    "grades": {
+      "japanese": "C",
+      "math": "A",
+      "physics": "A",
+      "history": "C",
+      "pe": "F"
+    },
+    "teacher_advice": "Math and physics are outstanding! History improved to C - great effort this quarter! PE remains failing and summer PE activities are required. Consider joining a recreational sports program to fulfill physical education requirements."
+  }
+]

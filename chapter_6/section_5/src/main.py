@@ -5,7 +5,7 @@ import os
 from functools import wraps
 
 import click
-from src.client.llm_client import LLMProvider, OpenAIModel
+from src.client.llm_client import GeminiModel, LLMProvider
 from src.logger import make_logger
 from src.service.runner_service import run_parallel_world_article_generation
 
@@ -38,9 +38,9 @@ def async_cmd(func):  # type: ignore
 @click.option(
     "--model",
     "-m",
-    type=click.Choice(OpenAIModel.list_str(), case_sensitive=False),
+    type=click.Choice(GeminiModel.list_str(), case_sensitive=False),
     required=True,
-    help="The model to use (e.g., gpt-4o, gpt-4o-mini).",
+    help="The model to use (e.g., gemini-2.5-flash, gemini-2.5-pro).",
 )
 @click.option(
     "--output-directory",
@@ -91,7 +91,7 @@ async def main(
     5. Review all variants using LLM-as-a-Judge
     6. User selects the best complete article (human-in-the-loop)
     """
-    llm_provider_enum = LLMProvider.OPENAI
+    llm_provider_enum = LLMProvider.GEMINI
 
     click.echo(
         f"""

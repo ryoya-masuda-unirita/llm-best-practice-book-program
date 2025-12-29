@@ -1,0 +1,90 @@
+{
+  "quarter": 1,
+  "classes": {
+    "japanese": {
+      "plan": [
+        "Introduction to classical Japanese literature",
+        "Reading comprehension: modern novels",
+        "Essay writing fundamentals",
+        "Kanji study: 100 new characters",
+        "Grammar review: honorific expressions"
+      ],
+      "actual_progress": [
+        "Completed classical literature introduction",
+        "Finished 3 of 4 planned novel readings",
+        "Essay writing basics covered",
+        "85 kanji characters taught",
+        "Honorific expressions partially covered"
+      ],
+      "completion_rate": 85
+    },
+    "math": {
+      "plan": [
+        "Quadratic equations and functions",
+        "Trigonometric functions basics",
+        "Probability and statistics introduction",
+        "Mathematical proofs",
+        "Mid-term and final examinations"
+      ],
+      "actual_progress": [
+        "Quadratic equations completed",
+        "Trigonometric functions completed",
+        "Probability basics introduced",
+        "Simple proofs covered",
+        "Both examinations conducted"
+      ],
+      "completion_rate": 100
+    },
+    "physics": {
+      "plan": [
+        "Mechanics: Newton's laws of motion",
+        "Work, energy, and power",
+        "Momentum and collisions",
+        "Laboratory experiments (4 sessions)",
+        "Problem-solving workshops"
+      ],
+      "actual_progress": [
+        "Newton's laws fully covered",
+        "Work and energy completed",
+        "Momentum introduction started",
+        "3 of 4 lab sessions completed",
+        "2 workshops held"
+      ],
+      "completion_rate": 80
+    },
+    "history": {
+      "plan": [
+        "Ancient civilizations overview",
+        "Medieval period in Japan and Europe",
+        "Primary source analysis skills",
+        "Historical essay writing",
+        "Field trip to local museum"
+      ],
+      "actual_progress": [
+        "Ancient civilizations covered",
+        "Medieval Japan completed, Europe partially",
+        "Source analysis introduced",
+        "Essay writing postponed to Q2",
+        "Museum trip completed"
+      ],
+      "completion_rate": 75
+    },
+    "pe": {
+      "plan": [
+        "Physical fitness assessment",
+        "Basketball fundamentals",
+        "Swimming: stroke techniques",
+        "Health and nutrition education",
+        "Team sports tournaments"
+      ],
+      "actual_progress": [
+        "Fitness assessment completed",
+        "Basketball unit completed",
+        "Swimming lessons completed",
+        "Nutrition basics covered",
+        "Basketball tournament held"
+      ],
+      "completion_rate": 100
+    }
+  }
+}

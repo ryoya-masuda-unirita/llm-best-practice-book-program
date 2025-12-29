@@ -12,7 +12,6 @@ from src.model.model import (
 
 
 def make_outline_generation_system_instruction(theme: str, language: Literal["en", "ja"]) -> tuple[str, str]:
-    """Create system instruction for outline generation."""
     lang_instruction = "in English" if language == "en" else "in Japanese (日本語)"
 
     schema_fields = {}
@@ -58,7 +57,6 @@ Create an engaging and well-structured outline that would result in a high-quali
 def make_first_half_generation_system_instruction(
     outline: ArticleOutline, language: Literal["en", "ja"]
 ) -> tuple[str, str]:
-    """Create system instruction for first half generation."""
     lang_instruction = "in English" if language == "en" else "in Japanese (日本語)"
 
     schema_fields = {}
@@ -169,7 +167,6 @@ def make_second_half_generation_system_instruction(
     first_half: str,
     language: Literal["en", "ja"],
 ) -> tuple[str, str]:
-    """Create system instruction for second half generation."""
     lang_instruction = "in English" if language == "en" else "in Japanese (日本語)"
 
     schema_fields = {}
@@ -226,7 +223,6 @@ def make_article_review_system_instruction(
     outline: ArticleOutline,
     full_article: str,
 ) -> tuple[str, str]:
-    """Create system instruction for article review."""
     schema_fields = {}
     for field_name, field_info in ArticleReview.model_fields.items():
         field_type = field_info.annotation
@@ -292,7 +288,6 @@ def make_second_half_regeneration_system_instruction(
     language: Literal["en", "ja"],
     previous_attempts: list[tuple[str, ArticleReview]],
 ) -> tuple[str, str]:
-    """Create system instruction for second half regeneration based on feedback."""
     lang_instruction = "in English" if language == "en" else "in Japanese (日本語)"
 
     schema_fields = {}
@@ -305,7 +300,6 @@ def make_second_half_regeneration_system_instruction(
 
     schema_json = json.dumps(schema_fields, indent=2, ensure_ascii=False)
 
-    # Build feedback section from previous attempts
     feedback_section = ""
     if previous_attempts:
         feedback_section = "\n**Previous Attempts and Feedback:**\n\n"

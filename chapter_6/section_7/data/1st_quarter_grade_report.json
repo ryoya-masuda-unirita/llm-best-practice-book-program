@@ -1,0 +1,57 @@
+[
+  {
+    "student_id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+    "grades": {
+      "japanese": "C",
+      "math": "A",
+      "physics": "A",
+      "history": "F",
+      "pe": "D"
+    },
+    "teacher_advice": "Excellent performance in math and physics! However, history requires immediate attention as the current grade is failing. Consider joining the after-school history study group and reviewing the textbook chapters weekly."
+  },
+  {
+    "student_id": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+    "grades": {
+      "japanese": "B",
+      "math": "B",
+      "physics": "F",
+      "history": "C",
+      "pe": "A"
+    },
+    "teacher_advice": "Strong communication and athletic abilities! Physics needs significant improvement to avoid failing. I recommend working with a tutor and practicing problem sets regularly. Your strengths in math can help you understand physics concepts better."
+  },
+  {
+    "student_id": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+    "grades": {
+      "japanese": "A",
+      "math": "A",
+      "physics": "B",
+      "history": "A",
+      "pe": "B"
+    },
+    "teacher_advice": "Outstanding overall performance! You are a well-rounded student excelling in multiple subjects. Keep up the excellent work and consider helping classmates who may be struggling. You have potential for academic leadership."
+  },
+  {
+    "student_id": "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a",
+    "grades": {
+      "japanese": "D",
+      "math": "D",
+      "physics": "D",
+      "history": "C",
+      "pe": "A"
+    },
+    "teacher_advice": "Excellent athletic performance! Academic subjects need more focus. I suggest creating a daily study schedule and reducing distractions. Meeting with teachers during office hours can help clarify difficult concepts."
+  },
+  {
+    "student_id": "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b",
+    "grades": {
+      "japanese": "C",
+      "math": "A",
+      "physics": "A",
+      "history": "D",
+      "pe": "F"
+    },
+    "teacher_advice": "Exceptional talent in math and physics! However, PE is failing and requires immediate attention. Physical activity is important for overall health. Please participate actively in PE classes and consider joining a sports club to improve."
+  }
+]
