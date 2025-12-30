@@ -1,38 +1,34 @@
 version: '3.8'
 
 services:
-  # Redis Cache Server
-  redis:
-    container_name: llm-redis-cache
-    image: redis:8-alpine
+  # ChromaDB Vector Database
+  chromadb:
+    container_name: chromadb-server
+    image: chromadb/chroma:1.3.0-amd64
+    platform: linux/amd64
     ports:
-      - "6379:6379"
-    command: redis-server --appendonly yes
+      - "8002:8000"  # Map to 8002 to avoid conflict with LLM server
     volumes:
-      - redis-data:/data
+      - chromadb-data:/chroma/chroma  # Persistent storage for ChromaDB
+    environment:
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
     restart: unless-stopped
     networks:
       - llm-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
 
-  # LLM API Server (Backend)
+  # LLM API Server (Character Generation)
   llm-server:
     container_name: llm-api-server
-    image: shibui/llm-best-practice:chapter4_section1_web
+    image: shibui/llm-best-practice:chapter4_section1
     platform: linux/amd64
     ports:
       - "8000:8000"
     environment:
-      - PROXY_URL=http://llm-server:8080
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
     env_file:
       - .envrc
     command:
@@ -43,14 +39,36 @@ services:
       - --port
       - "8000"
     restart: unless-stopped
-    depends_on:
-      redis:
-        condition: service_healthy
+    networks:
+      - llm-network
+
+  # Knowledge Base API Server (CQRS - Command/Query)
+  knowledge-server:
+    container_name: knowledge-api-server
+    image: shibui/llm-best-practice:chapter4_section1
+    platform: linux/amd64
+    ports:
+      - "8001:8001"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+    env_file:
+      - .envrc
+    command:
+      - uvicorn
+      - src.api.knowledge_server:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8001"
+    restart: unless-stopped
     networks:
       - llm-network
 
 volumes:
-  redis-data:
+  chromadb-data:
     driver: local
 
 networks:

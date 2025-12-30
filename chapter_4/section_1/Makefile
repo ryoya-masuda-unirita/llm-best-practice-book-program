@@ -2,7 +2,7 @@ DIR := $(shell pwd)
 GIT_COMMIT := $(shell git rev-parse HEAD)
 
 DOCKER_REPO := shibui/llm-best-practice
-DOCKERFILE = $(DIR)/Dockerfile.web
+DOCKERFILE = $(DIR)/Dockerfile
 DOCKER_TAG = chapter4_section1
 
 ############ COMMON COMMANDS ############
@@ -25,16 +25,13 @@ mypy:
 
 ############ DOCKER COMMANDS ############
 
-.PHONY: docker-build-web
-docker-build-web:
+.PHONY: docker-build
+docker-build:
 	docker build \
 		--platform linux/amd64 \
-		-t $(DOCKER_REPO):$(DOCKER_TAG)_web \
-		-f Dockerfile.web \
+		-t $(DOCKER_REPO):$(DOCKER_TAG) \
+		-f Dockerfile \
 		.
-
-.PHONY: docker-build
-docker-build: docker-build-web
 
 .PHONY: docker-up
 docker-up:
