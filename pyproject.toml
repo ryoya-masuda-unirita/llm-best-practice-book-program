@@ -101,6 +101,7 @@ members = [
     "chapter_4/section_6",
     "chapter_4/section_7",
     "chapter_4/section_8",
+    "chapter_4/section_9",
     "chapter_5/section_1",
     "chapter_5/section_2",
     "chapter_5/section_3",
@@ -114,6 +115,6 @@ members = [
     "chapter_6/section_4",
     "chapter_6/section_5",
     "chapter_6/section_6",
-    "chapter_4/section_9",
     "chapter_6/section_7",
+    "chapter_6/section_8",
 ]

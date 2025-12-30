@@ -1,0 +1,105 @@
+{
+  "id": "customer_tickets",
+  "version": 13,
+  "created_at": "2025-12-30T11:03:18.865373",
+  "updated_at": "2025-12-30T11:50:48.198172",
+  "entries": [
+    {
+      "id": "06d1c0af-260f-41d5-83d5-e23509139e88",
+      "type": "observation",
+      "content": "Processing routine ticket #1234",
+      "timestamp": "2025-12-30T11:03:18.865399",
+      "metadata": {},
+      "agent_id": "normal_agent"
+    },
+    {
+      "id": "d247edb1-95c9-4e6d-b579-09706c4688a8",
+      "type": "action",
+      "content": "URGENT: Critical customer issue resolved immediately",
+      "timestamp": "2025-12-30T11:03:18.867026",
+      "metadata": {},
+      "agent_id": "emergency_agent"
+    },
+    {
+      "id": "5783f26e-48b6-44f7-bde8-c6d7791857f4",
+      "type": "observation",
+      "content": "Processing routine ticket #1234",
+      "timestamp": "2025-12-30T11:10:04.926150",
+      "metadata": {},
+      "agent_id": "normal_agent"
+    },
+    {
+      "id": "5db1f390-7094-41fa-bb10-fccd44e042ce",
+      "type": "action",
+      "content": "URGENT: Critical customer issue resolved immediately",
+      "timestamp": "2025-12-30T11:10:04.928061",
+      "metadata": {},
+      "agent_id": "emergency_agent"
+    },
+    {
+      "id": "93ab13ac-7c89-4ecc-b496-8578389f2c1a",
+      "type": "observation",
+      "content": "Processing routine ticket #1234",
+      "timestamp": "2025-12-30T11:14:36.494892",
+      "metadata": {},
+      "agent_id": "normal_agent"
+    },
+    {
+      "id": "0e3c9719-a862-4b2a-84fa-d147752559b8",
+      "type": "action",
+      "content": "URGENT: Critical customer issue resolved",
+      "timestamp": "2025-12-30T11:14:36.599039",
+      "metadata": {},
+      "agent_id": "emergency_agent"
+    },
+    {
+      "id": "41db9156-33f1-4fb5-a5d9-0edec7c3f2d7",
+      "type": "observation",
+      "content": "Processing routine ticket #1234",
+      "timestamp": "2025-12-30T11:18:16.991680",
+      "metadata": {},
+      "agent_id": "normal_agent"
+    },
+    {
+      "id": "591526c3-9354-4a69-9ed4-f64c0b5cf7bc",
+      "type": "action",
+      "content": "URGENT: Critical customer issue resolved",
+      "timestamp": "2025-12-30T11:18:17.103571",
+      "metadata": {},
+      "agent_id": "emergency_agent"
+    },
+    {
+      "id": "daa3647c-4429-40f0-ae41-ee89507449fb",
+      "type": "observation",
+      "content": "Processing routine ticket #1234",
+      "timestamp": "2025-12-30T11:20:08.342936",
+      "metadata": {},
+      "agent_id": "normal_agent"
+    },
+    {
+      "id": "31aae7d0-3aca-41e2-a629-458d0ef243c4",
+      "type": "action",
+      "content": "URGENT: Critical customer issue resolved",
+      "timestamp": "2025-12-30T11:20:08.451162",
+      "metadata": {},
+      "agent_id": "emergency_agent"
+    },
+    {
+      "id": "1af30e08-3c0a-4a17-8bf5-375df9498201",
+      "type": "observation",
+      "content": "Processing routine ticket #1234",
+      "timestamp": "2025-12-30T11:50:48.081734",
+      "metadata": {},
+      "agent_id": "normal_agent"
+    },
+    {
+      "id": "7aa4aaaa-6255-4ffb-91aa-6a33d2698316",
+      "type": "action",
+      "content": "URGENT: Critical customer issue resolved",
+      "timestamp": "2025-12-30T11:50:48.198164",
+      "metadata": {},
+      "agent_id": "emergency_agent"
+    }
+  ],
+  "metadata": {}
+}

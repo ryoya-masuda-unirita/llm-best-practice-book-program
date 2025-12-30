@@ -51,6 +51,7 @@ members = [
     "chapter-6-section-5",
     "chapter-6-section-6",
     "chapter-6-section-7",
+    "chapter-6-section-8",
     "llm-best-practice-book-program",
 ]
 
@@ -1930,6 +1931,45 @@ dev = [
 name = "chapter-6-section-7"
 version = "0.1.0"
 source = { virtual = "chapter_6/section_7" }
+dependencies = [
+    { name = "anthropic" },
+    { name = "click" },
+    { name = "google-genai" },
+    { name = "openai" },
+    { name = "polars" },
+    { name = "pydantic" },
+    { name = "python-dotenv" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-mock" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anthropic", specifier = ">=0.74.1" },
+    { name = "click", specifier = ">=8.3.0" },
+    { name = "google-genai", specifier = ">=1.45.0" },
+    { name = "openai", specifier = ">=2.4.0" },
+    { name = "polars", specifier = ">=1.36.1" },
+    { name = "pydantic", specifier = ">=2.12.2" },
+    { name = "python-dotenv", specifier = ">=1.1.1" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.4.2" },
+    { name = "pytest-asyncio", specifier = ">=1.2.0" },
+    { name = "pytest-mock", specifier = ">=3.15.1" },
+]
+
+[[package]]
+name = "chapter-6-section-8"
+version = "0.1.0"
+source = { virtual = "chapter_6/section_8" }
 dependencies = [
     { name = "anthropic" },
     { name = "click" },

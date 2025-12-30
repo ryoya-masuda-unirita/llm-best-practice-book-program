@@ -1,0 +1,257 @@
+{
+  "id": "415b505d-2e00-4a4d-b251-290479168540",
+  "agent_id": "chatbot_a",
+  "session_id": "compacted",
+  "timestamp": "2025-12-30T11:20:10.817918",
+  "entries": [
+    {
+      "id": "0d6e99a2-8485-409b-94ef-2ee1bbfc5099",
+      "type": "observation",
+      "content": "User: Hello, how can you help me?",
+      "timestamp": "2025-12-30T11:03:18.869298",
+      "metadata": {},
+      "agent_id": "chatbot_a"
+    },
+    {
+      "id": "576c79df-1c3b-446d-a095-95677919c21c",
+      "type": "action",
+      "content": "Bot: I can help with product inquiries.",
+      "timestamp": "2025-12-30T11:03:18.869319",
+      "metadata": {},
+      "agent_id": "chatbot_a"
+    },
+    {
+      "id": "b25c15cf-52f2-4ad0-b823-64ecb7a05aba",
+      "type": "observation",
+      "content": "User: What's the price of item X?",
+      "timestamp": "2025-12-30T11:03:18.869325",
+      "metadata": {},
+      "agent_id": "chatbot_a"
+    },
+    {
+      "id": "5b95bd0d-e65f-44ce-823b-a58574b64340",
+      "type": "action",
+      "content": "Bot: Item X costs $99.",
+      "timestamp": "2025-12-30T11:03:18.869331",
+      "metadata": {},
+      "agent_id": "chatbot_a"
+    },
+    {
+      "id": "463cc83a-84ac-4e32-9ea5-568cf2aa5b8e",
+      "type": "observation",
+      "content": "User: I have a complaint.",
+      "timestamp": "2025-12-30T11:03:18.869629",
+      "metadata": {},
+      "agent_id": "chatbot_b"
+    },
+    {
+      "id": "3d4b8815-df36-4e5a-82f7-3cd87105ec06",
+      "type": "action",
+      "content": "Bot: I'm sorry to hear that. How can I help?",
+      "timestamp": "2025-12-30T11:03:18.869635",
+      "metadata": {},
+      "agent_id": "chatbot_b"
+    },
+    {
+      "id": "08954498-4cce-4a33-a136-7df21150a0fc",
+      "type": "observation",
+      "content": "User: My order was damaged.",
+      "timestamp": "2025-12-30T11:03:18.869641",
+      "metadata": {},
+      "agent_id": "chatbot_b"
+    },
+    {
+      "id": "402e5430-0c92-4327-bcca-c1425ac90775",
+      "type": "action",
+      "content": "Bot: I've initiated a replacement.",
+      "timestamp": "2025-12-30T11:03:18.869646",
+      "metadata": {},
+      "agent_id": "chatbot_b"
+    },
+    {
+      "id": "44b5ac52-af61-4f28-9437-83632f241715",
+      "type": "thought",
+      "content": "Starting analysis task...",
+      "timestamp": "2025-12-30T11:03:18.872356",
+      "metadata": {},
+      "agent_id": "session_agent"
+    },
+    {
+      "id": "4c329c98-a7e8-4e77-be6f-b642a8167bc8",
+      "type": "action",
+      "content": "Fetching data from API",
+      "timestamp": "2025-12-30T11:03:18.872365",
+      "metadata": {},
+      "agent_id": "session_agent"
+    },
+    {
+      "id": "09a8c588-690d-4552-9e7c-f41b4cda15a0",
+      "type": "observation",
+      "content": "Received 100 records",
+      "timestamp": "2025-12-30T11:03:18.872371",
+      "metadata": {},
+      "agent_id": "session_agent"
+    },
+    {
+      "id": "6b83f67c-095d-45d4-8147-43875058de0b",
+      "type": "action",
+      "content": "Analysis complete",
+      "timestamp": "2025-12-30T11:03:18.872377",
+      "metadata": {},
+      "agent_id": "session_agent"
+    },
+    {
+      "id": "60626eb6-b57d-46d2-bdc6-6ae9d450ed99",
+      "type": "observation",
+      "content": "Temporary entry 0",
+      "timestamp": "2025-12-30T11:03:18.873749",
+      "metadata": {},
+      "agent_id": "temp_agent_0"
+    },
+    {
+      "id": "b498c945-67f4-43d2-b04b-b996f6a9d8bb",
+      "type": "observation",
+      "content": "Temporary entry 1",
+      "timestamp": "2025-12-30T11:03:18.873946",
+      "metadata": {},
+      "agent_id": "temp_agent_1"
+    },
+    {
+      "id": "99277f7f-cf09-41d8-a469-f490e3e16561",
+      "type": "observation",
+      "content": "User: Hello, how can you help me?",
+      "timestamp": "2025-12-30T11:20:10.787107",
+      "metadata": {},
+      "agent_id": "chatbot_a"
+    },
+    {
+      "id": "cb40e616-3703-4a0d-9888-9310c4d8bf2b",
+      "type": "action",
+      "content": "Bot: I can help with product inquiries.",
+      "timestamp": "2025-12-30T11:20:10.787212",
+      "metadata": {},
+      "agent_id": "chatbot_a"
+    },
+    {
+      "id": "8e7e8c5e-50fb-4b51-a887-b897d6da6859",
+      "type": "observation",
+      "content": "User: I have a complaint.",
+      "timestamp": "2025-12-30T11:20:10.787267",
+      "metadata": {},
+      "agent_id": "chatbot_b"
+    },
+    {
+      "id": "d92f70f4-54eb-4ca3-a0e2-591e75419f32",
+      "type": "observation",
+      "content": "User: What's the price of item X?",
+      "timestamp": "2025-12-30T11:20:10.787315",
+      "metadata": {},
+      "agent_id": "chatbot_a"
+    },
+    {
+      "id": "72b92fde-4c1c-4a58-9470-1f13c31460c5",
+      "type": "action",
+      "content": "Bot: I'm sorry to hear that. How can I help?",
+      "timestamp": "2025-12-30T11:20:10.787360",
+      "metadata": {},
+      "agent_id": "chatbot_b"
+    },
+    {
+      "id": "723c2930-e540-4eba-a160-3b2fe55e0004",
+      "type": "action",
+      "content": "Bot: Item X costs $99.",
+      "timestamp": "2025-12-30T11:20:10.787403",
+      "metadata": {},
+      "agent_id": "chatbot_a"
+    },
+    {
+      "id": "9f55b14b-7f1e-4d9f-8fc4-52632b6b6fde",
+      "type": "observation",
+      "content": "User: My order was damaged.",
+      "timestamp": "2025-12-30T11:20:10.787443",
+      "metadata": {},
+      "agent_id": "chatbot_b"
+    },
+    {
+      "id": "4b0bb449-793f-4e4a-9e35-39409b2e4a38",
+      "type": "action",
+      "content": "Bot: I've initiated a replacement.",
+      "timestamp": "2025-12-30T11:20:10.787484",
+      "metadata": {},
+      "agent_id": "chatbot_b"
+    },
+    {
+      "id": "ca72e9ab-dd70-4f1f-835b-a02c1e591c77",
+      "type": "thought",
+      "content": "Starting analysis task...",
+      "timestamp": "2025-12-30T11:20:10.802266",
+      "metadata": {},
+      "agent_id": "session_agent"
+    },
+    {
+      "id": "d25a88ad-d3a7-462b-8421-88ae06c4971e",
+      "type": "action",
+      "content": "Fetching data from API",
+      "timestamp": "2025-12-30T11:20:10.802289",
+      "metadata": {},
+      "agent_id": "session_agent"
+    },
+    {
+      "id": "8a33760c-a08a-41af-81d8-ba9cf42c6695",
+      "type": "observation",
+      "content": "Received 100 records",
+      "timestamp": "2025-12-30T11:20:10.802305",
+      "metadata": {},
+      "agent_id": "session_agent"
+    },
+    {
+      "id": "18d9c942-021b-455c-becd-b8c1ec6a6b63",
+      "type": "action",
+      "content": "Analysis complete",
+      "timestamp": "2025-12-30T11:20:10.802320",
+      "metadata": {},
+      "agent_id": "session_agent"
+    },
+    {
+      "id": "e82fe125-2de2-4c1e-8122-028faf54af37",
+      "type": "observation",
+      "content": "Temporary entry 0",
+      "timestamp": "2025-12-30T11:20:10.803058",
+      "metadata": {},
+      "agent_id": "temp_agent_0"
+    },
+    {
+      "id": "ff73081b-0923-4190-85b4-bd1fe7bcc5cf",
+      "type": "observation",
+      "content": "Temporary entry 1",
+      "timestamp": "2025-12-30T11:20:10.803422",
+      "metadata": {},
+      "agent_id": "temp_agent_1"
+    },
+    {
+      "id": "23921ff1-748b-488e-9dbe-bc250793e006",
+      "type": "observation",
+      "content": "Temporary entry 2",
+      "timestamp": "2025-12-30T11:20:10.803749",
+      "metadata": {},
+      "agent_id": "temp_agent_2"
+    },
+    {
+      "id": "b55c97ff-3365-430c-96eb-41c4a91177ee",
+      "type": "observation",
+      "content": "Temporary entry 3",
+      "timestamp": "2025-12-30T11:20:10.804055",
+      "metadata": {},
+      "agent_id": "temp_agent_3"
+    },
+    {
+      "id": "ea70982d-3ab0-4a64-80e4-083d82432936",
+      "type": "observation",
+      "content": "Temporary entry 4",
+      "timestamp": "2025-12-30T11:20:10.804362",
+      "metadata": {},
+      "agent_id": "temp_agent_4"
+    }
+  ],
+  "is_compacted": true
+}

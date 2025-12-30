@@ -1,0 +1,121 @@
+{
+  "id": "spec_document",
+  "version": 3,
+  "created_at": "2025-12-30T11:03:18.253151",
+  "updated_at": "2025-12-30T11:50:46.512003",
+  "entries": [
+    {
+      "id": "entry_b1",
+      "type": "observation",
+      "content": "Chapter 2 written by Agent B",
+      "timestamp": "2025-12-30T11:03:18.253169",
+      "metadata": {},
+      "agent_id": "agent_b"
+    },
+    {
+      "id": "entry_a1",
+      "type": "observation",
+      "content": "Chapter 1 written by Agent A",
+      "timestamp": "2025-12-30T11:03:18.254389",
+      "metadata": {},
+      "agent_id": "agent_a"
+    },
+    {
+      "id": "review_2",
+      "type": "thought",
+      "content": "Review comment added with auto-retry",
+      "timestamp": "2025-12-30T11:03:18.255857",
+      "metadata": {},
+      "agent_id": "agent_a"
+    },
+    {
+      "id": "entry_b1",
+      "type": "observation",
+      "content": "Chapter 2 written by Agent B",
+      "timestamp": "2025-12-30T11:09:57.571929",
+      "metadata": {},
+      "agent_id": "agent_b"
+    },
+    {
+      "id": "entry_a1",
+      "type": "observation",
+      "content": "Chapter 1 written by Agent A",
+      "timestamp": "2025-12-30T11:09:57.574056",
+      "metadata": {},
+      "agent_id": "agent_a"
+    },
+    {
+      "id": "review_5",
+      "type": "thought",
+      "content": "Review comment added with auto-retry",
+      "timestamp": "2025-12-30T11:09:57.574983",
+      "metadata": {},
+      "agent_id": "agent_a"
+    },
+    {
+      "id": "entry_b1",
+      "type": "observation",
+      "content": "Chapter 2 written by Agent B",
+      "timestamp": "2025-12-30T11:14:35.930033",
+      "metadata": {},
+      "agent_id": "agent_b"
+    },
+    {
+      "id": "entry_a1",
+      "type": "observation",
+      "content": "Chapter 1 written by Agent A",
+      "timestamp": "2025-12-30T11:14:35.931659",
+      "metadata": {},
+      "agent_id": "agent_a"
+    },
+    {
+      "id": "entry_b1",
+      "type": "observation",
+      "content": "Chapter 2 written by Agent B",
+      "timestamp": "2025-12-30T11:18:15.409942",
+      "metadata": {},
+      "agent_id": "agent_b"
+    },
+    {
+      "id": "entry_a1",
+      "type": "observation",
+      "content": "Chapter 1 written by Agent A",
+      "timestamp": "2025-12-30T11:18:15.420997",
+      "metadata": {},
+      "agent_id": "agent_a"
+    },
+    {
+      "id": "entry_b1",
+      "type": "observation",
+      "content": "Chapter 2 written by Agent B",
+      "timestamp": "2025-12-30T11:20:06.764772",
+      "metadata": {},
+      "agent_id": "agent_b"
+    },
+    {
+      "id": "entry_a1",
+      "type": "observation",
+      "content": "Chapter 1 written by Agent A",
+      "timestamp": "2025-12-30T11:20:06.774024",
+      "metadata": {},
+      "agent_id": "agent_a"
+    },
+    {
+      "id": "entry_b1",
+      "type": "observation",
+      "content": "Chapter 2 written by Agent B",
+      "timestamp": "2025-12-30T11:50:46.505589",
+      "metadata": {},
+      "agent_id": "agent_b"
+    },
+    {
+      "id": "entry_a1",
+      "type": "observation",
+      "content": "Chapter 1 written by Agent A",
+      "timestamp": "2025-12-30T11:50:46.511974",
+      "metadata": {},
+      "agent_id": "agent_a"
+    }
+  ],
+  "metadata": {}
+}

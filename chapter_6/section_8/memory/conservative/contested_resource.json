@@ -1,0 +1,41 @@
+{
+  "id": "contested_resource",
+  "version": 5,
+  "created_at": "2025-12-30T11:03:17.934482",
+  "updated_at": "2025-12-30T11:04:43.201168",
+  "entries": [
+    {
+      "id": "f5705ea4-717c-4e2d-8594-2ee68cc569b6",
+      "type": "observation",
+      "content": "Processed by agent_a: Task X",
+      "timestamp": "2025-12-30T11:03:17.934569",
+      "metadata": {},
+      "agent_id": "agent_a"
+    },
+    {
+      "id": "5ba8b0a4-c6b7-44f6-bddf-ff98fd1f80e1",
+      "type": "observation",
+      "content": "Processed by agent_b: Task Y",
+      "timestamp": "2025-12-30T11:03:18.252381",
+      "metadata": {},
+      "agent_id": "agent_b"
+    },
+    {
+      "id": "7b5eded0-efa6-464a-9341-5dbcc00922d8",
+      "type": "observation",
+      "content": "Processed by agent_a: Task X",
+      "timestamp": "2025-12-30T11:04:42.879174",
+      "metadata": {},
+      "agent_id": "agent_a"
+    },
+    {
+      "id": "666d2e11-e256-4c74-bad6-85e7539c94f6",
+      "type": "observation",
+      "content": "Processed by agent_b: Task Y",
+      "timestamp": "2025-12-30T11:04:43.201111",
+      "metadata": {},
+      "agent_id": "agent_b"
+    }
+  ],
+  "metadata": {}
+}

@@ -1,0 +1,73 @@
+{
+  "id": "inventory_a",
+  "version": 9,
+  "created_at": "2025-12-30T11:03:17.628744",
+  "updated_at": "2025-12-30T11:50:43.913230",
+  "entries": [
+    {
+      "id": "0e966d3a-9088-4630-b215-cf3dc9a39e99",
+      "type": "action",
+      "content": "Transferred item: Sword -> Agent B",
+      "timestamp": "2025-12-30T11:03:17.628774",
+      "metadata": {},
+      "agent_id": "agent_a"
+    },
+    {
+      "id": "e3426756-7ad3-4c9e-9dc9-87475eb65f6b",
+      "type": "action",
+      "content": "Transferred item: Sword -> Agent B",
+      "timestamp": "2025-12-30T11:04:42.569076",
+      "metadata": {},
+      "agent_id": "agent_a"
+    },
+    {
+      "id": "02d1784d-0e45-4e42-828c-c44b8200682e",
+      "type": "action",
+      "content": "Transferred item: Sword -> B",
+      "timestamp": "2025-12-30T11:14:34.347172",
+      "metadata": {},
+      "agent_id": "agent_a"
+    },
+    {
+      "id": "47217003-cb39-4605-a4fc-a020bed183d9",
+      "type": "action",
+      "content": "Transferred item: Sword -> B",
+      "timestamp": "2025-12-30T11:15:41.480528",
+      "metadata": {},
+      "agent_id": "agent_a"
+    },
+    {
+      "id": "d4b953de-8e6d-4f1b-99ef-10ec31f38b28",
+      "type": "action",
+      "content": "Transferred item: Sword -> B",
+      "timestamp": "2025-12-30T11:17:48.799529",
+      "metadata": {},
+      "agent_id": "agent_a"
+    },
+    {
+      "id": "7b397f8b-11a0-48d6-a62d-ea08e1f52078",
+      "type": "action",
+      "content": "Transferred item: Sword -> B",
+      "timestamp": "2025-12-30T11:18:12.819245",
+      "metadata": {},
+      "agent_id": "agent_a"
+    },
+    {
+      "id": "c9bbc63a-0b8c-4432-9348-8127193c5a53",
+      "type": "action",
+      "content": "Transferred item: Sword -> B",
+      "timestamp": "2025-12-30T11:20:04.184606",
+      "metadata": {},
+      "agent_id": "agent_a"
+    },
+    {
+      "id": "617a8577-893c-4c58-86e2-2423d0a8813c",
+      "type": "action",
+      "content": "Transferred item: Sword -> B",
+      "timestamp": "2025-12-30T11:50:43.913219",
+      "metadata": {},
+      "agent_id": "agent_a"
+    }
+  ],
+  "metadata": {}
+}

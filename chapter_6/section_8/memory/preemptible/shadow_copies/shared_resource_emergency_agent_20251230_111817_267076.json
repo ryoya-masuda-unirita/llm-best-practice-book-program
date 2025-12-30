@@ -1,0 +1,31 @@
+{
+  "original_resource_id": "shared_resource",
+  "holder_id": "emergency_agent",
+  "preempted_by": "normal_agent",
+  "timestamp": "2025-12-30T11:18:17.267183",
+  "data": {
+    "id": "shared_resource",
+    "version": 3,
+    "created_at": "2025-12-30T11:14:36.753612",
+    "updated_at": "2025-12-30T11:14:36.906322",
+    "entries": [
+      {
+        "id": "d927ab42-9352-4ce2-8d11-9e46d49730f5",
+        "type": "action",
+        "content": "Emergency handled",
+        "timestamp": "2025-12-30T11:14:36.753640",
+        "metadata": {},
+        "agent_id": "emergency_agent"
+      },
+      {
+        "id": "858e0d86-4038-452f-9495-6ad8fec83e8a",
+        "type": "action",
+        "content": "Normal task completed",
+        "timestamp": "2025-12-30T11:14:36.906307",
+        "metadata": {},
+        "agent_id": "normal_agent"
+      }
+    ],
+    "metadata": {}
+  }
+}
