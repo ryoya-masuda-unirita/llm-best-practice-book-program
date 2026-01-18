@@ -4,7 +4,7 @@ from functools import wraps
 from uuid import uuid4
 
 import click
-from src.client.llm_client import AnthropicModel, GeminiModel, LLMProvider, OpenAIModel
+from src.client.llm_client import AnthropicModel, GeminiModel, LLMProvider, OpenAIModel, google_genai_client
 from src.logger import make_logger
 from src.service import request_anthropic_outfit, request_gemini_outfit, request_openai_outfit
 
@@ -123,6 +123,9 @@ Output directory: {output_directory}""")
     logger.info(f"""
 追加アドバイス: {result.additional_advice}
 """)
+
+    if llm_provider == LLMProvider.GEMINI:
+        await google_genai_client.aio.aclose()
 
 
 if __name__ == "__main__":

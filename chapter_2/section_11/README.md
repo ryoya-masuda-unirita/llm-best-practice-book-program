@@ -141,6 +141,7 @@ ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
 2. 依存関係のインストール:
 
 ```bash
+# uvを使用
 uv sync
 ```
 
@@ -150,14 +151,14 @@ uv sync
 
 ```bash
 # Gemini でキャラクター生成（プロファイリングなし）
-python -m src.main \
+uv run python -m src.main \
   --gender FEMALE \
   --age 25 \
   --llm-provider GEMINI \
   --model GEMINI_2_5_FLASH
 
 # OpenAI でキャラクター生成（プロファイリング有効）
-python -m src.main \
+uv run python -m src.main \
   --gender MALE \
   --age 30 \
   --llm-provider OPENAI \
@@ -165,7 +166,7 @@ python -m src.main \
   --enable-profiling
 
 # 異なるプロバイダーで生成と評価を分離
-python -m src.main \
+uv run python -m src.main \
   --gender FEMALE \
   --age 22 \
   --llm-provider GEMINI \
@@ -178,51 +179,146 @@ python -m src.main \
 
 #### CLIオプション一覧
 
-| オプション | 短縮形 | 説明 | 必須 | デフォルト |
-|-----------|--------|------|------|-----------|
-| `--gender` | `-g` | キャラクターの性別 (`FEMALE`, `MALE`) | Yes | `FEMALE` |
-| `--age` | `-a` | キャラクターの年齢 (0-100) | Yes | `25` |
-| `--additional-instructions` | `-ai` | 追加の生成指示 | No | - |
-| `--llm-provider` | `-lp` | LLMプロバイダー (`OPENAI`, `GEMINI`, `ANTHROPIC`) | Yes | `GEMINI` |
-| `--model` | `-m` | 使用するモデル | Yes | - |
-| `--output-directory` | `-od` | 出力ディレクトリ | No | `outputs` |
-| `--judge-provider` | `-jp` | 評価用LLMプロバイダー | No | 生成と同じ |
-| `--judge-model` | `-jm` | 評価用モデル | No | 生成と同じ |
-| `--enable-profiling` | `-p` | プロファイリングを有効化 | No | `False` |
-| `--profiler-report-format` | `-prf` | レポート形式 (`json`, `html`, `txt`) | No | `json` |
+```bash
+$ uv run python -m src.main --help
+Usage: python -m src.main [OPTIONS]
+
+Options:
+  -g, --gender [FEMALE|MALE]      The gender of the character to generate.
+                                  [required]
+  -a, --age INTEGER RANGE         The age of the character to generate.
+                                  [0<=x<=100; required]
+  -ai, --additional-instructions TEXT
+                                  Additional instructions for character
+                                  generation.
+  -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
+                                  The LLM provider to use.  [required]
+  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_5|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_5|CLAUDE_OPUS_4_1]
+                                  The model to use for the request.
+                                  [required]
+  -od, --output-directory PATH    The directory to save output files.
+  -jp, --judge-provider [OPENAI|GEMINI|ANTHROPIC]
+                                  The LLM provider to use for judgment
+                                  (defaults to same as generation provider).
+  -jm, --judge-model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_5|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_5|CLAUDE_OPUS_4_1]
+                                  The model to use for judgment (defaults to
+                                  same as generation model).
+  -p, --enable-profiling          Enable performance profiling for the
+                                  request.
+  -prf, --profiler-report-format [json|html|txt]
+                                  Format for the profiler report.
+  --help                          Show this message and exit.
+```
 
 ### 出力例
 
 #### プロファイリングサマリー（ターミナル出力）
 
-```
+```bash
+$ uv run python -m src.main \
+  --gender FEMALE \
+  --age 22 \
+  --llm-provider GEMINI \
+  --model GEMINI_2_5_FLASH \
+  --judge-provider ANTHROPIC \
+  --judge-model CLAUDE_SONNET_4_5 \
+  --enable-profiling \
+  --profiler-report-format html
+[2026-01-18 14:22:21,221] [INFO] [__main__] [main.py:126] [main] Character Generation Request:
+Gender: female
+Age: 22
+Additional Instructions: 
+
+Generation LLM: gemini / gemini-2.5-flash
+Judge LLM: anthropic / claude-sonnet-4-5
+Output directory: outputs
+[2026-01-18 14:22:21,221] [INFO] [__main__] [main.py:155] [main] Performance profiling is enabled.
+[2026-01-18 14:22:21,221] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:146] [profiled_request_with_judge] Generating prompt...
+[2026-01-18 14:22:21,221] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:149] [profiled_request_with_judge] Generating character...
+[2026-01-18 14:22:23,881] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:94] [profiled_request_gemini] sdk_http_response=HttpResponse(
+  headers=<dict len=11>
+) candidates=[Candidate(
+  content=Content(
+    parts=[
+      Part(
+        text="""{
+  "first_name": "Akari",
+  "last_name": "Sato",
+  "gender": "female",
+  "age": 22,
+  "personalities": [
+    {
+      "short_personality": "Curious",
+      "description": "Akari possesses an insatiable curiosity, always questioning the 'how' and 'why' of the world around her. This drives her to constantly seek out new information, learn diverse skills, and explore unfamiliar places, often getting lost in research or fascinating documentaries."
+    },
+    {
+      "short_personality": "Resourceful",
+      "description": "When faced with a challenge, Akari rarely gives up. She's incredibly resourceful, capable of improvising solutions with whatever tools are at hand and thinking outside the box. This trait makes her an excellent problem-solver in both mundane and extraordinary situations."
+    },
+    {
+      "short_personality": "Reserved",
+      "description": "Despite her adventurous spirit, Akari tends to be reserved and somewhat introspective, especially in new social settings. She prefers to observe and listen before contributing, and while she values deep connections, she's not one to easily open up to just anyone. Her emotional world often runs deeper than she lets on."
+    }
+  ]
+}"""
+      ),
+    ],
+    role='model'
+  ),
+  finish_reason=<FinishReason.STOP: 'STOP'>,
+  index=0
+)] create_time=None model_version='gemini-2.5-flash' prompt_feedback=None response_id='D25saZXnLc6k0-kPj-LVuAg' usage_metadata=GenerateContentResponseUsageMetadata(
+  candidates_token_count=285,
+  prompt_token_count=388,
+  prompt_tokens_details=[
+    ModalityTokenCount(
+      modality=<MediaModality.TEXT: 'TEXT'>,
+      token_count=388
+    ),
+  ],
+  thoughts_token_count=47,
+  total_token_count=720
+) automatic_function_calling_history=[] parsed=CharacterResponse(first_name='Akari', last_name='Sato', gender=<Gender.FEMALE: 'female'>, age=22, personalities=[CharacterPersonality(short_personality='Curious', description="Akari possesses an insatiable curiosity, always questioning the 'how' and 'why' of the world around her. This drives her to constantly seek out new information, learn diverse skills, and explore unfamiliar places, often getting lost in research or fascinating documentaries."), CharacterPersonality(short_personality='Resourceful', description="When faced with a challenge, Akari rarely gives up. She's incredibly resourceful, capable of improvising solutions with whatever tools are at hand and thinking outside the box. This trait makes her an excellent problem-solver in both mundane and extraordinary situations."), CharacterPersonality(short_personality='Reserved', description="Despite her adventurous spirit, Akari tends to be reserved and somewhat introspective, especially in new social settings. She prefers to observe and listen before contributing, and while she values deep connections, she's not one to easily open up to just anyone. Her emotional world often runs deeper than she lets on.")])
+[2026-01-18 14:22:23,881] [INFO] [src.service.prompt_profiler] [prompt_profiler.py:222] [profile] Profiled request 6291bdc3-fe8f-4b2e-9a78-6f3e72fa56a0: prompt=character_generation_gemini, model=gemini-2.5-flash, latency=2660.23ms, tokens=673 (in=388, out=285), status=success
+[2026-01-18 14:22:23,881] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:176] [profiled_request_with_judge] Character generation completed.
+[2026-01-18 14:22:23,881] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:178] [profiled_request_with_judge] Evaluating character with LLM-as-a-Judge...
+[2026-01-18 14:22:23,882] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:77] [judge_with_anthropic] Requesting judgment from Anthropic model: claude-sonnet-4-5
+[2026-01-18 14:22:38,478] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:88] [judge_with_anthropic] Judgment completed. Overall score: 5.00/5.0
+[2026-01-18 14:22:38,479] [INFO] [src.service.prompt_profiler] [prompt_profiler.py:222] [profile] Profiled request b952c227-24ac-4a4b-b65d-64277f1c3833: prompt=llm_as_a_judge_anthropic, model=claude-sonnet-4-5, latency=14597.65ms, tokens=517 (in=311, out=206), status=success
+[2026-01-18 14:22:38,480] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:230] [profiled_request_with_judge] Evaluation completed. Overall score: 5.00/5.0
+[2026-01-18 14:22:38,480] [INFO] [__main__] [main.py:180] [main] Character file saved to outputs/8779952a32fb430486c8263df4f2baec_gemini_character.json
+[2026-01-18 14:22:38,480] [INFO] [__main__] [main.py:185] [main] Judge evaluation saved to outputs/8779952a32fb430486c8263df4f2baec_anthropic_judge.json
+[2026-01-18 14:22:38,480] [INFO] [__main__] [main.py:186] [main] Overall evaluation score: 5.00/5.0
+[2026-01-18 14:22:38,684] [INFO] [src.service.profiler_reporter] [profiler_reporter.py:515] [save_report] Report saved to: outputs/8779952a32fb430486c8263df4f2baec_profiler_report.html
+[2026-01-18 14:22:38,685] [INFO] [__main__] [main.py:209] [main] Profiler report saved to outputs/8779952a32fb430486c8263df4f2baec_profiler_report.html
+
 ============================================================
 PERFORMANCE PROFILING SUMMARY
 ============================================================
 Prompt Performance Summary
 ==========================
 
-Report Generated: 2025-01-15T10:30:45.123456+00:00
+Report Generated: 2026-01-18T05:22:38.685756+00:00
 Sample Count: 3
-Time Range: 2025-01-15T10:30:40.000000+00:00 to 2025-01-15T10:30:45.000000+00:00
+Time Range: 2026-01-18T05:22:23.881766+00:00 to 2026-01-18T05:22:38.480099+00:00
 
 LATENCY
 ----------------------------------------
-  Mean:    2,543.21 ms
-  Median:  2,345.67 ms
-  P95:     3,456.78 ms
-  P99:     3,456.78 ms
-  Min:     1,234.56 ms
-  Max:     3,456.78 ms
-  Std Dev: 567.89 ms
+  Mean:    6,639.37 ms
+  Median:  2,660.23 ms
+  P95:     14,597.65 ms
+  P99:     14,597.65 ms
+  Min:     2,660.23 ms
+  Max:     14,597.65 ms
+  Std Dev: 6,892.07 ms
 
 TOKEN USAGE
 ----------------------------------------
-  Total Input:   1,234
-  Total Output:  567
-  Total:         1,801
-  Avg Input:     411.3
-  Avg Output:    189.0
+  Total Input:   1,087
+  Total Output:  776
+  Total:         1,863
+  Avg Input:     362.3
+  Avg Output:    258.7
 
 SUCCESS RATE
 ----------------------------------------
@@ -232,36 +328,46 @@ SUCCESS RATE
 
 QUALITY SCORES
 ----------------------------------------
-  Average: 4.25 / 5.0
-  Min:     3.80 / 5.0
-  Max:     4.70 / 5.0
+  Average: 5.00 / 5.0
+  Min:     5.00 / 5.0
+  Max:     5.00 / 5.0
 
 COST ESTIMATE
 ----------------------------------------
-  Total: $0.0045
-  Avg:   $0.0015 per request
+  Total: $0.0043
+  Avg:   $0.0014 per request
+
+Performance Alerts
+==================
+
+Report Generated: 2026-01-18T05:22:38.685903+00:00
+Total Alerts: 1
+
+CRITICAL ALERTS
+----------------------------------------
+  [2026-01-18T05:22:38] Critical latency detected: 14597.65ms exceeds 10000.0ms threshold
 ```
 
 #### 生成されたキャラクター（JSON）
 
 ```json
 {
-    "first_name": "美咲",
-    "last_name": "桜井",
+    "first_name": "エミ",
+    "last_name": "田中",
     "gender": "female",
     "age": 25,
     "personalities": [
         {
             "short_personality": "好奇心旺盛",
-            "description": "新しいことへの興味が尽きず、常に学びの機会を探している。"
+            "description": "常に新しい知識や経験を求めています。見知らぬ場所を探索したり、未読の本を読み漁ったり、異文化に触れることに深い喜びを感じます。その探求心は彼女を常に動かし続けます。"
         },
         {
-            "short_personality": "思いやりがある",
-            "description": "周囲の人々の気持ちに敏感で、困っている人を放っておけない性格。"
+            "short_personality": "共感的",
+            "description": "他人の感情や視点に深く共感し、理解しようと努めます。困っている人を見ると放っておけず、常に思いやりを持って接します。そのため、周囲からは頼れる相談相手として慕われています。"
         },
         {
-            "short_personality": "芯が強い",
-            "description": "一度決めたことは最後までやり遂げる強い意志を持っている。"
+            "short_personality": "決断力がある",
+            "description": "一度決めた目標に向かって、迷うことなく行動できます。困難な状況に直面しても、冷静に判断し、迅速かつ効果的な解決策を見出すことができます。この特性は、彼女を頼りになるリーダーにしています。"
         }
     ]
 }
@@ -273,22 +379,22 @@ COST ESTIMATE
 {
     "evaluations": [
         {
-            "reasoning": "指定された性別と年齢に一致しており、名前も適切。",
+            "reasoning": "リクエストパラメータ（Gender: female, Age: 25）に忠実に従っており、質問内容に沿ったキャラクター情報が正確に生成されています。誤った情報やハルシネーションは含まれていません。",
             "criterion_name": "accuracy",
             "score": 5
         },
         {
-            "reasoning": "3つの性格特性が詳細に記述されており、十分な情報量がある。",
+            "reasoning": "質問で求められている「詳細な性格」が3つの異なる特性として具体的に記述されており、ユーザーの要求を完全に満たしています。リクエストパラメータもすべて網羅されています。",
             "criterion_name": "comprehensiveness",
-            "score": 4
+            "score": 5
         },
         {
-            "reasoning": "各性格特性の説明が明確で理解しやすい。",
+            "reasoning": "JSON形式で構造化されており、非常に読みやすいです。各性格の説明も簡潔かつ明瞭で、専門用語もなく理解しやすい表現が使われています。",
             "criterion_name": "clarity",
-            "score": 4
+            "score": 5
         }
     ],
-    "overall_score": 4.33,
-    "summary": "リクエストに忠実なキャラクター生成が行われており、全体的に高品質な出力。"
+    "overall_score": 5.0,
+    "summary": "質問とリクエストパラメータに完全に合致し、詳細かつ明瞭なキャラクター情報が生成されています。非常に質の高い回答です。"
 }
 ```

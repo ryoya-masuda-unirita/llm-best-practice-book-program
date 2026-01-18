@@ -122,13 +122,14 @@ cp .envrc.example .envrc
 
 ```bash
 export OPENAI_API_KEY="sk-your-openai-api-key-here"
-BASIC_PREDICTION_MODEL="gpt-4o"
-HIGH_PREDICTION_MODEL="gpt-5"
+BASIC_PREDICTION_MODEL="gpt-5-mini"
+HIGH_PREDICTION_MODEL="gpt-5.1"
 ```
 
 2. 依存関係をインストール
 
 ```bash
+# uvを使用
 uv sync
 ```
 
@@ -137,18 +138,19 @@ uv sync
 #### CLIオプション
 
 ```bash
-python -m src.main --help
-```
-
-```
+$ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
   Run auto-structured output examples
 
+  This command executes examples from src/examples/ directory. Each example
+  demonstrates the two-step auto-structured output approach.
+
 Options:
-  -m, --model [gpt-5|gpt-5-mini|gpt-5-nano|gpt-4.1|gpt-4.1-mini|gpt-4.1-nano|gpt-4o|gpt-4o-mini]
-                                  The model to use for the request.  [required]
-  -e, --example [example_1_simple_user_model|example_2_product_with_enum|...]
+  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI]
+                                  The model to use for the request.
+                                  [required]
+  -e, --example [example_1_simple_user_model|example_2_product_with_enum|example_3_optional_fields|example_4_array_fields|example_5_datetime_fields|example_1_nested_objects|example_2_complex_article|example_3_array_of_objects|example_4_deep_nesting|example_5_anyof_union_types|example_6_validation_constraints|example_1_customer_feedback_analysis|example_2_meeting_summary|example_3_research_paper_metadata|example_4_job_application_evaluation|example_5_financial_transaction_analysis|example_6_high_reasoning]
                                   The example to run.
   -od, --output-directory PATH    The directory to save output files.
   --help                          Show this message and exit.
@@ -158,13 +160,13 @@ Options:
 
 ```bash
 # シンプルなユーザーモデルの生成
-python -m src.main -m gpt-4o -e example_1_simple_user_model
+python -m src.main -m GPT_4O -e example_1_simple_user_model
 
 # 出力ディレクトリを指定して実行
-python -m src.main -m gpt-4o -e example_2_product_with_enum -od ./my_outputs
+python -m src.main -m GPT_4O -e example_2_product_with_enum -od ./my_outputs
 
 # 高推論モードのサンプル実行
-python -m src.main -m gpt-4o -e example_1_customer_feedback_analysis
+python -m src.main -m GPT_4O -e example_1_customer_feedback_analysis
 ```
 
 #### サンプル一覧
@@ -201,38 +203,55 @@ python -m src.main -m gpt-4o -e example_1_customer_feedback_analysis
     "NestedModel": {
       "properties": {
         "theme": {
-          "description": "UI theme preference",
-          "enum": ["light", "dark"],
+          "description": "Preferred theme",
+          "enum": [
+            "light",
+            "dark"
+          ],
+          "title": "Theme",
           "type": "string"
         },
         "notificationsEnabled": {
           "description": "Whether notifications are enabled",
+          "title": "Notificationsenabled",
           "type": "boolean"
         }
       },
-      "required": ["theme", "notificationsEnabled"],
+      "required": [
+        "theme",
+        "notificationsEnabled"
+      ],
+      "title": "NestedModel",
       "type": "object"
     }
   },
   "properties": {
     "name": {
-      "description": "User's full name",
+      "description": "User's name",
+      "title": "Name",
       "type": "string"
     },
     "age": {
-      "description": "User's age in years",
+      "description": "User's age",
+      "title": "Age",
       "type": "integer"
     },
     "email": {
       "description": "User's email address",
+      "title": "Email",
       "type": "string"
     },
     "preferences": {
       "$ref": "#/$defs/NestedModel",
-      "description": "User interface and notification preferences"
+      "description": "User's preferences"
     }
   },
-  "required": ["name", "age", "email", "preferences"],
+  "required": [
+    "name",
+    "age",
+    "email",
+    "preferences"
+  ],
   "title": "UserProfile",
   "type": "object"
 }
@@ -241,112 +260,20 @@ python -m src.main -m gpt-4o -e example_1_customer_feedback_analysis
 **抽出される構造化データ**:
 
 ```python
-{
-    "name": "John Doe",
-    "age": 21,
-    "email": "johndoe@example.com",
-    "preferences": {
-        "theme": "light",
-        "notificationsEnabled": False
-    }
-}
+{'name': 'John Doe', 'age': 21, 'email': 'johndoe@example.com', 'preferences': {'theme': 'light', 'notificationsEnabled': False}}
 ```
 
-## プログラムでの使用
-
-```python
-from openai import OpenAI
-from src.auto_structured_output import StructureExtractor
-
-# OpenAIクライアントを初期化
-client = OpenAI(api_key="your-api-key")
-
-# StructureExtractorを作成
-extractor = StructureExtractor(llm_client=client, model="gpt-4o")
-
-# Step 1: プロンプトからPydanticモデルを動的に生成
-prompt = "ユーザー名、年齢、メールアドレスを抽出してください"
-T_Model = extractor.extract_structure([prompt])
-
-# Step 2: 生成したモデルを使って構造化データを抽出
-response = client.responses.parse(
-    model="gpt-4o",
-    input=[{"role": "user", "content": "John Doeは25歳で、john@example.comにメールできます"}],
-    text_format=T_Model,
-)
-
-data = response.output_parsed.model_dump()
-print(data)
-# {"name": "John Doe", "age": 25, "email": "john@example.com"}
-
-# スキーマを保存して再利用
-extractor.save_extracted_json(T_Model, "my_schema.json")
-
-# 保存したスキーマからモデルを復元
-restored_model = StructureExtractor.load_from_json("my_schema.json")
-```
-
-### 高推論モードの使用
-
-```python
-# 曖昧なプロンプトに対して最適な構造を推論
-T_Model = extractor.extract_structure(
-    ["Analyze customer feedback and extract comprehensive business insights"],
-    use_high_reasoning=True
-)
-# LLMが以下のような構造を自動推論:
-# - product_quality_assessment
-# - delivery_experience
-# - customer_satisfaction_metrics
-# - actionable_recommendations
-# など
-```
-
-### マルチプロンプト統合の使用
-
-```python
-# 複数のユースケースをカバーする統一スキーマを生成
-T_Model = extractor.extract_structure([
-    "Extract junior engineer application: education, internships, projects",
-    "Extract senior engineer application: career, large projects, leadership",
-    "Extract expert engineer application: certifications, publications, patents"
-])
-# 共通フィールドは必須、ケース固有のフィールドはオプショナルとして設計
-```
-
-## 開発コマンド
+### 実行例
 
 ```bash
-# 出力ファイルとキャッシュのクリーンアップ
-make clean
+$ uv run python -m src.main -m GPT_4O -e example_1_simple_user_model
 
-# Lintチェック（ruff）
-make lint
+[2026-01-17 16:12:27,600] [INFO] [__main__] [main.py:100] [main] Executing example: example_1_simple_user_model
 
-# コードフォーマット（ruff）
-make fmt
-
-# Lint + フォーマット
-make fix
-
-# 型チェック（mypy）
-make mypy
+=== Example 1: Simple User Model ===
+[2026-01-17 16:12:30,476] [INFO] [src.examples.runner] [runner.py:20] [run] Generated model: UserProfile
+[2026-01-17 16:12:30,478] [INFO] [src.examples.runner] [runner.py:21] [run] Fields: {'$defs': {'NestedModel': {'properties': {'theme': {'description': 'Preferred theme', 'enum': ['light', 'dark'], 'title': 'Theme', 'type': 'string'}, 'notificationsEnabled': {'description': 'Whether notifications are enabled', 'title': 'Notificationsenabled', 'type': 'boolean'}}, 'required': ['theme', 'notificationsEnabled'], 'title': 'NestedModel', 'type': 'object'}}, 'properties': {'name': {'description': "User's name", 'title': 'Name', 'type': 'string'}, 'age': {'description': "User's age", 'title': 'Age', 'type': 'integer'}, 'email': {'description': "User's email address", 'title': 'Email', 'type': 'string'}, 'preferences': {'$ref': '#/$defs/NestedModel', 'description': "User's preferences"}}, 'required': ['name', 'age', 'email', 'preferences'], 'title': 'UserProfile', 'type': 'object'}
+[2026-01-17 16:12:32,725] [INFO] [src.examples.runner] [runner.py:33] [run] 
+Generated data:
+[2026-01-17 16:12:32,725] [INFO] [src.examples.runner] [runner.py:34] [run] {'name': 'John Doe', 'age': 21, 'email': 'johndoe@example.com', 'preferences': {'theme': 'light', 'notificationsEnabled': False}}
 ```
-
-## カスタム例外
-
-- `ExtractionError` - 構造抽出の一般エラー
-- `SchemaValidationError` - スキーマ検証失敗（リトライ後も失敗）
-- `ModelBuildError` - Pydanticモデル構築失敗
-
-## 注意点
-
-- **OpenAI専用**: 現在の実装はOpenAI APIのみをサポートしています
-- **出力の安定性**: LLMが生成するスキーマは実行のたびに微妙に異なる可能性があります。安定性が必要な場合は、一度生成したスキーマを保存して再利用してください
-- **APIコスト**: 2段階のAPI呼び出しが必要なため、通常の構造化出力より多くのトークンを消費します
-- **バリデーションリトライ**: デフォルトで最大3回リトライしますが、複雑なスキーマでは失敗する可能性があります
-- **uriフォーマット非対応**: OpenAI Structured Outputsでは`uri`フォーマットがサポートされていません。URLは`string`型で定義してください
-
-## ライセンス
-
-MIT License

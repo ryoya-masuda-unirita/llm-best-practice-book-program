@@ -84,7 +84,7 @@ def async_cmd(func):
     "--alternative-model",
     "-am",
     type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str()),
-    required=False,
+    required=True,
     help="The alternative model to use for fallback requests.",
 )
 @click.option(

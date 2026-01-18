@@ -1,7 +1,7 @@
 """Pytest configuration and shared fixtures for tests."""
 
 import pytest
-from src.model.llm_as_a_judge_model import EvaluationCriterion, EvaluationScore, JudgeRequest, JudgeResponse
+from src.model.llm_as_a_judge_model import EvaluationCriterion, JudgeRequest, JudgeResponse
 from src.model.model import CharacterPersonality, CharacterRequest, CharacterResponse, Gender
 
 
@@ -57,17 +57,17 @@ def sample_judge_response() -> JudgeResponse:
         evaluations=[
             EvaluationCriterion(
                 criterion_name="accuracy",
-                score=EvaluationScore.GOOD,
+                score=4,
                 reasoning="The specified age (25) and gender (female) are accurately reflected. The fantasy wizard setting is appropriately expressed.",
             ),
             EvaluationCriterion(
                 criterion_name="comprehensiveness",
-                score=EvaluationScore.PERFECT,
+                score=5,
                 reasoning="All elements including name, gender, age, and three personality traits are included, with both short and detailed descriptions.",
             ),
             EvaluationCriterion(
                 criterion_name="clarity",
-                score=EvaluationScore.GOOD,
+                score=4,
                 reasoning="Each personality trait is clearly described and the character's individuality is easy to understand.",
             ),
         ],
@@ -108,17 +108,17 @@ def low_quality_judge_response() -> JudgeResponse:
         evaluations=[
             EvaluationCriterion(
                 criterion_name="accuracy",
-                score=EvaluationScore.POOR,
+                score=2,
                 reasoning="Generated a 30-year-old male generic character completely different from specified conditions (25-year-old female fantasy wizard).",
             ),
             EvaluationCriterion(
                 criterion_name="comprehensiveness",
-                score=EvaluationScore.ACCEPTABLE,
+                score=3,
                 reasoning="Required fields exist but fantasy elements are completely missing.",
             ),
             EvaluationCriterion(
                 criterion_name="clarity",
-                score=EvaluationScore.POOR,
+                score=2,
                 reasoning="All personality traits use vague expression 'Normal', showing no character individuality.",
             ),
         ],

@@ -125,11 +125,8 @@ ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
 2. **依存関係のインストール**
 
 ```bash
-# uvを使用する場合（推奨）
+# uvを使用する
 uv sync
-
-# pipを使用する場合
-pip install -e .
 ```
 
 ### 使用方法、実行方法
@@ -138,13 +135,13 @@ pip install -e .
 
 ```bash
 # Gemini APIを使用
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.7456 -lon -97.0892
+uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.7456 -lon -97.0892 -od ./outputs
 
 # OpenAI APIを使用
-uv run python -m src.main -lp OPENAI -m GPT_5_MINI -lat 39.7456 -lon -97.0892
+uv run python -m src.main -lp OPENAI -m GPT_5_MINI -lat 39.7456 -lon -97.0892 -od ./outputs
 
 # 異なる座標で実行（例: カンザス州）
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.0119 -lon -95.6788
+uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.0119 -lon -95.6788 -od ./outputs
 ```
 
 **重要**: このツールは米国国立気象局（NWS）のAPIを使用しているため、**米国内の座標のみ対応**しています。
@@ -159,20 +156,10 @@ uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.0119 -lon -95.6
 - `-lon, --longitude`: 経度（例: -97.0892）【必須】
 - `-od, --output-directory`: 出力ディレクトリ（デフォルト: `outputs`）
 
-#### 出力先の指定
-
-```bash
-# カスタム出力ディレクトリを指定
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.7456 -lon -97.0892 -od ./custom_output
-
-# 短縮オプション
-uv run python -m src.main -lp OPENAI -m gpt-4o-mini -lat 39.7456 -lon -97.0892 -od ./my_outfits
-```
-
 #### ヘルプの表示
 
 ```bash
-$ python -m src.main --help
+$ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
   天気予報に基づいて服装を提案します
@@ -181,9 +168,9 @@ Usage: python -m src.main [OPTIONS]
   -lon -97.0892
 
 Options:
-  -lp, --llm-provider [OPENAI|GEMINI]
+  -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use.  [required]
-  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
+  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_5|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_5|CLAUDE_OPUS_4_1]
                                   The model to use for the request.
                                   [required]
   -lat, --latitude FLOAT          緯度 (例: 39.7456 for Kansas, USA)  [required]
@@ -196,16 +183,16 @@ Options:
 
 ```bash
 # ニューヨーク市（マンハッタン）
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 40.7128 -lon -74.0060
+uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 40.7128 -lon -74.0060 -od ./outputs
 
 # ロサンゼルス
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 34.0522 -lon -118.2437
+uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 34.0522 -lon -118.2437 -od ./outputs
 
 # シカゴ
-uv run python -m src.main -lp OPENAI -m GPT_5_MINI -lat 41.8781 -lon -87.6298
+uv run python -m src.main -lp OPENAI -m GPT_5_MINI -lat 41.8781 -lon -87.6298 -od ./outputs
 
 # シアトル
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 47.6062 -lon -122.3321
+uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 47.6062 -lon -122.3321 -od ./outputs
 ```
 
 ### 出力例
@@ -254,33 +241,165 @@ uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 47.6062 -lon -122.
 
 **実行ログ例**:
 ```
-[2025-11-01 10:30:45] [INFO] [__main__] [main.py:74] [main] LLM provider: gemini
+$ uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.7456 -lon -97.0892
+[2026-01-18 15:22:40,321] [INFO] [__main__] [main.py:73] [main] LLM provider: gemini
 Model: gemini-2.5-flash
 Latitude: 39.7456
 Longitude: -97.0892
 Output directory: outputs
-[2025-11-01 10:30:46] [INFO] [src.service.request_llm] [request_llm.py:84] [request_gemini_outfit] MCP session initialized for Gemini. Requesting outfit recommendation for lat=39.7456, lon=-97.0892
-[2025-11-01 10:30:48] [INFO] [__main__] [main.py:101] [main] File saved to outputs/outfit_gemini_dd9eb6dd3ac748e9a79e64908ea0d413.json
+[2026-01-18 15:22:40,951] [INFO] [src.service.request_llm] [request_llm.py:81] [request_gemini_outfit] MCP session initialized for Gemini. Requesting outfit recommendation for lat=39.7456, lon=-97.0892
+[01/18/26 15:22:40] INFO     Processing request of type ListToolsRequest                                                                      server.py:674
+[01/18/26 15:22:42] INFO     Processing request of type CallToolRequest                                                                       server.py:674
+[01/18/26 15:22:43] INFO     HTTP Request: GET https://api.weather.gov/points/39.7456,-97.0892 "HTTP/1.1 200 OK"                            _client.py:1740
+                    INFO     HTTP Request: GET https://api.weather.gov/gridpoints/TOP/32,81/forecast "HTTP/1.1 200 OK"                      _client.py:1740
+[2026-01-18 15:22:51,347] [INFO] [src.service.request_llm] [request_llm.py:95] [request_gemini_outfit] Gemini response: sdk_http_response=HttpResponse(
+  headers=<dict len=11>
+) candidates=[Candidate(
+  content=Content(
+    parts=[
+      Part(
+        text="""```json
+{
+  "location": "緯度39.7456、経度-97.0892の地点",
+  "weather_summary": "今日は一日を通して晴れ間が広がりますが、強い風が吹き、体感温度は非常に低くなるでしょう。",
+  "current_weather": {
+    "period_name": "日中（日曜）",
+    "temperature": 43,
+    "temperature_unit": "F",
+    "wind_speed": "15 to 20 mph",
+    "wind_direction": "W",
+    "forecast_summary": "ほとんど晴れ、最高気温は43°F付近。西風15～20mph、突風は35mphにも達するでしょう。"
+  },
+  "outfit_recommendations": [
+    {
+      "clothing_type": "アウター",
+      "item_suggestion": "厚手のダウンコートまたはウールコート",
+      "reason": "気温が低く、特に強い風が吹くため、体温をしっかりと保つ厚手のコートは必須です。風を通しにくい素材がおすすめです。"
+    },
+    {
+      "clothing_type": "トップス",
+      "item_suggestion": "厚手のセーターやフリース、または機能性インナー（ヒートテックなど）の上に重ね着",
+      "reason": "コートの下にも保温性の高い衣類を重ね着することで、寒さから体を守ります。特に風が強い日は、重ね着で空気の層を作り体温を逃がさないことが重要です。"
+    },
+    {
+      "clothing_type": "ボトムス",
+      "item_suggestion": "裏起毛のパンツ、または保温性のある素材のスカートに厚手のタイツ",
+      "reason": "下半身も冷えやすいため、保温性の高い素材を選びましょう。風を防ぐ素材のパンツも良いでしょう。"
+    },
+    {
+      "clothing_type": "小物類",
+      "item_suggestion": "マフラー、手袋、ニット帽",
+      "reason": "風が強く、体感温度が非常に低くなるため、首、耳、手などの末端をしっかりと保護することが凍傷や体温低下を防ぎます。"
+    }
+  ],
+  "additional_advice": "本日は非常に風が強く、体感温度が実際の気温よりもかなり低く感じられます。外出する際は、防寒対策を徹底し、特に露出する部分を冷やさな いように心がけてください。風で物が飛ばされないように注意し、不要な外出は控えることをお勧めします。"
+}
+```""",
+        thought_signature=b'\n\xa5\x1b\x01r\xc8\xda|l\xef~\x9f!\xd3\x8a\xe5Jv\x1b\x00\r\xac\xb9d\xed1\xac\xe4\xf0\xdbP%\xe0\x1b^\xc0*\xb8X\xe8\xdf]A\xa6\x9af\x9bQ\xa3\x7f\xe0qR\x04Q\x14\x80\xd8\x0b\x1d\xb6\xb9Z\xeb\xc8\xf9\xd2\xb1\xc9\x9b\x8b\xb0\xf1\xc2\x94\xa8\xddx\xfd\xc5Q+x4M\xd9 \xb4\x0b7p\xd6\xc0\x1be\xf30...'
+      ),
+    ],
+    role='model'
+  ),
+  finish_reason=<FinishReason.STOP: 'STOP'>,
+  index=0
+)] create_time=None model_version='gemini-2.5-flash' prompt_feedback=None response_id='O3xsaaXuCoGr0-kPrfzg-QE' usage_metadata=GenerateContentResponseUsageMetadata(
+  candidates_token_count=589,
+  prompt_token_count=1373,
+  prompt_tokens_details=[
+    ModalityTokenCount(
+      modality=<MediaModality.TEXT: 'TEXT'>,
+      token_count=1373
+    ),
+  ],
+  thoughts_token_count=899,
+  total_token_count=2861
+) automatic_function_calling_history=[UserContent(
+  parts=[
+    Part(
+      text="""緯度39.7456、経度-97.0892の地点の天気予報を取得して、
+今日外出する際の最適な服装を提案してください。
 
+以下の構造のJSONで回答してください：
+{
+  "location": "場所の説明",
+  "weather_summary": "今日の天気の概要",
+  "current_weather": {
+    "period_name": "予報期間の名前",
+    "temperature": 気温（数値）,
+    "temperature_unit": "F",
+    "wind_speed": "風速",
+    "wind_direction": "風向き",
+    "forecast_summary": "天気予報の要約"
+  },
+  "outfit_recommendations": [
+    {
+      "clothing_type": "服装の種類",
+      "item_suggestion": "具体的なアイテムの提案",
+      "reason": "その服装を提案する理由"
+    }
+  ],
+  "additional_advice": "その他のアドバイス"
+}
+
+気温、風速、天気の状況を総合的に考慮して、日本の気候と文化に適した提案をしてください。
+outfit_recommendationsには最低3つのアイテムを含めてください。"""
+    ),
+  ],
+  role='user'
+), Content(
+  parts=[
+    Part(
+      function_call=FunctionCall(
+        args={
+          'latitude': 39.7456,
+          'longitude': -97.0892
+        },
+        name='get_forecast'
+      ),
+      thought_signature=b'\n\xf8\x07\x01r\xc8\xda|\x1a\xf8\xbc\xa4lO\xcd/I>\xdd\xf0!I\x9f\x98\x97x\xf5\xc0z\x16\xe3*\xe9>\x86a\x96\rsb\xb7\x88j9\xe9\x9a#\xcbL.B(\\\xcc\xda\x87{\x19J\x0e\xd6\xc1I\x91\xc6\xa3\x80l\xb4\xc3\x0eU0\xf4#\x9c]\xa7\tf\xb8I\xce\xa8>~!)\xcc019t7\xa4@f...'
+    ),
+  ],
+  role='model'
+), Content(
+  parts=[
+    Part(
+      function_response=FunctionResponse(
+        name='get_forecast',
+        response={
+          'result': CallToolResult(
+            content=[<... 1 item at Max depth ...>],
+            isError=False,
+            structuredContent={<... 1 item at Max depth ...>}
+          )
+        }
+      )
+    ),
+  ],
+  role='user'
+)] parsed=None
+Warning: there are non-text parts in the response: ['thought_signature'], returning concatenated text result from text parts. Check the full candidates.content.parts accessor to get the full model response.
+[2026-01-18 15:22:51,412] [INFO] [__main__] [main.py:104] [main] File saved to outputs/outfit_gemini_1b0df08100614ec9b9b10287c3621824.json
+[2026-01-18 15:22:51,412] [INFO] [__main__] [main.py:106] [main] 
 === 服装提案 ===
-場所: 今日の予報地域
-天気概要: 今日は一日を通して晴れ間が広がる見込みですが、最高気温は約8.9℃（48°F）と非常に肌寒い一日となるでしょう。風もやや強く吹くため、しっかりとした防寒対策が必要です。
+場所: 緯度39.7456、経度-97.0892の地点
+天気概要: 今日は一日を通して晴れ間が広がりますが、強い風が吹き、体感温度は非常に低くなるでしょう。
 
 現在の天気:
-  期間: Saturday
-  気温: 48°F
-  風: 5 to 15 mph Northwest
-  予報: Mostly sunny, with a high near 48. Northwest wind 5 to 15 mph.
+  期間: 日中（日曜）
+  気温: 43°F
+  風: 15 to 20 mph W
+  予報: ほとんど晴れ、最高気温は43°F付近。西風15～20mph、突風は35mphにも達するでしょう。
 
 推奨服装:
-  1. アウター: 厚手のダウンジャケットまたはウールコート
-     理由: 最高気温が約8.9℃と低く、風も強めに吹くため、体全体をしっかりと覆い、保温性の高いダウンジャケットやウールコートで寒さから身を守ることが必須です。
-  2. トップス: 厚手のセーターや裏起毛のスウェットシャツ
-     理由: アウターの下には、保温性の高い厚手のセーターや裏起毛のスウェットシャツを着用し、重ね着で体温を逃がさないようにしましょう。ヒートテックなどの機能性インナーもおすすめです。
-  3. ボトムス: 保温性の高いパンツ（例: コーデュロイパンツ、ウールパンツ、裏起毛パンツ）
-     理由: 足元も冷えやすいので、保温効果のあるコーデュロイパンツやウールパンツ、または裏起毛のパンツを選び、下半身の冷えを防ぎましょう。
-  4. 小物: マフラー、手袋、ニット帽
-     理由: 首元、手先、耳元は特に冷えやすいので、マフラー、手袋、ニット帽で徹底的に防寒対策をすることで、より快適に過ごせます。
 
-追加アドバイス: 日中は晴れ間が広がりそうですが、気温は非常に低く、風も冷たく感じられるでしょう。外出時は最大限の防寒対策を心がけ、重ね着で調整できるように準備してください。暖かい飲み物を持ち歩くのも良いでしょう。
+[2026-01-18 15:22:51,412] [INFO] [__main__] [main.py:120] [main]   1. アウター: 厚手のダウンコートまたはウールコート
+     理由: 気温が低く、特に強い風が吹くため、体温をしっかりと保つ厚手のコートは必須です。風を通しにくい素材がおすすめです。
+[2026-01-18 15:22:51,412] [INFO] [__main__] [main.py:120] [main]   2. トップス: 厚手のセーターやフリース、または機能性インナー（ヒートテックなど）の上に重 ね着
+     理由: コートの下にも保温性の高い衣類を重ね着することで、寒さから体を守ります。特に風が強い日は、重ね着で空気の層を作り体温を逃がさないことが重要です。
+[2026-01-18 15:22:51,412] [INFO] [__main__] [main.py:120] [main]   3. ボトムス: 裏起毛のパンツ、または保温性のある素材のスカートに厚手のタイツ
+     理由: 下半身も冷えやすいため、保温性の高い素材を選びましょう。風を防ぐ素材のパンツも良いでしょう。
+[2026-01-18 15:22:51,412] [INFO] [__main__] [main.py:120] [main]   4. 小物類: マフラー、手袋、ニット帽
+     理由: 風が強く、体感温度が非常に低くなるため、首、耳、手などの末端をしっかりと保護することが凍傷や体温低下を防ぎます。
+[2026-01-18 15:22:51,412] [INFO] [__main__] [main.py:123] [main] 
+追加アドバイス: 本日は非常に風が強く、体感温度が実際の気温よりもかなり低く感じられます。外出する際は、防寒対策を徹底し、特に露出する部分を冷やさないように 心がけてください。風で物が飛ばされないように注意し、不要な外出は控えることをお勧めします。
 ```

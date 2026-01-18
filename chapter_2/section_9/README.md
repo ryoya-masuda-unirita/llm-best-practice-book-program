@@ -130,14 +130,8 @@ OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
 2. **依存関係のインストール**
 
 ```bash
-# uvを使用する場合（推奨）
+# uvを使用
 uv sync
-
-# または make コマンド
-make install
-
-# pipを使用する場合
-pip install -e .
 ```
 
 ### 使用方法、実行方法
@@ -145,59 +139,38 @@ pip install -e .
 #### 基本的な使い方
 
 ```bash
-# OpenAI APIを使用
-uv run python -m src.main --model gpt-4o
-
-# Makefileを使用
-make run-openai
+# OpenAI APIを使用（デフォルトテンプレート: character_generation.yaml）
+uv run python -m src.main --model GPT_4O -od ./outputs
 ```
 
-#### 出力先の指定
+#### テンプレートと変数ファイルの指定
 
 ```bash
-# カスタム出力ディレクトリを指定
-uv run python -m src.main -m gpt-4o-mini -od ./custom_output
+# テンプレートと変数ファイルを両方指定
+uv run python -m src.main -m GPT_4O -t templates/character_generation.yaml -v variables/character_artist.yaml -od ./outputs
 
-# 短縮オプション
-uv run python -m src.main -m gpt-4o -od ./my_characters
+# メールテンプレートを使用
+uv run python -m src.main -m GPT_4O_MINI -t templates/email_formal.yaml -v variables/email_campaign_summer.yaml -od ./outputs
 ```
 
 #### ヘルプの表示
 
 ```bash
-uv run python -m src.main --help
-```
-
-**出力例**:
-```
+$ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
 Options:
-  -m, --model TEXT                The OpenAI model to use for the request.  [required]
+  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI]
+                                  The OpenAI model to use for the request.
+                                  [required]
   -od, --output-directory PATH    The directory to save output files.
+  -t, --template PATH             Template file path (relative to project root
+                                  or absolute). Default:
+                                  templates/character_generation.yaml
+  -v, --variables PATH            Variables file path (relative to project
+                                  root or absolute). If not specified, uses
+                                  default values.
   --help                          Show this message and exit.
-```
-
-#### Makefileコマンド一覧
-
-```bash
-# ヘルプを表示
-make help
-
-# テストを実行
-make test               # 全テスト実行
-make pytest             # ユニットテストのみ
-make pytest-cov         # カバレッジレポート付き
-make test-templates     # テンプレートテストのみ
-
-# コード品質チェック
-make lint               # リンター実行
-make fmt                # コードフォーマット
-make fix                # リントとフォーマットを両方実行
-make mypy               # 型チェック
-
-# LLM実行
-make run-openai         # OpenAI APIで実行
 ```
 
 ### 出力例
@@ -208,31 +181,33 @@ make run-openai         # OpenAI APIで実行
 
 ```json
 {
-    "first_name": "蒼",
-    "last_name": "雨宮",
-    "gender": "male",
-    "age": 25,
+    "first_name": "恵美",
+    "last_name": "佐藤",
+    "gender": "female",
+    "age": 28,
     "personalities": [
         {
-            "short_personality": "冒険心旺盛",
-            "description": "新しい場所や経験を求め、常に未知への挑戦を楽しむ。好奇心が強く、リスクを恐れず行動する。"
+            "short_personality": "親しみやすい",
+            "description": "顧客との関係構築を大切にし、常に丁寧に接する心掛けを持っています。"
         },
         {
-            "short_personality": "社交的",
-            "description": "初対面の人とも打ち解けやすく、会話を楽しむ。多様なバックグラウンドを持つ人々との交流を大切にする。"
+            "short_personality": "創造的",
+            "description": "新しいアイディアやキャンペーンを考え出すことに情熱を持ち、常に魅力的な提案を行います。"
         },
         {
-            "short_personality": "楽観的",
-            "description": "困難な状況でもポジティブな側面を見つけ、前向きに対処する。失敗を学びの機会と捉える。"
+            "short_personality": "正確性",
+            "description": "常に正確な情報を提供し、信頼性の高いマーケティングを心掛けています。"
         }
     ]
 }
 ```
 
 **実行ログ例**:
-```
-[2025-01-18 10:30:45] [INFO] [__main__] [main.py:53] [main] LLM provider: openai
-Model: gpt-4o
-Output directory: outputs
-[2025-01-18 10:30:47] [INFO] [__main__] [main.py:74] [main] File saved to outputs/openai_c5339cd3f7b240b3b6e7b113eeacd216.json
+```bash
+$ uv run python -m src.main -m GPT_4O -t templates/character_generation.yaml -v variables/character_artist.yaml -od ./outputs
+
+[2026-01-17 17:10:08,129] [INFO] [__main__] [main.py:85] [main] Model: gpt-4o, Template: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_9/templates/character_generation.yaml, Variables: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_9/variables/character_artist.yaml
+[2026-01-17 17:10:08,131] [INFO] [src.service.request_llm] [request_llm.py:101] [render_prompt_from_template] Using template: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_9/templates/character_generation.yaml
+[2026-01-17 17:10:08,131] [INFO] [src.service.request_llm] [request_llm.py:102] [render_prompt_from_template] Variables: gender=female, age=28
+[2026-01-17 17:10:12,431] [INFO] [__main__] [main.py:104] [main] File saved to ./outputs/openai_26bb704587604494be1bdd3b2983c246.json
 ```

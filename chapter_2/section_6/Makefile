@@ -25,6 +25,15 @@ mypy:
 
 ############ DOCKER COMMANDS ############
 
+.PHONY: help
+help:
+	@echo "Docker Commands:"
+	@echo "  make docker-build    - Build Docker image"
+	@echo "  make docker-up       - Start services with docker-compose"
+	@echo "  make docker-down     - Stop services"
+	@echo "  make docker-logs     - View service logs"
+	@echo "  make docker-restart  - Restart services (down + up)"
+
 .PHONY: docker-build
 docker-build:
 	docker build \

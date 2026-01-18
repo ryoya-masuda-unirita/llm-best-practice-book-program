@@ -122,29 +122,8 @@ GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
 2. **依存関係のインストール**
 
 ```bash
-# uvを使用する場合（推奨）
+# uvを使用
 uv sync
-
-# pipを使用する場合
-pip install -e .
-```
-
-3. **開発ツール（オプション）**
-
-プロジェクトには開発タスクを簡素化するMakefileが含まれています：
-
-```bash
-# コードのリント（自動修正付き）
-make lint
-
-# コードのフォーマット
-make fmt
-
-# リントとフォーマットの両方を実行
-make fix
-
-# 型チェック
-make mypy
 ```
 
 ### 使用方法、実行方法
@@ -153,13 +132,24 @@ make mypy
 
 ```bash
 # デフォルト設定で起動（127.0.0.1:8000）
-python run_server.py
+$ uv run python run_server.py
 
 # カスタムホストとポートを指定
-python run_server.py --host 0.0.0.0 --port 8080
+$ uv run python run_server.py --host 0.0.0.0 --port 8080
 
 # 開発モード（自動リロード有効）
-python run_server.py --reload
+$ uv run python run_server.py --reload
+
+$ uv run python run_server.py --help
+Usage: run_server.py [OPTIONS]
+
+  FastAPI サーバーを起動します
+
+Options:
+  --host TEXT     ホストアドレス
+  --port INTEGER  ポート番号
+  --reload        自動リロード機能を有効化
+  --help          Show this message and exit.
 ```
 
 **出力例**:
@@ -179,27 +169,33 @@ INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 ##### ストリーミングモード（デフォルト）
 
 ```bash
+$ uv run python example_client.py --help                                                  
+Usage: example_client.py [OPTIONS]
+
+  LLM APIのサンプルクライアント
+
+Options:
+  --mode [stream|completion]  リクエストモード: stream（ストリーミング）またはcompletion（非ストリーミング）
+  --url TEXT                  APIエンドポイントのURL（未指定の場合はmodeに応じて自動設定）
+  --prompt TEXT               LLMに送信するプロンプト  [required]
+  --model TEXT                使用するモデル名（オプション）
+  --help                      Show this message and exit.
+
 # 基本的な使用方法
-python example_client.py --prompt "Pythonの非同期プログラミングについて説明してください"
+$ uv run python example_client.py --prompt "Pythonの非同期プログラミングについて説明してください"
 
 # モデルを明示的に指定
-python example_client.py --model gpt-4o --prompt "AIの未来について教えて"
-
-# カスタムURLを指定
-python example_client.py --url http://localhost:8080/stream --prompt "こんにちは"
+$ uv run python example_client.py --model gpt-5-mini --prompt "AIの未来について教えて"
 ```
 
 ##### 非ストリーミングモード
 
 ```bash
 # 非ストリーミングモードを使用
-python example_client.py --mode completion --prompt "Pythonについて教えてください"
+$ uv run python example_client.py --mode completion --prompt "Pythonについて教えてください"
 
 # カスタムモデルを指定
-python example_client.py --mode completion --model gpt-4o --prompt "こんにちは"
-
-# カスタムURLを指定
-python example_client.py --mode completion --url http://localhost:8080/completions --prompt "こんにちは"
+$ uv run python example_client.py --mode completion --model gpt-5-mini --prompt "こんにちは"
 ```
 
 #### 3. APIの直接利用
@@ -222,7 +218,7 @@ curl -X POST http://127.0.0.1:8000/stream \
   -d '{
     "prompt": "こんにちは",
     "provider": "openai",
-    "model": "gpt-4o"
+    "model": "gpt-5-mini"
   }'
 ```
 
@@ -242,144 +238,69 @@ curl -X POST http://127.0.0.1:8000/completions \
   -d '{
     "prompt": "こんにちは",
     "provider": "openai",
-    "model": "gpt-4o"
+    "model": "gpt-5-mini"
   }'
-```
-
-##### Pythonスクリプトから利用
-
-**ストリーミングリクエスト**:
-
-```python
-import asyncio
-import aiohttp
-
-async def test_streaming():
-    url = "http://127.0.0.1:8000/stream"
-    payload = {
-        "prompt": "ストリーミングAPIの利点を教えてください",
-        "provider": "openai"
-    }
-
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, json=payload) as response:
-            async for chunk in response.content.iter_any():
-                if chunk:
-                    print(chunk.decode("utf-8"), end="", flush=True)
-
-asyncio.run(test_streaming())
-```
-
-**非ストリーミングリクエスト**:
-
-```python
-import asyncio
-import aiohttp
-
-async def test_completion():
-    url = "http://127.0.0.1:8000/completions"
-    payload = {
-        "prompt": "非ストリーミングAPIの利点を教えてください",
-        "provider": "openai"
-    }
-
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, json=payload) as response:
-            result = await response.json()
-            print(result["content"])
-            print(f"\nModel: {result['model']}")
-            print(f"Provider: {result['provider']}")
-
-asyncio.run(test_completion())
 ```
 
 ### 出力例
 
 #### ストリーミングモードの実行結果
 
-```
+```bash
+$ uv run python example_client.py --prompt "日本の未来について" 
+
 ============================================================
 Provider: openai
-Prompt: Pythonの非同期プログラミングについて説明してください
+Prompt: 日本の未来について
 ============================================================
 
 Response:
 ------------------------------------------------------------
-Pythonの非同期プログラミングは、複数のタスクを並行して実行する
-ための強力な手法です。asyncioモジュールを使用することで、
-I/O待機時間を有効活用し、アプリケーションのパフォーマンスを
-大幅に向上させることができます。
+日本の未来については、さまざまな側面から考えることができます。以下にいくつかの重要なポイントを挙げてみます。
 
-主要な概念：
+1. **高齢化社会**: 日本は世界でも有数の高齢化が進んでいる国です。これにより、福祉制度や医療制度の見直しが必要となり、労働力不足も懸念されています。高齢者が活躍できる社会を構築するための施策が求められています。
 
-1. **async/await構文**: 非同期関数を定義し、await で非同期
-   処理を待機します。
+2. **経済の変化**: テクノロジーの発展やグローバル化により、日本の産業構造は大きく変化しています。特にAIやロボティクスの導入が進むことで、効率化や新たなビジネスモデルの創出が期待されています。
 
-2. **イベントループ**: すべての非同期タスクを管理・実行する
-   中心的な機構です。
+3. **環境問題**: 環境問題への対応は日本にとって重要な課題です。再生可能エネルギーの導入や脱炭素化の取り組みが進められ、持続可能な社会の実現を目指しています。
 
-3. **コルーチン**: async def で定義された特殊な関数で、
-   実行を一時停止・再開できます。
+4. **国際関係**: 地政学的な緊張が高まる中、日本の外交政策や安全保障戦略も重要です。周辺国との関係や国際的な協力が、一層重要になるでしょう。
 
-非同期プログラミングは、Webスクレイピング、API呼び出し、
-データベースアクセスなど、I/Oバウンドな処理に特に効果的です。
+5. **文化と社会**: 日本の伝統文化と現代文化の融合が進み、国際的な影響も受けながら新しい文化が生まれています。これにより、国内外からの観光客を惹きつける要素にもなっています。
+
+これらの課題や展望に対処するためには、政府、企業、市民が一体となって取り組むことが不可欠です。未来の日本は、これらの要素をどうバランスさせていくかにかかっ ています。
 ------------------------------------------------------------
 Stream completed successfully!
 ```
 
 #### 非ストリーミングモードの実行結果
 
-```
+```bash
+$ uv run python example_client.py --mode completion --prompt "日本の未来について"          
+
 ============================================================
 Provider: openai
-Prompt: Pythonについて教えてください
+Prompt: 日本の未来について
 ============================================================
 
 Response:
 ------------------------------------------------------------
-Pythonは、シンプルで読みやすい構文を持つ高水準プログラミング言語です。
-1991年にGuido van Rossumによって開発され、現在では世界中で広く使用されています。
+日本の未来について考える際、いくつかの重要な要素が浮かび上がります。以下は、そのいくつかの側面です。
 
-主な特徴：
-- 読みやすく書きやすい文法
-- 豊富な標準ライブラリとサードパーティパッケージ
-- データサイエンス、Web開発、自動化など幅広い用途
-- クロスプラットフォーム対応
-- 動的型付け
+1. **高齢化社会と人口減少**: 日本は急速に高齢化が進んでおり、労働力の減少や社会保障制度への影響が懸念されています。この問題を解決するためには、移民政策の見直しや、AI・ロボット技術の導入が考えられます。
 
-Pythonは初心者にも学びやすく、同時にプロフェッショナルな開発にも
-適した強力な言語です。
+2. **経済の変革**: 世界経済の変化に伴い、日本経済も新しいビジネスモデルや産業の育成が求められています。特にデジタル化やグリーン経済が進展する中で、企業の競争力を高めるための取り組みが重要です。
+
+3. **環境問題**: 環境への配慮がますます重要視される中、日本も脱炭素社会の実現に向けた努力が必要です。再生可能エネルギーの導入や、プラスチック削減などの取り組みが進められています。
+
+4. **国際関係と安全保障**: 地政学的な緊張が高まる中、日本はアジアの中での役割や、アメリカとの同盟関係を再評価する必要があります。また、地域の安全保障のために、協力や対話を重視した外交が求められています。
+
+5. **文化と社会の多様性**: グローバル化が進む中で、日本の文化や社会も多様性を受け入れ、多くの異なる価値観を尊重する姿勢が必要です。これは、国際理解や共生社会の実現につながります。
+
+日本の未来は、これらの課題にどのように取り組むかによって大きく変わるでしょう。政府や企業、そして市民一人ひとりが積極的に関与することで、より良い未来を築い ていくことが可能です。
+
 ------------------------------------------------------------
 Completion request successful!
 Model used: gpt-4o-mini
 Provider: openai
 ```
-
-#### ヘルスチェックの実行
-
-```bash
-curl http://127.0.0.1:8000/health
-```
-
-**レスポンス**:
-```json
-{
-  "status": "healthy",
-  "message": "LLM Streaming API is running"
-}
-```
-
-## ストリーミング vs 非ストリーミング
-
-### それぞれの特徴と使い分け
-
-| 特徴 | ストリーミング (`/stream`) | 非ストリーミング (`/completions`) |
-|------|---------------------------|----------------------------------|
-| **レスポンス形式** | Server-Sent Events (SSE) | JSON |
-| **配信方式** | リアルタイム・逐次配信 | 完全な応答を一度に返す |
-| **初回応答速度** | 速い（即座に開始） | 遅い（完全生成後） |
-| **ユーザー体験** | リアルタイム表示で待ち時間が短く感じる | 生成完了まで待機が必要 |
-| **実装の複雑さ** | 高い（チャンク処理が必要） | 低い（通常のHTTPリクエスト） |
-| **クライアント要件** | SSE対応が必要 | 標準的なHTTPクライアント |
-| **キャンセル** | 途中で接続を切断可能 | 完全生成まで待つ必要がある |
-| **適用場面** | チャットボット、リアルタイムUI | バッチ処理、API統合、完全な応答が必要な場合 |

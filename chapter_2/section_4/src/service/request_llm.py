@@ -33,7 +33,7 @@ async def request_openai(
             input=prompt,
             text_format=CharacterResponse,
         )
-        tracking["response"] = result.parsed.model_dump() if result.parsed else None
+        tracking["response"] = result.output_parsed.model_dump() if result.output_parsed else None
         return result.output_parsed
 
 

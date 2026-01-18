@@ -1,17 +1,6 @@
 import json
-from enum import IntEnum
 
 from pydantic import BaseModel, ConfigDict, Field
-
-
-class EvaluationScore(IntEnum):
-    """Evaluation score from 1 to 5."""
-
-    COMPLETELY_INAPPROPRIATE = 1
-    POOR = 2
-    ACCEPTABLE = 3
-    GOOD = 4
-    PERFECT = 5
 
 
 class EvaluationCriterion(BaseModel):
@@ -26,7 +15,12 @@ class EvaluationCriterion(BaseModel):
 
     reasoning: str = Field(..., description="The reasoning behind the score.")
     criterion_name: str = Field(..., description="The name of the evaluation criterion.")
-    score: EvaluationScore = Field(..., description="The evaluation score from 1 to 5.")
+    score: int = Field(
+        ...,
+        description="The evaluation score from 1 to 5 (1: completely inappropriate, 2: poor, 3: acceptable, 4: good, 5: perfect)",
+        ge=1,
+        le=5,
+    )
 
 
 class JudgeRequest(BaseModel):

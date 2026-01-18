@@ -112,11 +112,7 @@ ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
 2. **依存関係のインストール**
 
 ```bash
-# uvを使用する場合（推奨）
 uv sync
-
-# pipを使用する場合
-pip install -e .
 ```
 
 ### 使用方法、実行方法
@@ -125,35 +121,25 @@ pip install -e .
 
 ```bash
 # Geminiで実行（モデルを指定）
-uv run python -m src.main --llm-provider gemini --model gemini-2.5-flash
+uv run python -m src.main --llm-provider GEMINI --model GEMINI_2_5_FLASH --output-directory outputs/
 
 # OpenAIで実行
-uv run python -m src.main --llm-provider openai --model gpt-4o-mini
+uv run python -m src.main --llm-provider OPENAI --model GPT_5_MINI --output-directory outputs/
 
 # Anthropicで実行
-uv run python -m src.main --llm-provider anthropic --model claude-sonnet-4-5
+uv run python -m src.main --llm-provider ANTHROPIC --model CLAUDE_SONNET_4_5 --output-directory outputs/
 
 # 短縮オプションで実行
-uv run python -m src.main -lp openai -m gpt-4o
-```
-
-#### 出力先の指定
-
-```bash
-# カスタム出力ディレクトリを指定
-uv run python -m src.main -lp gemini -m gemini-2.5-flash --output-directory ./custom_output
-
-# 短縮オプション
-uv run python -m src.main -lp gemini -m gemini-2.5-flash -od ./my_characters
+uv run python -m src.main -lp OPENAI -m GPT_5_MINI -od outputs/
 ```
 
 #### 利用可能なモデル
 
 | プロバイダー | モデル |
 |-------------|--------|
-| OpenAI | gpt-5.2, gpt-5.1, gpt-5, gpt-5-mini, gpt-5-nano, gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, gpt-4o, gpt-4o-mini |
-| Gemini | gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite |
-| Anthropic | claude-opus-4-5, claude-haiku-4-5, claude-sonnet-4-5, claude-opus-4-1 |
+| OpenAI | GPT_5_2, GPT_5_1, GPT_5, GPT_5_MINI, GPT_5_NANO, GPT_4_1, GPT_4_1_MINI, GPT_4_1_NANO, GPT_4O, GPT_4O_MINI |
+| Gemini | GEMINI_2_5_PRO, GEMINI_2_5_FLASH, GEMINI_2_5_FLASH_LITE |
+| Anthropic | CLAUDE_OPUS_4_5, CLAUDE_HAIKU_4_5, CLAUDE_SONNET_4_5, CLAUDE_OPUS_4_1 |
 
 #### ヘルプの表示
 
@@ -163,13 +149,15 @@ uv run python -m src.main --help
 
 **出力例**:
 ```
+$ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
 Options:
-  -lp, --llm-provider [openai|gemini|anthropic]
+  -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use.  [required]
-  -m, --model [gpt-5.2|gpt-5.1|gpt-5|gpt-5-mini|gpt-5-nano|gpt-4.1|gpt-4.1-mini|gpt-4.1-nano|gpt-4o|gpt-4o-mini|gemini-2.5-pro|gemini-2.5-flash|gemini-2.5-flash-lite|claude-opus-4-5|claude-haiku-4-5|claude-sonnet-4-5|claude-opus-4-1]
-                                  The model to use for the request.  [required]
+  -m, --model [GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_5|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_5|CLAUDE_OPUS_4_1]
+                                  The model to use for the request.
+                                  [required]
   -od, --output-directory PATH    The directory to save output files.
   --help                          Show this message and exit.
 ```
@@ -182,22 +170,22 @@ Options:
 
 ```json
 {
-    "first_name": "エララ",
-    "last_name": "ヴァンス",
-    "gender": "female",
+    "first_name": "Akira",
+    "last_name": "Sato",
+    "gender": "male",
     "age": 28,
     "personalities": [
         {
-            "short_personality": "観察力",
-            "description": "エララはめったに細部を見逃しません。彼女はしばしば状況や人々を黙って分析し、静かでありながら非常に知覚力があるように見えます。"
+            "short_personality": "Observant",
+            "description": "He rarely misses a detail, whether it's a subtle change in someone's tone of voice or a small discrepancy in a complex system. This makes him an excellent problem-solver and a quiet, insightful presence in any group."
         },
         {
-            "short_personality": "忠誠心",
-            "description": "彼女は大切に思う人々に対して非常に献身的で、彼らを守り、約束を守るためにはあらゆる努力をします。裏切りは彼女にとって許せないものです。"
+            "short_personality": "Pragmatic",
+            "description": "Akira prefers practical solutions over idealistic ones. He assesses situations based on facts and likely outcomes, always aiming for the most efficient and sensible path forward, even if it's not the most popular."
         },
         {
-            "short_personality": "回復力",
-            "description": "挫折や課題から立ち直る揺るぎない内なる強さを持っています。彼女は逆境に真正面から立ち向かい、しばしば革新的な解決策を見つけます。"
+            "short_personality": "Reserved",
+            "description": "He keeps to himself, not out of shyness, but due to a natural inclination towards introspection. Akira doesn't initiate small talk often and expresses his thoughts concisely, preferring action and observation to lengthy discourse."
         }
     ]
 }
@@ -205,8 +193,11 @@ Options:
 
 **実行ログ例**:
 ```
-[2025-11-17 10:30:45] [INFO] [src.main] [main.py:53] [main] LLM provider: gemini
-Model: gemini-2.5-flash
+$ uv run python -m src.main -lp OPENAI -m GPT_5_MINI
+
+[2026-01-17 16:01:25,696] [INFO] [__main__] [main.py:52] [main] LLM provider: openai
+Model: gpt-5-mini
 Output directory: outputs
-[2025-11-17 10:30:47] [INFO] [src.main] [main.py:78] [main] File saved to outputs/gemini_27ea9c6863a640fdb60d60d2d34f6991.json
+[2026-01-17 16:01:39,120] [INFO] [src.service.request_llm] [request_llm.py:24] [request_openai] ParsedResponse[CharacterResponse](id='resp_0051941f89c5ee9a00696b33c61fb8819e84241a8a2471f0a3', created_at=1768633286.0, error=None, incomplete_details=None, instructions=None, metadata={}, model='gpt-5-mini-2025-08-07', object='response', output=[ResponseReasoningItem(id='rs_0051941f89c5ee9a00696b33c679c4819ebb7f59c248651a97', summary=[], type='reasoning', content=None, encrypted_content=None, status=None), ParsedResponseOutputMessage[CharacterResponse](id='msg_0051941f89c5ee9a00696b33ccf224819e9ebc6d698d5b652a', content=[ParsedResponseOutputText[CharacterResponse](annotations=[], text='{\n  "first_name": "Aiko",\n  "last_name": "Sazanami",\n  "gender": "female",\n  "age": 32,\n  "personalities": [\n    {\n      "short_personality": "好奇心旺盛",\n      "description": "見知らぬものや忘れられた場所に強く惹かれる探究心の持 ち主。古い地図や異国の小物に目がなく、些細な手がかりから物語を組み立てるのが得意。好奇心が行動の原動力であり、常識や危険をいったん置いておいてでも真実を確 かめに行くことが多い。"\n    },\n    {\n      "short_personality": "不屈の執着心",\n      "description": "一度決めたことには粘り強く取り組み、困難があって も手を緩めない。計画は綿密で、失敗を細かく分析して次に活かす。周囲からは冷静で頼りになる人物と見なされるが、時に目標に対して融通が利かず人間関係を犠牲にす ることもある。"\n    },\n    {\n      "short_personality": "いたずら好きで共感的",\n      "description": "人の感情に敏感で、場の空気を読むのが得意。その感 覚を利用してユーモアや小さないたずらで緊張を解きほぐすことを好む。表情や言葉で相手の弱さを見抜く一方、深いところでは誰かを守りたいという強い思いがある。自 分の弱さは滅多に見せないため、思いやりと軽やかな皮肉を同時に使うことが多い。"\n    }\n  ]\n}', type='output_text', logprobs=[], parsed=CharacterResponse(first_name='Aiko', last_name='Sazanami', gender=<Gender.FEMALE: 'female'>, age=32, personalities=[CharacterPersonality(short_personality='好奇心旺盛', description='見知らぬものや忘れられた場所に強く惹かれる探究心の持ち主。古い地図や異国の小物に目がなく、些細な手がかりから物語を組み立てるのが得意。好奇心が行動の原動力であり、常識や危険をいったん置いておいてでも真実を確かめに行くことが多い。'), CharacterPersonality(short_personality='不屈の執着心', description='一 度決めたことには粘り強く取り組み、困難があっても手を緩めない。計画は綿密で、失敗を細かく分析して次に活かす。周囲からは冷静で頼りになる人物と見なされるが、 時に目標に対して融通が利かず人間関係を犠牲にすることもある。'), CharacterPersonality(short_personality='いたずら好きで共感的', description='人の感情に敏感 で、場の空気を読むのが得意。その感覚を利用してユーモアや小さないたずらで緊張を解きほぐすことを好む。表情や言葉で相手の弱さを見抜く一方、深いところでは誰か を守りたいという強い思いがある。自分の弱さは滅多に見せないため、思いやりと軽やかな皮肉を同時に使うことが多い。')]))], role='assistant', status='completed', type='message')], parallel_tool_calls=True, temperature=1.0, tool_choice='auto', tools=[], top_p=1.0, background=False, conversation=None, max_output_tokens=None, max_tool_calls=None, previous_response_id=None, prompt=None, prompt_cache_key=None, reasoning=Reasoning(effort='medium', generate_summary=None, summary=None), safety_identifier=None, service_tier='default', status='completed', text=ResponseTextConfig(format=ResponseFormatTextJSONSchemaConfig(name='CharacterResponse', schema_={'$defs': {'CharacterPersonality': {'properties': {'short_personality': {'description': "A short description of the character's personality.", 'title': 'Short Personality', 'type': 'string'}, 'description': {'description': "A description of the character's personality traits and behaviors.", 'title': 'Description', 'type': 'string'}}, 'required': ['short_personality', 'description'], 'title': 'CharacterPersonality', 'type': 'object', 'additionalProperties': False}, 'Gender': {'enum': ['female', 'male'], 'title': 'Gender', 'type': 'string'}}, 'properties': {'first_name': {'description': 'The first name of the character.', 'title': 'First Name', 'type': 'string'}, 'last_name': {'description': 'The last name of the character.', 'title': 'Last Name', 'type': 'string'}, 'gender': {'default': 'male', 'description': 'The gender of the character.', 'enum': ['female', 'male'], 'title': 'Gender', 'type': 'string'}, 'age': {'description': 'The age of the character.', 'maximum': 100, 'minimum': 0, 'title': 'Age', 'type': 'integer'}, 'personalities': {'description': 'The three most important personality traits of the character.', 'items': {'$ref': '#/$defs/CharacterPersonality'}, 'title': 'Personalities', 'type': 'array'}}, 'required': ['first_name', 'last_name', 'gender', 'age', 'personalities'], 'title': 'CharacterResponse', 'type': 'object', 'additionalProperties': False}, type='json_schema', description=None, strict=True), verbosity='medium'), top_logprobs=0, truncation='disabled', usage=ResponseUsage(input_tokens=690, input_tokens_details=InputTokensDetails(cached_tokens=0), output_tokens=898, output_tokens_details=OutputTokensDetails(reasoning_tokens=448), total_tokens=1588), user=None, billing={'payer': 'developer'}, completed_at=1768633298, frequency_penalty=0.0, presence_penalty=0.0, prompt_cache_retention=None, store=True)
+[2026-01-17 16:01:39,121] [INFO] [__main__] [main.py:77] [main] File saved to outputs/openai_6e52740ae6e94f51baf1bf0f949ae21b.json
 ```

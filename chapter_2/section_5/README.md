@@ -104,11 +104,8 @@ GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
 2. **依存関係のインストール**
 
 ```bash
-# uvを使用する場合（推奨）
+# uvを使用する
 uv sync
-
-# pipを使用する場合
-pip install -e .
 ```
 
 ### 使用方法、実行方法
@@ -117,56 +114,30 @@ pip install -e .
 
 ```bash
 # Gemini 2.5 Flashを使用
-uv run python -m src.main --model gemini-2.5-flash
+uv run python -m src.main --model GEMINI_2_5_FLASH --output-directory outputs/
 
 # Gemini 2.5 Proを使用
-uv run python -m src.main --model gemini-2.5-pro
+uv run python -m src.main --model GEMINI_2_5_PRO --output-directory outputs/
 
 # Gemini 2.5 Flash-Liteを使用（最も高速・低コスト）
-uv run python -m src.main --model gemini-2.5-flash-lite
+uv run python -m src.main --model GEMINI_2_5_FLASH_LITE --output-directory outputs/
 
 # 短縮オプション
-uv run python -m src.main -m gemini-2.5-flash
-```
-
-#### 出力先の指定
-
-```bash
-# カスタム出力ディレクトリを指定
-uv run python -m src.main -m gemini-2.5-flash --output-directory ./custom_output
-
-# 短縮オプション
-uv run python -m src.main -m gemini-2.5-flash -od ./my_characters
+uv run python -m src.main -m GEMINI_2_5_FLASH -od outputs/
 ```
 
 #### ヘルプの表示
 
 ```bash
-uv run python -m src.main --help
-```
-
-**出力例**:
-```
+$ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
 Options:
-  -m, --model [gemini-2.5-pro|gemini-2.5-flash|gemini-2.5-flash-lite]
-                                  The model to use for the request.  [required]
+  -m, --model [GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
+                                  The model to use for the request.
+                                  [required]
   -od, --output-directory PATH    The directory to save output files.
   --help                          Show this message and exit.
-```
-
-#### Makefileを使用する場合
-
-```bash
-# デフォルトモデル（gemini-2.5-flash）で実行
-make run
-
-# 特定のモデルを指定
-make run MODEL=gemini-2.5-pro
-
-# 出力ディレクトリを指定
-make run OUTPUT_DIR=./custom_output
 ```
 
 ### 出力例
@@ -177,22 +148,22 @@ make run OUTPUT_DIR=./custom_output
 
 ```json
 {
-    "first_name": "アキラ",
-    "last_name": "タナカ",
+    "first_name": "海斗",
+    "last_name": "田中",
     "gender": "male",
-    "age": 29,
+    "age": 78,
     "personalities": [
         {
-            "short_personality": "内向的な観察者",
-            "description": "アキラは物静かで、他者との交流よりも一人で物事を深く考えることを好む。彼は周囲の環境や人々の行動を注意深く観察し、その情報を自身の内なる世界で分析する傾向がある。"
+            "short_personality": "細心かつ忍耐強い",
+            "description": "マスター時計職人として、海斗は超人的なレベルの忍耐力を持っています。彼は一つの歯車に何日も費やし、その完璧さを追求します。この細心な性質は、道具の配置からお茶の淹れ方まで、彼の生活のあらゆる側面に及んでいます。彼は、どんなに小さな細部でも、宇宙の壮大なデザインに貢献していると信じています。"
         },
         {
-            "short_personality": "革新的な発明家",
-            "description": "彼は既存の概念にとらわれず、常に新しい解決策やアイデアを模索している。特に機械やテクノロジーに対する深い情熱を持ち、実用的で独創的な発明を生み出すことに喜びを感じる。しばしば突飛な発想をするが、それを形にするための忍耐力も持ち合わせている。"
+            "short_personality": "風変わりで哲学的",
+            "description": "その精密な性格にもかかわらず、海斗は時間に対して遊び心のある哲学的な見方をしています。彼はしばしば時計や時間に関する謎や比喩で話し、人生を独自のユニークなリズムを持つ複雑な時計と見なしています。彼は仕事を終えるために「明日から数秒借りた」と主張することがあり、周りの人々は彼が詩的なのか文字通りの意味なのか疑問に思います。"
         },
         {
-            "short_personality": "控えめな忠実さ",
-            "description": "口数は少ないが、一度信頼を置いた相手に対しては非常に忠実で、困っている人がいれば、言葉よりも行動で助けようとする。自分の感情を表に出すのが苦手なため、誤解されやすいこともあるが、その心の奥底には強い正義感と他者への思いやりを秘めている。"
+            "short_personality": "内に秘めた憂鬱",
+            "description": "風変わりな外見の下には、深い憂鬱が隠されています。彼は容赦なく進む時間と失われた愛する人々の記憶に苦しんでいます。彼の時計への執着は単なる職業ではなく、彼から多くを奪った唯一の力を理解し、おそらくは制御しようとする必死の試みです。彼はこのことについてめったに話しませんが、止まった時計を見つめるときの彼の物憂げな眼差しにそれが見て取れます。"
         }
     ]
 }
@@ -200,13 +171,38 @@ make run OUTPUT_DIR=./custom_output
 
 **実行ログ例**:
 ```
-[2025-11-17 16:49:02] [INFO] [__main__] [main.py:44] [main] Model: gemini-2.5-flash
-Output directory: outputs
-[2025-11-17 16:49:03] [INFO] [src.service.request_llm] [request_llm.py:41] [request_gemini] Triggered job name: projects/123456789/locations/us-central1/batchPredictionJobs/structured-output-job-1
-[2025-11-17 16:49:08] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_RUNNING. Waiting 5 seconds...
-[2025-11-17 16:49:13] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_RUNNING. Waiting 5 seconds...
-[2025-11-17 16:49:18] [INFO] [src.service.request_llm] [request_llm.py:46] [request_gemini] Batch job status: JOB_STATE_SUCCEEDED
-[2025-11-17 16:49:18] [INFO] [__main__] [main.py:56] [main] File saved to outputs/gemini_088221aadc0942c69878423b1d4221a8.json
-[2025-11-17 16:49:18] [INFO] [__main__] [main.py:56] [main] File saved to outputs/gemini_1a2b3c4d5e6f7g8h9i0j1k2l3m4n5o6p.json
-...
+$ uv run python -m src.main --model GEMINI_2_5_FLASH --output-directory outputs/
+
+[2026-01-17 16:29:07,778] [INFO] [__main__] [main.py:43] [main] Model: gemini-2.5-flash
+Output directory: outputs/
+[2026-01-17 16:29:11,510] [INFO] [src.service.request_llm] [request_llm.py:41] [request_gemini] Triggered job name: batches/sf8jw91ll7t6yax3y7gdf8ec4mtpuw7k5v20
+[2026-01-17 16:29:11,678] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
+[2026-01-17 16:29:16,875] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
+[2026-01-17 16:29:22,063] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
+[2026-01-17 16:29:27,262] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
+[2026-01-17 16:29:32,465] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
+[2026-01-17 16:29:37,671] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
+[2026-01-17 16:29:42,885] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
+[2026-01-17 16:29:48,093] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
+[2026-01-17 16:29:53,318] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
+[2026-01-17 16:29:58,503] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
+[2026-01-17 16:30:03,697] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
+[2026-01-17 16:30:08,896] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
+[2026-01-17 16:30:14,079] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
+[2026-01-17 16:30:19,279] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
+[2026-01-17 16:30:24,460] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
+[2026-01-17 16:30:29,646] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
+[2026-01-17 16:30:34,829] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
+[2026-01-17 16:30:40,034] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_RUNNING. Waiting 5 seconds...
+[2026-01-17 16:30:45,680] [INFO] [src.service.request_llm] [request_llm.py:46] [request_gemini] Batch job status: JOB_STATE_SUCCEEDED
+[2026-01-17 16:30:45,681] [INFO] [__main__] [main.py:55] [main] File saved to outputs/gemini_45e3731f88a84c4c8c004856b2943255.json
+[2026-01-17 16:30:45,681] [INFO] [__main__] [main.py:55] [main] File saved to outputs/gemini_5eaed9b60b0549038a72f859e80f672f.json
+[2026-01-17 16:30:45,681] [INFO] [__main__] [main.py:55] [main] File saved to outputs/gemini_fd6139bb3d5b4e6a89c3bc8d6d08c840.json
+[2026-01-17 16:30:45,681] [INFO] [__main__] [main.py:55] [main] File saved to outputs/gemini_83e36889436645998c74005f7bbae14c.json
+[2026-01-17 16:30:45,682] [INFO] [__main__] [main.py:55] [main] File saved to outputs/gemini_e574161150df4c23979b98657bc5b97d.json
+[2026-01-17 16:30:45,682] [INFO] [__main__] [main.py:55] [main] File saved to outputs/gemini_fa8b764cb5944641b2543e19c7460248.json
+[2026-01-17 16:30:45,682] [INFO] [__main__] [main.py:55] [main] File saved to outputs/gemini_c4bf50dfebd64a649e459b66d7801b21.json
+[2026-01-17 16:30:45,682] [INFO] [__main__] [main.py:55] [main] File saved to outputs/gemini_12fa722d7db04965bfd6826041a3aedd.json
+[2026-01-17 16:30:45,682] [INFO] [__main__] [main.py:55] [main] File saved to outputs/gemini_73463f0827014d9a9c2ac0fa59847c53.json
+[2026-01-17 16:30:45,682] [INFO] [__main__] [main.py:55] [main] File saved to outputs/gemini_41ce153e594f41abbfa2d19f5bb3ab68.json
 ```

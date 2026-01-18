@@ -95,6 +95,6 @@ class LLMRequestWrapper:
         result = await openai_client.responses.parse(
             model=model,
             input=prompt,
-            response_format=CharacterResponse,
+            text_format=CharacterResponse,
         )
         return result.output_parsed

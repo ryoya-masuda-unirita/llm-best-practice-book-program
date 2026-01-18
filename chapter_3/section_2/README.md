@@ -193,75 +193,168 @@ CACHE_TTL=3600              # キャッシュTTL（秒、デフォルト: 1時�
 2. **依存関係のインストール**
 
 ```bash
-# uvを使用する場合（推奨）
+# uvを使用
 uv sync
-
-# 開発依存関係も含める場合
-uv sync --all-extras
 ```
 
 ### 使用方法、実行方法
 
+```bash
+$ uv run python -m src.main --help                                  
+Usage: python -m src.main [OPTIONS]
+
+Options:
+  -g, --gender [FEMALE|MALE]      The gender of the character to generate.
+                                  [required]
+  -a, --age INTEGER RANGE         The age of the character to generate.
+                                  [0<=x<=100; required]
+  -ai, --additional-instructions TEXT
+                                  Additional instructions for character
+                                  generation.
+  -lp, --llm-provider [OPENAI|GEMINI]
+                                  The LLM provider to use.  [required]
+  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
+                                  The model to use for the request.
+                                  [required]
+  -fs, --fallback-strategy [PRIMARY|PARAMETER_CACHE|SEMANTIC_CACHE|ALTERNATIVE_PROVIDER]
+                                  The fallback strategy to use.  [required]
+  -am, --alternative-model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
+                                  The alternative model to use for fallback
+                                  requests.  [required]
+  -od, --output-directory PATH    The directory to save output files.
+  -t, --timeout FLOAT             Request timeout in seconds (default: 10.0s
+                                  from config)  [required]
+  -df, --disable-fallback         Disable fallback mechanisms (use only
+                                  primary provider)
+  --help                          Show this message and exit.
+```
+
 #### 基本的な使い方
 
 ```bash
-# Gemini APIを使用（デフォルト、フォールバック有効）
-uv run python -m src.main
+# Gemini APIを使用（プライマリリクエストのみ）
+uv run python -m src.main \
+  --gender FEMALE \
+  --age 25 \
+  --llm-provider GEMINI \
+  --model GEMINI_2_5_FLASH \
+  --fallback-strategy PRIMARY \
+  --alternative-model GPT_4O_MINI \
+  --timeout 10
 
-# OpenAI APIを使用（フォールバック有効）
-uv run python -m src.main --llm-provider OPENAI
+# OpenAI APIを使用（プライマリリクエストのみ）
+uv run python -m src.main \
+  --gender MALE \
+  --age 30 \
+  --llm-provider OPENAI \
+  --model GPT_4O_MINI \
+  --fallback-strategy PRIMARY \
+  --alternative-model GEMINI_2_5_FLASH \
+  --timeout 10
 
 # 短縮オプション
-uv run python -m src.main -lp OPENAI
+uv run python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH -fs PRIMARY -am GPT_4O_MINI -t 10
+```
+
+#### フォールバック戦略の設定
+
+```bash
+# パラメーターキャッシュをフォールバックに使用
+uv run python -m src.main \
+  -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
+  --fallback-strategy PARAMETER_CACHE \
+  --alternative-model GPT_4O_MINI \
+  --timeout 10
+
+# セマンティックキャッシュをフォールバックに使用
+uv run python -m src.main \
+  -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
+  --fallback-strategy SEMANTIC_CACHE \
+  --alternative-model GPT_4O_MINI \
+  --timeout 10
+
+# 代替プロバイダーをフォールバックに使用（OpenAI → Gemini）
+uv run python -m src.main \
+  -g MALE -a 28 -lp OPENAI -m GPT_4O_MINI \
+  --fallback-strategy ALTERNATIVE_PROVIDER \
+  --alternative-model GEMINI_2_5_FLASH \
+  --timeout 5
 ```
 
 #### タイムアウトの設定
 
 ```bash
 # カスタムタイムアウトを指定（5秒）
-uv run python -m src.main --timeout 5
-
-# 短縮オプション
-uv run python -m src.main -t 5
+uv run python -m src.main \
+  -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
+  -fs PRIMARY -am GPT_4O_MINI \
+  --timeout 5
 
 # 非常に短いタイムアウト（3秒）でフォールバック動作をテスト
-uv run python -m src.main -t 3
+uv run python -m src.main \
+  -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
+  -fs PARAMETER_CACHE -am GPT_4O_MINI \
+  -t 3
 ```
 
-#### フォールバックの制御
+#### フォールバックの無効化
 
 ```bash
 # フォールバックを無効化（プライマリプロバイダーのみ使用）
-uv run python -m src.main --disable-fallback
-
-# 短縮オプション
-uv run python -m src.main -df
+uv run python -m src.main \
+  -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
+  -fs PRIMARY -am GPT_4O_MINI -t 10 \
+  --disable-fallback
 
 # デバッグ用: OpenAIのみ、フォールバックなし、短いタイムアウト
-uv run python -m src.main -lp OPENAI -df -t 5
+uv run python -m src.main \
+  -g MALE -a 30 -lp OPENAI -m GPT_4O_MINI \
+  -fs PRIMARY -am GEMINI_2_5_FLASH -t 5 -df
 ```
 
 #### 出力先の指定
 
 ```bash
 # カスタム出力ディレクトリを指定
-uv run python -m src.main --output-directory ./custom_output
+uv run python -m src.main \
+  -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
+  -fs PRIMARY -am GPT_4O_MINI -t 10 \
+  --output-directory ./custom_output
 
 # 短縮オプション
-uv run python -m src.main -od ./my_characters
+uv run python -m src.main \
+  -g MALE -a 28 -lp OPENAI -m GPT_4O_MINI \
+  -fs PRIMARY -am GEMINI_2_5_FLASH -t 10 \
+  -od ./my_characters
+```
+
+#### 追加指示の使用
+
+```bash
+# キャラクターに追加指示を与える
+uv run python -m src.main \
+  -g FEMALE -a 22 -lp GEMINI -m GEMINI_2_5_FLASH \
+  -fs PRIMARY -am GPT_4O_MINI -t 10 \
+  --additional-instructions "魔法使いの見習いという設定で"
 ```
 
 #### 複合オプション
 
 ```bash
-# すべてのオプションを組み合わせ
-uv run python -m src.main -lp OPENAI -od ./outputs -t 15 -df
+# 本番環境向け設定例（長めのタイムアウト、代替プロバイダーフォールバック）
+uv run python -m src.main \
+  -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
+  -fs ALTERNATIVE_PROVIDER \
+  -am GPT_4O_MINI \
+  -t 30 \
+  -od ./outputs
 
-# 本番環境向け設定例（長めのタイムアウト）
-uv run python -m src.main -lp GEMINI -t 30
-
-# 開発/テスト環境向け設定例（短いタイムアウトでフォールバックをテスト）
-uv run python -m src.main -lp GEMINI -t 2
+# 開発/テスト環境向け設定例（短いタイムアウトでキャッシュフォールバックをテスト）
+uv run python -m src.main \
+  -g MALE -a 28 -lp OPENAI -m GPT_4O_MINI \
+  -fs SEMANTIC_CACHE \
+  -am GEMINI_2_5_FLASH \
+  -t 2
 ```
 
 ### 出力例
@@ -272,76 +365,65 @@ uv run python -m src.main -lp GEMINI -t 2
 
 ```json
 {
-    "first_name": "蒼",
-    "last_name": "雨宮",
-    "gender": "male",
-    "age": 28,
+    "first_name": "紗和",
+    "last_name": "風間",
+    "gender": "female",
+    "age": 25,
     "personalities": [
         {
-            "short_personality": "内向的な思索家",
-            "description": "常に深く物事を考え、静かな場所を好む。表面的な会話よりも、哲学的な議論に心を開く。"
+            "short_personality": "探究心旺盛で発明好き",
+            "description": "幼少期から壊れたおもちゃを分解しては新しい使い方を考えるなど、常に「どうして」「どうすれば」を問い続ける性格。限られた素材から機能的なプロトタイプを作り上げる即興力と、仮説を何度も検証する粘り強さを持つ。問題の本質を見抜き、既存の道具やアイデアを組み合わせて斬新な解決策を提示することを好む。"
         },
         {
-            "short_personality": "完璧主義者",
-            "description": "すべてのタスクに最高の基準を求め、細部にこだわる。しばしば自分自身に対して厳しすぎることがある。"
+            "short_personality": "強い共感性と保護欲",
+            "description": "他人の感情に敏感で、表情や声の僅かな変化から心の状態を読み取る能力に長けている。友人や見知らぬ人が困っていれば手を差し伸べ、具体的な助け（手作りの道具や時間を割くこと）で支えることをためらわない。一方で他人の問題を背負い込みやすく、境界線を引くことを学ぶ途中にあるため時折疲弊する。"
         },
         {
-            "short_personality": "忠実な友人",
-            "description": "一度信頼関係を築くと、どんな困難な状況でも友人を支える。約束を何よりも大切にする。"
+            "short_personality": "理想主義で反骨精神",
+            "description": "不正や不合理を見過ごせない強い正義感を持ち、既存のルールや慣習に疑問を投げかけることを恐れない。技術や道具を使って透明性や公平性を高めることに情熱を燃やし、小さなコミュニティでの改善運動を自ら企画・実行する。頑固で衝動的な面もあるが、その情熱が周囲を巻き込んで現実的な変化を生む原動力となる。"
         }
     ]
 }
 ```
 
 **実行ログ例**:
-```
-[2025-11-17 10:30:45] [INFO] Attempting primary request with gemini (timeout: 10.0s)
-[2025-11-17 10:30:47] [INFO] Primary request succeeded with gemini
-[2025-11-17 10:30:47] [INFO] Cached response: f0f84bef45c8...
-[2025-11-17 10:30:47] [INFO] File saved to outputs/gemini_a1b2c3d4e5f6.json
-[2025-11-17 10:30:47] [INFO] === Fallback Statistics ===
-[2025-11-17 10:30:47] [INFO] Total Requests: 1
-[2025-11-17 10:30:47] [INFO] Primary Success: 1 (100.0%)
-[2025-11-17 10:30:47] [INFO] Parameter Cache Hits: 0 (0.0%)
-[2025-11-17 10:30:47] [INFO] Semantic Cache Hits: 0 (0.0%)
-[2025-11-17 10:30:47] [INFO] Total Cache Hit Rate: 0.0%
-[2025-11-17 10:30:47] [INFO] Alternative Provider: 0
-[2025-11-17 10:30:47] [INFO] Fallback Failures: 0 (0.0%)
-[2025-11-17 10:30:47] [INFO] Timeouts: 0
-[2025-11-17 10:30:47] [INFO] Errors: 0
-[2025-11-17 10:30:47] [INFO] Fallback Rate: 0.0%
-[2025-11-17 10:30:47] [INFO] ===========================
-```
+```bash
+$ uv run python -m src.main \
+  --gender FEMALE \
+  --age 25 \
+  --llm-provider GEMINI \
+  --model GEMINI_2_5_FLASH \
+  --fallback-strategy PRIMARY \
+  --alternative-model GPT_4O_MINI \
+  --timeout 10
+[2026-01-18 15:57:03,753] [INFO] [__main__] [main.py:126] [main] Starting character generation with the following parameters:
+Gender: female
+Age: 25
+Additional instruction: 
 
-#### フォールバック実行時（パラメーターキャッシュヒット）
-
-**実行ログ例**:
-```
-[2025-11-17 10:32:10] [WARNING] Primary request timed out after 3.0s. Initiating fallback strategy: parameter_cache
-[2025-11-17 10:32:10] [INFO] Cache hit: 7a8b9c0d1e2f... (age: 120.5s)
-[2025-11-17 10:32:10] [INFO] Fallback: Using parameter cache response (exact match)
-[2025-11-17 10:32:10] [INFO] Response obtained via fallback strategy: parameter_cache
-[2025-11-17 10:32:10] [WARNING] Primary provider failed due to: timeout
-```
-
-#### セマンティックキャッシュヒット時
-
-**実行ログ例**:
-```
-[2025-11-17 10:33:15] [WARNING] Primary request timed out after 3.0s. Initiating fallback strategy: semantic_cache
-[2025-11-17 10:33:15] [INFO] Semantic cache hit: 8b9c0d1e2f3a... (similarity: 0.967, threshold: 0.950)
-[2025-11-17 10:33:15] [INFO] Fallback: Using semantic cache response (similar prompt)
-[2025-11-17 10:33:15] [INFO] Response obtained via fallback strategy: semantic_cache
-```
-
-#### 代替プロバイダー使用時
-
-**実行ログ例**:
-```
-[2025-11-17 10:35:22] [WARNING] Primary request failed with error: Connection error. Initiating fallback strategy: alternative_provider
-[2025-11-17 10:35:22] [INFO] Fallback: Attempting alternative provider (timeout: 10.0s)
-[2025-11-17 10:35:24] [INFO] Fallback: Alternative provider succeeded
-[2025-11-17 10:35:24] [INFO] Cached response: e7f8g9h0i1j2...
-[2025-11-17 10:35:24] [INFO] Response obtained via fallback strategy: alternative_provider
-[2025-11-17 10:35:24] [WARNING] Primary provider failed due to: error
+LLM Parameters:
+LLM provider: gemini
+Model: gemini-2.5-flash
+Fallback strategy: primary
+Alternative model: gpt-4o-mini
+Output directory: outputs
+Timeout: 10.0s
+Fallback enabled: True
+[2026-01-18 15:57:03,753] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:107] [_try_primary_request] Attempting primary request with gemini (timeout: 10.0s)
+[2026-01-18 15:57:06,379] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:110] [_try_primary_request] Primary request succeeded with gemini
+[2026-01-18 15:57:06,379] [DEBUG] [src.service.cache_manager] [cache_manager.py:152] [set] Cached response: 3266657fba01d24177cb086fc68d434618d120c158b04927ba7dd40b0f90199f
+[2026-01-18 15:57:06,379] [INFO] [__main__] [main.py:207] [main] Response obtained via fallback strategy: primary
+[2026-01-18 15:57:06,379] [INFO] [__main__] [main.py:214] [main] File saved to outputs/gemini_f1dfd6a2c45b40ff85f7e61d28e79fa7.json
+[2026-01-18 15:57:06,379] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:277] [log_stats] === Fallback Statistics ===
+[2026-01-18 15:57:06,379] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:278] [log_stats] Total Requests: 1
+[2026-01-18 15:57:06,379] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:279] [log_stats] Primary Success: 1 (100.0%)
+[2026-01-18 15:57:06,379] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:280] [log_stats] Parameter Cache Hits: 0 (0.0%)
+[2026-01-18 15:57:06,379] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:281] [log_stats] Semantic Cache Hits: 0 (0.0%)
+[2026-01-18 15:57:06,379] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:282] [log_stats] Total Cache Hit Rate: 0.0%
+[2026-01-18 15:57:06,379] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:283] [log_stats] Alternative Provider: 0
+[2026-01-18 15:57:06,379] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:284] [log_stats] Fallback Failures: 0 (0.0%)
+[2026-01-18 15:57:06,379] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:285] [log_stats] Timeouts: 0
+[2026-01-18 15:57:06,379] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:286] [log_stats] Errors: 0
+[2026-01-18 15:57:06,379] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:287] [log_stats] Fallback Rate: 0.0%
+[2026-01-18 15:57:06,379] [INFO] [src.service.fallback_coordinator] [fallback_coordinator.py:288] [log_stats] ===========================
 ```

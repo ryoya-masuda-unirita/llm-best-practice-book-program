@@ -143,11 +143,8 @@ ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
 2. **依存関係のインストール**
 
 ```bash
-# uvを使用する場合（推奨）
+# uvを使用
 uv sync
-
-# pipを使用する場合
-pip install -e .
 ```
 
 ### 使用方法、実行方法
@@ -159,7 +156,7 @@ pip install -e .
 python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH
 
 # OpenAIで生成し、OpenAIで評価
-python -m src.main -g FEMALE -a 25 -lp OPENAI -m GPT_4O_MINI
+python -m src.main -g FEMALE -a 25 -lp OPENAI -m GPT_5_MINI
 
 # Anthropicで生成し、Anthropicで評価
 python -m src.main -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_SONNET_4_5
@@ -174,7 +171,7 @@ python -m src.main -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_SONNET_4_5
 python -m src.main \
   -g FEMALE -a 25 \
   -lp GEMINI -m GEMINI_2_5_FLASH \
-  -jp OPENAI -jm GPT_4O_MINI
+  -jp OPENAI -jm GPT_5_MINI
 
 # OpenAIで生成、Anthropicで評価
 python -m src.main \
@@ -196,7 +193,7 @@ python -m src.main \
   -g FEMALE -a 30 \
   -ai "mysterious artist" \
   -lp GEMINI -m GEMINI_2_5_FLASH \
-  -jp OPENAI -jm GPT_4O_MINI
+  -jp OPENAI -jm GPT_5_MINI
 ```
 
 #### ヘルプの表示
@@ -206,22 +203,31 @@ python -m src.main --help
 ```
 
 **出力例**:
-```
+```bash
+$ uv run python -m src.main --help                                              
 Usage: python -m src.main [OPTIONS]
 
 Options:
-  -g, --gender [FEMALE|MALE]           キャラクターの性別 [required]
-  -a, --age INTEGER RANGE              キャラクターの年齢 [0<=x<=100; required]
-  -ai, --additional-instructions TEXT  追加の生成指示
+  -g, --gender [FEMALE|MALE]      The gender of the character to generate.
+                                  [required]
+  -a, --age INTEGER RANGE         The age of the character to generate.
+                                  [0<=x<=100; required]
+  -ai, --additional-instructions TEXT
+                                  Additional instructions for character
+                                  generation.
   -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
-                                       生成に使用するLLMプロバイダー [required]
-  -m, --model [GPT_5|GPT_5_MINI|...|CLAUDE_SONNET_4_5|CLAUDE_OPUS_4_1]
-                                       生成に使用するモデル [required]
-  -od, --output-directory PATH         出力ディレクトリ
+                                  The LLM provider to use.  [required]
+  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_5_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_5|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_5|CLAUDE_OPUS_4_1]
+                                  The model to use for the request.
+                                  [required]
+  -od, --output-directory PATH    The directory to save output files.
   -jp, --judge-provider [OPENAI|GEMINI|ANTHROPIC]
-                                       評価に使用するLLMプロバイダー（省略時は生成と同じ）
-  -jm, --judge-model [...]             評価に使用するモデル（省略時は生成と同じ）
-  --help                               ヘルプを表示
+                                  The LLM provider to use for judgment
+                                  (defaults to same as generation provider).
+  -jm, --judge-model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_5_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_5|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_5|CLAUDE_OPUS_4_1]
+                                  The model to use for judgment (defaults to
+                                  same as generation model).
+  --help                          Show this message and exit.
 ```
 
 ### 出力例
@@ -234,22 +240,22 @@ Options:
 
 ```json
 {
-    "first_name": "サラ",
-    "last_name": "コンラッド",
+    "first_name": "Mika",
+    "last_name": "Nekomura",
     "gender": "female",
-    "age": 25,
+    "age": 20,
     "personalities": [
         {
-            "short_personality": "好奇心旺盛",
-            "description": "未知の世界や技術に強い興味を持つ探究心の塊"
+            "short_personality": "執拗な好奇心",
+            "description": "糸の端を見ると放っておけない猫のように、謎や矛盾を見つけると夜更けまで追い続ける。細部に触れる指先が鋭く、痕跡から物語を復元するのが得意。質問は静かだが核心を突き、沈黙の間に相手の本心を引き出す。薄明の時間に最も冴え、街の路地という迷路を自分の縄張りのように歩く。"
         },
         {
-            "short_personality": "冷静沈着",
-            "description": "危機的状況でも論理的に判断できる思考力"
+            "short_personality": "自立としなやかさ",
+            "description": "群れにも孤独にも居心地を見つけられる、猫背の自由主義者。締め付けられると音もなく距離を取り、必要な時だけ柔らかく寄り添う。計画が崩れても体の向きを変えるように素早く切り替え、失敗を静かに糧にする。誰にも馴れないわけではないが、首輪は自分で選ぶタイプ。"
         },
         {
-            "short_personality": "正義感が強い",
-            "description": "弱者を守り、不正を許さない強い使命感"
+            "short_personality": "温かな警戒心",
+            "description": "初対面には警戒線を引くが、一度心を許した相手にはひざ掛けのような温もりを惜しまない。弱者や迷子にはすぐ気づき、さりげない手助けを置き土産のように残す。一方で境界線を越えられると、爪のように鋭い言葉で静かに距離を戻す。優しさと自己防衛のバランスを本能的に保てる。"
         }
     ]
 }
@@ -263,49 +269,91 @@ Options:
 {
     "evaluations": [
         {
+            "reasoning": "パラメータ（Gender: female, Age: 20）に忠実で、猫の要素も性格描写に一貫して反映。事実関係の矛盾や不正確さはなく、架空キャラ生成という要件に適合している。",
             "criterion_name": "accuracy",
-            "score": 5,
-            "reasoning": "キャラクター設定が論理的で矛盾がなく、SF小説の主人公として適切です。"
+            "score": 5
         },
         {
+            "reasoning": "名前と年齢、性別に加え、3つの側面から具体的かつ豊かな性格描写があり、行動傾向や対人スタイルまで掘り下げている。背景設定はないが、質問は性格の詳細を主眼としており十分に満たしている。",
             "criterion_name": "comprehensiveness",
-            "score": 4,
-            "reasoning": "基本的な性格特性は十分ですが、背景設定があればより良いでしょう。"
+            "score": 5
         },
         {
+            "reasoning": "日本語の表現は明快でイメージが湧きやすく、比喩も過剰ではない。JSON構造で整理され可読性が高い。",
             "criterion_name": "clarity",
-            "score": 5,
-            "reasoning": "各性格特性が明確に記述されており、理解しやすいです。"
+            "score": 5
         }
     ],
-    "overall_score": 4.67,
-    "summary": "全体的に高品質なキャラクター設定です。SF小説の主人公として適切で、個性が明確です。"
+    "overall_score": 5.0,
+    "summary": "要件を正確に満たし、詳細で魅力的な性格描写が明瞭に提示されている優れた回答です。大きな改善点は見当たりません。"
 }
 ```
 
 #### 実行ログ例
 
-```
-[2025-10-18 14:30:00] [INFO] Character Generation Request:
+```bash
+$ python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH
+
+[2026-01-17 17:04:18,436] [INFO] [__main__] [main.py:99] [main] Character Generation Request:
 Gender: female
 Age: 25
-Additional Instructions: SF小説の主人公として適したキャラクターを生成してください。
+Additional Instructions: 
 
 Generation LLM: gemini / gemini-2.5-flash
-Judge LLM: openai / gpt-4o-mini
+Judge LLM: gemini / gemini-2.5-flash
 Output directory: outputs
-
-[2025-10-18 14:30:01] [INFO] Step 1: Generating character...
-[2025-10-18 14:30:03] [INFO] Character generation completed.
-[2025-10-18 14:30:03] [INFO] Step 2: Evaluating character with LLM-as-a-Judge...
-[2025-10-18 14:30:03] [INFO] Requesting judgment from OpenAI model: gpt-4o-mini
-[2025-10-18 14:30:05] [INFO] Judgment completed. Overall score: 4.67/5.0
-[2025-10-18 14:30:05] [INFO] Character file saved to outputs/gemini_character_a1b2c3d4e5f6.json
-[2025-10-18 14:30:05] [INFO] Judge evaluation saved to outputs/openai_judge_a1b2c3d4e5f6.json
-[2025-10-18 14:30:05] [INFO] Overall evaluation score: 4.67/5.0
-```
-
-品質閾値を下回った場合の警告例：
-```
-[2025-10-18 14:30:05] [WARNING] The generated character did not meet the quality threshold (3.0/5.0)
+[2026-01-17 17:04:18,436] [INFO] [src.service.request_llm] [request_llm.py:66] [request_with_judge] Generating prompt...
+[2026-01-17 17:04:18,437] [INFO] [src.service.request_llm] [request_llm.py:69] [request_with_judge] Generating character...
+[2026-01-17 17:04:22,542] [INFO] [src.service.request_llm] [request_llm.py:42] [request_gemini] sdk_http_response=HttpResponse(
+  headers=<dict len=11>
+) candidates=[Candidate(
+  content=Content(
+    parts=[
+      Part(
+        text="""{
+  "first_name": "Akira",
+  "last_name": "Yamada",
+  "gender": "female",
+  "age": 25,
+  "personalities": [
+    {
+      "short_personality": "好奇心旺盛",
+      "description": "アキラは常に新しい知識や経験を求めています。見慣れない場所や物事には特に興味を示し、納得がいくまで探求しようとします。"
+    },
+    {
+      "short_personality": "観察力がある",
+      "description": "周囲の環境や人々の微細な変化にもすぐに気づきます。会話の少ないときでも、人や状況を詳細に分析していることが多いです。"
+    },
+    {
+      "short_personality": "内向的だが芯が強い",
+      "description": "初対面の人や大人数の場では控えめですが、自分の信念や大切なものを守るためには断固とした態度を取ります。困難な状況でも冷静さを保ち、解 決策を見つけ出そうと努力するタイプです。"
+    }
+  ]
+}"""
+      ),
+    ],
+    role='model'
+  ),
+  finish_reason=<FinishReason.STOP: 'STOP'>,
+  index=0
+)] create_time=None model_version='gemini-2.5-flash' prompt_feedback=None response_id='hkJraffyFrue1e8P3OvHoAs' usage_metadata=GenerateContentResponseUsageMetadata(
+  candidates_token_count=246,
+  prompt_token_count=388,
+  prompt_tokens_details=[
+    ModalityTokenCount(
+      modality=<MediaModality.TEXT: 'TEXT'>,
+      token_count=388
+    ),
+  ],
+  thoughts_token_count=404,
+  total_token_count=1038
+) automatic_function_calling_history=[] parsed=CharacterResponse(first_name='Akira', last_name='Yamada', gender=<Gender.FEMALE: 'female'>, age=25, personalities=[CharacterPersonality(short_personality='好奇心旺盛', description='アキラは常に新しい知識や経験を求めています。見慣れない場所や物事には特に興味を示し、納得がいくまで探求しようとします。'), CharacterPersonality(short_personality='観察力がある', description='周囲の環境や人々の微細な変化にもすぐに気づきま す。会話の少ないときでも、人や状況を詳細に分析していることが多いです。'), CharacterPersonality(short_personality='内向的だが芯が強い', description='初対面 の人や大人数の場では控えめですが、自分の信念や大切なものを守るためには断固とした態度を取ります。困難な状況でも冷静さを保ち、解決策を見つけ出そうと努力する タイプです。')])
+[2026-01-17 17:04:22,543] [INFO] [src.service.request_llm] [request_llm.py:79] [request_with_judge] Character generation completed.
+[2026-01-17 17:04:22,543] [INFO] [src.service.request_llm] [request_llm.py:81] [request_with_judge] Evaluating character with LLM-as-a-Judge...
+[2026-01-17 17:04:22,543] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:47] [judge_with_gemini] Requesting judgment from Gemini model: gemini-2.5-flash
+[2026-01-17 17:04:28,273] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:61] [judge_with_gemini] Judgment completed. Overall score: 5.00/5.0
+[2026-01-17 17:04:28,273] [INFO] [src.service.request_llm] [request_llm.py:115] [request_with_judge] Evaluation completed. Overall score: 5.00/5.0
+[2026-01-17 17:04:28,275] [INFO] [__main__] [main.py:140] [main] Character file saved to outputs/765f1492a4a34acdb86e7066dd161f42_gemini_character.json
+[2026-01-17 17:04:28,275] [INFO] [__main__] [main.py:145] [main] Judge evaluation saved to outputs/765f1492a4a34acdb86e7066dd161f42_gemini_judge.json
+[2026-01-17 17:04:28,275] [INFO] [__main__] [main.py:146] [main] Overall evaluation score: 5.00/5.0
 ```

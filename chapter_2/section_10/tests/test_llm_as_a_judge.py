@@ -4,7 +4,7 @@ import json
 
 import pytest
 from src.client.llm_client import GeminiModel, OpenAIModel
-from src.model.llm_as_a_judge_model import EvaluationScore, JudgeRequest, JudgeResponse
+from src.model.llm_as_a_judge_model import JudgeRequest, JudgeResponse
 from src.prompt.llm_as_a_judge_prompt import make_custom_judge_prompt, make_judge_prompt
 from src.service.llm_as_a_judge import judge_with_gemini, judge_with_openai
 
@@ -34,13 +34,10 @@ class TestJudgeModels:
         assert 1.0 <= sample_judge_response.overall_score <= 5.0
         assert sample_judge_response.summary is not None
 
-    def test_evaluation_score_values(self):
-        """Test that EvaluationScore enum has correct values."""
-        assert EvaluationScore.COMPLETELY_INAPPROPRIATE == 1
-        assert EvaluationScore.POOR == 2
-        assert EvaluationScore.ACCEPTABLE == 3
-        assert EvaluationScore.GOOD == 4
-        assert EvaluationScore.PERFECT == 5
+    def test_evaluation_score_range(self, sample_judge_response: JudgeResponse):
+        """Test that evaluation scores are within valid range (1-5)."""
+        for evaluation in sample_judge_response.evaluations:
+            assert 1 <= evaluation.score <= 5
 
     def test_judge_response_is_passing_above_threshold(self, sample_judge_response: JudgeResponse):
         """Test that high quality response passes threshold."""

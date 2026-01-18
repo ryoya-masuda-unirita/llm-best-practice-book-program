@@ -21,6 +21,7 @@ async def request_openai(model: OpenAIModel) -> CharacterResponse:
         input=prompt,
         text_format=CharacterResponse,
     )
+    logger.info(result)
     return result.output_parsed
 
 

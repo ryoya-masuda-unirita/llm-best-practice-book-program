@@ -103,9 +103,6 @@ cp .env.example .env
 ```bash
 # .env
 GEMINI_API_KEY=<your_gemini_api_key>
-REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_DB=0
 ```
 
 2. **依存関係のインストール**
@@ -127,19 +124,15 @@ make docker-logs
 
 # サービスを停止
 make docker-down
-```
 
-#### ローカルで実行する場合
-
-```bash
-# Redisを起動（別ターミナル）
-redis-server
-
-# Batch Serverを起動（別ターミナル）
-uvicorn src.api.batch_server:app --host 0.0.0.0 --port 8001
-
-# Batch Workerを起動（別ターミナル）
-python -m src.worker.batch_worker
+# 利用可能なMakeコマンド一覧
+make help
+Docker Commands:
+  make docker-build    - Build Docker image
+  make docker-up       - Start services with docker-compose
+  make docker-down     - Stop services
+  make docker-logs     - View service logs
+  make docker-restart  - Restart services (down + up)
 ```
 
 ### APIエンドポイント
@@ -155,139 +148,74 @@ python -m src.worker.batch_worker
 
 ### 使用例
 
-#### 1. バッチジョブの登録
+```bash
+# Dockerイメージのビルド
+make docker-build
+
+# サービスを起動
+make docker-up
+```
+
+#### コマンドライン
 
 ```bash
+# バッチジョブを登録
 curl -X POST http://localhost:8001/batch/submit \
   -H "Content-Type: application/json" \
   -d '{
     "provider": "gemini",
     "model": "gemini-2.5-flash",
     "character_requests": [
-      {"gender": "female", "age": 25, "additional_instructions": "明るい性格"},
-      {"gender": "male", "age": 30, "additional_instructions": "知的な性格"}
+      {"gender": "female", "age": 25, "additional_instructions": "cheerful"},
+      {"gender": "male", "age": 30, "additional_instructions": "intellectual"}
     ]
   }'
-```
 
-レスポンス:
-```json
-{
-  "job_id": "550e8400-e29b-41d4-a716-446655440000",
-  "status": "pending",
-  "total_tasks": 2,
-  "submitted_at": 1699999999.123
-}
-```
+# ジョブステータスを取得
+curl http://localhost:8001/batch/{job_id}/status
 
-#### 2. ジョブステータスの確認
+# ジョブ結果を取得
+curl http://localhost:8001/batch/{job_id}/result
 
-```bash
-curl http://localhost:8001/batch/550e8400-e29b-41d4-a716-446655440000/status
-```
-
-レスポンス:
-```json
-{
-  "job_id": "550e8400-e29b-41d4-a716-446655440000",
-  "status": "processing",
-  "total_tasks": 2,
-  "completed_tasks": 1,
-  "failed_tasks": 0,
-  "pending_tasks": 1,
-  "submitted_at": 1699999999.123,
-  "started_at": 1699999999.456,
-  "completed_at": null
-}
-```
-
-#### 3. 結果の取得
-
-```bash
-curl http://localhost:8001/batch/550e8400-e29b-41d4-a716-446655440000/result
-```
-
-レスポンス:
-```json
-{
-  "job_id": "550e8400-e29b-41d4-a716-446655440000",
-  "status": "completed",
-  "provider": "gemini",
-  "model": "gemini-2.5-flash",
-  "tasks": [
-    {
-      "task_index": 0,
-      "status": "completed",
-      "character": {
-        "first_name": "Sakura",
-        "last_name": "Tanaka",
-        "gender": "female",
-        "age": 25,
-        "personalities": [
-          {"short_personality": "陽気", "description": "常に明るく周囲を笑顔にする"},
-          {"short_personality": "好奇心旺盛", "description": "新しいことに挑戦するのが大好き"},
-          {"short_personality": "思いやり", "description": "他者の気持ちに寄り添える優しさを持つ"}
-        ]
-      },
-      "processing_time_ms": 1234.56
-    }
-  ],
-  "submitted_at": 1699999999.123,
-  "completed_at": 1700000005.789
-}
-```
-
-#### 4. キュー統計の取得
-
-```bash
+# キュー統計を取得
 curl http://localhost:8001/batch/queue/stats
-```
 
-レスポンス:
-```json
-{
-  "queue_name": "llm_batch_jobs",
-  "pending_jobs": 5
-}
-```
-
-#### 5. 全ジョブIDの取得
-
-```bash
+# 全ジョブIDを取得
 curl http://localhost:8001/batch/jobs
 ```
 
-レスポンス:
-```json
-{
-  "job_ids": ["550e8400-e29b-41d4-a716-446655440000", "..."],
-  "count": 3
-}
-```
-
-### Makeコマンド
-
-```bash
-make lint          # リントチェック
-make fmt           # コードフォーマット
-make fix           # lint + fmt
-make mypy          # 型チェック
-make docker-build  # Dockerイメージをビルド
-make docker-up     # Docker Composeでサービスを起動
-make docker-down   # サービスを停止
-make docker-logs   # ログを表示
-make docker-restart # サービスを再起動
-```
+#### Swagger UI 
+API: `http://localhost:8000/docs`
+API: `http://localhost:8001/docs`
 
 ### 出力例
 
-#### ワーカーログ
+```bash
+$ curl -X POST http://localhost:8001/batch/submit \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "character_requests": [
+      {"gender": "female", "age": 25, "additional_instructions": "cheerful"},
+      {"gender": "male", "age": 30, "additional_instructions": "intellectual"}
+    ]
+  }'
 
-```
-[INFO] [batch_worker] Batch worker started, waiting for jobs...
-[INFO] [batch_worker] Submitting job 550e8400-... with 2 tasks to Gemini
-[INFO] [batch_worker] Job 550e8400-... submitted to Gemini as batches/xxx
-[INFO] [batch_worker] Gemini batch job succeeded: batches/xxx
-[INFO] [batch_worker] Batch API completed in 5234.56ms for 2 tasks
-[INFO] [batch_worker] Job 550e8400-... completed: 2 succeeded, 0 failed
+{"job_id":"eadc410c-0bb6-4c98-86d9-c8e783c7fbab","status":"pending","total_tasks":2,"submitted_at":1768636286.8760014}
+
+$ curl http://localhost:8001/batch/eadc410c-0bb6-4c98-86d9-c8e783c7fbab/status
+
+{"job_id":"eadc410c-0bb6-4c98-86d9-c8e783c7fbab","status":"completed","total_tasks":1,"completed_tasks":1,"failed_tasks":0,"pending_tasks":0,"submitted_at":1768635937.4919648,"started_at":1768635937.4952552,"completed_at":1768636173.9760518}
+
+$ curl http://localhost:8001/batch/eadc410c-0bb6-4c98-86d9-c8e783c7fbab/result
+{"job_id":"eadc410c-0bb6-4c98-86d9-c8e783c7fbab","status":"completed","provider":"gemini","model":"gemini-2.5-flash","tasks":[{"task_index":0,"status":"completed","character":{"first_name":"Elara","last_name":"Vance","gender":"female","age":100,"personalities":[{"short_personality":"Wise & Observant","description":"Elara possesses a profound wisdom cultivated over a century of life, allowing her to offer insightful advice and see through superficialities. She is incredibly observant, noticing subtle details others often miss, which contributes to her sharp understanding of people and situations."},{"short_personality":"Playful & Mischievous","description":"Despite her advanced age, Elara retains a surprisingly youthful and playful spirit. She enjoys lighthearted banter and has a mischievous glint in her eyes, often orchestrating harmless pranks or witty remarks to entertain herself and those around her, much like a clever, curious cat."},{"short_personality":"Independent & Resilient","description":"Having navigated a full century of change, Elara is fiercely independent, preferring to rely on her own wit and strength rather than becoming a burden. Her resilience is legendary, having faced countless challenges with an unwavering spirit and a quiet determination that has seen her through all of life's ups and downs."}]},"error":null,"processing_time_ms":236478.39045524597}],"submitted_at":1768635937.4920466,"completed_at":1768636173.9760518}
+
+$ curl http://localhost:8001/batch/queue/stats
+
+{"queue_name":"llm_batch_jobs","pending_jobs":0}
+
+$ curl http://localhost:8001/batch/jobs
+
+{"job_ids":["687c6962-0a58-416e-a054-50a49dfeaf42","eadc410c-0bb6-4c98-86d9-c8e783c7fbab","2ea22c25-52b6-4686-a933-62726a0075c6","e61a060b-99de-4b57-a6e5-90e83aa5a347","3b39c27f-2ea6-4597-8c5d-520128c2621d"],"count":5}
 ```

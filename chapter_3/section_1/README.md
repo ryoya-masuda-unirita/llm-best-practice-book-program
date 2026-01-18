@@ -128,11 +128,8 @@ ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
 2. **依存関係のインストール**
 
 ```bash
-# uvを使用する場合（推奨）
+# uvを使用する
 uv sync
-
-# pipを使用する場合
-pip install -e .
 ```
 
 ### 使用方法、実行方法
@@ -141,64 +138,65 @@ pip install -e .
 
 ```bash
 # OpenAI GPT-4oを使用
-uv run python -m src.main --llm-provider openai --model gpt-4o
+uv run python -m src.main --llm-provider OPENAI --model GPT_4O
 
 # 短縮オプション
-uv run python -m src.main -lp openai -m gpt-4o
+uv run python -m src.main -lp OPENAI -m GPT_4O
 
 # Anthropic Claude Sonnet 4.5を使用
-uv run python -m src.main -lp anthropic -m claude-sonnet-4-5
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_SONNET_4_5
 
 # Gemini 2.5 Proを使用
-uv run python -m src.main -lp gemini -m gemini-2.5-pro
+uv run python -m src.main -lp GEMINI -m GEMINI_2_5_PRO
 
-# Gemini 2.5 Flash（デフォルト）
-uv run python -m src.main -lp gemini -m gemini-2.5-flash
+# Gemini 2.5 Flash
+uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH
 ```
 
 #### 出力先の指定
 
 ```bash
 # カスタム出力ディレクトリを指定
-uv run python -m src.main -lp openai -m gpt-4o --output-directory ./custom_output
+uv run python -m src.main -lp OPENAI -m GPT_4O --output-directory ./custom_output
 
 # 短縮オプション
-uv run python -m src.main -lp gemini -m gemini-2.5-pro -od ./my_characters
+uv run python -m src.main -lp GEMINI -m GEMINI_2_5_PRO -od ./my_characters
 ```
 
 #### プロバイダーとモデルの組み合わせ例
 
 ```bash
 # OpenAI の各モデル
-uv run python -m src.main -lp openai -m gpt-5
-uv run python -m src.main -lp openai -m gpt-4o
-uv run python -m src.main -lp openai -m gpt-4o-mini
+uv run python -m src.main -lp OPENAI -m GPT_5
+uv run python -m src.main -lp OPENAI -m GPT_4O
+uv run python -m src.main -lp OPENAI -m GPT_4O_MINI
 
 # Anthropic の各モデル
-uv run python -m src.main -lp anthropic -m claude-sonnet-4-5
-uv run python -m src.main -lp anthropic -m claude-opus-4-1
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_SONNET_4_5
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_OPUS_4_1
 
 # Gemini の各モデル
-uv run python -m src.main -lp gemini -m gemini-2.5-pro
-uv run python -m src.main -lp gemini -m gemini-2.5-flash
-uv run python -m src.main -lp gemini -m gemini-2.5-flash-lite
+uv run python -m src.main -lp GEMINI -m GEMINI_2_5_PRO
+uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH
+uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH_LITE
 ```
 
 #### ヘルプの表示
 
 ```bash
-uv run python -m src.main --help
-```
-
-**出力例**:
-```
+$ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
 Options:
-  -lp, --llm-provider [openai|anthropic|gemini]
-                                  The LLM provider to use (openai, anthropic, or gemini).
-  -m, --model [gpt-5|gpt-4o|claude-sonnet-4-5|gemini-2.5-pro|...]
+  -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
+                                  The LLM provider to use (openai, anthropic,
+                                  or gemini).  [required]
+  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|
+               GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|
+               GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_5|CLAUDE_HAIKU_4_5|
+               CLAUDE_SONNET_4_5|CLAUDE_OPUS_4_1]
                                   The model to use for the request.
+                                  [required]
   -od, --output-directory PATH    The directory to save output files.
   --help                          Show this message and exit.
 ```
@@ -211,35 +209,40 @@ Options:
 
 ```json
 {
-    "first_name": "蒼",
-    "last_name": "雨宮",
-    "gender": "male",
+    "first_name": "エリカ",
+    "last_name": "サトウ",
+    "gender": "female",
     "age": 28,
     "personalities": [
         {
-            "short_personality": "内向的な思索家",
-            "description": "常に深く物事を考え、静かな場所を好む。表面的な会話よりも、哲学的な議論に心を開く。"
+            "short_personality": "思慮深い",
+            "description": "エリカは物事を深く考え、衝動的に行動することはめったにありません。常に状況を分析し、潜在的な結果を考慮してから結論を導き出します。"
         },
         {
-            "short_personality": "完璧主義者",
-            "description": "すべてのタスクに最高の基準を求め、細部にこだわる。しばしば自分自身に対して厳しすぎることがある。"
+            "short_personality": "共感的",
+            "description": "他人の感情や視点に非常に敏感で、困っている人には自然と手を差し伸べます。彼女の共感力は、友人や同僚から信頼される理由の一つです。"
         },
         {
-            "short_personality": "忠実な友人",
-            "description": "一度信頼関係を築くと、どんな困難な状況でも友人を支える。約束を何よりも大切にする。"
+            "short_personality": "探求心旺盛",
+            "description": "未知のものや新しい知識への強い好奇心を持っています。読書、旅行、多様な人々との交流を通じて、常に世界をより深く理解しようと努めています。"
         }
     ]
 }
 ```
 
 **実行ログ例**:
-```
-[2025-10-19 10:30:45] [INFO] [__main__] [main.py:76] [main] LLM provider: openai
-Model: gpt-4o
+```bash
+$ uv run python -m src.main -lp OPENAI -m GPT_4O_MINI
+[2026-01-18 15:46:30,144] [INFO] [__main__] [main.py:58] [main] LLM provider: openai
+Model: gpt-4o-mini
 Output directory: outputs
-[2025-10-19 10:30:46] [INFO] [src.service.request_llm] [request_llm.py:41] [request_llm] Making LLM request: provider=openai, model=gpt-4o
-[2025-10-19 10:30:48] [INFO] [src.service.request_llm] [request_llm.py:52] [request_llm] Successfully received response from openai
-[2025-10-19 10:30:48] [INFO] [__main__] [main.py:102] [main] Character generated successfully!
-[2025-10-19 10:30:48] [INFO] [__main__] [main.py:103] [main] File saved to: outputs/openai_gpt-4o_a1b2c3d4.json
-[2025-10-19 10:30:48] [INFO] [__main__] [main.py:104] [main] Character: 蒼 雨宮, 28 years old
+[2026-01-18 15:46:30,144] [INFO] [src.client.factory] [factory.py:37] [create_client] Creating client: provider=openai, model=gpt-4o-mini
+[2026-01-18 15:46:30,272] [INFO] [src.client.adapters] [adapters.py:24] [__init__] Initialized OpenAI adapter with model: gpt-4o-mini
+[2026-01-18 15:46:30,273] [INFO] [src.service.request_llm] [request_llm.py:17] [request_llm] Making LLM request: provider=openai, model=gpt-4o-mini
+[2026-01-18 15:46:30,273] [DEBUG] [src.client.adapters] [adapters.py:32] [chat] OpenAI request: model=gpt-4o-mini
+[2026-01-18 15:46:36,320] [INFO] [src.service.request_llm] [request_llm.py:27] [request_llm] Successfully received response from openai
+[2026-01-18 15:46:36,320] [INFO] [__main__] [main.py:77] [main] Character generated successfully!
+[2026-01-18 15:46:36,320] [INFO] [__main__] [main.py:78] [main] File saved to: outputs/openai_gpt-4o-mini_cb3b09ee.json
+[2026-01-18 15:46:36,320] [INFO] [__main__] [main.py:79] [main] Character: Luna Calder, 28 years old
+[2026-01-18 15:46:36,321] [DEBUG] [src.client.adapters] [adapters.py:49] [aclose] Closed OpenAI client
 ```

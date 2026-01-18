@@ -173,11 +173,8 @@ export ANTHROPIC_API_KEY="sk-ant-xxxxxxxxxxxxxxxxxxxxx"
 2. **依存関係のインストール**
 
 ```bash
-# uvを使用する場合（推奨）
+# uvを使用する
 uv sync
-
-# 開発用依存関係も含める場合
-uv sync --group dev
 ```
 
 ### 使用方法、実行方法
@@ -186,25 +183,25 @@ uv sync --group dev
 
 ```bash
 # OpenAI APIを使用
-uv run python -m src.main --llm-provider OPENAI --model GPT_5_MINI --user-id user123 --output-directory ./custom_output
+uv run python -m src.main --llm-provider OPENAI --model GPT_5_MINI --user-id user123 --output-directory ./outputs
 
 # Gemini APIを使用 
-uv run python -m src.main --llm-provider GEMINI --model GEMINI_2_5_FLASH --user-id user123 --output-directory ./custom_output
+uv run python -m src.main --llm-provider GEMINI --model GEMINI_2_5_FLASH --user-id user123 --output-directory ./outputs
 
 # Anthropic APIを使用
-uv run python -m src.main --llm-provider ANTHROPIC --model CLAUDE_SONNET_4_5 --user-id user123 --output-directory ./custom_output
+uv run python -m src.main --llm-provider ANTHROPIC --model CLAUDE_SONNET_4_5 --user-id user123 --output-directory ./outputs
 ```
 
 #### ヘルプの表示
 
 ```bash
-$ uv run python -m src.main --help
+$ uv run python -m src.main --help                                             
 Usage: python -m src.main [OPTIONS]
 
 Options:
   -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use.  [required]
-  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_SONNET_4_5|CLAUDE_OPUS_4_1]
+  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_5|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_5|CLAUDE_OPUS_4_1]
                                   The model to use for the request.
                                   [required]
   -od, --output-directory PATH    The directory to save output files.
@@ -318,13 +315,14 @@ LLM操作のメタデータがJSON形式でstdoutに出力されます：
 コンソールには以下のようなログが出力されます：
 
 ```
-$ python -m src.main -lp ANTHROPIC -m CLAUDE_SONNET_4_5 -od outputs -u user_0 -st LOCAL
-[2025-11-17 14:48:14,636] [INFO] [__main__] [main.py:71] [main] LLM provider: anthropic
+$ uv run python -m src.main --llm-provider ANTHROPIC --model CLAUDE_SONNET_4_5 --user-id user123 --output-directory ./outputs
+
+[2026-01-17 16:25:32,886] [INFO] [__main__] [main.py:70] [main] LLM provider: anthropic
 Model: claude-sonnet-4-5
-Output directory: outputs
-User ID: user_0
+Output directory: ./outputs
+User ID: user123
 Storage type: local
-Prompt stored successfully at: prompt_storage/2025/11/17/0c18299b-06bc-4f56-b7f1-1981b2024675.json
-{"timestamp": "2025-11-17T05:48:24.147777+00:00", "request_id": "6081711d-b000-45cf-91cc-6bd3dd6853f1", "prompt_id": "0c18299b-06bc-4f56-b7f1-1981b2024675", "user_id": "user_0", "model": "claude-sonnet-4-5", "latency_ms": 9511.006116867065, "status_code": 200, "level": "INFO", "metadata": {"provider": "gemini", "model": "claude-sonnet-4-5", "response_format": "CharacterResponse"}}
-[2025-11-17 14:48:24,148] [INFO] [__main__] [main.py:99] [main] File saved to outputs/anthropic_282cd205f6f74a3abc9c97c7944f4aba.json
+Prompt stored successfully at: prompt_storage/2026/01/17/a5f48ef0-e54f-4653-8a3e-2543b5b70878.json
+{"timestamp": "2026-01-17T07:25:41.607821+00:00", "request_id": "9a5b4376-21bd-4ccd-bffa-c976e91b0aa9", "prompt_id": "a5f48ef0-e54f-4653-8a3e-2543b5b70878", "user_id": "user123", "model": "claude-sonnet-4-5", "latency_ms": 8721.174955368042, "status_code": 200, "level": "INFO", "metadata": {"provider": "gemini", "model": "claude-sonnet-4-5", "response_format": "CharacterResponse"}}
+[2026-01-17 16:25:41,609] [INFO] [__main__] [main.py:98] [main] File saved to ./outputs/anthropic_54cfc5f31cac41a5b1e8a25f7655eec0.json
 ```
