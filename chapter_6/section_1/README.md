@@ -125,8 +125,9 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+OPENAI_API_KEY=xxxxxxxxxxxxxxxxxxxxx
+GEMINI_API_KEY=XXXXXXXXXXXXXXXXXXXX
+ANTHROPIC_API_KEY=xxxxxxxxxxxxxxxxxxxxx
 ```
 
 2. **依存関係のインストール**

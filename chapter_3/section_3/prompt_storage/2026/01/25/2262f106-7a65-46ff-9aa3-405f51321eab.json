@@ -1,0 +1,45 @@
+{
+  "prompt_id": "2262f106-7a65-46ff-9aa3-405f51321eab",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「33」歳です。\n隠された目的を持つカリスマ的な海賊船長のキャラクターを作成してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Silas",
+    "last_name": "Blackwood",
+    "gender": "male",
+    "age": 33,
+    "personalities": [
+      {
+        "short_personality": "カリスマ的",
+        "description": "天性のリーダーシップを持ち、話し方と存在感で乗組員を惹きつけます。どんな状況でも冷静沈着で、周りの人々に安心感と興奮を与えることができます。彼の熱意は伝染性があり、仲間を容易に団結させることができます。"
+      },
+      {
+        "short_personality": "戦略的かつ狡猾",
+        "description": "隠された目的を常に念頭に置き、周囲の出来事を慎重に分析し、自身の計画を推進するための巧妙な策略を巡らせます。表面上は軽快に見えますが、その思考は常に数手先を読んでおり、自身の真の意図を滅多に明かしません。"
+      },
+      {
+        "short_personality": "目的志向",
+        "description": "彼のカリスマ性と狡猾さはすべて、自身の深遠な目的達成のために奉仕しています。彼は短期的な利益には関心がなく、彼の目標は一般的な略奪や富の追求よりもはるかに個人的で複雑です。彼はその目標のためにあらゆるリスクを厭いません。"
+      }
+    ]
+  },
+  "created_at": "2026-01-25T06:07:25.215562+00:00",
+  "metadata": {
+    "request_id": "4e79836e-b83d-4353-8360-6fd62c3203d6",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 33,
+      "additional_instructions": "隠された目的を持つカリスマ的な海賊船長のキャラクターを作成してください。"
+    }
+  }
+}

@@ -146,35 +146,7 @@ chapter_3/section_5/
 
 ### セットアップ
 
-#### 方法1: ローカル開発
-
-1. **依存関係のインストール**
-
-```bash
-# uvを使用する場合（推奨）
-uv sync
-
-# pipを使用する場合
-pip install -e .
-```
-
-2. **環境変数の設定**
-
-```bash
-export GEMINI_API_KEY="AIza..."
-```
-
-3. **サーバーの起動**
-
-```bash
-# ターミナル1: LLMサーバー
-uv run python -m src.api.llm_server
-
-# ターミナル2: 知識ベースサーバー
-uv run python -m src.api.knowledge_server
-```
-
-#### 方法2: Docker Compose
+#### Docker Compose
 
 1. **環境変数の設定**
 
@@ -212,7 +184,7 @@ curl http://localhost:8001/health
 #### 1. キャラクターの生成（自動的に知識ベースに保存）
 
 ```bash
-curl -X POST "http://localhost:8000/generate" \
+$ curl -X POST "http://localhost:8000/generate" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "gemini-2.5-flash",
@@ -221,26 +193,33 @@ curl -X POST "http://localhost:8000/generate" \
       "age": 25,
       "additional_instructions": "勇敢な戦士キャラクターを作成してください"
     }
-  }'
-```
-
-**レスポンス例**:
-```json
+  }' | jq .
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  1126  100   916  100   210    275     63  0:00:03  0:00:03 --:--:--   338
 {
   "character": {
-    "first_name": "アリア",
-    "last_name": "ストームボーン",
+    "first_name": "エルミナ",
+    "last_name": "ストームハート",
     "gender": "female",
     "age": 25,
     "personalities": [
       {
-        "short_personality": "勇敢な戦士",
-        "description": "どんな困難にも立ち向かう不屈の精神を持つ..."
+        "short_personality": "勇敢",
+        "description": "どんな困難や危険にも臆することなく立ち向かう生来の勇気を持っている。常に最前線に立ち、仲間や弱き者を守るために自らの命を顧みない。"                                                                                                                                         
+      },
+      {
+        "short_personality": "決断力がある",
+        "description": "一度決めた目標は決して諦めず、粘り強く達成しようと努力する。逆境に直面しても、不屈の精神で道を切り開き、困難を乗り越える。"                                                                                                                                                 
+      },
+      {
+        "short_personality": "忠実",
+        "description": "仲間や大義に対して揺るぎない忠誠心を持つ。信頼する者には献身的であり、裏切りを決して許さない。彼らのためにどんな犠牲も厭わない。"                                                                                                                                           
       }
     ]
   },
   "model": "gemini-2.5-flash",
-  "processing_time_ms": 1250.5
+  "processing_time_ms": 3317.896842956543
 }
 ```
 
@@ -252,58 +231,75 @@ curl -X POST "http://localhost:8000/generate" \
 #### 2. 知識ベースの検索
 
 ```bash
-# 数秒待ってから検索（非同期処理の完了を待つ）
-sleep 5
-
-curl -X POST "http://localhost:8001/query/search" \
+$ curl -X POST "http://localhost:8001/query/search" \
   -H "Content-Type: application/json" \
   -d '{
     "query_text": "勇敢な戦士",
     "limit": 5
-  }'
-```
-
-**レスポンス例**:
-```json
+  }' | jq .
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  1291  100  1234  100    57   2719    125 --:--:-- --:--:-- --:--:--  2843
 {
   "results": [
     {
-      "id": "uuid-here",
-      "character_request": {...},
-      "character_response": {...},
+      "id": "0ad2c003-4899-41ac-a1cb-18ce824a5260",
+      "character_request": {
+        "gender": "female",
+        "age": 25,
+        "additional_instructions": "勇敢な戦士キャラクターを作成してください"
+      },
+      "character_response": {
+        "first_name": "エルミナ",
+        "last_name": "ストームハート",
+        "gender": "female",
+        "age": 25,
+        "personalities": [
+          {
+            "short_personality": "勇敢",
+            "description": "どんな困難や危険にも臆することなく立ち向かう生来の勇気を持っている。常に最前線に立ち、仲間や弱き者を守るために自らの命を顧みない。"                                                                                                                                     
+          },
+          {
+            "short_personality": "決断力がある",
+            "description": "一度決めた目標は決して諦めず、粘り強く達成しようと努力する。逆境に直面しても、不屈の精神で道を切り開き、困難を乗り越える。"                                                                                                                                             
+          },
+          {
+            "short_personality": "忠実",
+            "description": "仲間や大義に対して揺るぎない忠誠心を持つ。信頼する者には献身的であり、裏切りを決して許さない。彼らのためにどんな犠牲も厭わない。"                                                                                                                                       
+          }
+        ]
+      },
       "model": "gemini-2.5-flash",
-      "processing_time_ms": 1250.5,
-      "similarity_score": 0.95,
-      "created_at": 1234567890.0
+      "processing_time_ms": 3317.896842956543,
+      "similarity_score": 0.70917124,
+      "created_at": 1769323983.9810076
     }
   ],
   "total_count": 1,
-  "query_time_ms": 45.2
+  "query_time_ms": 444.03672218322754
 }
 ```
 
 #### 3. 統計情報の取得
 
 ```bash
-curl http://localhost:8001/query/stats
-```
-
-**レスポンス例**:
-```json
+$ curl http://localhost:8001/query/stats | jq .
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100    93  100    93    0     0   4696      0 --:--:-- --:--:-- --:--:--  4894
 {
-  "total_items": 100,
+  "total_items": 1,
   "models_distribution": {
-    "gemini-2.5-flash": 80,
-    "gemini-2.5-pro": 20
+    "gemini-2.5-flash": 1
   },
-  "timestamp": 1234567890.0
+  "timestamp": 1769324039.6702378
 }
 ```
 
 #### 4. 直接知識を登録（Command API）
 
 ```bash
-curl -X POST "http://localhost:8001/command/register" \
+$ curl -X POST "http://localhost:8001/command/register" \
   -H "Content-Type: application/json" \
   -d '{
     "character_request": {
@@ -325,13 +321,12 @@ curl -X POST "http://localhost:8001/command/register" \
     "model": "gemini-2.5-flash",
     "prompt": [],
     "processing_time_ms": 1000.0
-  }'
-```
-
-**レスポンス例**:
-```json
+  }' | jq .
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   778  100   126  100   652  24667   124k --:--:-- --:--:-- --:--:--  151k
 {
-  "job_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+  "job_id": "f534eedf-5ecf-4fef-8b29-f0d8432164b3",
   "status": "accepted",
   "message": "Knowledge registration queued for processing"
 }
@@ -361,28 +356,3 @@ curl -X POST "http://localhost:8001/command/register" \
 [2025-10-29 10:31:00] [INFO] [knowledge_query] Searching knowledge base with query: 勇敢な戦士...
 [2025-10-29 10:31:00] [INFO] [knowledge_query] Search completed in 45.20ms, found 3 results
 ```
-
-## 注意点
-
-### 結果整合性（Eventual Consistency）
-
-Command処理は非同期で実行されるため、データが書き込まれてからQuery処理で参照可能になるまでに若干の遅延（2-5秒程度）が発生します。この特性を理解した上でシステムを設計してください。
-
-### ChromaDBの動作モード
-
-- **ローカルモード**: `CHROMA_HOST`環境変数が未設定の場合、`./data/chromadb`にデータを永続化
-- **リモートモード**: `CHROMA_HOST`と`CHROMA_PORT`を設定することで、外部のChromaDBサーバーに接続
-
-```bash
-# リモートChromaDBを使用する場合
-export CHROMA_HOST="chromadb-server"
-export CHROMA_PORT="8000"
-```
-
-### 利用可能なGeminiモデル
-
-| モデル | 用途 |
-|--------|------|
-| `gemini-2.5-pro` | 高精度なキャラクター生成 |
-| `gemini-2.5-flash` | バランスの取れた高速生成 |
-| `gemini-2.5-flash-lite` | 軽量で最速の生成 |

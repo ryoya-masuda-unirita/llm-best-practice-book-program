@@ -154,11 +154,8 @@ GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
 2. **依存関係のインストール**
 
 ```bash
-# uvを使用する場合（推奨）
+# uvを使用
 uv sync
-
-# pipを使用する場合
-pip install -e .
 ```
 
 3. **ドキュメントの準備**
@@ -166,6 +163,21 @@ pip install -e .
 `data/`ディレクトリにMarkdownファイル（`.md`）を配置します。
 
 ### 使用方法、実行方法
+
+```shell
+$ python -m src.main --help
+Usage: python -m src.main [OPTIONS] COMMAND [ARGS]...
+
+  RAG System CLI - A modular RAG system using strategy pattern.
+
+Options:
+  --help  Show this message and exit.
+
+Commands:
+  index  Index documents from the data directory.
+  query  Query the RAG system with a question.
+```
+
 
 #### ドキュメントのインデックス作成
 
@@ -184,7 +196,7 @@ uv run python -m src.main index -d data/
 #### 質問応答（クエリ）
 
 ```bash
-uv run python -m src.main query -d data/ -q "LLMの活用方法について教えてください"
+uv run python -m src.main query -d data/ -q "LLMのリクエストでタイムアウトが重要な理由を教えて下さい"
 ```
 
 **オプション:**
@@ -212,31 +224,39 @@ uv run python -m src.main query -d data/ -q "LLMの活用方法について教�
 ### 出力例
 
 ```bash
-$ uv run python -m src.main query -d data/ -q "RAGシステムとは何ですか？"
+$  uv run python -m src.main query -d data/ -q "構造化出力とはなんですか？"
 
-[INFO] Processing query: RAGシステムとは何ですか？
-[INFO] Starting document indexing from data/
-[INFO] Loaded 3 documents from data/
-[INFO] Created 8 chunks from 3 documents
-[INFO] Created embeddings for 8 chunks
-[INFO] Stored 8 chunks. Total: 8
-[INFO] Document indexing completed
-[INFO] Retrieved 5 chunks for query
-[INFO] Generated answer for question: RAGシステムとは何ですか？
-
+[2026-02-07 08:32:09,676] [INFO] [__main__] [main.py:129] [query] Processing query: 構造化出力とはなんですか？
+[2026-02-07 08:32:09,676] [INFO] [src.service.rag_pipeline] [rag_pipeline.py:38] [index_documents] Starting document indexing from data/
+[2026-02-07 08:32:09,677] [INFO] [src.strategy.loader] [loader.py:35] [process] Loaded document: data/chapter2_section1.md
+[2026-02-07 08:32:09,677] [INFO] [src.strategy.loader] [loader.py:35] [process] Loaded document: data/chapter2_section2.md
+[2026-02-07 08:32:09,677] [INFO] [src.strategy.loader] [loader.py:35] [process] Loaded document: data/chapter2_section3.md
+[2026-02-07 08:32:09,677] [INFO] [src.strategy.loader] [loader.py:41] [process] Loaded 3 documents from data
+[2026-02-07 08:32:19,816] [INFO] [src.strategy.chunker] [chunker.py:25] [process] Created 7 chunks from data/chapter2_section1.md
+[2026-02-07 08:32:29,273] [INFO] [src.strategy.chunker] [chunker.py:25] [process] Created 7 chunks from data/chapter2_section2.md
+[2026-02-07 08:32:38,552] [INFO] [src.strategy.chunker] [chunker.py:25] [process] Created 7 chunks from data/chapter2_section3.md
+[2026-02-07 08:32:38,552] [INFO] [src.strategy.chunker] [chunker.py:30] [process] Created total 21 chunks from 3 documents
+[2026-02-07 08:32:45,320] [INFO] [src.strategy.embedder] [embedder.py:30] [process] Created embeddings for 21 chunks
+[2026-02-07 08:32:45,320] [INFO] [src.strategy.retriever] [retriever.py:20] [store] Stored 21 chunks. Total: 21
+[2026-02-07 08:32:45,320] [INFO] [src.service.rag_pipeline] [rag_pipeline.py:57] [index_documents] Document indexing completed
+[2026-02-07 08:32:45,320] [INFO] [src.service.rag_pipeline] [rag_pipeline.py:63] [query] Processing query: 構造化出力とはなんですか？
+[2026-02-07 08:32:45,643] [INFO] [src.strategy.retriever] [retriever.py:38] [search] Retrieved 5 chunks for query
+[2026-02-07 08:32:47,188] [INFO] [src.strategy.generator] [generator.py:44] [process] Generated answer for question: 構造化出力とはなんですか？
+[2026-02-07 08:32:47,188] [INFO] [src.service.rag_pipeline] [rag_pipeline.py:70] [query] Query processing completed
+[2026-02-07 08:32:47,188] [INFO] [__main__] [main.py:143] [query] 
 ================================================================================
-Question: RAGシステムとは何ですか？
-================================================================================
-
+[2026-02-07 08:32:47,188] [INFO] [__main__] [main.py:144] [query] Question: 構造化出力とはなんですか？
+[2026-02-07 08:32:47,188] [INFO] [__main__] [main.py:145] [query] ================================================================================
+[2026-02-07 08:32:47,188] [INFO] [__main__] [main.py:146] [query] 
 Answer:
-RAG（Retrieval-Augmented Generation）システムとは、外部のドキュメントやデータベースから
-関連情報を検索し、その情報を基にLLMが回答を生成するシステムです。
-これにより、LLMの知識カットオフ以降の情報や、特定ドメインの専門知識に基づいた
-正確な回答が可能になります。
+構造化出力とは、LLM（大規模言語モデル）に対して事前に定義したデータ構造（スキーマ）に従って出力するよう明確に指示し、その構造に合致したJSONやデー タクラス形式で応答を受け取る手法です。(文書1, 文書2)
 
+これにより、LLMの生成結果を安全かつ構造的に処理できるようになり、高い信頼性を持つシステム連携が実現できます。(文書1)
+[2026-02-07 08:32:47,188] [INFO] [__main__] [main.py:147] [query] 
 --------------------------------------------------------------------------------
-Sources: data/chapter2_section1.md, data/chapter2_section2.md
-================================================================================
+[2026-02-07 08:32:47,188] [INFO] [__main__] [main.py:148] [query] Sources: data/chapter2_section1.md
+[2026-02-07 08:32:47,188] [INFO] [__main__] [main.py:149] [query] ================================================================================
+
 ```
 
 #### JSON出力例
@@ -249,11 +269,10 @@ uv run python -m src.main query -d data/ -q "質問" -o output/answer.json
 
 ```json
 {
-  "question": "RAGシステムとは何ですか？",
-  "answer": "RAG（Retrieval-Augmented Generation）システムとは...",
+  "question": "構造化出力とはなんですか？",
+  "answer": "構造化出力とは、LLM（大規模言語モデル）に対して事前に定義したデータ構造（スキーマ）に従って出力するよう明確に指示し、その構造に合致したJSONやデータクラス形式で応答を受け取る手法です。これにより、システムはLLMの生成結果を安全かつ構造的に処理できるようになり、高い信頼性を持つシステム連携が実現できます。(文書1、文書2)",
   "source_chunks": [
-    "data/chapter2_section1.md",
-    "data/chapter2_section2.md"
+    "data/chapter2_section1.md"
   ]
 }
 ```

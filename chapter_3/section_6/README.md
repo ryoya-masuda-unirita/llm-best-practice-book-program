@@ -164,11 +164,8 @@ GATEWAY_TIMEOUT=30.0
 2. **依存関係のインストール**
 
 ```bash
-# uvを使用する場合（推奨）
+# uvを使用
 uv sync
-
-# pipを使用する場合
-pip install -e .
 ```
 
 ### 使用方法、実行方法
@@ -193,10 +190,12 @@ make docker-down
 
 ```bash
 # ゲートウェイのヘルスチェック
-curl http://localhost:8080/health
+$ curl http://localhost:8080/health
+{"status":"healthy","timestamp":1769323495.0489843,"providers_available":{"openai":true,"gemini":true}}
 
 # バックエンドのヘルスチェック
-curl http://localhost:8000/health
+$ curl http://localhost:8000/health
+{"status":"healthy","timestamp":1769323492.3572245}
 ```
 
 **2. キャラクター生成（バックエンドAPI経由）**
@@ -244,14 +243,13 @@ curl -X POST http://localhost:8080/v1/generate \
 
 **リクエスト**:
 ```bash
-curl http://localhost:8080/health
-```
-
-**レスポンス**:
-```json
+$ curl http://localhost:8080/health | jq .
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   102  100   102    0     0  20719      0 --:--:-- --:--:-- --:--:-- 25500
 {
   "status": "healthy",
-  "timestamp": 1729123456.789,
+  "timestamp": 1769323559.985998,
   "providers_available": {
     "openai": true,
     "gemini": true
@@ -263,7 +261,7 @@ curl http://localhost:8080/health
 
 **リクエスト**:
 ```bash
-curl -X POST http://localhost:8000/generate \
+$ curl -X POST http://localhost:8000/generate \
   -H "Content-Type: application/json" \
   -d '{
     "provider": "gemini",
@@ -273,35 +271,34 @@ curl -X POST http://localhost:8000/generate \
       "age": 28,
       "additional_instructions": null
     }
-  }'
-```
-
-**レスポンス**:
-```json
+  }' | jq .
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  1029  100   853  100   176    324     66  0:00:02  0:00:02 --:--:--   391
 {
   "character": {
-    "first_name": "蒼",
-    "last_name": "雨宮",
+    "first_name": "Kaito",
+    "last_name": "Tanaka",
     "gender": "male",
     "age": 28,
     "personalities": [
       {
-        "short_personality": "内向的な思索家",
-        "description": "常に深く物事を考え、静かな場所を好む。表面的な会話よりも、哲学的な議論に心を開く。"
+        "short_personality": "Observant",
+        "description": "Kaito possesses a remarkable ability to notice minute details and patterns that often escape others' attention, making him an excellent analyst and problem-solver."                                                                                                        
       },
       {
-        "short_personality": "完璧主義者",
-        "description": "すべてのタスクに最高の基準を求め、細部にこだわる。しばしば自分自身に対して厳しすぎることがある。"
+        "short_personality": "Resourceful",
+        "description": "He is incredibly adept at utilizing available resources, no matter how limited, to achieve his goals or overcome obstacles, demonstrating creativity and adaptability."                                                                                                     
       },
       {
-        "short_personality": "忠実な友人",
-        "description": "一度信頼関係を築くと、どんな困難な状況でも友人を支える。約束を何よりも大切にする。"
+        "short_personality": "Calm Under Pressure",
+        "description": "Even in the most chaotic or high-stakes situations, Kaito maintains a serene demeanor, allowing him to think clearly and make rational decisions without succumbing to panic."                                                                                              
       }
     ]
   },
   "provider": "gemini",
   "model": "gemini-2.5-flash",
-  "processing_time_ms": 1234.56
+  "processing_time_ms": 2624.802589416504
 }
 ```
 

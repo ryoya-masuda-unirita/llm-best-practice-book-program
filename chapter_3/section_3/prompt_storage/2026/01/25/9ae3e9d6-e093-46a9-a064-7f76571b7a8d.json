@@ -1,0 +1,45 @@
+{
+  "prompt_id": "9ae3e9d6-e093-46a9-a064-7f76571b7a8d",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「25」歳です。\n謎めいた過去を持つ熟練の弓使いのキャラクターを作成してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Elara",
+    "last_name": "Vancroft",
+    "gender": "female",
+    "age": 25,
+    "personalities": [
+      {
+        "short_personality": "Observant",
+        "description": "Elara possesses a keen eye and an unwavering focus, constantly analyzing her surroundings. This trait not only makes her an exceptional archer but also a perceptive judge of character, often noticing details others overlook due to her mysterious and guarded past."
+      },
+      {
+        "short_personality": "Reserved",
+        "description": "Due to a shadowy history, Elara maintains a quiet demeanor, rarely initiating conversation or sharing personal information. She prefers to listen and observe, her words chosen carefully and sparingly, creating an aura of intrigue and sometimes aloofness."
+      },
+      {
+        "short_personality": "Determined",
+        "description": "Beneath her calm exterior lies an unbreakable will. Once Elara sets her mind to a task or a goal, she pursues it with relentless dedication, overcoming obstacles with unwavering persistence. This determination is rooted in her past struggles and her commitment to forging her own path."
+      }
+    ]
+  },
+  "created_at": "2026-01-25T06:07:17.444081+00:00",
+  "metadata": {
+    "request_id": "449697e0-a05e-4a1e-b6b0-8064712dadf6",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 25,
+      "additional_instructions": "謎めいた過去を持つ熟練の弓使いのキャラクターを作成してください。"
+    }
+  }
+}

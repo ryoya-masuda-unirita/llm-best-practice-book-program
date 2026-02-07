@@ -1,0 +1,45 @@
+{
+  "prompt_id": "4cc40850-f15e-43a2-9af2-1c1335e30511",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「48」歳です。\n超常現象を調査する冷静な探偵のキャラクターを考案してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Kaito",
+    "last_name": "Shirakawa",
+    "gender": "male",
+    "age": 48,
+    "personalities": [
+      {
+        "short_personality": "冷静沈着",
+        "description": "どのような超常現象に遭遇しても、常に冷静さを保ち、論理的思考で事態を分析します。感情に流されることはほとんどなく、客観的な視点から事件を調査します。"
+      },
+      {
+        "short_personality": "鋭い観察眼",
+        "description": "ごくわずかな異常や、一見すると無関係に見える手がかりをも見逃しません。通常の探偵が無視するようなディテールから、超常現象の真実へと迫る洞察力を持っています。"
+      },
+      {
+        "short_personality": "懐疑的だが開明的",
+        "description": "生まれつき超常現象を信じるわけではなく、常に科学的・合理的な説明を最優先しますが、未解明な事象に対しては先入観を持たず、新たな可能性を探求する開かれた心も持ち合わせています。"
+      }
+    ]
+  },
+  "created_at": "2026-01-25T06:07:33.336454+00:00",
+  "metadata": {
+    "request_id": "577c57d2-6130-407e-a388-455e3c187c7c",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 48,
+      "additional_instructions": "超常現象を調査する冷静な探偵のキャラクターを考案してください。"
+    }
+  }
+}

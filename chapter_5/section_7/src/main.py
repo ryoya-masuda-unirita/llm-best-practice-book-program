@@ -135,7 +135,7 @@ def cli():
     "--model",
     "-m",
     type=click.Choice(OpenAIModel.list_str()),
-    default=OpenAIModel.GPT_4O,
+    default=OpenAIModel.GPT_5_MINI,
     help="OpenAI model to use.",
 )
 @click.option(
@@ -305,7 +305,7 @@ async def generate(
     logger.info(f"Week: {plan.week_number}")
     logger.info(f"Goal: {plan.goal_for_week}")
     logger.info(f"Daily plans: {len(plan.daily_plans)}")
-    logger.info(f"\nPlan saved: {output_path}")
+    logger.info(f"Plan saved: {output_path}")
     logger.info(f"Memory saved: {memory_path}")
     logger.info("=" * 60)
 

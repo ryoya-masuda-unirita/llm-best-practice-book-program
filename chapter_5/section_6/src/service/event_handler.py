@@ -73,7 +73,7 @@ class FileCreatedHandler(EventHandler):
 
     def __init__(
         self,
-        model: str = OpenAIModel.GPT_4O_MINI,
+        model: str = OpenAIModel.GPT_5_MINI,
         output_directory: str = "outputs",
     ):
         self.model = model
@@ -220,7 +220,7 @@ class EventBus:
 
 
 def create_default_event_bus(
-    model: str = OpenAIModel.GPT_4O_MINI,
+    model: str = OpenAIModel.GPT_5_MINI,
     output_directory: str = "outputs",
 ) -> EventBus:
     """Create an event bus with default handlers configured."""

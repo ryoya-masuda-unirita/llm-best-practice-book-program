@@ -72,7 +72,7 @@ MIN_FEEDBACK_FOR_LEARNING = 2
 # =============================================================================
 
 
-def _create_chat_model(model: str = OpenAIModel.GPT_4O) -> ChatOpenAI:
+def _create_chat_model(model: str = OpenAIModel.GPT_5_MINI) -> ChatOpenAI:
     """Create a ChatOpenAI model instance."""
     return ChatOpenAI(model=model, openai_api_key=global_config.openai_api_key)
 
@@ -187,7 +187,7 @@ def _convert_response_to_training_plan(
 
 def generate_training_plan(
     memory: UserMemory,
-    model: str = OpenAIModel.GPT_4O,
+    model: str = OpenAIModel.GPT_5_MINI,
 ) -> TrainingPlan:
     """Generate a personalized 1-week training plan."""
     logger.info("=" * 60)
@@ -264,7 +264,7 @@ def _convert_response_to_learned_pattern(
 
 def analyze_feedback_patterns(
     memory: UserMemory,
-    model: str = OpenAIModel.GPT_4O,
+    model: str = OpenAIModel.GPT_5_MINI,
 ) -> list[LearnedPattern]:
     """Analyze user feedback and extract patterns for improving future plan generation."""
     feedback_list = memory.get_recent_feedback(limit=10)
@@ -313,7 +313,7 @@ def analyze_feedback_patterns(
 async def run_training_plan_generation(
     user_id: str,
     profile: UserProfile | None = None,
-    model: str = OpenAIModel.GPT_4O,
+    model: str = OpenAIModel.GPT_5_MINI,
     analyze_patterns: bool = True,
 ) -> tuple[TrainingPlan, UserMemory, Path]:
     """Run the complete training plan generation workflow."""

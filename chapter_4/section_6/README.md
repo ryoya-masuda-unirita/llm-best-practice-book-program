@@ -113,11 +113,8 @@ export GEMINI_API_KEY="your-gemini-api-key-here"
 2. 依存関係のインストール
 
 ```bash
-# uvを使用する場合
+# uvを使用
 uv sync
-
-# pipを使用する場合
-pip install -e .
 ```
 
 ### 使用方法、実行方法
@@ -151,6 +148,7 @@ python -m src.main -w all
 ### CLIオプション
 
 ```
+$ python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
   Run workflow orchestration examples.
@@ -165,71 +163,25 @@ Options:
 ### 出力例
 
 ```
-$ python -m src.main -w example_conditional_workflow
+$ python -m src.main -w example_gemini_simple
 
-[2025-01-15 10:30:00] [INFO] Running: example_conditional_workflow
-[2025-01-15 10:30:00] [INFO] ============================================================
-[2025-01-15 10:30:00] [INFO] Example: Conditional Workflow
-[2025-01-15 10:30:00] [INFO] ============================================================
-[2025-01-15 10:30:00] [INFO] Starting workflow: conditional
-[2025-01-15 10:30:00] [INFO] Workflow conditional validated
-[2025-01-15 10:30:00] [INFO] Executing: start (Start)
-[2025-01-15 10:30:00] [INFO] Starting workflow: conditional
-[2025-01-15 10:30:00] [INFO] Executing: age_check (Check Age)
-[2025-01-15 10:30:00] [INFO] Evaluating condition: Check Age
-[2025-01-15 10:30:00] [INFO] Condition result: True
-[2025-01-15 10:30:00] [INFO] Executing: adult (Adult Path)
-[2025-01-15 10:30:00] [INFO] Executing script: Adult Path
-[2025-01-15 10:30:00] [INFO] Executing: end (End)
-[2025-01-15 10:30:00] [INFO] Ending workflow: conditional
-[2025-01-15 10:30:00] [INFO] Reached end: end
-[2025-01-15 10:30:00] [INFO] Workflow conditional completed
-[2025-01-15 10:30:00] [INFO] Completed: completed (4 nodes)
-```
-
-### プログラムからの使用例
-
-```python
-from src.client import GeminiModel, create_executor
-from src.workflow import ExecutionContext, WorkflowBuilder, WorkflowEngine
-
-async def run_review_pipeline():
-    # Gemini Executorを作成
-    executor = create_executor(
-        model=GeminiModel.GEMINI_2_5_FLASH,
-        system_instruction="You are a helpful assistant."
-    )
-
-    # 条件判定関数
-    def check_quality(ctx: ExecutionContext) -> bool:
-        return ctx.get_variable("quality_score", 0) >= 7
-
-    # ワークフローを定義
-    workflow = (
-        WorkflowBuilder("review_pipeline", "Review Processing")
-        .add_start_node("start", initial_data={"review": "素晴らしい商品です！"})
-        .add_prompt_node(
-            "analyze",
-            prompt_template="以下のレビューを分析してください: {review}",
-            llm_executor=executor
-        )
-        .add_if_else_node("quality_check", condition=check_quality)
-        .add_script_node("accept", func=lambda ctx: {"status": "accepted"})
-        .add_script_node("refine", func=lambda ctx: {"status": "needs_review"})
-        .add_end_node("end")
-        .add_edge("start", "analyze")
-        .add_edge("analyze", "quality_check")
-        .set_if_else_branches("quality_check", "accept", "refine")
-        .add_edge("accept", "end")
-        .add_edge("refine", "end")
-        .build()
-    )
-
-    # ワークフローを実行
-    engine = WorkflowEngine(enable_checkpointing=True, max_retries=3)
-    result = await engine.execute(workflow)
-
-    print(f"Status: {result['status']}")
-    print(f"Nodes executed: {result['nodes_executed']}")
-    return result
+[2026-02-07 08:43:48,295] [INFO] [__main__] [main.py:64] [main] Running: example_gemini_simple
+[2026-02-07 08:43:48,295] [INFO] [src.examples] [examples.py:94] [example_gemini_simple] ============================================================
+[2026-02-07 08:43:48,296] [INFO] [src.examples] [examples.py:95] [example_gemini_simple] Example: Gemini Simple
+[2026-02-07 08:43:48,296] [INFO] [src.examples] [examples.py:96] [example_gemini_simple] ============================================================
+[2026-02-07 08:43:48,296] [INFO] [src.workflow.workflow] [workflow.py:65] [validate] Workflow gemini_simple validated
+[2026-02-07 08:43:48,296] [INFO] [src.workflow.engine] [engine.py:35] [execute] Starting workflow: gemini_simple
+[2026-02-07 08:43:48,296] [INFO] [src.workflow.workflow] [workflow.py:65] [validate] Workflow gemini_simple validated
+[2026-02-07 08:43:48,296] [INFO] [src.workflow.engine] [engine.py:77] [_run] Executing: start (Start)
+[2026-02-07 08:43:48,296] [INFO] [src.workflow.nodes] [nodes.py:20] [execute] Starting workflow: gemini_simple
+[2026-02-07 08:43:48,296] [INFO] [src.workflow.engine] [engine.py:77] [_run] Executing: generate (Generate)
+[2026-02-07 08:43:48,296] [INFO] [src.workflow.nodes] [nodes.py:54] [execute] Executing prompt node: Generate
+[2026-02-07 08:43:50,367] [INFO] [src.workflow.engine] [engine.py:77] [_run] Executing: display (Display)
+[2026-02-07 08:43:50,367] [INFO] [src.workflow.nodes] [nodes.py:158] [execute] Executing script: Display
+[2026-02-07 08:43:50,367] [INFO] [src.workflow.engine] [engine.py:77] [_run] Executing: end (End)
+[2026-02-07 08:43:50,367] [INFO] [src.workflow.nodes] [nodes.py:33] [execute] Ending workflow: gemini_simple
+[2026-02-07 08:43:50,367] [INFO] [src.workflow.engine] [engine.py:89] [_run] Reached end: end
+[2026-02-07 08:43:50,367] [INFO] [src.workflow.engine] [engine.py:54] [execute] Workflow gemini_simple completed
+[2026-02-07 08:43:50,367] [INFO] [src.examples] [examples.py:115] [example_gemini_simple] Response: Artificial intelligence (AI) is a field of computer science dedicated to creating machines that can perform tasks traditionally requiring human intelligence. This involves developing systems capable of learning, problem-solving, decision-making, perception, and understanding language, ultimately aiming to enable computers to think and act like humans.
+[2026-02-07 08:43:50,367] [INFO] [__main__] [main.py:66] [main] Completed: completed (4 nodes)
 ```

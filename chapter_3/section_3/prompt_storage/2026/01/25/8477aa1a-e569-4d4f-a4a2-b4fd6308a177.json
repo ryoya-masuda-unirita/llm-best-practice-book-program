@@ -1,0 +1,45 @@
+{
+  "prompt_id": "8477aa1a-e569-4d4f-a4a2-b4fd6308a177",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「16」歳です。\n家族の期待と自分の夢の間で葛藤する若い曲芸師のキャラクターを開発してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "ケンジ",
+    "last_name": "タナカ",
+    "gender": "male",
+    "age": 16,
+    "personalities": [
+      {
+        "short_personality": "義務感が強い",
+        "description": "幼い頃から家業である曲芸団の一員として厳しく訓練を受けてきたため、家族の期待と伝統を重んじる義務感が強い。自分の役割を果たすことに責任を感じている。"
+      },
+      {
+        "short_personality": "内向的な夢想家",
+        "description": "表向きは黙々と訓練に打ち込むが、内心では人知れず広大な世界への憧れを抱いている。曲芸とは異なる、芸術や学問の分野にひそかに興味を持ち、将来について深く考えることが多い。"
+      },
+      {
+        "short_personality": "繊細で感受性豊か",
+        "description": "身体能力が高い一方で、感情が豊かで他人の感情を敏感に察知する。内なる葛藤や外界からのプレッシャーに繊細に反応し、時に自身の感情の波に揺さぶられることがある。"
+      }
+    ]
+  },
+  "created_at": "2026-01-25T06:07:42.169183+00:00",
+  "metadata": {
+    "request_id": "09b6d81e-c229-4214-99b2-25fc4682c1f5",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 16,
+      "additional_instructions": "家族の期待と自分の夢の間で葛藤する若い曲芸師のキャラクターを開発してください。"
+    }
+  }
+}

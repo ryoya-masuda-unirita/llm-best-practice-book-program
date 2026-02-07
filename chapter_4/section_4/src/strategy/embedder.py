@@ -31,5 +31,5 @@ class Embedder(Component[list[Chunk], list[ChunkWithEmbedding]]):
         return chunks_with_embeddings
 
     async def _create_embedding(self, text: str) -> list[float]:
-        result = await google_genai_client.aio.models.embed_content(model=self.model, content=text)
+        result = await google_genai_client.aio.models.embed_content(model=self.model, contents=text)
         return result.embeddings[0].values

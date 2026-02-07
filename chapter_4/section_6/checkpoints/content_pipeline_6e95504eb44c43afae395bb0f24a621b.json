@@ -1,0 +1,102 @@
+{
+  "workflow_id": "content_pipeline",
+  "checkpoint_id": "6e95504eb44c43afae395bb0f24a621b",
+  "timestamp": "2026-02-07T08:44:28.112954",
+  "workflow_state": {
+    "workflow_id": "content_pipeline",
+    "state": "running",
+    "started_at": "2026-02-07 08:44:20.424493",
+    "completed_at": null,
+    "current_node_id": "store_content",
+    "node_states": {
+      "start": "completed",
+      "generate_topics": "completed",
+      "parse_topics": "completed",
+      "select_topic": "completed",
+      "generate_content": "completed",
+      "store_content": "completed"
+    },
+    "retry_counts": {},
+    "error": null
+  },
+  "execution_context": {
+    "workflow_id": "content_pipeline",
+    "variables": {
+      "domain": "artificial intelligence",
+      "num_topics": 3,
+      "generate_topics_output": {
+        "content": "The Future is Now: How AI is Reshaping Industries, Ethical AI: Addressing Bias and Building Trust, AI for Everyone: Practical Ways Artificial Intelligence Enhances Daily Life",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 25,
+          "completion_tokens": 34,
+          "total_tokens": 182
+        },
+        "finish_reason": "STOP"
+      },
+      "selected_topic": "The Future is Now: How AI is Reshaping Industries",
+      "generate_content_output": {
+        "content": "The sci-fi visions of intelligent machines once felt like a distant tomorrow, confined to movie screens and speculative novels. Yet, as we stand here today, that future isn't just arriving; it's already deeply embedded in our present. Artificial Intelligence (AI) has transcended the realm of theoretical possibility to become a tangible, transformative force, actively reshaping the very foundations of industries across the globe. From optimizing complex supply chains to personalizing customer experiences and driving groundbreaking scientific discoveries, AI is no longer a futuristic concept but a vital operational engine driving unprecedented levels of efficiency, innovation, and strategic insight.\n\nAcross sectors, AI's influence is undeniable and revolutionary. In healthcare, AI is accelerating drug discovery, enhancing diagnostic accuracy through sophisticated image analysis, and personalizing treatment plans with remarkable precision. Manufacturing floors are buzzing with AI-powered robots and predictive maintenance systems that minimize downtime, optimize resource allocation, and maximize production efficiency. The financial world leverages AI for sophisticated fraud detection, algorithmic trading strategies, and hyper-customized wealth management advice, while retail uses it for dynamic pricing, inventory management, and anticipating consumer trends with astonishing accuracy.\n\nThis rapid integration isn't merely about automation; it's about fundamentally rethinking processes, unlocking new capabilities, and fostering an era of continuous innovation. While concerns about job displacement are valid, the reality often points to job evolution, where AI augments human potential and creates entirely new roles centered on AI development, oversight, and strategic application. For businesses looking to thrive, embracing AI isn't an option but a necessity. The future isn't coming; it's here, and industries that harness the power of AI today will be the ones defining tomorrow's landscape, building smarter, more resilient, and more innovative operations.",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 31,
+          "completion_tokens": 356,
+          "total_tokens": 1005
+        },
+        "finish_reason": "STOP"
+      },
+      "content": "The sci-fi visions of intelligent machines once felt like a distant tomorrow, confined to movie screens and speculative novels. Yet, as we stand here today, that future isn't just arriving; it's already deeply embedded in our present. Artificial Intelligence (AI) has transcended the realm of theoretical possibility to become a tangible, transformative force, actively reshaping the very foundations of industries across the globe. From optimizing complex supply chains to personalizing customer experiences and driving groundbreaking scientific discoveries, AI is no longer a futuristic concept but a vital operational engine driving unprecedented levels of efficiency, innovation, and strategic insight.\n\nAcross sectors, AI's influence is undeniable and revolutionary. In healthcare, AI is accelerating drug discovery, enhancing diagnostic accuracy through sophisticated image analysis, and personalizing treatment plans with remarkable precision. Manufacturing floors are buzzing with AI-powered robots and predictive maintenance systems that minimize downtime, optimize resource allocation, and maximize production efficiency. The financial world leverages AI for sophisticated fraud detection, algorithmic trading strategies, and hyper-customized wealth management advice, while retail uses it for dynamic pricing, inventory management, and anticipating consumer trends with astonishing accuracy.\n\nThis rapid integration isn't merely about automation; it's about fundamentally rethinking processes, unlocking new capabilities, and fostering an era of continuous innovation. While concerns about job displacement are valid, the reality often points to job evolution, where AI augments human potential and creates entirely new roles centered on AI development, oversight, and strategic application. For businesses looking to thrive, embracing AI isn't an option but a necessity. The future isn't coming; it's here, and industries that harness the power of AI today will be the ones defining tomorrow's landscape, building smarter, more resilient, and more innovative operations."
+    },
+    "node_outputs": {
+      "start": {
+        "status": "started",
+        "initial_data": {
+          "domain": "artificial intelligence",
+          "num_topics": 3
+        }
+      },
+      "generate_topics": {
+        "content": "The Future is Now: How AI is Reshaping Industries, Ethical AI: Addressing Bias and Building Trust, AI for Everyone: Practical Ways Artificial Intelligence Enhances Daily Life",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 25,
+          "completion_tokens": 34,
+          "total_tokens": 182
+        },
+        "finish_reason": "STOP"
+      },
+      "parse_topics": {
+        "topics": [
+          "The Future is Now: How AI is Reshaping Industries",
+          "Ethical AI: Addressing Bias and Building Trust",
+          "AI for Everyone: Practical Ways Artificial Intelligence Enhances Daily Life"
+        ],
+        "count": 3
+      },
+      "select_topic": {
+        "selected_topic": "The Future is Now: How AI is Reshaping Industries",
+        "remaining": [
+          "Ethical AI: Addressing Bias and Building Trust",
+          "AI for Everyone: Practical Ways Artificial Intelligence Enhances Daily Life"
+        ]
+      },
+      "generate_content": {
+        "content": "The sci-fi visions of intelligent machines once felt like a distant tomorrow, confined to movie screens and speculative novels. Yet, as we stand here today, that future isn't just arriving; it's already deeply embedded in our present. Artificial Intelligence (AI) has transcended the realm of theoretical possibility to become a tangible, transformative force, actively reshaping the very foundations of industries across the globe. From optimizing complex supply chains to personalizing customer experiences and driving groundbreaking scientific discoveries, AI is no longer a futuristic concept but a vital operational engine driving unprecedented levels of efficiency, innovation, and strategic insight.\n\nAcross sectors, AI's influence is undeniable and revolutionary. In healthcare, AI is accelerating drug discovery, enhancing diagnostic accuracy through sophisticated image analysis, and personalizing treatment plans with remarkable precision. Manufacturing floors are buzzing with AI-powered robots and predictive maintenance systems that minimize downtime, optimize resource allocation, and maximize production efficiency. The financial world leverages AI for sophisticated fraud detection, algorithmic trading strategies, and hyper-customized wealth management advice, while retail uses it for dynamic pricing, inventory management, and anticipating consumer trends with astonishing accuracy.\n\nThis rapid integration isn't merely about automation; it's about fundamentally rethinking processes, unlocking new capabilities, and fostering an era of continuous innovation. While concerns about job displacement are valid, the reality often points to job evolution, where AI augments human potential and creates entirely new roles centered on AI development, oversight, and strategic application. For businesses looking to thrive, embracing AI isn't an option but a necessity. The future isn't coming; it's here, and industries that harness the power of AI today will be the ones defining tomorrow's landscape, building smarter, more resilient, and more innovative operations.",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 31,
+          "completion_tokens": 356,
+          "total_tokens": 1005
+        },
+        "finish_reason": "STOP"
+      },
+      "store_content": {
+        "stored": true
+      }
+    },
+    "error": null
+  },
+  "metadata": {
+    "node": "store_content"
+  }
+}

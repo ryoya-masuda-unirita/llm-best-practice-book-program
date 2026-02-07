@@ -5,6 +5,7 @@ import sys
 from functools import wraps
 
 import click
+from src.client import google_genai_client
 from src.examples import (
     example_checkpoint_recovery,
     example_complex_content_pipeline,
@@ -63,12 +64,11 @@ async def main(workflow: str):
             logger.info(f"Running: {workflow}")
             result = await WORKFLOWS[workflow]()
             logger.info(f"Completed: {result.get('status')} ({result.get('nodes_executed')} nodes)")
-    except KeyboardInterrupt:
-        logger.info("\nInterrupted")
-        sys.exit(0)
     except Exception as e:
         logger.error(f"Failed: {e}", exc_info=True)
         sys.exit(1)
+    finally:
+        await google_genai_client.aio.aclose()
 
 
 if __name__ == "__main__":

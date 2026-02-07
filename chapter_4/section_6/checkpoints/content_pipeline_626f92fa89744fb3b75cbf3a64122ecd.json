@@ -1,0 +1,67 @@
+{
+  "workflow_id": "content_pipeline",
+  "checkpoint_id": "626f92fa89744fb3b75cbf3a64122ecd",
+  "timestamp": "2026-02-07T08:44:22.186805",
+  "workflow_state": {
+    "workflow_id": "content_pipeline",
+    "state": "running",
+    "started_at": "2026-02-07 08:44:20.424493",
+    "completed_at": null,
+    "current_node_id": "parse_topics",
+    "node_states": {
+      "start": "completed",
+      "generate_topics": "completed",
+      "parse_topics": "completed"
+    },
+    "retry_counts": {},
+    "error": null
+  },
+  "execution_context": {
+    "workflow_id": "content_pipeline",
+    "variables": {
+      "domain": "artificial intelligence",
+      "num_topics": 3,
+      "generate_topics_output": {
+        "content": "The Future is Now: How AI is Reshaping Industries, Ethical AI: Addressing Bias and Building Trust, AI for Everyone: Practical Ways Artificial Intelligence Enhances Daily Life",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 25,
+          "completion_tokens": 34,
+          "total_tokens": 182
+        },
+        "finish_reason": "STOP"
+      }
+    },
+    "node_outputs": {
+      "start": {
+        "status": "started",
+        "initial_data": {
+          "domain": "artificial intelligence",
+          "num_topics": 3
+        }
+      },
+      "generate_topics": {
+        "content": "The Future is Now: How AI is Reshaping Industries, Ethical AI: Addressing Bias and Building Trust, AI for Everyone: Practical Ways Artificial Intelligence Enhances Daily Life",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 25,
+          "completion_tokens": 34,
+          "total_tokens": 182
+        },
+        "finish_reason": "STOP"
+      },
+      "parse_topics": {
+        "topics": [
+          "The Future is Now: How AI is Reshaping Industries",
+          "Ethical AI: Addressing Bias and Building Trust",
+          "AI for Everyone: Practical Ways Artificial Intelligence Enhances Daily Life"
+        ],
+        "count": 3
+      }
+    },
+    "error": null
+  },
+  "metadata": {
+    "node": "parse_topics"
+  }
+}

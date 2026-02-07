@@ -149,6 +149,16 @@ python -m src.main --help
 
 ### CLIオプション
 
+```shell
+$ python -m src.main --help
+Usage: python -m src.main [OPTIONS]
+
+Options:
+  -a, --agent [example_1_basic_agent|example_2_react_agent|example_3_multi_strategy_agent|example_4_config_based_agent|example_5_graph_mediator|example_6_parallel_execution|example_7_memory_snapshots|example_8_execution_control|all]
+                                  The agent workflow to run.  [required]
+  --help                          Show this message and exit.
+```
+
 | オプション | 短縮形 | 説明 |
 |-----------|--------|------|
 | `--agent` | `-a` | 実行するエージェントワークフロー（必須） |
@@ -173,16 +183,84 @@ python -m src.main --help
 ```bash
 $ python -m src.main -a example_1_basic_agent
 
+[2026-02-07 08:54:06,213] [INFO] [__main__] [main.py:84] [main] Running agent: example_1_basic_agent
+
+[2026-02-07 08:54:06,213] [INFO] [src.examples] [examples.py:33] [example_1_basic_agent] 
 === Example 1: Basic Agent with Chain-of-Thought ===
 
-Goal: Write a haiku about the changing seasons
-Result:
-Leaves fall, colors fade,
-Winter's breath blankets the earth,
-Spring blooms once again.
+[2026-02-07 08:54:07,769] [INFO] [src.agent.agent] [agent.py:172] [_log_execution] 
+=== Agent Execution Trace ===
+[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:173] [_log_execution] Iterations: 1
+[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:174] [_log_execution] Final State: idle
 
+[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:175] [_log_execution] State History:
+[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   idle -> thinking at 2026-02-07 08:54:06.213214
+[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   thinking -> completed at 2026-02-07 08:54:07.769916
+[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   completed -> idle at 2026-02-07 08:54:07.769933
+[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:181] [_log_execution] 
+Events:
+[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [thinking] Agent is thinking
+[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [completed] Agent is completed
+[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [idle] Agent is idle
+[2026-02-07 08:54:07,770] [INFO] [src.examples] [examples.py:58] [example_1_basic_agent] Goal: Write a haiku about the changing seasons
+[2026-02-07 08:54:07,770] [INFO] [src.examples] [examples.py:59] [example_1_basic_agent] Result:
+Green fades to gold now,
+Winter's breath will chill the air,
+Life turns, new cycle.
+[2026-02-07 08:54:07,770] [INFO] [__main__] [main.py:89] [main] 
 ✓ Agent 'example_1_basic_agent' completed successfully
+[2026-02-07 08:54:07,770] [INFO] [__main__] [main.py:93] [main]   Output: Green fades to gold now,
+Winter's breath will chill the air,
+Life turns, new cycle.
 ```
+
+```bash
+$ python -m src.main -a example_2_react_agent      
+[2026-02-07 08:55:18,581] [INFO] [__main__] [main.py:84] [main] Running agent: example_2_react_agent
+
+[2026-02-07 08:55:18,581] [INFO] [src.examples] [examples.py:66] [example_2_react_agent] 
+=== Example 2: Agent with ReAct Strategy ===
+
+[2026-02-07 08:55:28,847] [INFO] [src.agent.agent] [agent.py:172] [_log_execution] 
+=== Agent Execution Trace ===
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:173] [_log_execution] Iterations: 4
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:174] [_log_execution] Final State: idle
+
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:175] [_log_execution] State History:
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   idle -> thinking at 2026-02-07 08:55:18.581284
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   thinking -> acting at 2026-02-07 08:55:19.614846
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   acting -> thinking at 2026-02-07 08:55:19.614895
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   thinking -> acting at 2026-02-07 08:55:23.555026
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   acting -> thinking at 2026-02-07 08:55:23.555046
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   thinking -> completed at 2026-02-07 08:55:28.847894
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   completed -> idle at 2026-02-07 08:55:28.847913
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:181] [_log_execution] 
+Events:
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [thinking] Agent is thinking
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [acting] Agent is acting
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [thinking] Agent is thinking
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [acting] Agent is acting
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [thinking] Agent is thinking
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [completed] Agent is completed
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [idle] Agent is idle
+[2026-02-07 08:55:28,848] [INFO] [src.examples] [examples.py:107] [example_2_react_agent] Goal: Search for information about the Eiffel Tower, then write a short poem inspired by what you learned
+[2026-02-07 08:55:28,848] [INFO] [src.examples] [examples.py:108] [example_2_react_agent] Result:
+A structure of iron, a skyward climb,
+Parisian sentinel, defying time.
+From latticework forged, a towering might,
+An iconic beacon, bathed in city light.
+A metallic marvel, a symbol grand and bold,
+A Parisian story, in steel forever told.
+[2026-02-07 08:55:28,848] [INFO] [__main__] [main.py:89] [main] 
+✓ Agent 'example_2_react_agent' completed successfully
+[2026-02-07 08:55:28,848] [INFO] [__main__] [main.py:93] [main]   Output: A structure of iron, a skyward climb,
+Parisian sentinel, defying time.
+From latticework forged, a towering might,
+An iconic beacon, bathed in city light.
+A metallic marvel, a symbol grand and bold,
+A Parisian story, in steel forever told.
+```
+
 
 ## 主要コンポーネント
 
@@ -213,20 +291,4 @@ Spring blooms once again.
   Acting -> Thinking, Completed, Error
   Completed -> Idle
   Error -> Idle
-```
-
-## 開発コマンド
-
-```bash
-# コードのリント（ruff）
-make lint
-
-# コードのフォーマット（ruff）
-make fmt
-
-# リントとフォーマット
-make fix
-
-# 型チェック（mypy）
-make mypy
 ```

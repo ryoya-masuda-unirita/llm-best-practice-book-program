@@ -149,37 +149,13 @@ REDIS_PASSWORD=
 2. **依存関係のインストール**
 
 ```bash
-# uvを使用する場合（推奨）
+# uvを使用
 uv sync
-
-# pipを使用する場合
-pip install -e .
-```
-
-3. **Redisのセットアップ（Redisキャッシュ使用時のみ）**
-
-```bash
-# ローカルでRedisを起動
-docker run -d -p 6379:6379 redis:latest
-
-# または、Homebrewでインストール（macOS）
-brew install redis
-brew services start redis
 ```
 
 ### 使用方法、実行方法
 
-#### 方法1: ローカル実行
-
-```bash
-# LLM APIサーバーを起動
-make run-llm-server
-
-# または直接uvicornで起動
-uv run uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000 --reload
-```
-
-#### 方法2: Docker Compose実行
+#### Docker Compose実行
 
 ```bash
 # Dockerイメージをビルド
@@ -238,50 +214,67 @@ curl -X DELETE "http://localhost:8000/cache/{cache_key}"
 サーバー起動後、以下のURLで自動生成されたAPIドキュメントを参照できます：
 
 - **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
 
 ### 出力例
 
 #### 1. キャラクター生成レスポンス
 
-```json
+```bash
+$ curl -X POST "http://localhost:8000/generate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "character_request": {
+      "gender": "male",
+      "age": 28,
+      "additional_instructions": "ファンタジー世界の魔法使い"
+    }
+  }' | jq .
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  1232  100  1024  100   208   172k  35812 --:--:-- --:--:-- --:--:--  240k
 {
   "character": {
-    "first_name": "アリス",
-    "last_name": "スターフィールド",
-    "gender": "female",
-    "age": 22,
+    "first_name": "Kaelan",
+    "last_name": "Morrigan",
+    "gender": "male",
+    "age": 28,
     "personalities": [
       {
-        "short_personality": "好奇心旺盛な探究者",
-        "description": "未知の領域や新しい発見に対して常に興味を持ち、リスクを恐れずチャレンジする。"
+        "short_personality": "Curious",
+        "description": "Kaelan possesses an insatiable curiosity about the mystical forces of the world. This drives him to explore ancient texts and forgotten ruins, seeking knowledge that many deem forbidden or too dangerous."                                                                
       },
       {
-        "short_personality": "冷静な判断力",
-        "description": "緊急事態でも感情に流されず、論理的かつ迅速に最適解を導き出す能力を持つ。"
+        "short_personality": "Witty",
+        "description": "His sharp wit often emerges in conversations, allowing him to defuse tense situations with humor. He enjoys clever banter and has a knack for turning mundane discussions into engaging debates, making him a beloved figure among friends."                                
       },
       {
-        "short_personality": "チームプレイヤー",
-        "description": "仲間との協力を重視し、全員が安全に任務を遂行できるようサポートする。"
+        "short_personality": "Reclusive",
+        "description": "Despite his social nature, Kaelan often retreats into solitude to practice his magic. He takes time away from the bustling city to connect with nature, believing that true power comes from understanding the balance between magic and the world around him."             
       }
     ]
   },
   "provider": "openai",
   "model": "gpt-4o-mini",
-  "processing_time_ms": 1234.56
+  "processing_time_ms": 0.5803108215332031
 }
 ```
 
 #### 2. キャッシュメトリクスレスポンス
 
-```json
+```bash
+$ curl http://localhost:8000/metrics | jq .
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   120  100   120    0     0  15455      0 --:--:-- --:--:-- --:--:-- 17142
 {
   "cache_enabled": true,
-  "cache_backend": "redis",
-  "cache_hits": 42,
-  "cache_misses": 8,
-  "cache_hit_rate": 0.84,
-  "total_requests": 50
+  "cache_backend": "memory",
+  "cache_hits": 3,
+  "cache_misses": 1,
+  "cache_hit_rate": 0.75,
+  "total_requests": 4
 }
 ```
 

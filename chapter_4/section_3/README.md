@@ -124,14 +124,8 @@ uv sync
 
 #### 開発サーバーの起動
 
-```bash
-uv run uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000 --reload
-```
-
-サーバーが起動すると、以下のURLでアクセスできます：
 - API: http://localhost:8000
 - Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
 
 #### Docker を使用した起動
 
@@ -147,21 +141,21 @@ make docker-down   # コンテナの停止
 #### 1. ヘルスチェック
 
 ```bash
-curl http://localhost:8000/health
-```
+$ curl http://localhost:8000/health | jq .
 
-**レスポンス例**:
-```json
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100    51  100    51    0     0  10450      0 --:--:-- --:--:-- --:--:-- 12750
 {
   "status": "healthy",
-  "timestamp": 1698765432.123
+  "timestamp": 1769324595.5410314
 }
 ```
 
 #### 2. キャラクター生成（Free Plan）
 
 ```bash
-curl -X POST http://localhost:8000/generate \
+$ curl -X POST http://localhost:8000/generate \
   -H "Content-Type: application/json" \
   -d '{
     "model": "claude-sonnet-4-5",
@@ -171,58 +165,56 @@ curl -X POST http://localhost:8000/generate \
       "age": 25,
       "additional_instructions": "冒険家で勇敢な性格にしてください"
     }
-  }'
-```
-
-**レスポンス例**:
-```json
+  }' | jq .
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  1619  100  1395  100   224    139     22  0:00:10  0:00:10 --:--:--   290
 {
   "character": {
-    "first_name": "アリサ",
-    "last_name": "高橋",
+    "first_name": "Akira",
+    "last_name": "Nakamura",
     "gender": "female",
     "age": 25,
     "personalities": [
       {
-        "short_personality": "勇敢な冒険家",
-        "description": "未知の場所や危険な状況でも臆することなく前進する。"
+        "short_personality": "勇敢で恐れ知らず",
+        "description": "どんな危険な状況でも怯むことなく立ち向かう勇気を持っています。未知の領域への探検や困難な挑戦を前にしても、冷静さを保ちながら果敢に行動します。彼女の勇敢さは無謀さではなく、計算されたリスクテイクと強い意志に基づいています。"                                             
       },
       {
-        "short_personality": "楽観的なリーダー",
-        "description": "困難な状況でも明るさを失わず、周囲を勇気づける。"
+        "short_personality": "好奇心旺盛で探究心が強い",
+        "description": "世界中の未踏の地や古代遺跡、失われた文明に対して尽きることのない興味を持っています。新しい文化や言語を学ぶことに情熱を注ぎ、常に次の冒険先を探しています。この探究心が彼女を世界各地の危険な場所へと駆り立てる原動力となっています。"                                       
       },
       {
-        "short_personality": "好奇心旺盛",
-        "description": "世界中の文化や歴史に強い興味を持ち、常に新しい知識を吸収する。"
+        "short_personality": "独立心が強く自立している",
+        "description": "他人に頼ることなく自分の力で問題を解決することを好みます。幼少期から一人で旅をしてきた経験から、サバイバルスキルや判断力を磨いてきました。チームワークも大切にしますが、最終的には自分自身の直感と能力を信じて行動します。"                                                 
       }
     ]
   },
   "model": "claude-sonnet-4-5",
-  "processing_time_ms": 1234.56
+  "processing_time_ms": 10019.26589012146
 }
 ```
 
 #### 3. テキスト分類
 
 ```bash
-curl -X POST http://localhost:8000/classify \
+$ curl -X POST http://localhost:8000/classify \
   -H "Content-Type: application/json" \
   -d '{
     "model": "claude-sonnet-4-5",
     "user_plan": "free",
     "text": "この製品は素晴らしい！期待以上の品質でした。",
     "categories": ["ポジティブ", "ネガティブ", "中立"]
-  }'
-```
-
-**レスポンス例**:
-```json
+  }' | jq .
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   568  100   355  100   213     72     43  0:00:04  0:00:04 --:--:--   115
 {
   "category": "ポジティブ",
   "model": "claude-sonnet-4-5",
-  "processing_time_ms": 567.89,
+  "processing_time_ms": 4895.140171051025,
   "classification_result": {
-    "reasoning": "「素晴らしい」「期待以上」などの明確に肯定的な表現が含まれているため",
+    "reasoning": "「素晴らしい」「期待以上の品質」という明確な肯定的表現が使用されており、製品に対する高い満足度が示されています。",
     "category": "ポジティブ",
     "confidence": "high"
   }
@@ -234,7 +226,7 @@ curl -X POST http://localhost:8000/classify \
 Free Planユーザーが上位モデルを使用しようとした場合：
 
 ```bash
-curl -X POST http://localhost:8000/generate \
+$ curl -X POST http://localhost:8000/generate \
   -H "Content-Type: application/json" \
   -d '{
     "model": "claude-opus-4",
@@ -244,11 +236,10 @@ curl -X POST http://localhost:8000/generate \
       "age": 30,
       "additional_instructions": null
     }
-  }'
-```
-
-**エラーレスポンス**:
-```json
+  }' | jq .
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   274  100   102  100   172  17273  29127 --:--:-- --:--:-- --:--:-- 54800
 {
   "detail": "Model 'claude-opus-4' is not available for free plan. Available models: claude-sonnet-4-5"
 }

@@ -1,0 +1,69 @@
+{
+  "workflow_id": "research",
+  "checkpoint_id": "8a90394d0fc748648b44c50754398548",
+  "timestamp": "2026-02-07T08:45:55.667753",
+  "workflow_state": {
+    "workflow_id": "research",
+    "state": "running",
+    "started_at": "2026-02-07 08:45:52.284212",
+    "completed_at": null,
+    "current_node_id": "prep_q1",
+    "node_states": {
+      "start": "completed",
+      "define_questions": "completed",
+      "parse_questions": "completed",
+      "prep_q1": "completed"
+    },
+    "retry_counts": {},
+    "error": null
+  },
+  "execution_context": {
+    "workflow_id": "research",
+    "variables": {
+      "research_topic": "impact of LLMs on software development",
+      "define_questions_output": {
+        "content": "Here are 3 research questions about the impact of LLMs on software development:\n\n1.  To what extent do Large Language Models (LLMs) enhance the productivity and efficiency of software developers across different phases of the software development life cycle (SDLC), and are these gains consistent across varying project complexities and team sizes?\n2.  What is the impact of integrating LLM-generated code and assistance on the quality, maintainability, and security of software systems, and what new challenges or best practices emerge in verifying and managing such code?\n3.  How are the roles, required skill sets, and collaborative dynamics of software development teams evolving in response to the widespread adoption of LLMs, and what implications does this have for education, training, and career paths in the industry?",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 29,
+          "completion_tokens": 159,
+          "total_tokens": 542
+        },
+        "finish_reason": "STOP"
+      },
+      "question": "1.  To what extent do Large Language Models (LLMs) enhance the productivity and efficiency of software developers across different phases of the software development life cycle (SDLC), and are these gains consistent across varying project complexities and team sizes?"
+    },
+    "node_outputs": {
+      "start": {
+        "status": "started",
+        "initial_data": {
+          "research_topic": "impact of LLMs on software development"
+        }
+      },
+      "define_questions": {
+        "content": "Here are 3 research questions about the impact of LLMs on software development:\n\n1.  To what extent do Large Language Models (LLMs) enhance the productivity and efficiency of software developers across different phases of the software development life cycle (SDLC), and are these gains consistent across varying project complexities and team sizes?\n2.  What is the impact of integrating LLM-generated code and assistance on the quality, maintainability, and security of software systems, and what new challenges or best practices emerge in verifying and managing such code?\n3.  How are the roles, required skill sets, and collaborative dynamics of software development teams evolving in response to the widespread adoption of LLMs, and what implications does this have for education, training, and career paths in the industry?",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 29,
+          "completion_tokens": 159,
+          "total_tokens": 542
+        },
+        "finish_reason": "STOP"
+      },
+      "parse_questions": {
+        "questions": [
+          "1.  To what extent do Large Language Models (LLMs) enhance the productivity and efficiency of software developers across different phases of the software development life cycle (SDLC), and are these gains consistent across varying project complexities and team sizes?",
+          "2.  What is the impact of integrating LLM-generated code and assistance on the quality, maintainability, and security of software systems, and what new challenges or best practices emerge in verifying and managing such code?",
+          "3.  How are the roles, required skill sets, and collaborative dynamics of software development teams evolving in response to the widespread adoption of LLMs, and what implications does this have for education, training, and career paths in the industry?"
+        ]
+      },
+      "prep_q1": {
+        "question": "1.  To what extent do Large Language Models (LLMs) enhance the productivity and efficiency of software developers across different phases of the software development life cycle (SDLC), and are these gains consistent across varying project complexities and team sizes?"
+      }
+    },
+    "error": null
+  },
+  "metadata": {
+    "node": "prep_q1"
+  }
+}

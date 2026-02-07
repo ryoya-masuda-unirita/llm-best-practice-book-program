@@ -166,11 +166,8 @@ GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
 **2. 依存関係のインストール**
 
 ```bash
-# uvを使用する場合（推奨）
+# uvを使用
 uv sync
-
-# pipを使用する場合
-pip install -e .
 ```
 
 #### Docker実行の場合の追加手順
@@ -224,36 +221,6 @@ uv run uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000 --reload
 
 # ターミナル2: プロキシサーバー
 uv run uvicorn src.proxy.proxy_server:app --host 0.0.0.0 --port 8080 --reload
-```
-
-**方法3: Docker個別起動（上級者向け）**
-
-コンテナを個別に制御したい場合：
-
-```bash
-# イメージのビルド
-docker build -t shibui/llm-best-practice:chapter3_section1_web -f Dockerfile.web .
-docker build -t shibui/llm-best-practice:chapter3_section1_proxy -f Dockerfile.proxy .
-
-# LLM APIサーバーの起動
-docker run -d \
-  --name llm-api-server \
-  -p 8000:8000 \
-  --env-file .envrc \
-  shibui/llm-best-practice:chapter3_section1_web
-
-# プロキシサーバーの起動
-docker run -d \
-  --name llm-proxy-server \
-  -p 8080:8080 \
-  --env-file .envrc \
-  --link llm-api-server \
-  -e BACKEND_URL=http://llm-api-server:8000 \
-  shibui/llm-best-practice:chapter3_section1_proxy
-
-# コンテナの停止と削除
-docker stop llm-api-server llm-proxy-server
-docker rm llm-api-server llm-proxy-server
 ```
 
 #### APIエンドポイントの利用
@@ -310,65 +277,82 @@ FastAPIの自動生成ドキュメントを利用できます：
 
 **成功レスポンス例（プロキシメタデータ付き）**:
 
-```json
+```bash
+$ curl -X POST http://localhost:8080/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gemini-2.5-flash",
+    "character_request": {
+      "gender": "male",
+      "age": 25,
+      "additional_instructions": "冒険好きな性格にしてください"
+    }
+  }' | jq .
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  1395  100  1205  100   190    268     42  0:00:04  0:00:04 --:--:--   310
 {
   "character": {
-    "first_name": "太郎",
-    "last_name": "山田",
+    "first_name": "エドガー",
+    "last_name": "ブラックウッド",
     "gender": "male",
     "age": 25,
     "personalities": [
       {
-        "short_personality": "冒険家",
-        "description": "未知の場所を探索することに情熱を持ち、リスクを恐れず新しい経験を求める。"
+        "short_personality": "探求心が旺盛",
+        "description": "エドガーは未知への飽くなき好奇心を持ち、常に新しい場所や文化、そして挑戦を求めている。平凡な日常には満足せず、常に次なる冒険を探し求めている。"                                                                                                                             
       },
       {
-        "short_personality": "楽観主義者",
-        "description": "困難な状況でも前向きに考え、周囲の人々を励ます力を持っている。"
+        "short_personality": "不屈の精神を持つ",
+        "description": "困難や予期せぬ障害に直面しても、決して諦めることなく、前向きな姿勢で立ち向かう。逆境を成長の機会と捉え、問題解決のために知恵と工夫を凝らすことができる。"                                                                                                                   
       },
       {
-        "short_personality": "社交的",
-        "description": "初対面の人ともすぐに打ち解け、多様な人脈を築くのが得意。"
+        "short_personality": "楽観的で機転が利く",
+        "description": "常に明るい展望を持ち、周囲の人々を励ます。予期せぬ状況でも冷静さを保ち、ユーモアを交えながら適切な解決策を見つけ出す能力に長けている。状況に応じて素早く判断し、柔軟に対応する。"                                                                                           
       }
     ]
   },
   "provider": "gemini",
   "model": "gemini-2.5-flash",
-  "processing_time_ms": 1234.56,
+  "processing_time_ms": 4471.30274772644,
   "_proxy_metadata": {
-    "processing_time_ms": 1456.78,
+    "processing_time_ms": 4484.21311378479,
     "circuit_state": "closed",
-    "queue_size": 2
+    "queue_size": 0
   }
 }
 ```
 
 **メトリクスレスポンス例**:
 
-```json
+```bash
+$ curl http://localhost:8080/metrics | jq .
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   365  100   365    0     0  79038      0 --:--:-- --:--:-- --:--:-- 91250
 {
   "rate_limiter": {
-    "available_tokens": 8.5,
+    "available_tokens": 10,
     "max_requests": 10,
     "window_seconds": 1.0
   },
   "circuit_breaker": {
     "state": "closed",
-    "total_requests": 1523,
-    "failed_requests": 12,
-    "error_rate": 0.00788,
-    "failure_count": 1,
+    "total_requests": 3,
+    "failed_requests": 0,
+    "error_rate": 0.0,
+    "failure_count": 0,
     "success_count": 0
   },
   "request_queue": {
-    "current_size": 3,
+    "current_size": 0,
     "max_size": 100,
-    "total_queued": 1523,
-    "total_processed": 1520,
+    "total_queued": 3,
+    "total_processed": 3,
     "total_timeouts": 0,
     "active_requests": 0
   },
-  "timestamp": 1703001234.567
+  "timestamp": 1769322289.1304708
 }
 ```
 
@@ -383,88 +367,3 @@ FastAPIの自動生成ドキュメントを利用できます：
 [2025-10-25 10:30:51] [INFO] Token acquired. Remaining tokens: 9.00
 [2025-10-25 10:30:52] [INFO] Generate request completed successfully in 1456.78ms (queue size: 0)
 ```
-
-### Docker デプロイメント
-
-#### Docker の利点
-
-Dockerを使用することで、以下の利点が得られます：
-
-1. **環境の一貫性**: 開発、ステージング、本番環境で同じ環境を保証
-2. **依存関係の分離**: システムにPythonや依存ライブラリをインストール不要
-3. **スケーラビリティ**: 複数インスタンスの起動が容易
-4. **ポータビリティ**: どのプラットフォームでも同じように動作
-
-#### Dockerfile の構成
-
-このプロジェクトには2つのDockerfileがあります：
-
-**Dockerfile.web** (LLM APIサーバー):
-- ベースイメージ: `ghcr.io/astral-sh/uv:python3.13-bookworm` (Builder)
-- ランタイム: `python:3.13-slim` (最小サイズ)
-- ポート: 8000
-- マルチステージビルドで最適化（最終イメージサイズ削減）
-
-**Dockerfile.proxy** (プロキシサーバー):
-- 同様のマルチステージビルド構成
-- ポート: 8080
-- レート制限、サーキットブレーカー、リトライ機能を含む
-
-#### Docker Compose の設定
-
-`docker-compose.yml`は両方のサービスを統合管理します：
-
-```yaml
-services:
-  llm-server:
-    image: shibui/llm-best-practice:chapter3_section1_web
-    ports: ["8000:8000"]
-    networks: [llm-network]
-
-  proxy-server:
-    image: shibui/llm-best-practice:chapter3_section1_proxy
-    ports: ["8080:8080"]
-    environment:
-      - BACKEND_URL=http://llm-server:8000
-    networks: [llm-network]
-```
-
-#### Docker 利用時の注意点
-
-1. **環境変数**: `.envrc`ファイルが必要（APIキーを含む）
-2. **ネットワーク**: コンテナ間通信用に`llm-network`ブリッジネットワークを使用
-3. **ポート競合**: ローカル実行中のサーバーを停止してからDockerを起動
-4. **ログ確認**: `make docker-logs`でリアルタイムログを確認可能
-
-#### 本番環境でのDocker利用
-
-本番環境では以下の設定を追加することを推奨します：
-
-```yaml
-# docker-compose.prod.yml
-services:
-  llm-server:
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 2G
-    restart: always
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-```
-
-#### Docker トラブルシューティング
-
-| 問題 | 原因 | 解決方法 |
-|-----|------|---------|
-| ポート競合エラー | 8000/8080が使用中 | `lsof -i :8000` でプロセス確認後、停止 |
-| 環境変数が読み込まれない | `.envrc`ファイルが無い | `cp .envrc.example .envrc` で作成 |
-| イメージビルド失敗 | キャッシュ問題 | `docker builder prune` でキャッシュクリア |
-| コンテナ起動失敗 | ログ確認不足 | `make docker-logs` でエラー詳細確認 |
-| プロキシがバックエンドに接続できない | ネットワーク設定 | `docker network inspect llm-network` で確認 |
-
-詳細なDocker利用ガイドは `DOCKER.md` を参照してください。

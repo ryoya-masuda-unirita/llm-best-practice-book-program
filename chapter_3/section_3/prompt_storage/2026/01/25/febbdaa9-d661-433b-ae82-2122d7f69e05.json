@@ -1,0 +1,45 @@
+{
+  "prompt_id": "febbdaa9-d661-433b-ae82-2122d7f69e05",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「32」歳です。\n冷酷だが複雑な道徳観を持つ暗殺者のキャラクターを考案してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Kaelen",
+    "last_name": "Vance",
+    "gender": "female",
+    "age": 32,
+    "personalities": [
+      {
+        "short_personality": "冷酷非情",
+        "description": "任務においては感情を一切交えず、目的達成のためにはいかなる手段も厭わない。冷静かつ迅速にターゲットを仕留めるその手腕は、恐ろしいほどに効率的であり、一切の躊躇が見られない。"
+      },
+      {
+        "short_personality": "複雑な道徳観",
+        "description": "殺人のプロフェッショナルでありながら、彼女の中には厳格な、しかし人には理解されにくい独自の道徳規範が存在する。標的の選択には厳密な基準があり、無差別に命を奪うことをせず、特定の「悪」や「不正」を排除することを使命と捉えている。"
+      },
+      {
+        "short_personality": "鋭敏な洞察力",
+        "description": "人間の心理や環境に対する観察眼が非常に鋭く、一見些細な情報から状況の全貌を読み解くことができる。この能力は彼女の暗殺計画を完璧なものにするだけでなく、自身の道徳的な判断を下す上でも重要な役割を果たす。"
+      }
+    ]
+  },
+  "created_at": "2026-01-25T06:07:30.215152+00:00",
+  "metadata": {
+    "request_id": "bbdf7f0c-f4a3-475f-b3a4-ec8c1b687f91",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 32,
+      "additional_instructions": "冷酷だが複雑な道徳観を持つ暗殺者のキャラクターを考案してください。"
+    }
+  }
+}

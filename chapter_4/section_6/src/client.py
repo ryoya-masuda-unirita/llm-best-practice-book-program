@@ -17,7 +17,7 @@ class GeminiModel(StrEnum):
     GEMINI_2_5_FLASH_LITE = "gemini-2.5-flash-lite"
 
 
-_client = genai.Client(api_key=config.gemini_api_key)
+google_genai_client = genai.Client(api_key=config.gemini_api_key)
 
 
 def create_executor(
@@ -51,7 +51,7 @@ def create_executor(
 
         gen_config = GenerateContentConfig(**config_params)
 
-        result = await _client.aio.models.generate_content(
+        result = await google_genai_client.aio.models.generate_content(
             model=model,
             contents=content,
             config=gen_config,

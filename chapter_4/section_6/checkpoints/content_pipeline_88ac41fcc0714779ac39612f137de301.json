@@ -1,0 +1,164 @@
+{
+  "workflow_id": "content_pipeline",
+  "checkpoint_id": "88ac41fcc0714779ac39612f137de301",
+  "timestamp": "2026-02-07T08:45:51.283109",
+  "workflow_state": {
+    "workflow_id": "content_pipeline",
+    "state": "running",
+    "started_at": "2026-02-07 08:45:37.380341",
+    "completed_at": null,
+    "current_node_id": "generate_summary",
+    "node_states": {
+      "start": "completed",
+      "generate_topics": "completed",
+      "parse_topics": "completed",
+      "select_topic": "completed",
+      "generate_content": "completed",
+      "store_content": "completed",
+      "analyze_quality": "completed",
+      "extract_score": "completed",
+      "quality_check": "completed",
+      "accept_content": "completed",
+      "merge_results": "completed",
+      "generate_summary": "completed"
+    },
+    "retry_counts": {},
+    "error": null
+  },
+  "execution_context": {
+    "workflow_id": "content_pipeline",
+    "variables": {
+      "domain": "artificial intelligence",
+      "num_topics": 3,
+      "generate_topics_output": {
+        "content": "The AI Revolution: Reshaping Industries and Daily Life, Navigating the Ethics of Artificial Intelligence, Practical AI: Tools and Applications for Everyone",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 25,
+          "completion_tokens": 28,
+          "total_tokens": 542
+        },
+        "finish_reason": "STOP"
+      },
+      "selected_topic": "The AI Revolution: Reshaping Industries and Daily Life",
+      "generate_content_output": {
+        "content": "The AI revolution is no longer a futuristic concept; it's a present reality fundamentally reshaping the landscape of global industries. From intelligent automation transforming manufacturing floors and optimizing supply chains, to sophisticated diagnostics revolutionizing healthcare, and algorithmic trading redefining finance, AI is driving unprecedented levels of efficiency, precision, and innovation. It's allowing businesses to analyze vast datasets, predict trends with greater accuracy, and make data-driven decisions that were previously unimaginable, leading to significant competitive advantages and the emergence of entirely new service offerings across sectors.\n\nBeyond the corporate boardroom, artificial intelligence has quietly woven itself into the fabric of our daily lives, often in ways we take for granted. The personalized recommendations on our streaming services, the seamless navigation provided by our smartphones, the voice assistants managing our smart homes, and even the sophisticated algorithms protecting our inboxes from spam are all powered by AI. It enhances our productivity, simplifies routine tasks, and offers tailored experiences that cater to individual preferences, making our world feel more intuitive and connected. AI is transforming how we learn, communicate, shop, and entertain ourselves, promising an era of unprecedented convenience.\n\nAs the AI revolution continues to unfold, its full potential remains vast and largely untapped, with researchers and developers constantly pushing the boundaries of what's possible. However, this transformative power also brings crucial considerations regarding ethics, job displacement, data privacy, and algorithmic bias that demand careful navigation and robust policy frameworks. Embracing AI's capabilities while thoughtfully addressing its challenges will be key to harnessing its immense power for a future that is not only more efficient and innovative, but also equitable, secure, and ultimately, human-centric.",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 30,
+          "completion_tokens": 329,
+          "total_tokens": 1044
+        },
+        "finish_reason": "STOP"
+      },
+      "content": "The AI revolution is no longer a futuristic concept; it's a present reality fundamentally reshaping the landscape of global industries. From intelligent automation transforming manufacturing floors and optimizing supply chains, to sophisticated diagnostics revolutionizing healthcare, and algorithmic trading redefining finance, AI is driving unprecedented levels of efficiency, precision, and innovation. It's allowing businesses to analyze vast datasets, predict trends with greater accuracy, and make data-driven decisions that were previously unimaginable, leading to significant competitive advantages and the emergence of entirely new service offerings across sectors.\n\nBeyond the corporate boardroom, artificial intelligence has quietly woven itself into the fabric of our daily lives, often in ways we take for granted. The personalized recommendations on our streaming services, the seamless navigation provided by our smartphones, the voice assistants managing our smart homes, and even the sophisticated algorithms protecting our inboxes from spam are all powered by AI. It enhances our productivity, simplifies routine tasks, and offers tailored experiences that cater to individual preferences, making our world feel more intuitive and connected. AI is transforming how we learn, communicate, shop, and entertain ourselves, promising an era of unprecedented convenience.\n\nAs the AI revolution continues to unfold, its full potential remains vast and largely untapped, with researchers and developers constantly pushing the boundaries of what's possible. However, this transformative power also brings crucial considerations regarding ethics, job displacement, data privacy, and algorithmic bias that demand careful navigation and robust policy frameworks. Embracing AI's capabilities while thoughtfully addressing its challenges will be key to harnessing its immense power for a future that is not only more efficient and innovative, but also equitable, secure, and ultimately, human-centric.",
+      "analyze_quality_output": {
+        "content": "9",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 353,
+          "completion_tokens": 1,
+          "total_tokens": 980
+        },
+        "finish_reason": "STOP"
+      },
+      "quality_score": 9,
+      "generate_summary_output": {
+        "content": "The AI revolution is a present reality, fundamentally reshaping global industries with unprecedented efficiency and innovation, while seamlessly integrating into our daily lives to enhance productivity and personal experiences. As its vast potential continues to unfold, careful navigation of crucial considerations like ethics, job displacement, and data privacy will be key to harnessing its power for an equitable and human-centric future.",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 346,
+          "completion_tokens": 70,
+          "total_tokens": 592
+        },
+        "finish_reason": "STOP"
+      }
+    },
+    "node_outputs": {
+      "start": {
+        "status": "started",
+        "initial_data": {
+          "domain": "artificial intelligence",
+          "num_topics": 3
+        }
+      },
+      "generate_topics": {
+        "content": "The AI Revolution: Reshaping Industries and Daily Life, Navigating the Ethics of Artificial Intelligence, Practical AI: Tools and Applications for Everyone",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 25,
+          "completion_tokens": 28,
+          "total_tokens": 542
+        },
+        "finish_reason": "STOP"
+      },
+      "parse_topics": {
+        "topics": [
+          "The AI Revolution: Reshaping Industries and Daily Life",
+          "Navigating the Ethics of Artificial Intelligence",
+          "Practical AI: Tools and Applications for Everyone"
+        ],
+        "count": 3
+      },
+      "select_topic": {
+        "selected_topic": "The AI Revolution: Reshaping Industries and Daily Life",
+        "remaining": [
+          "Navigating the Ethics of Artificial Intelligence",
+          "Practical AI: Tools and Applications for Everyone"
+        ]
+      },
+      "generate_content": {
+        "content": "The AI revolution is no longer a futuristic concept; it's a present reality fundamentally reshaping the landscape of global industries. From intelligent automation transforming manufacturing floors and optimizing supply chains, to sophisticated diagnostics revolutionizing healthcare, and algorithmic trading redefining finance, AI is driving unprecedented levels of efficiency, precision, and innovation. It's allowing businesses to analyze vast datasets, predict trends with greater accuracy, and make data-driven decisions that were previously unimaginable, leading to significant competitive advantages and the emergence of entirely new service offerings across sectors.\n\nBeyond the corporate boardroom, artificial intelligence has quietly woven itself into the fabric of our daily lives, often in ways we take for granted. The personalized recommendations on our streaming services, the seamless navigation provided by our smartphones, the voice assistants managing our smart homes, and even the sophisticated algorithms protecting our inboxes from spam are all powered by AI. It enhances our productivity, simplifies routine tasks, and offers tailored experiences that cater to individual preferences, making our world feel more intuitive and connected. AI is transforming how we learn, communicate, shop, and entertain ourselves, promising an era of unprecedented convenience.\n\nAs the AI revolution continues to unfold, its full potential remains vast and largely untapped, with researchers and developers constantly pushing the boundaries of what's possible. However, this transformative power also brings crucial considerations regarding ethics, job displacement, data privacy, and algorithmic bias that demand careful navigation and robust policy frameworks. Embracing AI's capabilities while thoughtfully addressing its challenges will be key to harnessing its immense power for a future that is not only more efficient and innovative, but also equitable, secure, and ultimately, human-centric.",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 30,
+          "completion_tokens": 329,
+          "total_tokens": 1044
+        },
+        "finish_reason": "STOP"
+      },
+      "store_content": {
+        "stored": true
+      },
+      "analyze_quality": {
+        "content": "9",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 353,
+          "completion_tokens": 1,
+          "total_tokens": 980
+        },
+        "finish_reason": "STOP"
+      },
+      "extract_score": {
+        "score": 9
+      },
+      "quality_check": {
+        "condition_result": true,
+        "next_branch": "accept_content"
+      },
+      "accept_content": {
+        "final_content": "The AI revolution is no longer a futuristic concept; it's a present reality fundamentally reshaping the landscape of global industries. From intelligent automation transforming manufacturing floors and optimizing supply chains, to sophisticated diagnostics revolutionizing healthcare, and algorithmic trading redefining finance, AI is driving unprecedented levels of efficiency, precision, and innovation. It's allowing businesses to analyze vast datasets, predict trends with greater accuracy, and make data-driven decisions that were previously unimaginable, leading to significant competitive advantages and the emergence of entirely new service offerings across sectors.\n\nBeyond the corporate boardroom, artificial intelligence has quietly woven itself into the fabric of our daily lives, often in ways we take for granted. The personalized recommendations on our streaming services, the seamless navigation provided by our smartphones, the voice assistants managing our smart homes, and even the sophisticated algorithms protecting our inboxes from spam are all powered by AI. It enhances our productivity, simplifies routine tasks, and offers tailored experiences that cater to individual preferences, making our world feel more intuitive and connected. AI is transforming how we learn, communicate, shop, and entertain ourselves, promising an era of unprecedented convenience.\n\nAs the AI revolution continues to unfold, its full potential remains vast and largely untapped, with researchers and developers constantly pushing the boundaries of what's possible. However, this transformative power also brings crucial considerations regarding ethics, job displacement, data privacy, and algorithmic bias that demand careful navigation and robust policy frameworks. Embracing AI's capabilities while thoughtfully addressing its challenges will be key to harnessing its immense power for a future that is not only more efficient and innovative, but also equitable, secure, and ultimately, human-centric.",
+        "status": "accepted"
+      },
+      "merge_results": {
+        "content": "The AI revolution is no longer a futuristic concept; it's a present reality fundamentally reshaping the landscape of global industries. From intelligent automation transforming manufacturing floors and optimizing supply chains, to sophisticated diagnostics revolutionizing healthcare, and algorithmic trading redefining finance, AI is driving unprecedented levels of efficiency, precision, and innovation. It's allowing businesses to analyze vast datasets, predict trends with greater accuracy, and make data-driven decisions that were previously unimaginable, leading to significant competitive advantages and the emergence of entirely new service offerings across sectors.\n\nBeyond the corporate boardroom, artificial intelligence has quietly woven itself into the fabric of our daily lives, often in ways we take for granted. The personalized recommendations on our streaming services, the seamless navigation provided by our smartphones, the voice assistants managing our smart homes, and even the sophisticated algorithms protecting our inboxes from spam are all powered by AI. It enhances our productivity, simplifies routine tasks, and offers tailored experiences that cater to individual preferences, making our world feel more intuitive and connected. AI is transforming how we learn, communicate, shop, and entertain ourselves, promising an era of unprecedented convenience.\n\nAs the AI revolution continues to unfold, its full potential remains vast and largely untapped, with researchers and developers constantly pushing the boundaries of what's possible. However, this transformative power also brings crucial considerations regarding ethics, job displacement, data privacy, and algorithmic bias that demand careful navigation and robust policy frameworks. Embracing AI's capabilities while thoughtfully addressing its challenges will be key to harnessing its immense power for a future that is not only more efficient and innovative, but also equitable, secure, and ultimately, human-centric.",
+        "was_refined": false
+      },
+      "generate_summary": {
+        "content": "The AI revolution is a present reality, fundamentally reshaping global industries with unprecedented efficiency and innovation, while seamlessly integrating into our daily lives to enhance productivity and personal experiences. As its vast potential continues to unfold, careful navigation of crucial considerations like ethics, job displacement, and data privacy will be key to harnessing its power for an equitable and human-centric future.",
+        "model": "gemini-2.5-flash",
+        "usage": {
+          "prompt_tokens": 346,
+          "completion_tokens": 70,
+          "total_tokens": 592
+        },
+        "finish_reason": "STOP"
+      }
+    },
+    "error": null
+  },
+  "metadata": {
+    "node": "generate_summary"
+  }
+}

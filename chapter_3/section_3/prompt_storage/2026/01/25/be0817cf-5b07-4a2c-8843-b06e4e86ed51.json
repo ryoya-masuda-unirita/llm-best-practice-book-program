@@ -1,0 +1,45 @@
+{
+  "prompt_id": "be0817cf-5b07-4a2c-8843-b06e4e86ed51",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「78」歳です。\n自然との深いつながりを持つ賢明な癒し手のキャラクターを考案してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "賢一",
+    "last_name": "緑川",
+    "gender": "male",
+    "age": 78,
+    "personalities": [
+      {
+        "short_personality": "賢明",
+        "description": "長年の経験と自然界からの学びを通じて培われた深い知恵を持ち、冷静な判断と的確な助言を与える。彼の言葉は穏やかだが、核心を突く鋭さがある。"
+      },
+      {
+        "short_personality": "自然と共鳴",
+        "description": "幼い頃から森や山で過ごし、動植物、石、水など、あらゆる自然要素と心を通わせる。自然のリズムとエネルギーを感じ取り、それを癒しの源として活用する。"
+      },
+      {
+        "short_personality": "思いやり深い癒し手",
+        "description": "身体的な痛みだけでなく、心の傷や精神的な苦悩にも寄り添い、優しく癒す力を持つ。彼は人々の話を忍耐強く聞き、温かい心で支えることで深く信頼されている。"
+      }
+    ]
+  },
+  "created_at": "2026-01-25T06:07:18.877186+00:00",
+  "metadata": {
+    "request_id": "4bd34930-1970-43d3-aca1-23aa1e3be6ce",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 78,
+      "additional_instructions": "自然との深いつながりを持つ賢明な癒し手のキャラクターを考案してください。"
+    }
+  }
+}

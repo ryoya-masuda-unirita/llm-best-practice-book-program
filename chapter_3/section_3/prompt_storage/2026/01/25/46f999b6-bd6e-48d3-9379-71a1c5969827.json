@@ -1,0 +1,45 @@
+{
+  "prompt_id": "46f999b6-bd6e-48d3-9379-71a1c5969827",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「28」歳です。\n時空を旅する運命に選ばれた図書館司書のキャラクターを構築してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Elijah",
+    "last_name": "Thorne",
+    "gender": "male",
+    "age": 28,
+    "personalities": [
+      {
+        "short_personality": "探求心が強く知識欲旺盛",
+        "description": "幼い頃からあらゆる書物に魅せられ、未知の世界や概念に対し限りない探求心を持つ。時空を超える旅においても、彼は常に新しい情報や文化、歴史を吸収しようと努める。"
+      },
+      {
+        "short_personality": "秩序を重んじ計画的",
+        "description": "元々図書館司書としての経験から、情報や物の整理整頓に強いこだわりを持つ。混沌とした状況でも冷静に情報を分析し、論理的な手順を踏んで問題解決を図ることを得意とする。"
+      },
+      {
+        "short_personality": "慎重かつ鋭い洞察力",
+        "description": "未知の環境や遭遇する出来事に対し、常に一歩引いて状況を観察し、潜在的な危険や矛盾を早期に察知する。無鉄砲な行動を避け、熟慮の末に判断を下すタイプ。"
+      }
+    ]
+  },
+  "created_at": "2026-01-25T06:07:41.113091+00:00",
+  "metadata": {
+    "request_id": "96ac3541-7b06-4a5e-966e-a8ca9cef2649",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 28,
+      "additional_instructions": "時空を旅する運命に選ばれた図書館司書のキャラクターを構築してください。"
+    }
+  }
+}

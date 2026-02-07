@@ -177,50 +177,69 @@ curl -X POST http://localhost:8000/generate \
 
 タスク投入レスポンス:
 
-```json
+```bash
+$ curl -X POST http://localhost:8000/generate/queue \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "openai",
+    "model": "gpt-4o-mini",
+    "user_tier": "premium",
+    "character_request": {
+      "gender": "female",
+      "age": 25,
+      "additional_instructions": "科学者のキャラクター"
+    }
+  }' | jq .
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   435  100   206  100   229  31373  34876 --:--:-- --:--:-- --:--:-- 72500
 {
-  "task_id": "550e8400-e29b-41d4-a716-446655440000",
-  "priority": "high",
+  "task_id": "e0480150-d87f-437c-a6a5-c3fa65a950a7",
+  "priority": "medium",
   "status": "pending",
-  "estimated_wait_time_seconds": 5.0,
-  "message": "Task queued with high priority. Use /task/{task_id} to check status."
+  "estimated_wait_time_seconds": 0.0,
+  "message": "Task queued with medium priority. Use /task/{task_id} to check status."
 }
 ```
 
 タスク完了レスポンス:
 
-```json
+```bash
+$ curl http://localhost:8000/task/e0480150-d87f-437c-a6a5-c3fa65a950a7 | jq .
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  1247  100  1247    0     0   228k      0 --:--:-- --:--:-- --:--:--  243k
 {
-  "task_id": "550e8400-e29b-41d4-a716-446655440000",
-  "priority": "high",
+  "task_id": "e0480150-d87f-437c-a6a5-c3fa65a950a7",
+  "priority": "medium",
   "status": "completed",
-  "created_at": 1704067200.123,
-  "started_at": 1704067201.456,
-  "completed_at": 1704067204.789,
+  "created_at": 1769323127.3165317,
+  "started_at": 1769323130.756634,
+  "completed_at": 1769323136.0602348,
   "result": {
     "character": {
-      "first_name": "Yuki",
-      "last_name": "Tanaka",
+      "first_name": "Luna",
+      "last_name": "Navarro",
       "gender": "female",
       "age": 25,
       "personalities": [
         {
-          "short_personality": "知的好奇心旺盛",
-          "description": "常に新しい知識を求め、未知の領域への探求を楽しむ"
+          "short_personality": "好奇心旺盛",
+          "description": "Lunaは新しい知識を追求することに情熱を持ち、未知の世界に足を踏み入れることを恐れない。科学の奥深さに惹かれ、多くの実験を自ら進んで行う。"                                                                                                                                 
         },
         {
           "short_personality": "冷静沈着",
-          "description": "困難な状況でも落ち着いて論理的に対処する"
+          "description": "困難な状況でも冷静に考え、素早く適切な判断ができる。実験が予期せず失敗しても、感情をコントロールし、次のステップを冷静に計画することができる。"                                                                                                                           
         },
         {
-          "short_personality": "内向的",
-          "description": "一人の時間を大切にし、深い思考に没頭することを好む"
+          "short_personality": "協調性がある",
+          "description": "チームワークを大切にし、同僚とのコミュニケーションを重視する。他の研究者と協力してプロジェクトを進めることで、より創造的な解決策を見つけ出す能力に優れている。"                                                                                                           
         }
       ]
     },
     "provider": "openai",
     "model": "gpt-4o-mini",
-    "processing_time_ms": 3456.78
+    "processing_time_ms": 5303.569555282593
   },
   "error_message": null,
   "queue_position": null
@@ -229,13 +248,17 @@ curl -X POST http://localhost:8000/generate \
 
 キュー統計レスポンス:
 
-```json
+```bash
+$ curl http://localhost:8000/queue/stats | jq .
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   113  100   113    0     0  17028      0 --:--:-- --:--:-- --:--:-- 18833
 {
-  "high_priority_count": 2,
-  "medium_priority_count": 5,
-  "low_priority_count": 10,
-  "total_pending": 17,
-  "processing_count": 1
+  "high_priority_count": 0,
+  "medium_priority_count": 0,
+  "low_priority_count": 0,
+  "total_pending": 0,
+  "processing_count": 0
 }
 ```
 

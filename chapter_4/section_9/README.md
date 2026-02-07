@@ -139,7 +139,17 @@ uv sync
 
 ### 使用方法、実行方法
 
-CLIから各サンプルを実行:
+```bash
+$ python -m src.main --help
+Usage: python -m src.main [OPTIONS]
+
+Options:
+  -a, --agent [example_1_basic_agent|example_2_react_agent|example_3_multi_strategy_agent|example_4_config_based_agent|example_5_graph_mediator|example_6_parallel_execution|example_7_memory_snapshots|example_8_execution_control|all]
+                                  The agent workflow to run.  [required]
+  --help                          Show this message and exit.
+```
+
+### CLIから各サンプルを実行:
 
 ```bash
 # 特定のサンプルを実行
@@ -149,7 +159,7 @@ uv run python -m src.main --agent example_1_basic_agent
 uv run python -m src.main --agent all
 ```
 
-利用可能なサンプル一覧:
+### 利用可能なサンプル一覧:
 
 | サンプル名 | 説明 |
 |-----------|------|
@@ -161,3 +171,43 @@ uv run python -m src.main --agent all
 | `example_6_parallel_execution` | 並列実行によるマルチエージェント処理 |
 | `example_7_memory_snapshots` | Mementoパターンによるメモリスナップショット |
 | `example_8_execution_control` | Chain of Responsibilityによる実行制御 |
+
+### 実行結果例
+
+```bash
+$ uv run python -m src.main --agent example_1_basic_agent
+
+[2026-02-07 08:57:04,228] [INFO] [__main__] [main.py:83] [main] Running agent: example_1_basic_agent
+
+[2026-02-07 08:57:04,228] [INFO] [src.examples] [examples.py:36] [example_1_basic_agent] 
+=== Example 1: Basic Agent with Chain-of-Thought ===
+
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:49] [_log_execution] 
+=== Agent Execution Trace ===
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:50] [_log_execution] Iterations: 2
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:51] [_log_execution] Final State: idle
+
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:52] [_log_execution] State History:
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:57] [_log_execution]   idle -> thinking at 2026-02-07 08:57:04.228340
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:57] [_log_execution]   thinking -> acting at 2026-02-07 08:57:05.571529
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:57] [_log_execution]   acting -> thinking at 2026-02-07 08:57:10.337268
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:57] [_log_execution]   thinking -> completed at 2026-02-07 08:57:11.484063
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:57] [_log_execution]   completed -> idle at 2026-02-07 08:57:11.484078
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:58] [_log_execution] 
+Events:
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:63] [_log_execution]   [thinking] Agent is thinking
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:63] [_log_execution]   [acting] Agent is acting
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:63] [_log_execution]   [thinking] Agent is thinking
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:63] [_log_execution]   [completed] Agent is completed
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:63] [_log_execution]   [idle] Agent is idle
+[2026-02-07 08:57:11,484] [INFO] [src.examples] [examples.py:58] [example_1_basic_agent] Goal: Write a haiku about the changing seasons
+[2026-02-07 08:57:11,484] [INFO] [src.examples] [examples.py:59] [example_1_basic_agent] Result:
+Warm sun turns to chill,
+Leaves dance down in fiery hues,
+Earth dreams, fresh life waits.
+[2026-02-07 08:57:11,484] [INFO] [__main__] [main.py:88] [main] 
+✓ Agent 'example_1_basic_agent' completed successfully
+[2026-02-07 08:57:11,484] [INFO] [__main__] [main.py:92] [main]   Output: Warm sun turns to chill,
+Leaves dance down in fiery hues,
+Earth dreams, fresh life waits.
+```

@@ -1,0 +1,45 @@
+{
+  "prompt_id": "60be56d9-8629-4260-94fd-5f9f95f3177c",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「65」歳です。\n伝統的な薬草学を守る知恵深い村の長老のキャラクターを設計してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Kaelen",
+    "last_name": "Stonebrook",
+    "gender": "female",
+    "age": 65,
+    "personalities": [
+      {
+        "short_personality": "Wise",
+        "description": "Kaelen possesses a profound and ancient wisdom, honed over decades of observation, practice, and the oral traditions passed down through her lineage. She can discern truths beyond immediate appearances and offers guidance rooted in deep respect for natural cycles and community harmony. Her words are few but always potent."
+      },
+      {
+        "short_personality": "Nurturing",
+        "description": "Her nature is deeply caring and protective, akin to a gentle mother or grandmother to everyone in her village. She tends to the physical ailments and emotional burdens of her community with boundless patience and empathy, always offering comfort, healing poultices, and a steady, calming presence."
+      },
+      {
+        "short_personality": "Resilient",
+        "description": "Having weathered countless harsh winters and challenging times, Kaelen embodies a quiet strength and unyielding spirit. She stands as an unwavering pillar for her village, demonstrating an extraordinary ability to bounce back from adversity and maintain hope, often inspiring those around her through her sheer tenacity."
+      }
+    ]
+  },
+  "created_at": "2026-01-25T06:07:38.411077+00:00",
+  "metadata": {
+    "request_id": "cfa7bddf-bd98-452c-8e57-91731225b6c2",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 65,
+      "additional_instructions": "伝統的な薬草学を守る知恵深い村の長老のキャラクターを設計してください。"
+    }
+  }
+}

@@ -113,7 +113,7 @@ def _extract_report_from_state(final_state: dict) -> ComplianceReport | None:
 
 async def run_contract_compliance_pipeline(
     contract_file_path: str,
-    model: str = OpenAIModel.GPT_4O,
+    model: str = OpenAIModel.GPT_5_MINI,
 ) -> ComplianceReport | None:
     """Run the contract risk compliance pipeline and return the report."""
     logger.info("=" * 80)

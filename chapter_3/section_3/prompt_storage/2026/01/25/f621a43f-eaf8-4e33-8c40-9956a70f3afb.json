@@ -1,0 +1,45 @@
+{
+  "prompt_id": "f621a43f-eaf8-4e33-8c40-9956a70f3afb",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「male」、年齢は「40」歳です。\n名誉の掟を持つ歴戦の傭兵のキャラクターを作成してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "Kaito",
+    "last_name": "Takamura",
+    "gender": "male",
+    "age": 40,
+    "personalities": [
+      {
+        "short_personality": "厳格な名誉心 (Strictly Honorable)",
+        "description": "カイトは、個人的な道徳規範と職業倫理の厳格な掟によって支配されています。たとえ個人的な不利益になっても、一度受けた契約を裏切ることは決してありません。彼にとって金は手段に過ぎず、原則への裏切りは決して容認しません。"
+      },
+      {
+        "short_personality": "沈着冷静 (Stoic and Resilient)",
+        "description": "数えきれない戦場を経験したカイトは、どのような極限状態においても冷静さを保ちます。感情を表に出すことはほとんどなく、逆境に直面しても不平を言うことなく、ただ与えられた任務を遂行します。彼の精神は鍛えられ、鋼のように硬いです。"
+      },
+      {
+        "short_personality": "隠れた忠誠心 (Quietly Loyal)",
+        "description": "カイトは多くを語らず、他人と距離を置く傾向がありますが、彼が信頼し、尊重すると判断した人々には揺るぎない忠誠心を示します。契約を果たしている間、彼は雇用主や仲間を守るために身を捧げ、必要とあれば命を懸けることも厭いません。"
+      }
+    ]
+  },
+  "created_at": "2026-01-25T06:07:23.111459+00:00",
+  "metadata": {
+    "request_id": "1c0afc99-0135-4f07-9267-2dbc310ba9b0",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "male",
+      "age": 40,
+      "additional_instructions": "名誉の掟を持つ歴戦の傭兵のキャラクターを作成してください。"
+    }
+  }
+}

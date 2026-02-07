@@ -1,0 +1,45 @@
+{
+  "prompt_id": "79f2bd8d-203d-4469-94c0-4aa98ba93b6b",
+  "prompt_content": [
+    {
+      "role": "system",
+      "content": "あなたは創造的なキャラクタージェネレーターです。\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\n\n{\n  \"first_name\": \"string; The first name of the character.\",\n  \"last_name\": \"string; The last name of the character.\",\n  \"gender\": \"enum; The gender of the character.; ['female', 'male']\",\n  \"age\": \"number; The age of the character.; 0-100\",\n  \"personalities\": [\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\n    },\n    {\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\n    }\n  ]\n}\n\n以下を確認してください：\n1. 応答は有効なJSONであること\n2. すべてのフィールドが含まれていること\n3. 性別は指定された値であること\n4. 年齢は指定された値であること\n5. 正確に3つの性格特性が提供されていること\n6. JSON構造の外に説明や追加のテキストを含めないこと\n"
+    },
+    {
+      "role": "user",
+      "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。\n性別は「female」、年齢は「38」歳です。\n異国の地を旅する抜け目のない商人のキャラクターを開発してください。\n"
+    }
+  ],
+  "response_content": {
+    "first_name": "エリーゼ",
+    "last_name": "ドュボア",
+    "gender": "female",
+    "age": 38,
+    "personalities": [
+      {
+        "short_personality": "抜け目のない交渉人",
+        "description": "エリ—ゼは鋭い知性と観察力で、常に商取引において最も有利な条件を引き出します。彼女は相手の心理を読み解き、必要であれば断固として自分の主張を通すことを恐れません。"
+      },
+      {
+        "short_personality": "機知に富んだ旅行者",
+        "description": "未知の状況や予期せぬ困難に直面しても、エリ—ゼは常に機知に富んだ解決策を見つけ出します。彼女は異なる文化や環境に適応し、常に危険から逃れ、機会を生かす方法を見出します。"
+      },
+      {
+        "short_personality": "魅力的な外交官",
+        "description": "エリ—ゼはその洗練された立ち居振る舞いと魅惑的な話し方で、初対面の人々を容易に惹きつけます。異国の地の複雑な社会情勢の中を円滑に進むため、彼女は言葉の壁を越えて信頼関係を築く才能を持っています。"
+      }
+    ]
+  },
+  "created_at": "2026-01-25T06:07:27.719611+00:00",
+  "metadata": {
+    "request_id": "76923802-278d-4d16-9640-1661510d027e",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "response_format": "CharacterResponse",
+    "character_request": {
+      "gender": "female",
+      "age": 38,
+      "additional_instructions": "異国の地を旅する抜け目のない商人のキャラクターを開発してください。"
+    }
+  }
+}

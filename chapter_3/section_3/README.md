@@ -104,16 +104,13 @@ chapter_2/section_4/
 
 - **Python**: 3.13.2以上
 - **依存ライブラリ**:
-  - click>=8.3.0
-  - google-api-core>=2.26.0
-  - google-genai>=1.45.0
-  - pydantic>=2.12.2
-  - python-dotenv>=1.1.1
-  - pyyaml>=6.0.3
-- **開発依存**:
-  - pytest>=8.4.2
-  - pytest-asyncio>=1.2.0
-  - pytest-mock>=3.15.1
+    "click>=8.3.0"
+    "google-api-core>=2.26.0"
+    "google-genai>=1.45.0"
+    "openai>=2.4.0"
+    "pydantic>=2.12.2"
+    "python-dotenv>=1.1.1"
+    "pyyaml>=6.0.3"
 
 ### セットアップ
 
@@ -131,11 +128,8 @@ GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
 2. **依存関係のインストール**
 
 ```bash
-# uvを使用する場合（推奨）
-uv sync --all-extras
-
-# pipを使用する場合
-pip install -e .[dev]
+# uvを使用
+uv sync
 ```
 
 ### 使用方法、実行方法
@@ -177,8 +171,7 @@ python -m src.main -rf character_requests.yaml -m GEMINI_2_5_FLASH -p 10
 #### ヘルプの表示
 
 ```bash
-python -m src.main --help
-
+$ python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
 Options:
@@ -228,31 +221,23 @@ Storage type: local
 
 ```json
 {
-    "first_name": "蒼",
-    "last_name": "雨宮",
+    "first_name": "レン",
+    "last_name": "カゲヤマ",
     "gender": "female",
     "age": 25,
     "personalities": [
         {
-            "short_personality": "神秘的な弓使い",
-            "description": "過去について語ることは少ないが、その弓の腕前は伝説的。静かな森で修行を積んだと噂されている。"
+            "short_personality": "冷静沈着",
+            "description": "レンはどのような状況においても驚くほど冷静さを保ちます。彼女は緊急事態でも感情に流されず、素早く分析して最適な解決策を見つけ出すことができます。この特性は、彼女の謎めいた過去から培われたものと考えられています。"
         },
         {
-            "short_personality": "寡黙な戦士",
-            "description": "無駄な言葉を話さず、行動で示すタイプ。仲間からの信頼は厚い。"
+            "short_personality": "独立独行",
+            "description": "他人からの助けをほとんど求めず、自力で物事を成し遂げることを好みます。彼女の独立心は強固で、それは孤独を意味する場合もありますが、同時に非常に頼りになる人物でもあります。過去の出来事が、彼女を他者に依存しないように仕向けたのかもしれません。"
         },
         {
-            "short_personality": "孤高の守護者",
-            "description": "一人で行動することを好むが、弱者を見過ごすことはできない正義感の持ち主。"
+            "short_personality": "鋭い洞察力",
+            "description": "熟練した弓使いとして、レンは非常に鋭い観察眼と洞察力を持っています。人や環境のわずかな変化も見逃さず、隠された真実や意図を瞬時に読み取ることができます。この能力は彼女が正確な射撃を行うだけでなく、危険を察知し、未解明な過去の手がかりを探すのに役立っています。"
         }
     ]
 }
-```
-
-#### リトライ発生時のログ詳細
-
-```
-[2025-11-17 18:30:50] [WARNING] Request failed (attempt 1/6). Error: ServiceUnavailable: 503 Service unavailable. Retrying in 1.42s...
-[2025-11-17 18:30:51] [WARNING] Request failed (attempt 2/6). Error: ServiceUnavailable: 503 Service unavailable. Retrying in 2.89s...
-[2025-11-17 18:30:54] [INFO] Request succeeded after 2 retries
 ```

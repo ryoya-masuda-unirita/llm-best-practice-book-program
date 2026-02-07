@@ -131,11 +131,8 @@ GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
 2. **依存関係のインストール**
 
 ```bash
-# uvを使用する場合（推奨）
+# uvを使用
 uv sync
-
-# pipを使用する場合
-pip install -e .
 ```
 
 ### 使用方法、実行方法
@@ -145,20 +142,20 @@ pip install -e .
 ```bash
 # Gemini APIを使用（デフォルト）
 uv run python -m src.main \
-  --llm-provider gemini \
-  --model gemini-2.5-flash \
+  --llm-provider GEMINI \
+  --model GEMINI_2_5_FLASH \
   --document-path dataset/document_0.md
 
 # OpenAI APIを使用
 uv run python -m src.main \
   --llm-provider openai \
-  --model gpt-4o \
+  --model GPT_5_MINI \
   --document-path dataset/document_1.md
 
 # 短縮オプション
 uv run python -m src.main \
   -lp openai \
-  -m gpt-4o \
+  -m GPT_5_MINI \
   -dp dataset/document_0.md
 ```
 
@@ -167,15 +164,15 @@ uv run python -m src.main \
 ```bash
 # カスタム出力ディレクトリを指定
 uv run python -m src.main \
-  -lp gemini \
-  -m gemini-2.5-flash \
+  -lp GEMINI \
+  -m GEMINI_2_5_FLASH \
   -dp dataset/document_0.md \
   --output-directory ./custom_output
 
 # 短縮オプション
 uv run python -m src.main \
-  -lp gemini \
-  -m gemini-2.5-flash \
+  -lp GEMINI \
+  -m GEMINI_2_5_FLASH \
   -dp dataset/document_0.md \
   -od ./my_analysis
 ```
@@ -183,37 +180,24 @@ uv run python -m src.main \
 #### ヘルプの表示
 
 ```bash
-uv run python -m src.main --help
+python -m src.main --help
 ```
 
 **出力例**:
 ```
+$ python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
 Options:
-  -lp, --llm-provider [openai|gemini]
-                                  The LLM provider to use.
-  -m, --model [gpt-5|gpt-5-mini|gpt-5-nano|gpt-4.1|gpt-4.1-mini|gpt-4.1-nano|gpt-4o|gpt-4o-mini|gemini-2.5-pro|gemini-2.5-flash|gemini-2.5-flash-lite]
+  -lp, --llm-provider [OPENAI|GEMINI]
+                                  The LLM provider to use.  [required]
+  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
                                   The model to use for the request.
+                                  [required]
   -od, --output-directory PATH    The directory to save output files.
   -dp, --document-path PATH       Path to the markdown document to analyze.
+                                  [required]
   --help                          Show this message and exit.
-```
-
-#### Makefileを使用した実行
-
-```bash
-# Gemini APIで分析実行
-make run-gemini
-
-# OpenAI APIで分析実行
-make run-openai
-
-# テストの実行
-make test
-
-# コードフォーマット
-make format
 ```
 
 ### 出力例
@@ -224,14 +208,14 @@ make format
 
 ```json
 {
-    "theme": "このドキュメントは、LLMを活用したシステムにおけるLLMパイプラインパターンについて解説しています。複雑なタスクを段階的に処理することで、単一呼び出しでは実現困難な高精度なシステムを構築する方法を示しています。",
-    "value": "このドキュメントは、LLMアプリケーション開発者にとって非常に価値があります。複雑なタスクを適切に分割し、各ステージで明確な責務を持たせることで、デバッグ性やメンテナンス性を大幅に向上させる実践的な設計パターンを提供します。また、LangChainやLangGraphなどの具体的なフレームワークの活用方法も示されており、即座に実装に移せる知識が得られます。",
+    "theme": "LLMの出力を構造化することで、システムに安全かつ信頼性の高い統合を実現する手法について解説しています。",
+    "value": "この文書は、非構造化データの問題を解決し、LLMの出力を構造化してシステムと連携する方法を提供します。特に、医療や金融などビジネスクリティカルな場面でのLLMの活用に役立ち、自然言語処理の不確実性を排除し、予測可能性を高める実践的な指針を示しています。",
     "improvement_requests": [
-        "具体的なコード例やスニペットを追加して、実装イメージをより明確にする",
-        "パイプラインのパフォーマンス最適化に関する具体的なベストプラクティスを追加する",
-        "エラーハンドリングとリトライ戦略の実装例を詳細に説明する",
-        "小規模プロジェクトから段階的に導入する際の具体的なロードマップを提示する",
-        "コストとレイテンシのトレードオフを定量的に分析した事例を追加する"
+        "具体的なコード例を増やして、実装の理解をより深められるようにする。",
+        "構造化出力を使用したシステムでの失敗例や成功例を詳細に挙げ、実務での応用可能性を示す。",
+        "各セクションの要約を追加し、読み手に理解を促す。",
+        "異なるLLMモデル間での構造化出力の比較や違いについて言及する。",
+        "構造化出力のコスト面の詳細な分析を追加し、採用時の注意点を補足する。"
     ]
 }
 ```
@@ -242,68 +226,50 @@ make format
 # Document Analysis Result
 
 ## Theme
-このドキュメントは、LLMを活用したシステムにおけるLLMパイプラインパターンについて解説しています。複雑なタスクを段階的に処理することで、単一呼び出しでは実現困難な高精度なシステムを構築する方法を示しています。
+LLMの出力を構造化することで、システムに安全かつ信頼性の高い統合を実現する手法について解説しています。
 
 ## Value
-このドキュメントは、LLMアプリケーション開発者にとって非常に価値があります。複雑なタスクを適切に分割し、各ステージで明確な責務を持たせることで、デバッグ性やメンテナンス性を大幅に向上させる実践的な設計パターンを提供します。また、LangChainやLangGraphなどの具体的なフレームワークの活用方法も示されており、即座に実装に移せる知識が得られます。
+この文書は、非構造化データの問題を解決し、LLMの出力を構造化してシステムと連携する方法を提供します。特に、医療や金融などビジネスクリティカルな場面でのLLMの活用に役立ち、自然言語処理の不確実性を排除し、予測可能性を高める実践的な指針を示しています。
 
 ## Improvement Requests
-1. 具体的なコード例やスニペットを追加して、実装イメージをより明確にする
-2. パイプラインのパフォーマンス最適化に関する具体的なベストプラクティスを追加する
-3. エラーハンドリングとリトライ戦略の実装例を詳細に説明する
-4. 小規模プロジェクトから段階的に導入する際の具体的なロードマップを提示する
-5. コストとレイテンシのトレードオフを定量的に分析した事例を追加する
+1. 具体的なコード例を増やして、実装の理解をより深められるようにする。
+2. 構造化出力を使用したシステムでの失敗例や成功例を詳細に挙げ、実務での応用可能性を示す。
+3. 各セクションの要約を追加し、読み手に理解を促す。
+4. 異なるLLMモデル間での構造化出力の比較や違いについて言及する。
+5. 構造化出力のコスト面の詳細な分析を追加し、採用時の注意点を補足する。
+
 ```
 
 #### 実行ログ例
 
 ```
-[2025-10-19 10:30:45] [INFO] [__main__] [main.py:61] [main] LLM provider: gemini
+$ uv run python -m src.main \
+  --llm-provider GEMINI \
+  --model GEMINI_2_5_FLASH \
+  --document-path dataset/document_0.md
+
+[2026-02-07 08:37:06,749] [INFO] [__main__] [main.py:60] [main] LLM provider: gemini
 Model: gemini-2.5-flash
 Document path: dataset/document_0.md
 Output directory: outputs
 
-[2025-10-19 10:30:45] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:484] [run_document_analysis_pipeline] Starting document analysis pipeline for: dataset/document_0.md
-[2025-10-19 10:30:45] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:485] [run_document_analysis_pipeline] LLM Provider: LLMProvider.GEMINI, Model: gemini-2.5-flash
-
-[2025-10-19 10:30:45] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:32] [read_document_node] Reading document from: dataset/document_0.md
-[2025-10-19 10:30:45] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:38] [read_document_node] Successfully read document (3245 characters)
-
-[2025-10-19 10:30:45] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:294] [route_to_llm_provider] Routing to Gemini
-
-[2025-10-19 10:30:45] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:125] [analyze_document_gemini_node] Analyzing document with Gemini (attempt 1)
-[2025-10-19 10:30:48] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:160] [analyze_document_gemini_node] Successfully analyzed document with Gemini
-
-[2025-10-19 10:30:48] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:325] [route_to_judge] Routing to Gemini judge
-
-[2025-10-19 10:30:48] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:233] [judge_analysis_gemini_node] Evaluating analysis with Gemini judge
-[2025-10-19 10:30:50] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:257] [judge_analysis_gemini_node] Evaluation complete: Grade 3/5
-[2025-10-19 10:30:50] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:258] [judge_analysis_gemini_node] Reasoning: The analysis captures the main theme and value adequately but lacks depth in some areas. The improvement requests are somewhat generic and could be more specific and actionable.
-
-[2025-10-19 10:30:50] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:367] [route_after_judge] Analysis grade 3/5 is below threshold. Retrying (attempt 2/3)
-
-[2025-10-19 10:30:50] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:125] [analyze_document_gemini_node] Analyzing document with Gemini (attempt 2)
-[2025-10-19 10:30:50] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:146] [analyze_document_gemini_node] Added judge feedback to prompt for retry
-[2025-10-19 10:30:53] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:160] [analyze_document_gemini_node] Successfully analyzed document with Gemini
-
-[2025-10-19 10:30:53] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:233] [judge_analysis_gemini_node] Evaluating analysis with Gemini judge
-[2025-10-19 10:30:55] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:257] [judge_analysis_gemini_node] Evaluation complete: Grade 4/5
-[2025-10-19 10:30:55] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:258] [judge_analysis_gemini_node] Reasoning: The improved analysis provides a more comprehensive understanding of the document's theme and value. The improvement requests are now more specific and actionable, demonstrating good analysis quality.
-
-[2025-10-19 10:30:55] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:356] [route_after_judge] Analysis accepted with grade 4/5
-
-[2025-10-19 10:30:55] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:513] [run_document_analysis_pipeline] Pipeline completed successfully
-[2025-10-19 10:30:55] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:514] [run_document_analysis_pipeline] Total analysis attempts: 2
-[2025-10-19 10:30:55] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:517] [run_document_analysis_pipeline] Final evaluation grade: 4/5
-[2025-10-19 10:30:55] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:518] [run_document_analysis_pipeline] Evaluation reasoning: The improved analysis provides a more comprehensive understanding...
-
-[2025-10-19 10:30:55] [INFO] [__main__] [main.py:95] [main] Analysis results saved:
-JSON: outputs/gemini_analysis_a1b2c3d4e5f6.json
-Markdown: outputs/gemini_analysis_a1b2c3d4e5f6.md
+[2026-02-07 08:37:06,749] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:380] [run_document_analysis_pipeline] Starting document analysis pipeline for: dataset/document_0.md
+[2026-02-07 08:37:06,749] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:381] [run_document_analysis_pipeline] LLM Provider: gemini, Model: gemini-2.5-flash
+[2026-02-07 08:37:07,736] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:23] [read_document_node] Reading document from: dataset/document_0.md
+[2026-02-07 08:37:07,738] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:29] [read_document_node] Successfully read document (4743 characters)
+[2026-02-07 08:37:07,739] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:237] [route_to_llm_provider] Routing to OpenAI
+[2026-02-07 08:37:07,740] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:49] [analyze_document_openai_node] Analyzing document with OpenAI (attempt 1)
+[2026-02-07 08:37:17,638] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:78] [analyze_document_openai_node] Successfully analyzed document with OpenAI
+[2026-02-07 08:37:17,638] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:260] [route_to_judge] Routing to OpenAI judge
+[2026-02-07 08:37:17,639] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:150] [judge_analysis_openai_node] Evaluating analysis with OpenAI judge
+[2026-02-07 08:37:22,229] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:167] [judge_analysis_openai_node] Evaluation complete: Grade 4/5
+[2026-02-07 08:37:22,229] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:168] [judge_analysis_openai_node] Reasoning: 分析は主題を正確に捉えており、文書の価値を効果的に伝えています。改善点も具体的で実用的な案を提示しており、分析全体が良く構成されています。ただし、提案された改善点の重要性をもう少し優先順位付けして説明していると、さらに説得力が増したかもしれません。
+[2026-02-07 08:37:22,229] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:284] [route_after_judge] Analysis accepted with grade 4/5
+[2026-02-07 08:37:22,230] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:406] [run_document_analysis_pipeline] Pipeline completed successfully
+[2026-02-07 08:37:22,230] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:407] [run_document_analysis_pipeline] Total analysis attempts: 1
+[2026-02-07 08:37:22,230] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:410] [run_document_analysis_pipeline] Final evaluation grade: 4/5
+[2026-02-07 08:37:22,230] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:411] [run_document_analysis_pipeline] Evaluation reasoning: 分析は主題を正確に捉えており、文書の価値を効果的に伝えています。改善点も具体的で実用的な案を提示しており、分析全体が良く構成されています。 ただし、提案された改善点の重要性をもう少し優先順位付けして説明していると、さらに説得力が増したかもしれません。
+[2026-02-07 08:37:22,230] [INFO] [__main__] [main.py:92] [main] Analysis results saved:
+JSON: outputs/gemini_analysis_acfc8bed03d84ac19b12b4783c9b1af1.json
+Markdown: outputs/gemini_analysis_acfc8bed03d84ac19b12b4783c9b1af1.md
 ```
-
-上記のログから、以下のパイプライン実行が確認できます：
-1. 文書読み込み成功（3245文字）
-2. 1回目の分析実行 → 評価grade 3/5（基準未達）
-3. 改善フィードバック付きで2回目の分析実行 → 評価grade 4/5（合格）
-4. パイプライン完了、結果をJSON/Markdown形式で保存

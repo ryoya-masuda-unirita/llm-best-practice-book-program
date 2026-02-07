@@ -64,5 +64,5 @@ class Retriever(Component[str, list[Chunk]]):
         return chunks
 
     async def _create_query_embedding(self, query: str) -> list[float]:
-        result = await google_genai_client.aio.models.embed_content(model=self.embedding_model, content=query)
+        result = await google_genai_client.aio.models.embed_content(model=self.embedding_model, contents=query)
         return result.embeddings[0].values

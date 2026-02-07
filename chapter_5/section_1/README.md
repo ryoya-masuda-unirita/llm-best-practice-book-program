@@ -137,11 +137,8 @@ ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
 2. **依存関係のインストール**
 
 ```bash
-# uvを使用する場合（推奨）
+# uvを使用
 uv sync
-
-# pipを使用する場合
-pip install -e .
 ```
 
 ### 使用方法、実行方法
@@ -174,7 +171,6 @@ uv run python -m src.main -m claude-opus-4-5 -r "本格的なフレンチ"
 - `claude-haiku-4-5`（デフォルト）
 - `claude-sonnet-4-5`
 - `claude-opus-4-5`
-- `claude-opus-4-1`
 
 #### 出力先の指定
 
@@ -191,6 +187,7 @@ uv run python -m src.main --help
 
 **出力例**:
 ```
+$ uv run python -m src.main --help 
 Usage: python -m src.main [OPTIONS]
 
   Dinner Menu Advisor - A ReAct AI Agent
@@ -210,7 +207,7 @@ Usage: python -m src.main [OPTIONS]
       python -m src.main -r "30分以内で作れるイタリアン"
 
 Options:
-  -m, --model [claude-opus-4-5|claude-haiku-4-5|claude-sonnet-4-5|claude-opus-4-1]
+  -m, --model [CLAUDE_OPUS_4_5|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_5]
                                   The model to use for the request.
   -od, --output-directory PATH    The directory to save output files.
   -r, --request TEXT              Your dinner request in natural language.
@@ -225,73 +222,73 @@ Options:
 **ファイル名**: `outputs/dinner_recommendation_xxxxxxxx.md`
 
 ```markdown
-# おすすめ夕食メニュー: 白菜と豚バラの簡単ミルフィーユ鍋
+# おすすめ夕食メニュー: 簡単チャーハン
 
 ## 概要
-- **調理時間**: 35分
+- **調理時間**: 42分
 - **難易度**: 簡単
 
 ## おすすめ理由
-今日は疲れているとのことなので、下ごしらえが少なく短時間で作れる「白菜と豚バラのミルフィーユ鍋」を提案します。材料は冬の旬の白菜を使い、重ねて鍋に入れて煮るだけで完成。洗い物も少なく、温かくて消化にも良い一品です。
+疲れている時は、手早く調理できる料理がおすすめです。チャーハンは準備も調理も簡単で、冷ご飯を活用できるため、最小限の手間で栄養バランスの取れた夕食が完成します。冬の旬のネギも使用でき、季節感も感じられます。
 
 ## 材料
-- 白菜
-- 豚バラ薄切り肉
-- 水（または和風だし）
-- 顆粒だし（小さじ1）
-- 酒（大さじ1）
-- 薄口醤油（小さじ1）
-- ねぎ（飾り用）
-- ポン酢または柚子胡椒（お好みで）
+- ご飯
+- 卵
+- ネギ
+- ハム
+- 塩
+- こしょう
+- 油
 
 ## 作り方
-1. 白菜の葉を1枚ずつはがし、大きければ半分に切る。豚バラは5〜6cmに切る（そのままでも可）。
-2. 鍋に白菜→豚バラの順で交互に重ね、ミルフィーユ状に詰めていく。鍋の高さに合わせて層を作る。
-3. 水500ml（またはだし500ml）を鍋底が浸る程度に注ぎ、顆粒だし小さじ1、酒大さじ1、薄口醤油小さじ1を加える。
-4. 蓋をして中火にかけ、沸騰したら弱めの中火〜中火で約15〜20分、白菜がしんなりして豚肉に火が通るまで煮る。
-5. 好みで豆腐やしめじを一緒に入れても良い。火から下ろして器に盛り、刻みねぎを散らす。ポン酢や柚子胡椒を添えて召し上がれ。
-6. 後片付けを楽にするため、使った鍋はぬるま湯に浸けておくと簡単です。
-```
+1. ご飯を用意し、卵を軽く溶いておきます
+2. ハムとネギを細かく切ります
+3. フライパンに油を熱し、溶いた卵を流し入れて軽く炒めます
+4. 卵が半熟状になったら、ご飯とハム、ネギを加えます
+5. ご飯をほぐしながら中火で炒めます（約3～5分）
+6. 塩とこしょうで味を整えて完成です
 
-## 開発コマンド
+```
 
 ```bash
-make lint   # ruffでリンターを実行（自動修正付き）
-make fmt    # ruffでコードをフォーマット
-make fix    # lintとfmtを両方実行
-make mypy   # 型チェックを実行
-```
+$ uv run python -m src.main -r "今日は疲れているので簡単な料理がいい" -od outputs -m CLAUDE_HAIKU_4_5
+[2026-02-07 09:00:54,193] [INFO] [__main__] [main.py:69] [main] Dinner Menu Advisor
+Model: claude-haiku-4-5
+Request: 今日は疲れているので簡単な料理がいい
+Output directory: outputs
 
-## 実装のポイント
-
-### 無限ループ防止
-
-`MAX_ITERATIONS = 10`により、ツール実行のサイクル数を制限し、エージェントの暴走を防止しています。
-
-```python
-if tool_message_count >= MAX_ITERATIONS:
-    logger.warning(f"Agent: Max iterations ({MAX_ITERATIONS}) reached, forcing response")
-    return "respond"
-```
-
-### 構造化出力
-
-`tool_choice="any"`と`DinnerRecommendation`をレスポンスツールとして使用することで、モデルが必ずツールを呼び出し、構造化された出力を生成するよう強制しています。
-
-```python
-model_with_tools = model.bind_tools(all_tools, tool_choice="any")
-```
-
-### データソース
-
-レシピ、栄養情報、旬の食材データは`model.py`内に定数として定義されています。本番環境では、外部APIやデータベースに接続することを想定しています。
-
-```python
-RECIPES_DATABASE: dict[str, list[dict]] = {
-    "Japanese": [
-        {"name": "鶏の照り焼き", "ingredients": ["鶏もも肉", "醤油", "みりん", "砂糖"], "time": 25},
-        # ...
-    ],
-    # ...
-}
+[2026-02-07 09:00:54,193] [INFO] [src.service.service] [service.py:263] [run_dinner_advisor] Starting dinner advisor for request: 今日は疲れているので簡単な料理がいい
+[2026-02-07 09:00:54,193] [INFO] [src.service.service] [service.py:264] [run_dinner_advisor] Using model: claude-haiku-4-5
+[2026-02-07 09:00:54,193] [INFO] [src.service.service] [service.py:232] [create_dinner_advisor_graph] Creating dinner advisor ReAct agent graph with structured output...
+[2026-02-07 09:00:54,193] [INFO] [src.service.service] [service.py:254] [create_dinner_advisor_graph] Dinner advisor graph created successfully
+[2026-02-07 09:00:54,200] [INFO] [src.service.service] [service.py:138] [call_model] Agent: Calling model for reasoning...
+[2026-02-07 09:00:55,045] [INFO] [src.service.service] [service.py:149] [call_model] Agent: Model response received (has_tool_calls=True)
+[2026-02-07 09:00:55,046] [INFO] [src.service.service] [service.py:202] [should_continue] Agent: Tool calls detected, continuing to tool execution
+[2026-02-07 09:00:55,047] [INFO] [src.service.service] [service.py:156] [tool_node] Agent: Executing tool calls...
+[2026-02-07 09:00:55,047] [INFO] [src.service.service] [service.py:166] [tool_node] Agent: Executing tool 'search_recipes' with args: {'query': ' 簡単 疲れた時'}
+[2026-02-07 09:00:55,048] [INFO] [src.service.service] [service.py:38] [search_recipes] Tool: search_recipes called with query='簡単 疲れた時', cuisine_type='None'
+[2026-02-07 09:00:55,048] [INFO] [src.service.service] [service.py:170] [tool_node] Agent: Tool 'search_recipes' returned result
+[2026-02-07 09:00:55,048] [INFO] [src.service.service] [service.py:166] [tool_node] Agent: Executing tool 'get_seasonal_ingredients' with args: {}
+[2026-02-07 09:00:55,048] [INFO] [src.service.service] [service.py:91] [get_seasonal_ingredients] Tool: get_seasonal_ingredients called with season='None'
+[2026-02-07 09:00:55,048] [INFO] [src.service.service] [service.py:170] [tool_node] Agent: Tool 'get_seasonal_ingredients' returned result
+[2026-02-07 09:00:55,049] [INFO] [src.service.service] [service.py:138] [call_model] Agent: Calling model for reasoning...
+[2026-02-07 09:00:56,079] [INFO] [src.service.service] [service.py:149] [call_model] Agent: Model response received (has_tool_calls=True)
+[2026-02-07 09:00:56,079] [INFO] [src.service.service] [service.py:202] [should_continue] Agent: Tool calls detected, continuing to tool execution
+[2026-02-07 09:00:56,080] [INFO] [src.service.service] [service.py:156] [tool_node] Agent: Executing tool calls...
+[2026-02-07 09:00:56,080] [INFO] [src.service.service] [service.py:166] [tool_node] Agent: Executing tool 'estimate_cooking_time' with args: {'dish_name': 'チャーハン', 'skill_level': 'beginner'}
+[2026-02-07 09:00:56,080] [INFO] [src.service.service] [service.py:109] [estimate_cooking_time] Tool: estimate_cooking_time called with dish_name='チャーハン', skill_level='beginner'
+[2026-02-07 09:00:56,080] [INFO] [src.service.service] [service.py:170] [tool_node] Agent: Tool 'estimate_cooking_time' returned result
+[2026-02-07 09:00:56,080] [INFO] [src.service.service] [service.py:166] [tool_node] Agent: Executing tool 'check_nutrition' with args: {'dish_name': 'チャーハン'}
+[2026-02-07 09:00:56,080] [INFO] [src.service.service] [service.py:69] [check_nutrition] Tool: check_nutrition called with dish_name='チャーハン'
+[2026-02-07 09:00:56,080] [INFO] [src.service.service] [service.py:170] [tool_node] Agent: Tool 'check_nutrition' returned result
+[2026-02-07 09:00:56,081] [INFO] [src.service.service] [service.py:138] [call_model] Agent: Calling model for reasoning...
+[2026-02-07 09:00:59,553] [INFO] [src.service.service] [service.py:149] [call_model] Agent: Model response received (has_tool_calls=True)
+[2026-02-07 09:00:59,554] [INFO] [src.service.service] [service.py:199] [should_continue] Agent: DinnerRecommendation tool called, proceeding to respond
+[2026-02-07 09:00:59,554] [INFO] [src.service.service] [service.py:217] [respond] Agent: Extracting structured DinnerRecommendation from tool call
+[2026-02-07 09:00:59,554] [INFO] [src.service.service] [service.py:220] [respond] Agent: Successfully created DinnerRecommendation: 簡単チャーハン
+[2026-02-07 09:00:59,554] [INFO] [src.service.service] [service.py:280] [run_dinner_advisor] Dinner advisor completed successfully: 簡単チャーハン
+[2026-02-07 09:00:59,555] [INFO] [__main__] [main.py:91] [main] Recommendation saved: outputs/dinner_recommendation_50bc0e0b2818477bb4f737216dce816b.md
+[2026-02-07 09:00:59,555] [INFO] [__main__] [main.py:92] [main] Menu: 簡単チャーハン
+[2026-02-07 09:00:59,555] [INFO] [__main__] [main.py:93] [main] Cooking time: 42 minutes
+[2026-02-07 09:00:59,555] [INFO] [__main__] [main.py:94] [main] Difficulty: 簡単
 ```

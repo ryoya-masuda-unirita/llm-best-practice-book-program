@@ -116,14 +116,37 @@ export GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
 2. **依存関係のインストール**
 
 ```bash
-# uvを使用する場合（推奨）
+# uvを使用
 uv sync
-
-# pipを使用する場合
-pip install -e .
-```
+``
 
 ### 使用方法、実行方法
+
+```shell
+$ python -m src.main --help
+Usage: python -m src.main [OPTIONS]
+
+  Run Dependency Injection workflow examples.
+
+  This command allows you to run different workflow examples that demonstrate
+  the LLM workflow orchestration engine with Dependency Injection patterns.
+
+  Examples:     # Run example 1 (manual DI)     python -m src.main --workflow
+  example_1_manual_di
+
+      # Run example 4 (multi-stage pipeline)     python -m src.main --workflow
+      example_4_multi_stage_pipeline
+
+      # Run all workflows     python -m src.main --workflow all
+
+Options:
+  -lp, --llm-provider [OPENAI|GEMINI]
+                                  The LLM provider to use.
+  -w, --workflow [example_1_manual_di|example_2_di_container_singleton|example_3_swapping_providers|example_4_multi_stage_pipeline|example_5_structured_output|example_6_testing_pattern|all]
+                                  The workflow example to run. Use 'all' to
+                                  run all workflows.
+  --help                          Show this message and exit.
+```
 
 #### 基本的な使い方
 
@@ -136,21 +159,6 @@ python -m src.main --workflow example_1_manual_di
 
 # 直接実行
 python -m src.examples
-```
-
-#### 利用可能なワークフロー
-
-```bash
-# ワークフロー一覧を表示
-python -m src.main --help
-
-# 利用可能なワークフロー:
-# - example_1_manual_di              # 手動DI
-# - example_2_di_container_singleton # DIコンテナとシングルトン
-# - example_3_swapping_providers     # プロバイダー切り替え（A/Bテスト）
-# - example_4_multi_stage_pipeline   # 多段階パイプライン
-# - example_5_structured_output      # 構造化出力
-# - example_6_testing_pattern        # テストパターン
 ```
 
 #### Example 1: 手動依存性注入
@@ -238,32 +246,97 @@ for provider_name, llm_client in providers:
 #### Example 1: 手動DI
 
 ```
-============================================================
-Example 1: Manual Dependency Injection
-============================================================
-[2025-11-09 15:29:44] [INFO] [src.workflow.engine] Workflow translation-workflow completed
-Translation result: Bonjour le monde
-Mock client was called 1 time(s)
+$ python -m src.main --workflow example_1_manual_di 
+
+[2026-02-07 08:49:38,563] [INFO] [__main__] [main.py:111] [main] Running workflow: example_1_manual_di
+
+[2026-02-07 08:49:38,563] [INFO] [src.examples] [examples.py:50] [example_1_manual_di] ============================================================
+[2026-02-07 08:49:38,563] [INFO] [src.examples] [examples.py:51] [example_1_manual_di] Example 1: Manual Dependency Injection
+[2026-02-07 08:49:38,563] [INFO] [src.examples] [examples.py:52] [example_1_manual_di] ============================================================
+[2026-02-07 08:49:38,563] [INFO] [src.workflow.workflow] [workflow.py:83] [validate] Workflow translation-workflow validated successfully
+[2026-02-07 08:49:38,563] [INFO] [src.workflow.engine] [engine.py:33] [__init__] Engine initialized (checkpointing: False, DI: False)
+[2026-02-07 08:49:38,563] [INFO] [src.workflow.engine] [engine.py:39] [execute] Starting workflow: translation-workflow
+[2026-02-07 08:49:38,563] [INFO] [src.workflow.workflow] [workflow.py:83] [validate] Workflow translation-workflow validated successfully
+[2026-02-07 08:49:38,563] [DEBUG] [src.workflow.engine] [engine.py:147] [_setup_mediator] Mediator setup complete
+[2026-02-07 08:49:38,563] [DEBUG] [src.workflow.engine] [engine.py:148] [_setup_mediator] end -> translate
+translate -> start
+[2026-02-07 08:49:38,563] [INFO] [src.workflow.engine] [engine.py:87] [_run] Executing: start (Start)
+[2026-02-07 08:49:38,563] [INFO] [src.workflow.nodes] [nodes.py:20] [execute] Starting workflow: translation-workflow
+[2026-02-07 08:49:38,564] [INFO] [src.workflow.engine] [engine.py:87] [_run] Executing: translate (Translate Text)
+[2026-02-07 08:49:38,564] [INFO] [src.workflow.nodes] [nodes.py:65] [execute] Executing prompt node: Translate Text
+[2026-02-07 08:49:38,564] [INFO] [src.workflow.nodes] [nodes.py:77] [execute] Prompt: Translate 'Hello world' to French...
+[2026-02-07 08:49:38,564] [INFO] [src.workflow.engine] [engine.py:87] [_run] Executing: end (End)
+[2026-02-07 08:49:38,564] [INFO] [src.workflow.nodes] [nodes.py:36] [execute] Ending workflow: translation-workflow
+[2026-02-07 08:49:38,564] [INFO] [src.workflow.engine] [engine.py:57] [execute] Workflow translation-workflow completed
+[2026-02-07 08:49:38,564] [INFO] [src.examples] [examples.py:80] [example_1_manual_di] Translation result: Bonjour le monde
+[2026-02-07 08:49:38,564] [INFO] [__main__] [main.py:116] [main] 
 ✓ Workflow completed successfully
-  Status: completed
-  Nodes executed: 3
+[2026-02-07 08:49:38,564] [INFO] [__main__] [main.py:117] [main]   Status: completed
+[2026-02-07 08:49:38,564] [INFO] [__main__] [main.py:118] [main]   Nodes executed: 3
+[2026-02-07 08:49:38,564] [INFO] [__main__] [main.py:121] [main] 
+  Final outputs:
+[2026-02-07 08:49:38,564] [INFO] [__main__] [main.py:123] [main]     start: {'status': 'started', 'initial_data': {'text': 'Hello world', 'target_language': 'French'}}...
+[2026-02-07 08:49:38,564] [INFO] [__main__] [main.py:123] [main]     translate: Bonjour le monde...
+[2026-02-07 08:49:38,564] [INFO] [__main__] [main.py:123] [main]     end: {'status': 'completed', 'workflow_id': 'translation-workflow'}...
 ```
 
 #### Example 4: 多段階パイプライン
 
 ```
-============================================================
-Example 4: Multi-Stage Pipeline with DI
-============================================================
-[2025-11-09 15:29:56] [INFO] [src.workflow.engine] Workflow multi-stage-workflow completed
+$ python -m src.main --workflow example_4_multi_stage_pipeline
 
-Final formatted output:
-## Key Points
+[2026-02-07 08:50:14,665] [INFO] [__main__] [main.py:111] [main] Running workflow: example_4_multi_stage_pipeline
+
+[2026-02-07 08:50:14,665] [INFO] [src.examples] [examples.py:191] [example_4_multi_stage_pipeline] ============================================================
+[2026-02-07 08:50:14,665] [INFO] [src.examples] [examples.py:192] [example_4_multi_stage_pipeline] Example 4: Multi-Stage Pipeline with DI
+[2026-02-07 08:50:14,665] [INFO] [src.examples] [examples.py:193] [example_4_multi_stage_pipeline] ============================================================
+[2026-02-07 08:50:14,666] [INFO] [src.workflow.workflow] [workflow.py:83] [validate] Workflow multi-stage-workflow validated successfully
+[2026-02-07 08:50:14,666] [INFO] [src.workflow.engine] [engine.py:33] [__init__] Engine initialized (checkpointing: False, DI: False)
+[2026-02-07 08:50:14,666] [INFO] [src.workflow.engine] [engine.py:39] [execute] Starting workflow: multi-stage-workflow
+[2026-02-07 08:50:14,666] [INFO] [src.workflow.workflow] [workflow.py:83] [validate] Workflow multi-stage-workflow validated successfully
+[2026-02-07 08:50:14,666] [DEBUG] [src.workflow.engine] [engine.py:147] [_setup_mediator] Mediator setup complete
+[2026-02-07 08:50:14,666] [DEBUG] [src.workflow.engine] [engine.py:148] [_setup_mediator] end -> format
+extract -> start
+format -> summarize
+summarize -> extract
+[2026-02-07 08:50:14,666] [INFO] [src.workflow.engine] [engine.py:87] [_run] Executing: start (Start)
+[2026-02-07 08:50:14,666] [INFO] [src.workflow.nodes] [nodes.py:20] [execute] Starting workflow: multi-stage-workflow
+[2026-02-07 08:50:14,666] [INFO] [src.workflow.engine] [engine.py:87] [_run] Executing: extract (Extract Key Points)
+[2026-02-07 08:50:14,666] [INFO] [src.workflow.nodes] [nodes.py:65] [execute] Executing prompt node: Extract Key Points
+[2026-02-07 08:50:14,666] [INFO] [src.workflow.nodes] [nodes.py:77] [execute] Prompt: Extract key points from: Long technical document......
+[2026-02-07 08:50:14,666] [INFO] [src.workflow.engine] [engine.py:87] [_run] Executing: summarize (Generate Summary)
+[2026-02-07 08:50:14,666] [INFO] [src.workflow.nodes] [nodes.py:65] [execute] Executing prompt node: Generate Summary
+[2026-02-07 08:50:14,666] [INFO] [src.workflow.nodes] [nodes.py:77] [execute] Prompt: 2 messages...
+[2026-02-07 08:50:14,666] [INFO] [src.workflow.engine] [engine.py:87] [_run] Executing: format (Format Output)
+[2026-02-07 08:50:14,666] [INFO] [src.workflow.nodes] [nodes.py:211] [execute] Executing script: Format Output
+[2026-02-07 08:50:14,666] [INFO] [src.workflow.nodes] [nodes.py:226] [execute] Script result: ## Key Points
 Key points: A, B, C
 
 ## Summary
 Professional summary of key points
+[2026-02-07 08:50:14,666] [INFO] [src.workflow.engine] [engine.py:87] [_run] Executing: end (End)
+[2026-02-07 08:50:14,666] [INFO] [src.workflow.nodes] [nodes.py:36] [execute] Ending workflow: multi-stage-workflow
+[2026-02-07 08:50:14,666] [INFO] [src.workflow.engine] [engine.py:57] [execute] Workflow multi-stage-workflow completed
+[2026-02-07 08:50:14,666] [INFO] [src.examples] [examples.py:243] [example_4_multi_stage_pipeline] 
+Final formatted output:
+[2026-02-07 08:50:14,666] [INFO] [src.examples] [examples.py:244] [example_4_multi_stage_pipeline] ## Key Points
+Key points: A, B, C
+
+## Summary
+Professional summary of key points
+[2026-02-07 08:50:14,666] [INFO] [__main__] [main.py:116] [main] 
 ✓ Workflow completed successfully
-  Status: completed
-  Nodes executed: 5
+[2026-02-07 08:50:14,666] [INFO] [__main__] [main.py:117] [main]   Status: completed
+[2026-02-07 08:50:14,666] [INFO] [__main__] [main.py:118] [main]   Nodes executed: 5
+[2026-02-07 08:50:14,666] [INFO] [__main__] [main.py:121] [main] 
+  Final outputs:
+[2026-02-07 08:50:14,666] [INFO] [__main__] [main.py:123] [main]     start: {'status': 'started', 'initial_data': {'document': 'Long technical document...', 'prompt': 'temp'}}...
+[2026-02-07 08:50:14,666] [INFO] [__main__] [main.py:123] [main]     extract: Key points: A, B, C...
+[2026-02-07 08:50:14,666] [INFO] [__main__] [main.py:123] [main]     summarize: Professional summary of key points...
+[2026-02-07 08:50:14,666] [INFO] [__main__] [main.py:123] [main]     format: ## Key Points
+Key points: A, B, C
+
+## Summary
+Professional summary of key points...
+[2026-02-07 08:50:14,666] [INFO] [__main__] [main.py:123] [main]     end: {'status': 'completed', 'workflow_id': 'multi-stage-workflow'}...
 ```
