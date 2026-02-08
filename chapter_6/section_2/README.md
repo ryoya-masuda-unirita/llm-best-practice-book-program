@@ -90,148 +90,6 @@ chapter_3/section_9/
 └─────────────────────────────────────────────────┘
 ```
 
-### 実装の詳細
-
-#### 1. ラッパークライアントの設計原則
-
-このプロジェクトの中核となるラッパーライブラリは、以下の設計原則に従っています：
-
-**原則1: 薄く保つ**
-公式SDKのインターフェースを極力維持し、過剰な抽象化を避けます。
-
-**原則2: 透過的な動作**
-`__getattr__`メソッドを使用して、ラップしていないメソッド呼び出しを自動的に元のSDKに委譲します。
-
-```python
-def __getattr__(self, name):
-    return getattr(self._chat_completions, name)
-```
-
-**原則3: 横断的関心事の集約**
-ログ記録、トークン追跡、処理時間計測といった共通処理をラッパーに集約します。
-
-#### 2. OpenAIラッパーの実装 (`src/client/openai_wrapper_client.py`)
-
-```python
-class AsyncOpenAIWrapperClient(AsyncOpenAI):
-    def __init__(self, *args, log_dir: str = config.usage_log_directory, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._log_dir = log_dir
-        self._chat_wrapper = None
-        self._responses_wrapper = None
-
-    @property
-    def chat(self):
-        if self._chat_wrapper is None:
-            self._chat_wrapper = ChatWrapper(super().chat, self._log_dir, is_async=True)
-        return self._chat_wrapper
-
-    @property
-    def responses(self):
-        if self._responses_wrapper is None:
-            self._responses_wrapper = AsyncResponsesWrapper(super().responses, self._log_dir)
-        return self._responses_wrapper
-```
-
-**ポイント**:
-- `AsyncOpenAI`クラスを継承し、公式SDKのすべての機能を保持
-- `chat`と`responses`プロパティのみをオーバーライドしてログ機能を追加
-- 遅延初期化により、使用されない機能のオーバーヘッドを削減
-
-#### 3. Anthropicラッパーの実装 (`src/client/anthropic_wrapper_client.py`)
-
-```python
-class AsyncAnthropicWrapperClient(AsyncAnthropic):
-    def __init__(self, *args, log_dir: str = config.usage_log_directory, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._log_dir = log_dir
-        self._messages_wrapper = None
-        self._beta_wrapper = None
-
-    @property
-    def messages(self):
-        if self._messages_wrapper is None:
-            self._messages_wrapper = AsyncMessagesWrapper(super().messages, self._log_dir)
-        return self._messages_wrapper
-
-    @property
-    def beta(self):
-        if self._beta_wrapper is None:
-            self._beta_wrapper = BetaWrapper(super().beta, self._log_dir, is_async=True)
-        return self._beta_wrapper
-```
-
-**ポイント**:
-- `messages`と`beta.messages`の両方をラップ
-- 構造化出力（`beta.messages.parse`）にも対応
-
-#### 4. ログ記録の実装
-
-各メソッドラッパーは、API呼び出しの前後で処理時間を計測し、詳細な情報をJSON形式でファイルに保存します：
-
-```python
-def _log_usage(self, method: str, args: tuple, kwargs: dict, response: Any, start_time: datetime):
-    end_time = datetime.now()
-    duration_ms = (end_time - start_time).total_seconds() * 1000
-
-    log_data = {
-        "timestamp": start_time.isoformat(),
-        "method": method,
-        "duration_ms": duration_ms,
-        "request": {
-            "model": kwargs.get("model"),
-            "messages": kwargs.get("messages"),
-            "temperature": kwargs.get("temperature"),
-        },
-        "response": {
-            "id": getattr(response, "id", None),
-            "usage": {
-                "prompt_tokens": response.usage.prompt_tokens,
-                "completion_tokens": response.usage.completion_tokens,
-                "total_tokens": response.usage.total_tokens,
-            },
-        },
-    }
-
-    log_filename = self._log_dir / f"openai_{start_time.strftime('%Y%m%d_%H%M%S_%f')}.json"
-    with open(log_filename, "w") as f:
-        json.dump(log_data, f, indent=2, ensure_ascii=False)
-```
-
-#### 5. クライアントの初期化 (`src/client/llm_client.py`)
-
-```python
-from src.client.openai_wrapper_client import AsyncOpenAIWrapperClient
-from src.client.gemini_wrapper_client import GenAIWrapperClient
-from src.client.anthropic_wrapper_client import AsyncAnthropicWrapperClient
-from src.config import config
-
-openai_client = AsyncOpenAIWrapperClient(api_key=config.openai_api_key)
-google_genai_client = GenAIWrapperClient(api_key=config.google_api_key)
-anthropic_client = AsyncAnthropicWrapperClient(api_key=config.anthropic_api_key)
-```
-
-#### 6. 設定管理 (`src/config.py`)
-
-```python
-class Config(BaseModel):
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-        arbitrary_types_allowed=True,
-    )
-
-    google_api_key: Secret[str] = Field(default=os.environ.get("GOOGLE_API_KEY", ""))
-    openai_api_key: Secret[str] = Field(default=os.environ.get("OPENAI_API_KEY", ""))
-    anthropic_api_key: Secret[str] = Field(default=os.environ["ANTHROPIC_API_KEY"])
-    usage_log_directory: str = Field(default=os.environ.get("USAGE_LOG_DIRECTORY", "usage_logs"))
-```
-
-**ポイント**:
-- `Secret[str]`型でAPIキーを保護（ログ出力時に自動マスキング）
-- ログディレクトリを環境変数で設定可能
-
 ## 使い方
 
 ### 環境構成
@@ -264,11 +122,8 @@ ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
 2. **依存関係のインストール**
 
 ```bash
-# uvを使用する場合（推奨）
+# uvを使用
 uv sync
-
-# pipを使用する場合
-pip install -e .
 ```
 
 ### 使用方法、実行方法
@@ -277,55 +132,34 @@ pip install -e .
 
 ```bash
 # Gemini APIを使用
-uv run python -m src.main --llm-provider gemini --model gemini-2.5-flash
+uv run python -m src.main --llm-provider GEMINI --model GEMINI_2_5_FLASH
 
 # OpenAI APIを使用
-uv run python -m src.main --llm-provider openai --model gpt-4o-mini
+uv run python -m src.main --llm-provider OPENAI --model GPT_5_MINI
 
 # Anthropic APIを使用
-uv run python -m src.main --llm-provider anthropic --model claude-sonnet-4-5
-
-# 短縮オプション
-uv run python -m src.main -lp openai -m gpt-4o
+uv run python -m src.main --llm-provider ANTHROPIC --model CLAUDE_HAIKU_4_5
 ```
 
 #### 出力先の指定
 
 ```bash
 # カスタム出力ディレクトリを指定
-uv run python -m src.main -lp gemini -m gemini-2.5-flash --output-directory ./custom_output
+uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH --output-directory ./custom_output
 ```
-
-#### 利用可能なモデル
-
-**OpenAI**:
-- gpt-5, gpt-5-mini, gpt-5-nano
-- gpt-4.1, gpt-4.1-mini, gpt-4.1-nano
-- gpt-4o, gpt-4o-mini
-
-**Google Gemini**:
-- gemini-2.5-pro
-- gemini-2.5-flash
-- gemini-2.5-flash-lite
-
-**Anthropic**:
-- claude-sonnet-4-5
-- claude-opus-4-1
 
 #### ヘルプの表示
 
 ```bash
-uv run python -m src.main --help
-```
-
-**出力例**:
-```
+$ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
 Options:
-  -lp, --llm-provider [openai|gemini|anthropic]
+  -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use.  [required]
-  -m, --model TEXT                The model to use for the request.  [required]
+  -m, --model [GPT_5_2|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_5|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_5]
+                                  The model to use for the request.
+                                  [required]
   -od, --output-directory PATH    The directory to save output files.
   --help                          Show this message and exit.
 ```
@@ -338,22 +172,22 @@ Options:
 
 ```json
 {
-    "first_name": "蒼",
-    "last_name": "雨宮",
-    "gender": "male",
+    "first_name": "アオイ",
+    "last_name": "田中",
+    "gender": "female",
     "age": 28,
     "personalities": [
         {
-            "short_personality": "内向的な思索家",
-            "description": "常に深く物事を考え、静かな場所を好む。表面的な会話よりも、哲学的な議論に心を開く。"
+            "short_personality": "直感的",
+            "description": "彼女は人々の感情や状況の背後にある隠れた意味を素早く察知する能力を持っています。論理よりも直感を信じ、しばしば正しい結論に達します。"
         },
         {
-            "short_personality": "完璧主義者",
-            "description": "すべてのタスクに最高の基準を求め、細部にこだわる。しばしば自分自身に対して厳しすぎることがある。"
+            "short_personality": "観察力がある",
+            "description": "彼女は周囲の細部に非常に注意を払います。人々の行動、表情、周囲の環境のわずかな変化も見逃さず、それが彼女の直感を裏付ける根拠となることがあります。"
         },
         {
-            "short_personality": "忠実な友人",
-            "description": "一度信頼関係を築くと、どんな困難な状況でも友人を支える。約束を何よりも大切にする。"
+            "short_personality": "冷静沈着",
+            "description": "予期せぬ困難やストレスの多い状況に直面しても、彼女は感情的になることなく、常に冷静さを保ちます。この特性により、客観的な判断を下し、効率的な解決策を見つけることができます。"
         }
     ]
 }
@@ -365,29 +199,91 @@ Options:
 
 ```json
 {
-  "timestamp": "2025-11-01T10:17:39.694420",
+  "timestamp": "2026-02-08T09:09:34.577627",
   "method": "aio.models.generate_content",
-  "duration_ms": 4290.696,
+  "duration_ms": 3655.6670000000004,
   "request": {
     "model": "gemini-2.5-flash",
     "contents": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。",
-    "config": "GenerateContentConfig(...)",
+    "config": "http_options=None should_return_http_response=None system_instruction='あなたは創造的なキャラクタージェネレーターです。\\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\\n\\n{\\n  \"first_name\": \"string; The first name of the character.\",\\n  \"last_name\": \"string; The last name of the character.\",\\n  \"gender\": \"enum; The gender of the character.; [\\'female\\', \\'male\\']\",\\n  \"age\": \"number; The age of the character.; 0-100\",\\n  \"personalities\": [\\n    {\\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\\n    },\\n    {\\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\\n    },\\n    {\\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\\n    }\\n  ]\\n}\\n\\n以下を確認してください：\\n1. 応答は有効なJSONであること\\n2. すべてのフィールドが含まれていること\\n3. 性別は「female」または「male」のいずれかであること\\n4. 年齢は0から100の間であること\\n5. 正確に3つの性格特性が提供されていること\\n6. JSON構造の外に説明や追加のテキストを含めないこと\\n' temperature=None top_p=None top_k=None candidate_count=None max_output_tokens=None stop_sequences=None response_logprobs=None logprobs=None presence_penalty=None frequency_penalty=None seed=None response_mime_type='application/json' response_schema=<class 'src.model.model.CharacterResponse'> response_json_schema=None routing_config=None model_selection_config=None safety_settings=None tools=None tool_config=None labels=None cached_content=None response_modalities=None media_resolution=None speech_config=None audio_timestamp=None automatic_function_calling=None thinking_config=None image_config=None",
     "parameters": {}
   },
   "response": {
-    "text": "...",
-    "candidates": [...],
+    "text": "{\n  \"first_name\": \"アオイ\",\n  \"last_name\": \"田中\",\n  \"gender\": \"female\",\n  \"age\": 28,\n  \"personalities\": [\n    {\n      \"short_personality\": \"直感的\",\n      \"description\": \"彼女は人々の感情や状況の背後にある隠れた意味を素早く察知する能力を持っています。論理よりも直感を信じ、しばしば正しい結論に達します。\"\n    },\n    {\n      \"short_personality\": \"観察力がある\",\n      \"description\": \"彼女は周囲の細部に非常に注意を払います。人々の行動、表情、周囲の環境のわずかな変化も見逃さず、それが彼女の直感を裏付ける根拠となることがあります。\"\n    },\n    {\n      \"short_personality\": \"冷静沈着\",\n      \"description\": \"予期せぬ困難やストレスの多い状況に直面しても、彼女は感情的になることなく、常に冷静さを保ちます。この特性により、客観的な判断を下し、効率的な解決策を見つけることができます。\"\n    }\n  ]\n}",
+    "candidates": [
+      {
+        "content": {
+          "parts": [
+            {
+              "text": "{\n  \"first_name\": \"アオイ\",\n  \"last_name\": \"田中\",\n  \"gender\": \"female\",\n  \"age\": 28,\n  \"personalities\": [\n    {\n      \"short_personality\": \"直感的\",\n      \"description\": \"彼女は人々の感情や状況の背後にある隠れた意味を素早く察知する能力を持っています。論理よりも直感を信じ、しばしば正しい結論に達します。\"\n    },\n    {\n      \"short_personality\": \"観察力がある\",\n      \"description\": \"彼女は周囲の細部に非常に注意を払います。人々の行動、表情、周囲の環境のわずかな変化も見逃さず、それが彼女の直感を裏付ける根拠となることがあります。\"\n    },\n    {\n      \"short_personality\": \"冷静沈着\",\n      \"description\": \"予期せぬ困難やストレスの多い状況に直面しても、彼女は感情的になることなく、常に冷静さを保ちます。この特性により、客観的な判断を下し、効率的な解決策を見つけることができます。\"\n    }\n  ]\n}"
+            }
+          ],
+          "role": "model"
+        },
+        "finish_reason": "STOP",
+        "safety_ratings": null
+      }
+    ],
     "usage_metadata": {
-      "prompt_token_count": 156,
-      "candidates_token_count": 243,
-      "total_token_count": 399
+      "prompt_token_count": 411,
+      "candidates_token_count": 253,
+      "total_token_count": 993
     }
   }
 }
 ```
 
-**ログから得られる情報**:
-- **コスト分析**: トークン使用量から費用を算出
-- **パフォーマンス分析**: 処理時間の統計情報
-- **デバッグ**: エラー発生時の詳細な情報
-- **監査**: API使用履歴の完全な記録
+#### 実行ログ
+
+```bash
+$ uv run python -m src.main --llm-provider GEMINI --model GEMINI_2_5_FLASH
+
+[2026-02-08 09:09:34,576] [INFO] [__main__] [main.py:52] [main] LLM provider: gemini
+Model: gemini-2.5-flash
+Output directory: outputs
+[2026-02-08 09:09:38,233] [INFO] [src.service.request_llm] [request_llm.py:38] [request_gemini] sdk_http_response=HttpResponse(
+  headers=<dict len=11>
+) candidates=[Candidate(
+  content=Content(
+    parts=[
+      Part(
+        text="""{
+  "first_name": "アオイ",
+  "last_name": "田中",
+  "gender": "female",
+  "age": 28,
+  "personalities": [
+    {
+      "short_personality": "直感的",
+      "description": "彼女は人々の感情や状況の背後にある隠れた意味を素早く察知する能力を持っています。論理よりも直感を信じ、しばしば正しい結論に達します。"
+    },
+    {
+      "short_personality": "観察力がある",
+      "description": "彼女は周囲の細部に非常に注意を払います。人々の行動、表情、周囲の環境のわずかな変化も見逃さず、それが彼女の直感を裏付ける根拠となることがあります。"
+    },
+    {
+      "short_personality": "冷静沈着",
+      "description": "予期せぬ困難やストレスの多い状況に直面しても、彼女は感情的になることなく、常に冷静さを保ちます。この特性により、客観的な判断を下し、効率的な解決策を見つけることができます。"
+    }
+  ]
+}"""
+      ),
+    ],
+    role='model'
+  ),
+  finish_reason=<FinishReason.STOP: 'STOP'>,
+  index=0
+)] create_time=None model_version='gemini-2.5-flash' prompt_feedback=None response_id='QtSHaZz3Av3k2roPlv_BkA4' usage_metadata=GenerateContentResponseUsageMetadata(
+  candidates_token_count=253,
+  prompt_token_count=411,
+  prompt_tokens_details=[
+    ModalityTokenCount(
+      modality=<MediaModality.TEXT: 'TEXT'>,
+      token_count=411
+    ),
+  ],
+  thoughts_token_count=329,
+  total_token_count=993
+) automatic_function_calling_history=[] parsed=CharacterResponse(first_name='アオイ', last_name='田中', gender=<Gender.FEMALE: 'female'>, age=28, personalities=[CharacterPersonality(short_personality='直感的', description='彼女は人々の感情や状況の背後にある隠れた意味を素早く察知する能力を持 っています。論理よりも直感を信じ、しばしば正しい結論に達します。'), CharacterPersonality(short_personality='観察力がある', description='彼女は周囲の細部に非常に注意を払います。人々の行動、表情、周囲の環境のわずかな変化も見逃さず、それが彼女の直感を裏付ける根拠となることがあります。'), CharacterPersonality(short_personality='冷静沈着', description='予期せぬ困難やストレスの多い状況に直面しても、彼女は感情的になることなく、常に冷静さを保ちます。この特性により、客観的な判断を下し、効率的な解決策を見つけることができます。')])
+[2026-02-08 09:09:38,280] [INFO] [__main__] [main.py:77] [main] File saved to outputs/gemini_20f0ba4d70514b06b40a067f911e18c1.json
+```

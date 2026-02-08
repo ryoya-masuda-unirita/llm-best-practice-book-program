@@ -111,7 +111,6 @@ chapter_6/section_8/
 ```bash
 cp .envrc.example .envrc
 # .envrcを編集してAPIキーを設定
-export OPENAI_API_KEY="sk-your-openai-api-key-here"
 export GEMINI_API_KEY="your-gemini-api-key-here"
 ```
 
@@ -122,6 +121,17 @@ uv sync
 ```
 
 ### 使用方法、実行方法
+
+```bash
+$ uv run python -m src.main --help                                                   
+Usage: python -m src.main [OPTIONS]
+
+Options:
+  -a, --agent [example_1_agent_with_conservative_lock|example_2_with_optimistic_lock|example_3_with_preemptive_lock|example_4_with_immutable_memory|all]
+                                  The agent workflow to run.  [required]
+  -md, --memory-directory PATH    The directory to save memory files.
+  --help                          Show this message and exit.
+```
 
 ```bash
 # CLIヘルプの表示
@@ -142,42 +152,54 @@ python -m src.main --agent all --memory-directory ./custom_memory
 
 ### 出力例
 
-```
+```bash
+$ python -m src.main --agent example_1_agent_with_conservative_lock
+
+[2026-02-08 09:58:05,649] [INFO] [__main__] [main.py:83] [main] Running agent: example_1_agent_with_conservative_lock
+
+[2026-02-08 09:58:05,649] [INFO] [src.examples] [examples.py:118] [example_1_agent_with_conservative_lock] 
 === Example 1: Basic Agent with conservative memory lock ===
 
-====================================================================================================
-TIME SERIES LOG: Conservative Lock (Pessimistic)
-====================================================================================================
-  Time(ms) | Agent                | Event           | Resource             |  Ver | Status  | Details
-----------------------------------------------------------------------------------------------------
-       0.1 | agent_a              | LOCK_REQUEST    | shared_task_list     |    - | OK      | Requesting exclusive lock
-       0.3 | agent_a              | LOCK_ACQUIRED   | shared_task_list     |    - | OK      | Lock acquired successfully
-       0.5 | agent_a              | READ            | shared_task_list     |    - | OK      | Read document with 0 entries
-     300.8 | agent_a              | PROCESSING      | shared_task_list     |    - | OK      | Simulating LLM inference (300ms)
-     301.2 | agent_a              | WRITE           | shared_task_list     |    2 | OK      | Added new task entry
-     301.5 | agent_a              | LOCK_RELEASED   | shared_task_list     |    - | OK      | Lock released
-     301.8 | agent_b              | LOCK_REQUEST    | shared_task_list     |    - | OK      | Requesting exclusive lock
-     302.1 | agent_b              | LOCK_ACQUIRED   | shared_task_list     |    - | OK      | Lock acquired successfully
-     302.4 | agent_b              | READ            | shared_task_list     |    - | OK      | Read document with 1 entries
-     302.7 | agent_b              | WRITE           | shared_task_list     |    3 | OK      | Marked task as complete
-     302.9 | agent_b              | LOCK_RELEASED   | shared_task_list     |    - | OK      | Lock released
-====================================================================================================
-
+[2026-02-08 09:58:05,954] [INFO] [src.examples] [examples.py:176] [example_1_agent_with_conservative_lock] 
+--- Multi-resource locking (prevents deadlock) ---
+[2026-02-08 09:58:05,954] [INFO] [src.examples] [examples.py:192] [example_1_agent_with_conservative_lock] 
+--- Demonstrating lock contention ---
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:216] [example_1_agent_with_conservative_lock] Conservative lock example completed!
+[2026-02-08 09:58:07,422] [INFO] [__main__] [main.py:88] [main] 
 ✓ Agent 'example_1_agent_with_conservative_lock' completed successfully
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:87] [print_log] 
+====================================================================================================
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:88] [print_log] TIME SERIES LOG: Conservative Lock (Pessimistic)
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:89] [print_log] ====================================================================================================
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:90] [print_log]   Time(ms) | Agent                | Event           | Resource             |  Ver | Status  | Details
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:93] [print_log] ----------------------------------------------------------------------------------------------------
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]        0.1 | agent_a              | LOCK_REQUEST    | shared_task_list     |    - | OK      | Requesting exclusive lock
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]        0.1 | agent_a              | LOCK_ACQUIRED   | shared_task_list     |    - | OK      | Lock acquired successfully
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]        0.3 | agent_a              | READ            | shared_task_list     |    - | OK      | Read document with 18 entries
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      301.5 | agent_a              | PROCESSING      | shared_task_list     |    - | OK      | Simulating LLM inference (300ms)
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      302.5 | agent_a              | WRITE           | shared_task_list     |    2 | OK      | Added new task entry
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      302.5 | agent_a              | LOCK_RELEASED   | shared_task_list     |    - | OK      | Lock released
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      302.5 | agent_b              | LOCK_REQUEST    | shared_task_list     |    - | OK      | Requesting exclusive lock
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      302.5 | agent_b              | LOCK_ACQUIRED   | shared_task_list     |    - | OK      | Lock acquired successfully
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      304.3 | agent_b              | READ            | shared_task_list     |    - | OK      | Read document with 19 entries
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      304.8 | agent_b              | WRITE           | shared_task_list     |    3 | OK      | Marked task as complete
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      304.8 | agent_b              | LOCK_RELEASED   | shared_task_list     |    - | OK      | Lock released
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      304.8 | agent_a              | MULTI_LOCK_REQ  | inventory_a,inventory_b |    - | OK      | Requesting locks in sorted order
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      304.8 | agent_a              | LOCK_ACQUIRED   | inventory_a          |    - | OK      | First lock acquired
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      304.8 | agent_a              | LOCK_ACQUIRED   | inventory_b          |    - | OK      | Second lock acquired
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      305.2 | agent_a              | WRITE           | inventory_a          |    - | OK      | Updated inventory A
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      305.5 | agent_a              | WRITE           | inventory_b          |    - | OK      | Updated inventory B
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      305.5 | agent_a              | LOCK_RELEASED   | inventory_b          |    - | OK      | Released in reverse order
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      305.5 | agent_a              | LOCK_RELEASED   | inventory_a          |    - | OK      | Released in reverse order
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      305.5 | agent_a              | LOCK_REQUEST    | contested            |    - | OK      | Lock released after task
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      305.5 | agent_b              | LOCK_WAIT       | contested            |    - | OK      | Waiting for lock (blocked by agent_a)
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      305.6 | agent_a              | LOCK_REQUEST    | contested            |    - | OK      | Requesting lock for Task X
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      305.6 | agent_a              | LOCK_ACQUIRED   | contested            |    - | OK      | Lock acquired
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      359.5 | agent_b              | LOCK_REQUEST    | contested            |    - | OK      | Requesting lock for Task Y
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      507.9 | agent_a              | PROCESSING      | contested            |    - | OK      | Processing Task X
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      512.1 | agent_a              | WRITE           | contested            |    - | OK      | Completed Task X
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      565.3 | agent_b              | LOCK_ACQUIRED   | contested            |    - | OK      | Lock acquired
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      767.6 | agent_b              | PROCESSING      | contested            |    - | OK      | Processing Task Y
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:98] [print_log]      769.4 | agent_b              | WRITE           | contested            |    - | OK      | Completed Task Y
+[2026-02-08 09:58:07,422] [INFO] [src.examples] [examples.py:103] [print_log] ====================================================================================================
 ```
-
-## 戦略の選択基準
-
-| 戦略 | データ整合性 | スループット | 実装複雑度 | 適用場面 |
-|------|------------|------------|----------|---------|
-| 事前ロック | 高 | 低 | 低 | 複雑な更新、トランザクション |
-| 楽観的ロック | 中 | 高 | 中 | 独立した共同編集、低競合率 |
-| 優先度ロック | 中 | 中 | 高 | 緊急対応、リアルタイム性要求 |
-| Immutableメモリ | 高 | 高 | 中 | 会話履歴、監査ログ |
-
-## 注意点とトレードオフ
-
-- **事前ロック**: 推論時間中に他エージェントがブロックされるため、アクセス頻度が高いリソースでは性能低下に注意
-- **楽観的ロック**: LLMの再推論コスト（トークン料金・時間）が発生するため、競合率の監視が重要
-- **優先度ロック**: シャドウコピーの管理ポリシー（保存期間、クリーンアップ）を明確に設計
-- **Immutableメモリ**: コンパクション処理を怠るとI/Oオーバーヘッドが増大

@@ -62,7 +62,7 @@ def mock_genai_response():
 def mock_openai_responses_response():
     response = Mock()
     response.id = "resp-123"
-    response.model = "gpt-4o"
+    response.model = "gpt-5-mini"
     response.output_text = "Here is the response to your input."
     response.usage = Mock(
         prompt_tokens=15,
@@ -219,13 +219,13 @@ def test_responses_wrapper_create(log_dir, mock_openai_responses_response):
 
     wrapper = ResponsesWrapper(mock_responses, log_dir)
     response = wrapper.create(
-        model="gpt-4o",
+        model="gpt-5-mini",
         input="Write a story",
         tools=[{"type": "web_search_preview"}],
     )
 
     assert response.id == "resp-123"
-    assert response.model == "gpt-4o"
+    assert response.model == "gpt-5-mini"
     assert response.output_text == "Here is the response to your input."
     assert response.usage.total_tokens == 25
 
@@ -236,7 +236,7 @@ def test_responses_wrapper_create(log_dir, mock_openai_responses_response):
         log_data = json.load(f)
 
     assert log_data["method"] == "responses.create"
-    assert log_data["request"]["model"] == "gpt-4o"
+    assert log_data["request"]["model"] == "gpt-5-mini"
     assert log_data["request"]["input"] == "Write a story"
     assert log_data["request"]["tools"] == [{"type": "web_search_preview"}]
     assert log_data["response"]["id"] == "resp-123"
@@ -251,13 +251,13 @@ async def test_async_responses_wrapper_create(log_dir, mock_openai_responses_res
 
     wrapper = AsyncResponsesWrapper(mock_responses, log_dir)
     response = await wrapper.create(
-        model="gpt-4o",
+        model="gpt-5-mini",
         input="Write a story",
         tools=[{"type": "web_search_preview"}],
     )
 
     assert response.id == "resp-123"
-    assert response.model == "gpt-4o"
+    assert response.model == "gpt-5-mini"
     assert response.output_text == "Here is the response to your input."
     assert response.usage.total_tokens == 25
 
@@ -268,7 +268,7 @@ async def test_async_responses_wrapper_create(log_dir, mock_openai_responses_res
         log_data = json.load(f)
 
     assert log_data["method"] == "responses.create"
-    assert log_data["request"]["model"] == "gpt-4o"
+    assert log_data["request"]["model"] == "gpt-5-mini"
     assert log_data["response"]["usage"]["total_tokens"] == 25
 
 

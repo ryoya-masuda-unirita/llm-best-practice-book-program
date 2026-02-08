@@ -142,110 +142,6 @@ chapter_6/section_4/
                                  +-----------+
 ```
 
-### 設計原則
-
-**ポイント**: 本実装の核心となる4つの設計原則
-
-1. **状態としてのメモリ**: 状態オブジェクトがパイプラインのメモリとして機能。状態変数の存在/不在がフェーズ完了を示す
-2. **削除による忘却**: ロールバック時に後続フェーズの状態変数を削除し、再生成をトリガー
-3. **冪等なフェーズ**: 各フェーズは実行前に完了チェックを行い、任意のポイントからの再開を可能に
-4. **Human-in-the-Loop**: 重要な意思決定ポイントでユーザーが進捗を確認しロールバック可能
-
-## 主要コンポーネント
-
-### PipelineState（状態モデル）
-
-```python
-@dataclass
-class PipelineState:
-    """State passed through pipeline nodes."""
-
-    theme: str
-    language: Literal["en", "ja"]
-    llm_provider: LLMProvider
-    model: str
-
-    # Phase 1: アウトライン生成
-    outline: ArticleOutline | None = None
-
-    # Phase 2: 前半生成
-    first_half: str | None = None
-
-    # Phase 3: 後半生成
-    second_half: str | None = None
-
-    # Phase 4: レビュー
-    review: ArticleReview | None = None
-
-    # Phase 5: 人間による承認
-    human_approved: bool | None = None
-
-    # 再生成追跡
-    review_loop_iteration: int = 0
-    previous_feedback: list[tuple[str, ArticleReview]] | None = None
-
-    # エラー追跡
-    error: str | None = None
-```
-
-### フェーズ検出
-
-**ポイント**: 状態変数のチェックにより現在のフェーズを判定します。
-
-```python
-def get_current_phase(self) -> int:
-    if self._state.human_approved is not None:
-        return 5
-    elif self._state.review is not None:
-        return 4
-    elif self._state.second_half is not None:
-        return 3
-    elif self._state.first_half is not None:
-        return 2
-    elif self._state.outline is not None:
-        return 1
-    else:
-        return 0
-```
-
-### ロールバック実装（忘却機構）
-
-**ポイント**: 対象フェーズ以降の状態変数を`None`に設定することで「忘却」を実現します。
-
-```python
-def forget_phases_after(self, target_phase: int) -> None:
-    if target_phase < 5:
-        self._state.human_approved = None
-        self._state.review_loop_iteration = 0
-        self._state.previous_feedback = None
-    if target_phase < 4:
-        self._state.review = None
-    if target_phase < 3:
-        self._state.second_half = None
-    if target_phase < 2:
-        self._state.first_half = None
-    if target_phase < 1:
-        self._state.outline = None
-    self._state.error = None
-```
-
-### 生成ツール（GenerationToolBox）
-
-- `OutlineGeneratorTool`: 記事アウトラインを生成
-- `FirstHalfGeneratorTool`: 記事前半を生成
-- `SecondHalfGeneratorTool`: 記事後半を生成
-- `ArticleReviewerTool`: LLM-as-a-Judge評価
-- `SecondHalfRegeneratorTool`: フィードバック付き後半再生成
-
-### パイプラインノード
-
-- `OutlineGenerationNode`: アウトライン生成
-- `FirstHalfGenerationNode`: 前半生成
-- `SecondHalfGenerationNode`: 後半生成
-- `ArticleReviewNode`: LLM-as-a-Judgeレビュー
-- `SecondHalfRegenerationNode`: フィードバック基づく再生成
-- `HumanDecisionNode`: ユーザーインタラクション処理
-
 ## 使い方
 
 ### 環境構成
@@ -306,7 +202,8 @@ uv run python -m src.main \
 
 ### CLIオプション
 
-```
+```bash
+$ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
   Generate an article using state-based rollback pattern (forget the past).
@@ -332,16 +229,17 @@ Options:
 | `--output-directory` | `-od` | No | `outputs` | 出力ディレクトリ |
 | `--auto-select` | `-a` | No | `False` | 自動選択モードフラグ |
 
-**利用可能なモデル**:
-- `gemini-2.5-pro`
-- `gemini-2.5-flash`
-- `gemini-2.5-flash-lite`
 
 ### 出力例
 
 実行が完了すると、以下のような出力が得られます：
 
-```
+```bash
+$ uv run python -m src.main \
+  --theme "AIの未来" \
+  --language ja \
+  --model gemini-2.5-flash
+
 ╔════════════════════════════════════════════════════════════════════════════╗
 ║       Article Generation with State-Based Rollback (Forget the Past)      ║
 ╚════════════════════════════════════════════════════════════════════════════╝
@@ -353,30 +251,77 @@ Configuration:
   Model: gemini-2.5-flash
   Mode: Interactive
 
+
 📍 Current phase: 0 - Initial State
 
 ================================================================================
 
 📝 PHASE 1: Generating Article Outline
-✅ Generated outline: AIの未来：技術革新と社会への影響
+[2026-02-08 09:41:26,527] [INFO] [src.agent.extensions.nodes.pipeline] [pipeline.py:84] [execute_async] Generating outline for theme: AIの未来
+[2026-02-08 09:41:32,162] [INFO] [src.agent.extensions.nodes.pipeline] [pipeline.py:103] [execute_async] Successfully generated outline: AIの未来 を読み解く：技術革新の波が社会と私たちの生活をどう変えるか
+✅ Generated outline: AIの未来を読み解く：技術革新の波が社会と私たちの生活をどう変えるか
 
-Summary: 人工知能（AI）は急速に進化し、私たちの生活や社会に大きな変革をもたらしています...
+Summary: この記事では、急速に進化するAI技術の最前線を概観し、それが産業構造、労働市場、そして私たちの日常生活にどのような変革をもたらすかを深く掘 り下げます。AIがもたらす機会と同時に、倫理的課題や社会的な影響にも焦点を当て、人間とAIが共存する未来のあるべき姿について考察します。
 
 Structure:
-  1. AIの現状と最新技術動向
-  2. 産業への影響と自動化の進展
-  3. 医療・教育分野での応用
-  ...
+  1. はじめに：AIが拓く新たな時代と私たちの問い
+  2. AI技術の最前線：進化を続ける主要トレンド（生成AI、特化型AI、自律型AIなど）
+  3. 産業への影響：ビジネスモデルと労働市場の変革
+  4. 社会と生活への浸透：私たちの日常はどう変わるか（医療、教育、交通、エンターテインメントなど）
+  5. AIがもたらす倫理的・法的課題：公平性、プライバシー、責任の所在
+  6. AIとの共存：人類の役割と新しいスキルの必要性
+  7. 未来を形作るための提言：個人、企業、政府が果たすべき役割
+  8. おわりに：AIと共創する持続可能な未来への展望
 
 ================================================================================
 
 📝 PHASE 2: Generating First Half of Article
-✅ Generated first half (1523 characters)
+[2026-02-08 09:41:32,162] [INFO] [src.agent.extensions.nodes.pipeline] [pipeline.py:126] [execute_async] Generating first half of article...
+[2026-02-08 09:41:44,965] [INFO] [src.agent.extensions.nodes.pipeline] [pipeline.py:154] [execute_async] Successfully generated first half (2417 characters)
+✅ Generated first half (2417 characters)
 
 Preview:
-## はじめに
+# AIの未来を読み解く：技術革新の波が社会と私たちの生活をどう変えるか
 
-人工知能（AI）技術は、21世紀最も重要な技術革新の一つとして...
+## 1. はじめに：AIが拓く新たな時代と私たちの問い
+
+現代は、人工知能（AI）技術がかつてないスピードで進化し、社会のあらゆる側面に深く浸透しつつある時代です。私たちの働き方、学び方、コミュニケーションの取り方、さらには私たちの存在そのものまでが、AIの登場によって再定義されようとしています。生成AIによる文章や画像の自動生成から、複雑なデータ分析、自律的な意思決定まで、AIの能力は日々拡張されており、その可能性は無限大に広がっているように見えます。
+
+この技術革新の波は、私たちに多くの希望と同時に、漠然とした不安ももたらします。AIは人類にどのような機会をもたらし、どのような課題を突きつけるのでしょうか？私たちの社会や経済、そして個人の生活は、具体的にどう変わっていくのでしょうか？この記事では、AIが拓く新たな時代の本質を深く掘り下げ、技術の最前線から、それがもたらす産業構造や労働市場の変革、さらには私たちの日常生活への影響までを考察します。
+
+## 2. AI技術の最前線：進化を続ける主要トレンド
+
+AI技術は単一の分野ではなく、多様なアプローチと応用領域を持つ広範な学際的分野です。現在、特に注目されている主要なトレンドをいくつか見てみましょう。
+
+### 生成AIの台頭
+「生成AI」は、人間が作成したかのようなテキスト、画像、音声、さらにはコードや動画までを自ら生み出す能力を持つAIを指します。OpenAIのChatGPTやDALL-E 、GoogleのGeminiなどがその代表例であり、これらの技術はコンテンツ制作、デザイン、ソフトウェア開発といった分野に革命をもたらし、これまで人間のみが可能とされてきた創造的なタスクの自動化・支援を可能にしています。
+
+### 特化型AIの進化
+特定のタスクやドメインに特化したAIは、「特化型AI」と呼ばれ、以前からその実用性が証明されてきました。例えば、医療分野における病気の診断支援、金融分野での不正取引検知、製造業における品質管理などが挙げられます。これらのAIは、大量の専門データを学習することで、人間を凌駕する精度と速度で特定の問題を解決し、各産業の効率性と信頼性を劇的に向上させています。
+
+### 自律型AIの進展
+「自律型AI」は、環境を認識し、状況判断を行い、自身の行動を決定・実行する能力を持つAIです。自動運転車やドローン、ロボットなどがその典型であり、物理的な世界で自律的に活動することで、物流、探査、介護、危険作業など、多岐にわたる分野での応用が期待されています。これらのAIは、安全性と倫理的側面において特に厳格な議論が求められますが、その潜在的な社会貢献度は計り知れません。
+
+これらのAI技術はそれぞれが進化するだけでなく、互いに連携し合うことで、より高度で複雑な問題解決能力を持つAIシステムの開発を加速させています。この止まることのない技術革新が、私たちの社会全体に波及していくのです。
+
+## 3. 産業への影響：ビジネスモデルと労働市場の変革
+
+AIの進化は、既存の産業構造を根底から揺るがし、新たなビジネスモデルの創出と労働市場の変革を促しています。
+
+### ビジネスモデルの再構築
+AIは、企業が製品やサービスを提供する方法、顧客との関係を構築する方法を劇的に変えています。データ駆動型マーケティング、パーソナライズされた顧客体験、予測分析によるサプライチェーン最適化、そして全く新しいAI駆動型サービスの登場などがその例です。例えば、金融業界ではAIによる高速取引やリスク管理が常態化し、製造業ではスマートファクトリーが生産効率を飛躍的に高めています。AIを活用することで、企業はこれまで不可能だったレベルでの効率化とイノベーションを実現し、競争優位性を確立しようとしています。
+
+### 労働市場への影響とスキルの再定義
+AIによる自動化は、これまで人間が行っていた定型的なタスクの多くを代替し始めています。事務作業、データ入力、カスタマーサポートの一部などは、AIによって効率的に処理されるようになるでしょう。これにより、一部の職種では仕事の性質が変化したり、あるいは需要が減少したりする可能性があります。
+
+しかし、これは必ずしも「仕事がなくなる」ことを意味するものではありません。むしろ、AIは新たな職種を生み出し、既存の職種においては人間がより創造的で、戦略的、かつ人間らしいタスクに集中できる機会を提供します。AIシステムの開発、保守、倫理的運用に関わる専門家はもちろん、AIでは代替しにくいクリティカルシンキング、複雑な問題解決能力、共感、リーダーシップといった「人間ならではのスキル」の重要性が一層高まるでしょう。労働市場は、AIとの協働を前提としたリスキリング（学び直し）やアップスキリング（スキルの向上）が常に求められる時代へと突入しています。
+
+## 4. 社会と生活への浸透：私たちの日常はどう変わるか
+
+AIは、産業の舞台裏だけでなく、私たちの日常生活にも知らず知らずのうちに深く浸透しつつあります。スマートフォンを介したパーソナルアシスタントから、スマートホームデバイス、推薦システム、あるいは医療診断や交通管制の裏側で働くAIまで、その存在はますます身近なものとなっています。私たちは、AIがもたらす日々の利便性を享受する一方で、それが私たちの生活の質、プライバシー、そして社会的なつながりにどのような影響を与えるのかを理解する必要があります。
+
+次章では、医療、教育、交通、エンターテインメントといった具体的な分野におけるAIの導入が、私たちの日常をどのように変えていくのか、さらに詳しく見ていきます。
+
 
 🔄 Rollback Option Available
 You can go back to a previous phase if you want to try different choices.
@@ -384,46 +329,63 @@ This will 'forget' all subsequent phases and regenerate them.
 
 Available phases:
   0. Continue without rollback (keep current progress)
-  1. Rollback to Phase 1: Outline Generation Complete
+  1. Rollback to Phase 0: Initial State
+  2. Rollback to Phase 1: Outline Generation Complete
 
-Select phase to rollback to (0-1, 0=continue) [0]:
+Select phase to rollback to (0-2, 0=continue) [0]: 0
 
 ================================================================================
 
 📝 PHASE 3: Generating Second Half of Article
-✅ Generated second half (1456 characters)
+[2026-02-08 09:42:49,710] [INFO] [src.agent.extensions.nodes.pipeline] [pipeline.py:177] [execute_async] Generating second half of article...
+[2026-02-08 09:43:02,835] [INFO] [src.agent.extensions.nodes.pipeline] [pipeline.py:206] [execute_async] Successfully generated second half (3014 characters)
+✅ Generated second half (3014 characters)
 
 ================================================================================
 
 ⚖️  PHASE 4: Reviewing Article with LLM-as-a-Judge
+[2026-02-08 09:43:02,836] [INFO] [src.agent.extensions.nodes.pipeline] [pipeline.py:229] [execute_async] Reviewing article...
+[2026-02-08 09:43:12,173] [INFO] [src.agent.extensions.nodes.pipeline] [pipeline.py:259] [execute_async] Successfully reviewed article: Grade 4/5
 ✅ Review completed: Grade 4/5
 
-Reasoning: 記事は全体的によく構成されており、AIの未来について包括的な視点を提供しています...
+Reasoning: この論文は、提供されたアウトラインに非常によく従っており、AIの未来というテーマを包括的にカバーしています。内容は正確で情報量が多く、AI の機会と課題の両方についてバランスの取れた視点を提供しています。文章は明瞭で魅力的であり、プロフェッショナルなトーンが維持されています。唯一の顕著な欠点は、セクション4のタイトルが重複しているという軽微な構成上の問題です。全体的に非常に質の高い記事です。
 
 Strengths:
-  ✓ テーマに沿った論理的な構成
-  ✓ 具体的な事例の適切な使用
-  ✓ 読みやすい文体と適切な段落分け
+  ✓ 提供されたアウトラインに優れた準拠性を示し、論理的かつ明確な記事構成を実現している点
+  ✓ AIの社会、産業、倫理的側面への影響を網羅的に深く掘り下げた、質の高い情報提供
+  ✓ 生成AI、特化型AI、自律型AIといった複雑な概念を明瞭かつ簡潔に説明している点
+  ✓ AIがもたらす機会と課題の両方について、バランスの取れた客観的な視点を提供している点
 
 Weaknesses:
-  ✗ 一部の技術用語の説明が不足
-  ✗ 結論部分がやや急ぎ足
+  ✗ セクション4「社会と生活への浸透」の見出しが本文中で重複している構造上の軽微な欠陥
+  ✗ 「責任の所在」などの特定のサブセクションは、より具体的な事例や議論を深めることで、さらに内容を充実させることが可能
 
 ================================================================================
 
 ✅ PHASE 5: Human-in-the-Loop - Approve or Reject Article (Iteration 1)
 
 📝 Article Preview:
-Title: AIの未来：技術革新と社会への影響
+Title: AIの未来を読み解く：技術革新の波が社会と私たちの生活をどう変えるか
 Grade: 4/5
-Review: 記事は全体的によく構成されており...
+Review: この論文は、提供されたアウトラインに非常によく従っており、AIの未来というテーマを包括的にカバーしています。内容は正確で情報量が多く、AIの機会と課題の両方についてバランスの取れた視点を提供しています。文章は明瞭で魅力的であり、プロフェッショナルなトーンが維持されています。唯一の顕著な欠点は、セクション4のタイトルが重複しているという軽微な構成上の問題です。全体的に非常に質の高い記事です。
 
 ✅ Do you approve this article? (yes/no): yes
 
 ✅ Article approved! Proceeding to save...
 
 🔄 Rollback Option Available
-...
+You can go back to a previous phase if you want to try different choices.
+This will 'forget' all subsequent phases and regenerate them.
+
+Available phases:
+  0. Continue without rollback (keep current progress)
+  1. Rollback to Phase 0: Initial State
+  2. Rollback to Phase 1: Outline Generation Complete
+  3. Rollback to Phase 2: First Half Complete
+  4. Rollback to Phase 3: Second Half Complete
+  5. Rollback to Phase 4: Article Reviewed
+
+Select phase to rollback to (0-5, 0=continue) [0]: 0
 
 ================================================================================
 
@@ -432,87 +394,21 @@ Review: 記事は全体的によく構成されており...
 ✅ Article Generation Complete!
 
 Article Details:
-  Title: AIの未来：技術革新と社会への影響
+  Title: AIの未来を読み解く：技術革新の波が社会と私たちの生活をどう変えるか
   Grade: 4/5
-  Total Length: 2979 characters
+  Total Length: 5433 characters
   Review Loop Iterations: 0
 
 Files saved:
-  📄 JSON: outputs/article_abc123/article_abc123.json
-  📝 Markdown: outputs/article_abc123/article_abc123.md
+  📄 JSON: outputs/article_0061f7cf25a74e618559e0288f92093d/article_0061f7cf25a74e618559e0288f92093d.json
+  📝 Markdown: outputs/article_0061f7cf25a74e618559e0288f92093d/article_0061f7cf25a74e618559e0288f92093d.md
 
 Session Metadata:
-  Session ID: abc123def456
-  Created: 2025-01-15T10:30:00
+  Session ID: 80eecd0738f04486ab052f62d6857dd2
+  Created: 2026-02-08T09:43:19.035544
+
 
 ================================================================================
 
 🎉 Article Generation Complete!
 ```
-
-### 出力ファイル構成
-
-```
-outputs/
-└── article_{session_id}/
-    ├── article_{session_id}.json    # 構造化データ（全メタデータ含む）
-    └── article_{session_id}.md      # 人間可読なMarkdown形式
-```
-
-## LLM-as-a-Judge 評価基準
-
-記事は以下の基準で1-5段階評価されます：
-
-| 基準 | 重み | 説明 |
-|------|------|------|
-| Content Quality | 30% | 内容の正確性、情報価値 |
-| Structure & Flow | 25% | アウトラインへの準拠、論理的な流れ |
-| Writing Quality | 20% | 文章の明確さ、エンゲージメント |
-| Completeness | 15% | テーマと全セクションの網羅性 |
-| Language Quality | 10% | 言語の適切性、一貫性、正確性 |
-
-| グレード | 評価 | 説明 |
-|---------|------|------|
-| 5 | Excellent | 全基準で期待を上回る傑出した記事 |
-| 4 | Good | 軽微な改善点がある高品質な記事 |
-| 3 | Acceptable | 目立つ弱点がある許容レベルの記事 |
-| 2 | Poor | 価値を損なう重大な問題がある記事 |
-| 1 | Very Poor | 基本的な品質基準を満たさない記事 |
-
-自動選択モードでは、グレード4以上の記事が自動承認されます。
-
-## フィードバックループ
-
-記事が却下された場合、システムは以下を実行します：
-
-1. 却下された後半とそのレビューを`previous_feedback`に保存
-2. 前回の試行からのフィードバックを基に後半を再生成
-3. 新しいコンテンツを再レビュー
-4. 最大5回まで繰り返し（`max_iterations`）
-
-## 開発コマンド
-
-```bash
-# Lintとフォーマット
-make fix
-
-# Lintのみ
-make lint
-
-# フォーマットのみ
-make fmt
-
-# 型チェック
-make mypy
-```
-
-## キーポイント
-
-1. **状態ベースのロールバック**が複雑なチェックポイント管理を不要にする
-2. **削除による忘却**がコンテキスト汚染を防止する
-3. **フェーズ検出**により任意のポイントからの再開が可能
-4. **Human-in-the-Loop**が重要な決定ポイントで品質を向上させる
-5. **LLM-as-a-Judge**が一貫した品質評価を自動化する
-6. **フィードバックループ**が反復的な改善を可能にする
-7. **型安全な構造化出力**が信頼性を確保する
-8. **Mementoパターン**による堅牢なスナップショット管理

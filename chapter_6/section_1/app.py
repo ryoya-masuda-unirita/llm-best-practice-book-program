@@ -47,7 +47,7 @@ def render_sidebar() -> tuple[LLMProvider, str]:
             model = st.selectbox(
                 "モデルを選択",
                 options=OpenAIModel.list_str(),
-                index=OpenAIModel.list_str().index(OpenAIModel.GPT_4O_MINI),
+                index=OpenAIModel.list_str().index(OpenAIModel.GPT_5_MINI),
             )
         else:
             model = st.selectbox(
@@ -226,7 +226,7 @@ def render_footer() -> None:
         """
 ### 📚 詳しく学ぶ
 
-このデモは**第2章 第9項: LLMを安定して使うために自由度を下げる**に基づいています
+このデモは**第6章 第1項: LLMを安定して使うために自由度を下げる**に基づいています
 
 **重要なポイント:**
 1. 構造化されたインターフェースは、特定のタスクに対してより良いUXを提供する

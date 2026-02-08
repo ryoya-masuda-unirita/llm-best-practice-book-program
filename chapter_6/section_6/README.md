@@ -189,11 +189,8 @@ GEMINI_API_KEY=<your_gemini_api_key_here>
 2. **依存関係のインストール**
 
 ```bash
-# uvを使用する場合
+# uvを使用
 uv sync
-
-# または pip を使用
-pip install -e .
 ```
 
 ### 使用方法、実行方法
@@ -203,28 +200,29 @@ pip install -e .
 python -m src.main --query "全生徒の成績を分析してください"
 
 # モデルを指定
-python -m src.main --model gemini-2.5-flash --query "数学の成績を分析してください"
+python -m src.main --model GEMINI_2_5_FLASH --query "数学の成績を分析してください"
 
 # 結果をファイルに保存
 python -m src.main --query "生徒a1b2c3d4の成績分析" --output-directory ./output
 ```
 
 **CLIオプション**:
-```
+```bash
+$ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
   Data analysis assistant powered by Gemini.
 
-  Analyzes school data including student records, test scores,
-  grade reports, and curriculum information.
+  Analyzes school data including student records, test scores, grade reports,
+  and curriculum information.
 
 Options:
-  -m, --model [gemini-2.5-pro|gemini-2.5-flash|gemini-2.5-flash-lite]
+  -m, --model [GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
                                   The Gemini model to use for analysis.
   -q, --query TEXT                The query to analyze.  [required]
   -od, --output-directory PATH    Directory to save session log (JSON) and
-                                  result (Markdown). Files are named with
-                                  UUID prefix.
+                                  result (Markdown). Files are named with UUID
+                                  prefix.
   --help                          Show this message and exit.
 ```
 
@@ -236,78 +234,154 @@ $ python -m src.main -q "数学の成績を分析してください"
 
 **出力**:
 ```markdown
-## 概要
+**数学の成績分析レポート**
 
-数学クラスの全4四半期にわたる成績分析を完了しました。5名の生徒のデータを基に、
-クラス全体のパフォーマンスとトップパフォーマーを特定しました。
+**1. 概要**
+数学クラスの全体的な成績は非常に良好で、平均スコアは87.75点でした。カリキュラムの達成度も96.2%と高く、生徒たちが積極的に学習に取り組んでいることが示されています。
 
-## データ分析
+**2. データ分析**
+*   **平均スコア**: 数学クラスの平均スコアは87.75点でした。これは、クラス全体の学力水準が高いことを示しています。
+*   **最高成績者**: 生徒UUID「e5f6a7b8......」が99.5点と最高成績を収めました。
+*   **カリキュラム完了率**: カリキュラムの完了率は96.2%であり、ほとんどの単元が計画通りに学習されたことを示しています。
 
-### クラス平均スコア
-- 全体平均: 87.8点
-- 四半期別: Q1=87.8, Q2=88.2, Q3=88.6, Q4=89.0
+**3. 強み**
+*   クラス全体の数学の平均スコアが非常に高いです。
+*   カリキュラムの完了率が高く、学習計画が効果的に実行されていることを示しています。
+*   突出した成績の生徒が存在し、クラス内の学習意欲を刺激している可能性があります。
 
-### トップパフォーマー
-- 生徒ID: e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b
-- 平均スコア: 100.0点
+**4. 改善点**
+*   現在の要約情報からは具体的な改善点は特定できませんが、平均値が高い中でも個別の生徒の成績差については詳細な分析が必要です。
 
-### カリキュラム完了率
-- 平均完了率: 92.5%
+**5. 提案**
+*   現在の高い学習水準を維持するための継続的な指導を推奨します。
+*   最高成績者である生徒の学習方法を参考に、他の生徒への指導に活用することを検討してください。
+*   平均スコアを下回る生徒がいる場合、個別の学習サポートや補習を検討し、全体的な底上げを図ることを推奨します。
 
-## 強み
-
-- クラス全体で高い平均スコア（87.8点）を維持
-- 四半期ごとに着実な成績向上が見られる
-- カリキュラム完了率も高水準
-
-## 改善点
-
-- 一部生徒に成績のばらつきが見られる
-- Q1での初期スコアが相対的に低い
-
-## 提案
-
-1. **優先度高**: 成績下位の生徒への個別指導
-2. **優先度中**: Q1開始時の復習プログラム導入
-3. **優先度低**: トップパフォーマーへの発展課題提供
-
-## データソース
-
-- class_analysis_math_20251227_123456
+**6. データソース**
+*   class_analysis_math_20260208_094944
 ```
 
-`--output-directory` を指定した場合、セッションログ（JSON）と結果（Markdown）が保存されます:
+**実行ログ**:
+```bash
+$ python -m src.main -q "数学の成績を分析してください"
+[2026-02-08 09:49:43,389] [INFO] [__main__] [main.py:140] [main] Session ID: 1a3985a3-6939-4047-bdda-091f39664f9a
+[2026-02-08 09:49:43,389] [INFO] [__main__] [main.py:141] [main] Starting data analysis with model: gemini-2.5-flash
+[2026-02-08 09:49:43,389] [INFO] [__main__] [main.py:142] [main] Query: 数学の成績を分析してください
+[2026-02-08 09:49:44,625] [INFO] [src.service.request_llm] [request_llm.py:151] [process_with_function_calling] Initial response: sdk_http_response=HttpResponse(
+  headers=<dict len=11>
+) candidates=[Candidate(
+  content=Content(
+    parts=[
+      Part(
+        function_call=FunctionCall(
+          args={
+            'class_name': 'math'
+          },
+          name='analyze_class_performance'
+        ),
+        thought_signature=b'\n\xe6\x01\x01\xbe>\xf6\xfbJ^\x89\xf3!\xd9\x9f>oa\xe5\x9dd\xbc\xee\\\xc9\xd8\xf3EzbgI~\x90\xf9\x0b\x89\xe7\xd2\xf0\xcc\x868\xb5\xc7\x1e\xbe\x87\xb1\xbf\xdd\xae6\xbc\rU\xb8;HJ\'j\nl\xab\xa1!i7"{4\xf3F%V\xcdlU\x8b\xd4v\x05\x02\xf3\x82Y\xa0\x17\xdb$7\x89\x19\xb3\x1e\x1c...'
+      ),
+    ],
+    role='model'
+  ),
+  finish_reason=<FinishReason.STOP: 'STOP'>,
+  index=0
+)] create_time=None model_version='gemini-2.5-flash' prompt_feedback=None response_id='qN2HaYPSGpOM0-kP6J_esAE' usage_metadata=GenerateContentResponseUsageMetadata(
+  candidates_token_count=19,
+  prompt_token_count=1838,
+  prompt_tokens_details=[
+    ModalityTokenCount(
+      modality=<MediaModality.TEXT: 'TEXT'>,
+      token_count=1838
+    ),
+  ],
+  thoughts_token_count=46,
+  total_token_count=1903
+) automatic_function_calling_history=[] parsed=None
+[2026-02-08 09:49:44,626] [INFO] [src.service.request_llm] [request_llm.py:96] [execute_function_call] Executing function: analyze_class_performance with args: {'class_name': 'math'}
+[2026-02-08 09:49:44,626] [INFO] [src.service.tools.data_tools] [data_tools.py:309] [analyze_class_performance] Analyzing class performance for math
+[2026-02-08 09:49:44,642] [INFO] [src.service.request_llm] [request_llm.py:103] [execute_function_call] Function result (before caching): {'tool_name': 'analyze_class_performance', 'result_id': 'class_analysis_math_20260208_094944', 'result_summary': 'Math class analysis: Average score 87.75, Top performer: e5f6a7b8...... (99.5). Curriculum completion: 96.2%', 'status': 'success'}
+[2026-02-08 09:49:44,642] [INFO] [src.service.request_llm] [request_llm.py:110] [execute_function_call] Context-safe result for LLM: {'tool_name': 'analyze_class_performance', 'result_id': 'class_analysis_math_20260208_094944', 'result_summary': 'Math class analysis: Average score 87.75, Top performer: e5f6a7b8...... (99.5). Curriculum completion: 96.2%', 'status': 'success'}
+[2026-02-08 09:49:48,733] [INFO] [src.service.request_llm] [request_llm.py:198] [process_with_function_calling] Response after function execution: sdk_http_response=HttpResponse(
+  headers=<dict len=11>
+) candidates=[Candidate(
+  content=Content(
+    parts=[
+      Part(
+        text="""**数学の成績分析レポート**
 
+**1. 概要**
+数学クラスの全体的な成績は非常に良好で、平均スコアは87.75点でした。カリキュラムの達成度も96.2%と高く、生徒たちが積極的に学習に取り組んでいることが示されています。
+
+**2. データ分析**
+*   **平均スコア**: 数学クラスの平均スコアは87.75点でした。これは、クラス全体の学力水準が高いことを示しています。
+*   **最高成績者**: 生徒UUID「e5f6a7b8......」が99.5点と最高成績を収めました。
+*   **カリキュラム完了率**: カリキュラムの完了率は96.2%であり、ほとんどの単元が計画通りに学習されたことを示しています。
+
+**3. 強み**
+*   クラス全体の数学の平均スコアが非常に高いです。
+*   カリキュラムの完了率が高く、学習計画が効果的に実行されていることを示しています。
+*   突出した成績の生徒が存在し、クラス内の学習意欲を刺激している可能性があります。
+
+**4. 改善点**
+*   現在の要約情報からは具体的な改善点は特定できませんが、平均値が高い中でも個別の生徒の成績差については詳細な分析が必要です。
+
+**5. 提案**
+*   現在の高い学習水準を維持するための継続的な指導を推奨します。
+*   最高成績者である生徒の学習方法を参考に、他の生徒への指導に活用することを検討してください。
+*   平均スコアを下回る生徒がいる場合、個別の学習サポートや補習を検討し、全体的な底上げを図ることを推奨します。
+
+**6. データソース**
+*   class_analysis_math_20260208_094944""",
+        thought_signature=b"\n\xf3\n\x01\xbe>\xf6\xfb_\xeb(Y(2aM\x113\xe9\xc5\xbeH\x02@:\xe1~]%\x08]\xf2\x8c{t\xeb+o\x0f\xbbh\xcc/\xc5r\x80\x80\x9c%z\xd7x\xc4\xfchj\xcd\xe5\xd4T\x9f)\xf6\xf2F\x8c\xb92\xc4\x1c\xd8\xa5\x8b\x9d&1?N\rbr\xec\xbf3\xd01'm\x8f\xd6\x1b|f\x1c\xcf\xfb\x8e...'
+      ),
+    ],
+    role='model'
+  ),
+  finish_reason=<FinishReason.STOP: 'STOP'>,
+  index=0
+)] create_time=None model_version='gemini-2.5-flash' prompt_feedback=None response_id='rN2HaYXJIOmZ0-kPx5OZgQg' usage_metadata=GenerateContentResponseUsageMetadata(
+  cache_tokens_details=[
+    ModalityTokenCount(
+      modality=<MediaModality.TEXT: 'TEXT'>,
+      token_count=1644
+    ),
+  ],
+  cached_content_token_count=1644,
+  candidates_token_count=400,
+  prompt_token_count=1964,
+  prompt_tokens_details=[
+    ModalityTokenCount(
+      modality=<MediaModality.TEXT: 'TEXT'>,
+      token_count=1964
+    ),
+  ],
+  thoughts_token_count=277,
+  total_token_count=2641
+) automatic_function_calling_history=[] parsed=None
+**数学の成績分析レポート**
+
+**1. 概要**
+数学クラスの全体的な成績は非常に良好で、平均スコアは87.75点でした。カリキュラムの達成度も96.2%と高く、生徒たちが積極的に学習に取り組んでいることが示されています。
+
+**2. データ分析**
+*   **平均スコア**: 数学クラスの平均スコアは87.75点でした。これは、クラス全体の学力水準が高いことを示しています。
+*   **最高成績者**: 生徒UUID「e5f6a7b8......」が99.5点と最高成績を収めました。
+*   **カリキュラム完了率**: カリキュラムの完了率は96.2%であり、ほとんどの単元が計画通りに学習されたことを示しています。
+
+**3. 強み**
+*   クラス全体の数学の平均スコアが非常に高いです。
+*   カリキュラムの完了率が高く、学習計画が効果的に実行されていることを示しています。
+*   突出した成績の生徒が存在し、クラス内の学習意欲を刺激している可能性があります。
+
+**4. 改善点**
+*   現在の要約情報からは具体的な改善点は特定できませんが、平均値が高い中でも個別の生徒の成績差については詳細な分析が必要です。
+
+**5. 提案**
+*   現在の高い学習水準を維持するための継続的な指導を推奨します。
+*   最高成績者である生徒の学習方法を参考に、他の生徒への指導に活用することを検討してください。
+*   平均スコアを下回る生徒がいる場合、個別の学習サポートや補習を検討し、全体的な底上げを図ることを推奨します。
+
+**6. データソース**
+*   class_analysis_math_20260208_094944
 ```
-output/
-├── <session-uuid>_session_log.json   # 会話履歴、Tool call履歴、キャッシュ内容
-└── <session-uuid>_result.md          # 最終レスポンス
-```
-
-## 利用可能なツール
-
-| ツール名 | 説明 | 統合関数 |
-|----------|------|----------|
-| `list_available_data` | 利用可能なデータファイルを一覧表示 | - |
-| `get_students` | 全生徒のリストを取得 | - |
-| `get_test_scores` | 指定四半期のテストスコアを取得 | - |
-| `get_grade_report` | 指定四半期の成績レポートを取得 | - |
-| `get_curriculum` | 指定四半期のカリキュラム情報を取得 | - |
-| `analyze_student_performance` | 生徒の全四半期パフォーマンス分析 | ✓ |
-| `analyze_class_performance` | クラス全体のパフォーマンス分析 | ✓ |
-| `compare_students` | 2生徒の成績比較 | ✓ |
-| `filter_scores` | 条件でテストスコアをフィルタリング | - |
-| `filter_grades` | 条件で成績をフィルタリング | - |
-| `filter_curriculum` | 条件でカリキュラムをフィルタリング | - |
-| `get_result_details` | result_idで詳細データを取得（Pull型） | - |
-
-**ポイント: 統合関数の設計**
-
-`analyze_student_performance` は内部で以下の処理を統合しています:
-1. 全4四半期のスコアデータ読み込み
-2. 全4四半期の成績レポート読み込み
-3. 科目別平均の計算
-4. 成績傾向（トレンド）の分析
-5. 強み/弱みの科目特定
-
-これにより、LLMは1回のTool callで包括的な分析結果を取得できます。

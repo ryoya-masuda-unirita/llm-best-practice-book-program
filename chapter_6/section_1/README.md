@@ -127,17 +127,13 @@ cp .envrc.example .envrc
 # .envrc
 OPENAI_API_KEY=xxxxxxxxxxxxxxxxxxxxx
 GEMINI_API_KEY=XXXXXXXXXXXXXXXXXXXX
-ANTHROPIC_API_KEY=xxxxxxxxxxxxxxxxxxxxx
 ```
 
 2. **依存関係のインストール**
 
 ```bash
-# uvを使用する場合（推奨）
+# uvを使用
 uv sync
-
-# pipを使用する場合
-pip install -e .
 ```
 
 ### 使用方法、実行方法
@@ -175,14 +171,10 @@ streamlit run app.py
 #### 利用可能なモデル
 
 **OpenAI**:
+- `gpt-5.2`
 - `gpt-5`
 - `gpt-5-mini`
 - `gpt-5-nano`
-- `gpt-4.1`
-- `gpt-4.1-mini`
-- `gpt-4.1-nano`
-- `gpt-4o`
-- `gpt-4o-mini`
 
 **Gemini**:
 - `gemini-2.5-pro`
