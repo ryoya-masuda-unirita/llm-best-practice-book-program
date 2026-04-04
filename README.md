@@ -26,6 +26,11 @@ TODO
 - Google Gemini API Key: https://ai.google.dev/gemini-api/docs/api-key
 - Anthropic: https://platform.claude.com/docs/ja/get-started
 
+なお、各LLM APIは一部を無料で使うことができますが、本プロジェクトの利用は無料枠を超える可能性があります。有償でのAPIの利用料金については各サービスの公式サイトを確認してください。
+
+また、APIキーの管理には十分注意し、誤って公開リポジトリなどに含めないようにしてください。
+
+本プロジェクトおよびLLM APIの利用は自己責任で行ってください。
 
 ## 目次
 
