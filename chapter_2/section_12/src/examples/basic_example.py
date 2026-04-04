@@ -51,7 +51,7 @@ async def execute_character_generation(
     variables_path = VARIABLES_DIR / "warrior.yaml"
 
     result = await request_openai(
-        model=OpenAIModel.GPT_4O_MINI,
+        model=OpenAIModel.GPT_5_4_MINI,
         template_path=template_path,
         variables_path=variables_path,
         template_dir=TEMPLATE_DIR,
@@ -74,7 +74,7 @@ def log_prompt_execution(
     print_step_header(2, "Logging prompt execution...")
 
     metadata = PromptMetadata(
-        model_name=OpenAIModel.GPT_4O_MINI,
+        model_name=OpenAIModel.GPT_5_4_MINI,
         temperature=1.0,
         use_case="RPG character generation for fantasy game",
         category=PromptCategory.CHARACTER_GENERATION,

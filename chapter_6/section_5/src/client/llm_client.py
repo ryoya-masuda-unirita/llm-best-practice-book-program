@@ -1,7 +1,6 @@
 from enum import StrEnum
 
 from google import genai
-
 from src.config import config
 
 

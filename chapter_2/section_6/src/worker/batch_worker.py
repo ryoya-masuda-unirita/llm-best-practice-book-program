@@ -18,8 +18,18 @@ from src.model.batch_model import (
     TaskStatus,
 )
 from src.model.model import CharacterRequest, CharacterResponse
-from src.prompt.prompt import make_prompt
-from src.service import get_gemini_batch_results, get_gemini_batch_status, submit_gemini_batch
+from src.prompt.prompt import make_anthropic_prompt, make_gemini_prompt, make_openai_prompt
+from src.service import (
+    get_anthropic_batch_results,
+    get_anthropic_batch_status,
+    get_gemini_batch_results,
+    get_gemini_batch_status,
+    get_openai_batch_results,
+    get_openai_batch_status,
+    submit_anthropic_batch,
+    submit_gemini_batch,
+    submit_openai_batch,
+)
 
 logger = make_logger(__name__)
 
@@ -27,7 +37,13 @@ QUEUE_NAME = "llm_batch_jobs"
 POLL_TIMEOUT = 1
 BATCH_POLL_INTERVAL = 5
 
+GEMINI_SUCCEEDED_STATE = "JOB_STATE_SUCCEEDED"
 GEMINI_FAILED_STATES = ("JOB_STATE_FAILED", "JOB_STATE_CANCELLED", "JOB_STATE_EXPIRED")
+
+OPENAI_COMPLETED_STATE = "completed"
+OPENAI_FAILED_STATES = ("failed", "expired", "cancelled")
+
+ANTHROPIC_ENDED_STATE = "ended"
 
 
 @dataclass
@@ -35,7 +51,8 @@ class ActiveJob:
     """Represents an active job being processed."""
 
     job_id: str
-    gemini_batch_name: str
+    provider: LLMProvider
+    batch_id: str
     job_data: InternalJobData
     status_data: BatchJobStatusResponse
     start_time: float
@@ -100,14 +117,16 @@ def build_task_results(
     return task_results, completed_count, failed_count
 
 
-def prepare_prompts(character_requests: list[dict[str, Any]]) -> list[tuple[str, str]]:
-    prompts: list[tuple[str, str]] = []
+def prepare_prompts(provider: LLMProvider, character_requests: list[dict[str, Any]]) -> list:
+    prompts: list = []
     for char_req_dict in character_requests:
         character_request = CharacterRequest(**char_req_dict)
-        prompt = make_prompt(character_request=character_request)
-        system_prompt = prompt[0]["content"]
-        user_prompt = prompt[-1]["content"]
-        prompts.append((system_prompt, user_prompt))
+        if provider == LLMProvider.OPENAI:
+            prompts.append(make_openai_prompt(character_request=character_request))
+        elif provider == LLMProvider.GEMINI:
+            prompts.append(make_gemini_prompt(character_request=character_request))
+        elif provider == LLMProvider.ANTHROPIC:
+            prompts.append(make_anthropic_prompt(character_request=character_request))
     return prompts
 
 
@@ -145,7 +164,7 @@ class BatchWorker:
             try:
                 job_data = await redis_client.dequeue_job(QUEUE_NAME, timeout=POLL_TIMEOUT)
                 if job_data:
-                    await self._submit_job_to_gemini(job_data)
+                    await self._submit_job(job_data)
                 else:
                     logger.debug("No jobs in queue, waiting...")
             except Exception as e:
@@ -162,19 +181,17 @@ class BatchWorker:
             await asyncio.gather(*[self._check_job_status(job) for job in jobs_to_check])
             await asyncio.sleep(BATCH_POLL_INTERVAL)
 
-    async def _submit_job_to_gemini(self, job_data: dict[str, Any]) -> None:
+    async def _submit_job(self, job_data: dict[str, Any]) -> None:
         try:
             job = InternalJobData(**job_data)
             job_id = job.job_id
-            logger.info(f"Submitting job {job_id} with {len(job.character_requests)} tasks to Gemini")
+            provider = LLMProvider(job.provider)
+            logger.info(f"Submitting job {job_id} ({provider}/{job.model}) with {len(job.character_requests)} tasks")
 
             status_dict = await redis_client.get_job_status(job_id)
             if not status_dict:
                 logger.error(f"Job status not found for {job_id}")
                 return
-
-            if job.provider != LLMProvider.GEMINI:
-                raise ValueError(f"Unsupported provider: {job.provider}")
 
             status_data = build_status_response(
                 job_id=status_dict["job_id"],
@@ -188,15 +205,25 @@ class BatchWorker:
             )
             await redis_client.set_job_status(job_id, status_data.model_dump())
 
-            prompts = prepare_prompts(job.character_requests)
+            prompts = prepare_prompts(provider, job.character_requests)
 
             start_time = time.time()
-            batch_job_name = submit_gemini_batch(model=job.model, prompts=prompts)
-            logger.info(f"Job {job_id} submitted to Gemini as {batch_job_name}")
+
+            if provider == LLMProvider.GEMINI:
+                batch_id = submit_gemini_batch(model=job.model, prompts=prompts)
+            elif provider == LLMProvider.OPENAI:
+                batch_id = submit_openai_batch(model=job.model, prompts=prompts)
+            elif provider == LLMProvider.ANTHROPIC:
+                batch_id = submit_anthropic_batch(model=job.model, prompts=prompts)
+            else:
+                raise ValueError(f"Unsupported provider: {provider}")
+
+            logger.info(f"Job {job_id} submitted to {provider} as {batch_id}")
 
             self.active_jobs[job_id] = ActiveJob(
                 job_id=job_id,
-                gemini_batch_name=batch_job_name,
+                provider=provider,
+                batch_id=batch_id,
                 job_data=job,
                 status_data=status_data,
                 start_time=start_time,
@@ -204,25 +231,47 @@ class BatchWorker:
             )
 
         except Exception as e:
-            logger.error(f"Error submitting job to Gemini: {e}")
+            logger.error(f"Error submitting job: {e}")
             await self._mark_job_failed(job_data.get("job_id", "unknown"), str(e))
 
     async def _check_job_status(self, active_job: ActiveJob) -> None:
         try:
-            batch_status = get_gemini_batch_status(active_job.gemini_batch_name)
+            provider = active_job.provider
 
-            if batch_status == "JOB_STATE_SUCCEEDED":
-                logger.info(f"Gemini batch job succeeded: {active_job.gemini_batch_name}")
-                await self._process_completed_job(active_job)
-                self._finalize_job(active_job.job_id)
+            if provider == LLMProvider.GEMINI:
+                status = get_gemini_batch_status(active_job.batch_id)
+                if status == GEMINI_SUCCEEDED_STATE:
+                    logger.info(f"Gemini batch job succeeded: {active_job.batch_id}")
+                    await self._process_completed_job(active_job)
+                    self._finalize_job(active_job.job_id)
+                elif status in GEMINI_FAILED_STATES:
+                    logger.error(f"Gemini batch job failed: {active_job.batch_id} state={status}")
+                    await self._mark_job_failed(active_job.job_id, f"Gemini batch failed: {status}")
+                    self._finalize_job(active_job.job_id)
+                else:
+                    logger.debug(f"Job {active_job.job_id} Gemini status: {status}")
 
-            elif batch_status in GEMINI_FAILED_STATES:
-                logger.error(f"Gemini batch job failed: {active_job.gemini_batch_name} with state {batch_status}")
-                await self._mark_job_failed(active_job.job_id, f"Gemini batch job failed with state: {batch_status}")
-                self._finalize_job(active_job.job_id)
+            elif provider == LLMProvider.OPENAI:
+                status = get_openai_batch_status(active_job.batch_id)
+                if status == OPENAI_COMPLETED_STATE:
+                    logger.info(f"OpenAI batch job completed: {active_job.batch_id}")
+                    await self._process_completed_job(active_job)
+                    self._finalize_job(active_job.job_id)
+                elif status in OPENAI_FAILED_STATES:
+                    logger.error(f"OpenAI batch job failed: {active_job.batch_id} status={status}")
+                    await self._mark_job_failed(active_job.job_id, f"OpenAI batch failed: {status}")
+                    self._finalize_job(active_job.job_id)
+                else:
+                    logger.debug(f"Job {active_job.job_id} OpenAI status: {status}")
 
-            else:
-                logger.debug(f"Job {active_job.job_id} status: {batch_status}")
+            elif provider == LLMProvider.ANTHROPIC:
+                status = get_anthropic_batch_status(active_job.batch_id)
+                if status == ANTHROPIC_ENDED_STATE:
+                    logger.info(f"Anthropic batch job ended: {active_job.batch_id}")
+                    await self._process_completed_job(active_job)
+                    self._finalize_job(active_job.job_id)
+                else:
+                    logger.debug(f"Job {active_job.job_id} Anthropic status: {status}")
 
         except Exception as e:
             logger.error(f"Error checking job {active_job.job_id}: {e}")
@@ -233,10 +282,20 @@ class BatchWorker:
 
     async def _process_completed_job(self, active_job: ActiveJob) -> None:
         try:
-            batch_results = get_gemini_batch_results(active_job.gemini_batch_name)
+            provider = active_job.provider
+
+            if provider == LLMProvider.GEMINI:
+                batch_results = get_gemini_batch_results(active_job.batch_id)
+            elif provider == LLMProvider.OPENAI:
+                batch_results = get_openai_batch_results(active_job.batch_id)
+            elif provider == LLMProvider.ANTHROPIC:
+                batch_results = get_anthropic_batch_results(active_job.batch_id)
+            else:
+                raise ValueError(f"Unsupported provider: {provider}")
+
             processing_time_ms = (time.time() - active_job.start_time) * 1000
 
-            logger.info(f"Batch API completed in {processing_time_ms:.2f}ms for {active_job.num_tasks} tasks")
+            logger.info(f"Batch completed in {processing_time_ms:.2f}ms for {active_job.num_tasks} tasks ({provider})")
 
             task_results, completed_count, failed_count = build_task_results(batch_results, processing_time_ms)
 

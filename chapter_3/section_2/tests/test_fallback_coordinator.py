@@ -55,7 +55,7 @@ class TestFallbackCoordinator:
             primary_provider=LLMProvider.OPENAI,
             primary_request_func=mock_primary_request,
             prompt=sample_prompt,
-            model="gpt-4",
+            model="gpt-5.4",
         )
 
         assert response == sample_character_response
@@ -74,7 +74,7 @@ class TestFallbackCoordinator:
 
         cache_manager = CacheManager(cache_dir=temp_cache_dir)
         # Pre-populate cache
-        cache_manager.set(sample_prompt, "gpt-4", sample_character_response)
+        cache_manager.set(sample_prompt, "gpt-5.4", sample_character_response)
 
         coordinator = FallbackCoordinator(
             fallback_strategy=FallbackStrategy.PARAMETER_CACHE, cache_manager=cache_manager, timeout=0.1
@@ -88,7 +88,7 @@ class TestFallbackCoordinator:
             primary_provider=LLMProvider.OPENAI,
             primary_request_func=slow_primary_request,
             prompt=sample_prompt,
-            model="gpt-4",
+            model="gpt-5.4",
         )
 
         assert response.first_name == sample_character_response.first_name
@@ -121,7 +121,7 @@ class TestFallbackCoordinator:
             primary_request_func=slow_primary_request,
             alternative_request_func=fast_alternative_request,
             prompt=sample_prompt,
-            model="gpt-4-unique",  # Use unique model name to avoid cache
+            model="gpt-5.4-unique",  # Use unique model name to avoid cache
         )
 
         assert response == sample_character_response
@@ -258,11 +258,11 @@ class TestFallbackCoordinator:
             primary_provider=LLMProvider.OPENAI,
             primary_request_func=successful_request,
             prompt=sample_prompt,
-            model="gpt-4",
+            model="gpt-5.4",
         )
 
         # Verify cache was populated
-        cached = cache_manager.get(sample_prompt, "gpt-4")
+        cached = cache_manager.get(sample_prompt, "gpt-5.4")
         assert cached is not None
         assert cached.first_name == sample_character_response.first_name
 
@@ -423,7 +423,7 @@ class TestFallbackCoordinator:
         )
 
         # Pre-populate semantic cache
-        await semantic_cache_manager.set(sample_prompt, "gpt-4", sample_character_response)
+        await semantic_cache_manager.set(sample_prompt, "gpt-5.4", sample_character_response)
 
         coordinator = FallbackCoordinator(
             fallback_strategy=FallbackStrategy.SEMANTIC_CACHE,
@@ -440,7 +440,7 @@ class TestFallbackCoordinator:
             primary_provider=LLMProvider.OPENAI,
             primary_request_func=slow_primary_request,
             prompt=sample_prompt,
-            model="gpt-4",
+            model="gpt-5.4",
         )
 
         assert response.first_name == sample_character_response.first_name

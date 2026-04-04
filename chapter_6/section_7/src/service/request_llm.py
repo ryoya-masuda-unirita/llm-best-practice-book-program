@@ -24,7 +24,6 @@ from typing import Any
 
 from google.genai import types
 from google.genai.types import GenerateContentConfig
-
 from src.client import GeminiModel, google_genai_client
 from src.logger import make_logger
 from src.prompt import (

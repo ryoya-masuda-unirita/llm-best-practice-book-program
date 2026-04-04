@@ -73,7 +73,7 @@ async def main(
 
         python -m src.main -c example/sample_nda.md -t example/standard_nda_template.md
 
-        python -m src.main -m claude-sonnet-4-5 -c contract.md -t template.md -od reports
+        python -m src.main -m claude-sonnet-4-6 -c contract.md -t template.md -od reports
     """
     logger.info(f"""Contract Review Multi-Agent System
 Model: {model}

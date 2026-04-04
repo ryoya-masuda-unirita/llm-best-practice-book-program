@@ -89,8 +89,9 @@ Redis データ構造:
 1. 環境変数の設定
 
 ```bash
-# .envrc.example をコピーして編集
+cp .env.example .env
 cp .envrc.example .envrc
+# .envファイルを編集してAPIキーを設定
 
 # 必須の環境変数
 export OPENAI_API_KEY="your_openai_api_key"
@@ -144,7 +145,7 @@ curl -X POST http://localhost:8000/generate/queue \
   -H "Content-Type: application/json" \
   -d '{
     "provider": "openai",
-    "model": "gpt-4o-mini",
+    "model": "gpt-5.4-mini",
     "user_tier": "enterprise",
     "character_request": {
       "gender": "female",
@@ -164,7 +165,7 @@ curl -X POST http://localhost:8000/generate \
   -H "Content-Type: application/json" \
   -d '{
     "provider": "openai",
-    "model": "gpt-4o-mini",
+    "model": "gpt-5.4-mini",
     "character_request": {
       "gender": "male",
       "age": 30,
@@ -182,7 +183,7 @@ $ curl -X POST http://localhost:8000/generate/queue \
   -H "Content-Type: application/json" \
   -d '{
     "provider": "openai",
-    "model": "gpt-4o-mini",
+    "model": "gpt-5.4-mini",
     "user_tier": "premium",
     "character_request": {
       "gender": "female",
@@ -238,7 +239,7 @@ $ curl http://localhost:8000/task/e0480150-d87f-437c-a6a5-c3fa65a950a7 | jq .
       ]
     },
     "provider": "openai",
-    "model": "gpt-4o-mini",
+    "model": "gpt-5.4-mini",
     "processing_time_ms": 5303.569555282593
   },
   "error_message": null,
@@ -267,6 +268,6 @@ $ curl http://localhost:8000/queue/stats | jq .
 ```
 [INFO] Worker started with priority ratios - High: 70%, Medium: 20%, Low: 10%
 [INFO] Enqueued task a1b2c3d4-... to high priority queue
-[INFO] Processing task a1b2c3d4-... (priority: high, provider: openai/gpt-4o-mini)
+[INFO] Processing task a1b2c3d4-... (priority: high, provider: openai/gpt-5.4-mini)
 [INFO] Completed task a1b2c3d4-... in 3333.45ms (total: 1)
 ```

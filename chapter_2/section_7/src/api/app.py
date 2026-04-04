@@ -36,7 +36,7 @@ async def stream_response(request: StreamRequest):
 
     try:
         if request.provider == LLMProvider.OPENAI:
-            model = request.model or OpenAIModel.GPT_4O_MINI
+            model = request.model or OpenAIModel.GPT_5_4_MINI
             return StreamingResponse(
                 stream_openai_response(request.prompt, model=model),
                 media_type="text/event-stream",
@@ -64,7 +64,7 @@ async def get_completion(request: StreamRequest):
 
     try:
         if request.provider == LLMProvider.OPENAI:
-            model = request.model or OpenAIModel.GPT_4O_MINI
+            model = request.model or OpenAIModel.GPT_5_4_MINI
             content = await get_openai_response(request.prompt, model=model)
             return CompletionResponse(
                 content=content,

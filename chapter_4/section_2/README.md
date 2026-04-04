@@ -4,13 +4,13 @@
 
 このプロジェクトは、**LLMシステムのストレージと実行を分離する(CQRSパターンの応用)** を用いたLLMシステムの実装サンプルです。キャッシュやデータベースへのアクセス処理と、LLM APIの呼び出し処理を疎結合に保つことで、コンポーネントの独立性を高め、柔軟でテストしやすく、保守性の高いシステムを実現します。
 
-本実装では、FastAPIベースのREST APIサーバーを提供し、OpenAI GPTモデル（GPT-5、GPT-4.1、GPT-4oシリーズ）に対応しています。また、インメモリキャッシュとRedisキャッシュの両方をサポートし、環境に応じて柔軟に切り替えることができます。
+本実装では、FastAPIベースのREST APIサーバーを提供し、OpenAI GPTモデル（GPT-5.4、GPT-5.2、GPT-5.1、GPT-5シリーズ）に対応しています。また、インメモリキャッシュとRedisキャッシュの両方をサポートし、環境に応じて柔軟に切り替えることができます。
 
 ## 機能
 
 - **ストレージと実行の分離**: Bridge Patternを用いた責務の明確な分離
 - **キャッシング機能**: インメモリとRedisベースの2種類のキャッシュバックエンドをサポート
-- **OpenAI対応**: OpenAI GPTモデル（GPT-5、GPT-4.1、GPT-4oシリーズ）をサポート
+- **OpenAI対応**: OpenAI GPTモデル（GPT-5.4、GPT-5.2、GPT-5.1、GPT-5シリーズ）をサポート
 - **依存性注入（DI）**: Factoryパターンによる柔軟なサービスインスタンス管理
 - **REST APIサーバー**: FastAPIによる高性能なAPIエンドポイント
 - **キャッシュメトリクス**: キャッシュヒット率、ミス数などの監視機能
@@ -127,10 +127,9 @@ chapter_3/section_2/
 1. **環境変数ファイルの作成**
 
 ```bash
-# .env.exampleをコピーして.envを作成
 cp .env.example .env
-
-# エディタで.envを開き、APIキーを設定
+cp .envrc.example .envrc
+# .envファイルを編集してAPIキーを設定
 # .env
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
 
@@ -182,7 +181,7 @@ curl -X POST "http://localhost:8000/generate" \
   -H "Content-Type: application/json" \
   -d '{
     "provider": "openai",
-    "model": "gpt-4o-mini",
+    "model": "gpt-5.4-mini",
     "character_request": {
       "gender": "male",
       "age": 28,
@@ -224,7 +223,7 @@ $ curl -X POST "http://localhost:8000/generate" \
   -H "Content-Type: application/json" \
   -d '{
     "provider": "openai",
-    "model": "gpt-4o-mini",
+    "model": "gpt-5.4-mini",
     "character_request": {
       "gender": "male",
       "age": 28,
@@ -256,7 +255,7 @@ $ curl -X POST "http://localhost:8000/generate" \
     ]
   },
   "provider": "openai",
-  "model": "gpt-4o-mini",
+  "model": "gpt-5.4-mini",
   "processing_time_ms": 0.5803108215332031
 }
 ```
@@ -285,9 +284,9 @@ $ curl http://localhost:8000/metrics | jq .
 [2025-10-25 15:30:45] [INFO] Cache enabled: True
 [2025-10-25 15:30:45] [INFO] Cache backend: redis
 [2025-10-25 15:30:45] [INFO] Redis connection initialized successfully
-[2025-10-25 15:30:47] [INFO] Cache miss for openai/gpt-4o-mini (hits: 0, misses: 1, hit_rate: 0.00%)
-[2025-10-25 15:30:47] [INFO] Executing LLM request: model=gpt-4o-mini
-[2025-10-25 15:30:49] [INFO] OpenAI API call successful: gpt-4o-mini
-[2025-10-25 15:30:49] [INFO] Successfully generated character using openai/gpt-4o-mini in 1234.56ms
-[2025-10-25 15:30:52] [INFO] Cache hit for openai/gpt-4o-mini (hits: 1, misses: 1, hit_rate: 50.00%)
+[2025-10-25 15:30:47] [INFO] Cache miss for openai/gpt-5.4-mini (hits: 0, misses: 1, hit_rate: 0.00%)
+[2025-10-25 15:30:47] [INFO] Executing LLM request: model=gpt-5.4-mini
+[2025-10-25 15:30:49] [INFO] OpenAI API call successful: gpt-5.4-mini
+[2025-10-25 15:30:49] [INFO] Successfully generated character using openai/gpt-5.4-mini in 1234.56ms
+[2025-10-25 15:30:52] [INFO] Cache hit for openai/gpt-5.4-mini (hits: 1, misses: 1, hit_rate: 50.00%)
 ```

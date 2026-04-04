@@ -146,7 +146,7 @@ uv sync
 uv run python -m src.main -r "I want something easy to cook tonight"
 
 # With specific model
-uv run python -m src.main -m gpt-4o -r "Healthy Japanese food"
+uv run python -m src.main -m gpt-5.4 -r "Healthy Japanese food"
 
 # Custom output directory
 uv run python -m src.main -r "Quick Italian" -od ./my_output

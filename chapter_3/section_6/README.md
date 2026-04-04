@@ -2,7 +2,7 @@
 
 ## 概要
 
-このプロジェクトは、**LLM APIゲートウェイ**の実装例を示すサンプルコードです。OpenAI GPT-4o-miniとGoogle Gemini 2.5 Flashへのアクセスを一元管理するゲートウェイサーバーを構築し、複数のアプリケーションサービスが安全かつ効率的にLLMを利用できる環境を提供します。
+このプロジェクトは、**LLM APIゲートウェイ**の実装例を示すサンプルコードです。OpenAI GPT-5.4-miniとGoogle Gemini 2.5 Flashへのアクセスを一元管理するゲートウェイサーバーを構築し、複数のアプリケーションサービスが安全かつ効率的にLLMを利用できる環境を提供します。
 
 ゲートウェイパターンを採用することで、APIキーの一元管理、構造化ログによる監視、統一されたエラーハンドリング、そしてLLMプロバイダの変更に対する柔軟性を実現します。マイクロサービスアーキテクチャや複数チームでLLMを活用する環境において、セキュリティとガバナンスを強化するベストプラクティスを学ぶことができます。
 
@@ -149,10 +149,9 @@ chapter_3/section_4/
 1. **環境変数ファイルの作成**
 
 ```bash
-# .envrc.exampleをコピーして.envrcを作成
+cp .env.example .env
 cp .envrc.example .envrc
-
-# エディタで.envrcを開き、APIキーを設定
+# .envファイルを編集してAPIキーを設定
 # .envrc
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
 GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
@@ -221,7 +220,7 @@ curl -X POST http://localhost:8080/v1/generate \
   -H "Content-Type: application/json" \
   -d '{
     "provider": "openai",
-    "model": "gpt-4o-mini",
+    "model": "gpt-5.4-mini",
     "prompt": [
       {"role": "system", "content": "You are a helpful assistant."},
       {"role": "user", "content": "Write a haiku about programming."}

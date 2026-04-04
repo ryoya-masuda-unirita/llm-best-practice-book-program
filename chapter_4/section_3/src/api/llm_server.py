@@ -32,8 +32,8 @@ async def generate_character(request: LLMRequest):
     Generate a character using Anthropic Claude.
 
     Model availability depends on user plan:
-    - Free plan: claude-sonnet-4-5
-    - Standard plan: All models (claude-sonnet-4-5, claude-opus-4)
+    - Free plan: claude-sonnet-4-6
+    - Standard plan: All models (claude-sonnet-4-6, claude-opus-4)
     """
     start_time = time.time()
 
@@ -78,8 +78,8 @@ async def classify_text(request: TextClassificationRequest):
     Classify text into one of the provided categories using Anthropic Claude.
 
     Model availability depends on user plan:
-    - Free plan: claude-sonnet-4-5
-    - Standard plan: All models (claude-sonnet-4-5, claude-opus-4)
+    - Free plan: claude-sonnet-4-6
+    - Standard plan: All models (claude-sonnet-4-6, claude-opus-4)
     """
     start_time = time.time()
 

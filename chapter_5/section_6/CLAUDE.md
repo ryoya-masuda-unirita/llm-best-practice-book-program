@@ -176,7 +176,7 @@ uv run python -m src.event_runner
 uv run python -m src.event_runner -w contracts/
 
 # With custom model
-uv run python -m src.event_runner -m gpt-4o
+uv run python -m src.event_runner -m gpt-5.4
 
 # With custom output directory
 uv run python -m src.event_runner -od reports/
@@ -189,7 +189,7 @@ uv run python -m src.event_runner -od reports/
 | Option | Short | Default | Description |
 |--------|-------|---------|-------------|
 | --watch-directory | -w | data | Directory to watch for new files |
-| --model | -m | gpt-4o-mini | LLM model to use |
+| --model | -m | gpt-5.4-mini | LLM model to use |
 | --output-directory | -od | outputs | Directory for reports |
 
 ## Development Commands

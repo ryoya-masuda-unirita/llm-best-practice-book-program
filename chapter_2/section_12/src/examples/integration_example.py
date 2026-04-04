@@ -273,7 +273,7 @@ def display_statistics(prompt_service: PromptManagementService):
     "-m",
     type=click.Choice(OpenAIModel.list_str()),
     required=True,
-    default=OpenAIModel.GPT_4O,
+    default=OpenAIModel.GPT_5_4,
     help="The OpenAI model to use for the request.",
 )
 @click.option(

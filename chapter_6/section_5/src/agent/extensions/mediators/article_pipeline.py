@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import Literal
 
 import click
-
 from src.agent.extensions.memory.pipeline import (
     PipelineMemory,
     PipelineMemoryCaretaker,

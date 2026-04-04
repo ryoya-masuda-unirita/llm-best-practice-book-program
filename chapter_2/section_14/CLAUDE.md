@@ -148,10 +148,10 @@ cp .envrc.example .envrc
 
 ```bash
 # Basic usage
-python -m src.main -m claude-sonnet-4-5 -i data/contract_0.md
+python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md
 
 # With custom output directory
-python -m src.main -m claude-sonnet-4-5 -i data/contract_0.md -od outputs
+python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md -od outputs
 
 # Show help
 python -m src.main --help
@@ -161,7 +161,7 @@ python -m src.main --help
 
 | Option | Short | Required | Default | Description |
 |--------|-------|----------|---------|-------------|
-| --model | -m | Yes | - | Model to use (claude-sonnet-4-5 or claude-opus-4-1) |
+| --model | -m | Yes | - | Model to use (claude-sonnet-4-6 or claude-opus-4-6) |
 | --input | -i | Yes | - | Path to input document file |
 | --output-directory | -od | No | outputs | Directory to save output files |
 

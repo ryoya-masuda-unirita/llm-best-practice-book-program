@@ -228,7 +228,7 @@ Usage: python -m src.main [OPTIONS]
       python -m src.main -c example/sample_nda.md -t
       example/standard_nda_template.md
 
-      python -m src.main -m claude-sonnet-4-5 -c contract.md -t template.md
+      python -m src.main -m claude-sonnet-4-6 -c contract.md -t template.md
       -od reports
 
 Options:

@@ -6,7 +6,6 @@ Uses the Tool Chain pattern where LLM MUST always define a tool chain first.
 """
 
 from google.genai import types
-
 from src.service.tools.tool_metadata import TOOL_METADATA
 
 

@@ -4,13 +4,13 @@
 
 This project demonstrates a **Bridge Pattern-based architecture** that separates storage (caching) and execution (LLM API calls) layers in an LLM system. By decoupling cache/database access from LLM API invocation, we achieve high component independence, flexibility, testability, and maintainability.
 
-The implementation provides a FastAPI-based REST API server supporting multiple OpenAI models (GPT-4o, GPT-4.1, GPT-5 series). It offers flexible cache backend switching between in-memory and Redis storage based on environment configuration.
+The implementation provides a FastAPI-based REST API server supporting multiple OpenAI models (GPT-5.4, GPT-5.2, GPT-5.1, GPT-5 series). It offers flexible cache backend switching between in-memory and Redis storage based on environment configuration.
 
 ## Features
 
 - **Storage-Execution Separation**: Clear separation of concerns using the Bridge Pattern
 - **Dual Cache Backends**: Support for both in-memory and Redis-based caching
-- **OpenAI Support**: Compatible with OpenAI GPT models (GPT-5, GPT-4.1, GPT-4o series)
+- **OpenAI Support**: Compatible with OpenAI GPT models (GPT-5.4, GPT-5.2, GPT-5.1, GPT-5 series)
 - **Model Validation**: Automatic validation of model compatibility with providers
 - **Dependency Injection**: Flexible service instance management via Factory Pattern
 - **REST API Server**: High-performance FastAPI endpoints
@@ -277,7 +277,7 @@ redis_client = RedisClient()  # Singleton instance
 #### 6. LLM Client Module (`src/client/llm_client.py`)
 
 **Supported Models**:
-- **OpenAI**: GPT-5 series (gpt-5, gpt-5-mini, gpt-5-nano), GPT-4.1 series (gpt-4.1, gpt-4.1-mini, gpt-4.1-nano), GPT-4o series (gpt-4o, gpt-4o-mini)
+- **OpenAI**: GPT-5.4 series (gpt-5.4, gpt-5.4-mini, gpt-5.4-nano), GPT-5.2 (gpt-5.2), GPT-5.1 (gpt-5.1), GPT-5 series (gpt-5, gpt-5-mini, gpt-5-nano)
 
 **Client Initialization**:
 ```python
@@ -588,7 +588,7 @@ CACHE_ENABLED=false  # Disable caching
 
 ### Cost Optimization
 
-OpenAI GPT-4o-mini pricing (as of January 2025):
+OpenAI GPT-5.4-mini pricing (as of January 2025):
 - Input: $0.150 / 1M tokens
 - Output: $0.600 / 1M tokens
 
@@ -721,7 +721,7 @@ curl -X POST "http://localhost:8000/generate" \
   -H "Content-Type: application/json" \
   -d '{
     "provider": "openai",
-    "model": "gpt-4o-mini",
+    "model": "gpt-5.4-mini",
     "character_request": {
       "gender": "male",
       "age": 28,

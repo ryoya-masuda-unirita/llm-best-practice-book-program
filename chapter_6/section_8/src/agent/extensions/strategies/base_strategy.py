@@ -6,7 +6,6 @@ from typing import TypeVar, overload
 
 from google.genai.types import GenerateContentConfig
 from pydantic import BaseModel
-
 from src.agent.core.base import Action, ActionType, Strategy, Tool, ToolResult
 from src.client.llm_client import GeminiModel, google_genai_client
 from src.logger import make_logger

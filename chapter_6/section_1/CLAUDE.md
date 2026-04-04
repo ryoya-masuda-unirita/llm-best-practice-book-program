@@ -104,9 +104,9 @@ def make_prompt(character_request: CharacterRequest) -> list:
 ### 3. Multi-Provider Support
 
 **OpenAI Models** (8 options):
-- GPT-5 series: gpt-5, gpt-5-mini
-- GPT-4.1 series: gpt-4.1, gpt-4.1-mini
-- GPT-4o series: gpt-4o, gpt-4o-mini, gpt-4o-2024-11-20, gpt-4o-2024-08-06
+- GPT-5.4 series: gpt-5.4, gpt-5.4-mini, gpt-5.4-nano
+- gpt-5.2, gpt-5.1
+- GPT-5 series: gpt-5, gpt-5-mini, gpt-5-nano
 
 **Gemini Models** (3 options):
 - gemini-2.5-pro
@@ -266,7 +266,7 @@ prompt = make_prompt(request)
 # Call LLM
 from src.service.request_llm import request_openai
 from src.model.model import OpenAIModel
-result = await request_openai(prompt, OpenAIModel.GPT_4O_MINI)
+result = await request_openai(prompt, OpenAIModel.GPT_5_4_MINI)
 ```
 
 ---
@@ -425,7 +425,7 @@ Section 9 is **self-contained** but demonstrates patterns used in:
 ### Response Times
 
 **Typical latency** (depends on model and network):
-- OpenAI GPT-4o-mini: 2-4 seconds
+- OpenAI GPT-5.4-mini: 2-4 seconds
 - OpenAI GPT-5: 4-8 seconds
 - Gemini 2.5 Flash: 2-5 seconds
 - Gemini 2.5 Pro: 5-10 seconds
@@ -433,8 +433,8 @@ Section 9 is **self-contained** but demonstrates patterns used in:
 ### Cost Considerations
 
 **Approximate costs per character generation**:
-- GPT-4o-mini: $0.001-0.003
-- GPT-4o: $0.01-0.02
+- GPT-5.4-mini: $0.001-0.003
+- GPT-5.4: $0.01-0.02
 - Gemini 2.5 Flash: $0.0001-0.0005
 - Gemini 2.5 Pro: $0.002-0.005
 

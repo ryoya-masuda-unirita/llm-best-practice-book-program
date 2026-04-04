@@ -146,7 +146,7 @@ uv sync
 python -m src.main -c data/contract_0.md
 
 # Specify model
-python -m src.main -c data/contract_0.md -m gpt-4o
+python -m src.main -c data/contract_0.md -m gpt-5.4
 
 # Custom output directory
 python -m src.main -c data/contract_0.md -od reports
@@ -157,14 +157,15 @@ python -m src.main -c data/contract_0.md -od reports
 | Option | Short | Description | Default |
 |--------|-------|-------------|---------|
 | --contract-file | -c | Path to contract file (required) | - |
-| --model | -m | OpenAI model to use | gpt-4o-mini |
+| --model | -m | OpenAI model to use | gpt-5.4-mini |
 | --output-directory | -od | Output directory for reports | outputs |
 | --help | - | Show help message | - |
 
 ### Available Models
 
-- gpt-4o, gpt-4o-mini
-- gpt-4.1, gpt-4.1-mini, gpt-4.1-nano
+- gpt-5.4, gpt-5.4-mini, gpt-5.4-nano
+- gpt-5.2
+- gpt-5.1
 - gpt-5, gpt-5-mini, gpt-5-nano
 
 ## Development Commands

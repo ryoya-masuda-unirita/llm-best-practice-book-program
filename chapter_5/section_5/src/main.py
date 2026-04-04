@@ -79,7 +79,7 @@ async def main(
         python -m src.main -c data/contract_0.md
 
         # With custom model
-        python -m src.main -c data/contract_0.md -m gpt-4o
+        python -m src.main -c data/contract_0.md -m gpt-5.4
 
         # With custom output directory
         python -m src.main -c data/contract_0.md -od reports

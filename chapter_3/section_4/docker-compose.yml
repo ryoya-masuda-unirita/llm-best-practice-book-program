@@ -5,6 +5,9 @@ services:
   llm-server:
     container_name: llm-api-server
     image: shibui/llm-best-practice:chapter3_section4_web
+    build:
+      context: .
+      dockerfile: Dockerfile.web
     platform: linux/amd64
     ports:
       - "8000:8000"
@@ -29,6 +32,9 @@ services:
   proxy-server:
     container_name: llm-proxy-server
     image: shibui/llm-best-practice:chapter3_section4_proxy
+    build:
+      context: .
+      dockerfile: Dockerfile.proxy
     platform: linux/amd64
     ports:
       - "8080:8080"

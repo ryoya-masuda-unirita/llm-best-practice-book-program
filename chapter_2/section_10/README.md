@@ -177,7 +177,7 @@ uv run python -m src.main \
 # Anthropic APIを使用
 uv run python -m src.main \
     --llm-provider ANTHROPIC \
-    --model CLAUDE_SONNET_4_5 \
+    --model CLAUDE_SONNET_4_6 \
     --gender FEMALE \
     --age 28
 ```
@@ -196,14 +196,14 @@ uv run python -m src.main \
 ##### 異なるモデルで評価
 
 ```bash
-# GPT_5_MINIで生成し、CLAUDE_SONNET_4_5で評価
+# GPT_5_MINIで生成し、CLAUDE_SONNET_4_6で評価
 uv run python -m src.main \
     -lp OPENAI \
     -m GPT_5_MINI \
     -g FEMALE \
     -a 25 \
     --judge-provider ANTHROPIC \
-    --judge-model CLAUDE_SONNET_4_5
+    --judge-model CLAUDE_SONNET_4_6
 ```
 
 ##### 出力先の指定
@@ -233,14 +233,14 @@ Options:
                                   generation.
   -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use.  [required]
-  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_SONNET_4_5|CLAUDE_OPUS_4_1]
+  -m, --model [GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_SONNET_4_6|CLAUDE_OPUS_4_6]
                                   The model to use for the request.
                                   [required]
   -od, --output-directory PATH    The directory to save output files.
   -jp, --judge-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use for judgment
                                   (defaults to same as generation provider).
-  -jm, --judge-model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_SONNET_4_5|CLAUDE_OPUS_4_1]
+  -jm, --judge-model [GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_SONNET_4_6|CLAUDE_OPUS_4_6]
                                   The model to use for judgment (defaults to
                                   same as generation model).
   --help                          Show this message and exit.

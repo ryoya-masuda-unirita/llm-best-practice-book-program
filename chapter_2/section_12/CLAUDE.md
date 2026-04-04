@@ -275,7 +275,7 @@ additional_instructions: "This character is a brave warrior..."
 uv run python -m src.examples.basic_example
 
 # 既存システムとの統合例
-uv run python -m src.examples.integration_example -m gpt-4o-mini --show-stats
+uv run python -m src.examples.integration_example -m gpt-5.4-mini --show-stats
 
 # 高度な分析例
 uv run python -m src.examples.advanced_example

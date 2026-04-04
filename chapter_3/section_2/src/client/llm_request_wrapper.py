@@ -20,7 +20,7 @@ class LLMRequestWrapper:
     async def request_openai(
         self,
         prompt: str | list[dict],
-        model: OpenAIModel = OpenAIModel.GPT_4O_MINI,
+        model: OpenAIModel = OpenAIModel.GPT_5_4_MINI,
         alternative_model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH,
         with_fallback: bool = True,
     ) -> tuple[CharacterResponse, Optional[FallbackStrategy], Optional[str]]:
@@ -38,7 +38,7 @@ class LLMRequestWrapper:
         self,
         prompt: str | list[dict],
         model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH,
-        alternative_model: OpenAIModel = OpenAIModel.GPT_4O_MINI,
+        alternative_model: OpenAIModel = OpenAIModel.GPT_5_4_MINI,
         with_fallback: bool = True,
     ) -> tuple[CharacterResponse, Optional[FallbackStrategy], Optional[str]]:
         """Request character generation from Gemini with optional fallback to OpenAI."""
@@ -89,7 +89,7 @@ class LLMRequestWrapper:
         return result.parsed
 
     async def _request_openai_internal(
-        self, prompt: str | list[dict], model: OpenAIModel = OpenAIModel.GPT_4O_MINI
+        self, prompt: str | list[dict], model: OpenAIModel = OpenAIModel.GPT_5_4_MINI
     ) -> CharacterResponse:
         """Internal method for OpenAI API requests."""
         result = await openai_client.responses.parse(

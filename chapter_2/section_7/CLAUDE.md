@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-This project demonstrates a production-ready implementation of **LLM streaming responses** using FastAPI and Server-Sent Events (SSE). It provides a unified API interface supporting both OpenAI GPT-4o-mini and Google Gemini 2.5 Flash models, enabling real-time text generation with efficient resource utilization.
+This project demonstrates a production-ready implementation of **LLM streaming responses** using FastAPI and Server-Sent Events (SSE). It provides a unified API interface supporting both OpenAI GPT-5.4-mini and Google Gemini 2.5 Flash models, enabling real-time text generation with efficient resource utilization.
 
 ### Key Achievements
 
@@ -151,7 +151,7 @@ Response: text/event-stream (SSE)
 #### OpenAI Streaming (src/service/streaming_service.py:12)
 
 ```python
-async def stream_openai_response(prompt: str, model: str = "gpt-4o-mini") -> AsyncIterator[str]:
+async def stream_openai_response(prompt: str, model: str = "gpt-5.4-mini") -> AsyncIterator[str]:
     """Async generator for OpenAI streaming responses"""
 
     stream = await openai_client.chat.completions.create(
@@ -235,7 +235,7 @@ async def stream_gemini_response(
 python test_client.py --prompt "Hello, world!"
 
 # OpenAI with custom model
-python test_client.py --provider openai --model gpt-4o --prompt "Explain AI"
+python test_client.py --provider openai --model gpt-5.4 --prompt "Explain AI"
 
 # Gemini with system instruction
 python test_client.py --provider gemini \
@@ -320,7 +320,7 @@ curl http://127.0.0.1:8000/health
 **2. OpenAI Streaming**
 ```bash
 python test_client.py --provider openai --prompt "Hello, world!"
-# Expected: Real-time text generation from GPT-4o-mini
+# Expected: Real-time text generation from GPT-5.4-mini
 ```
 
 **3. Gemini Streaming**
@@ -507,7 +507,7 @@ e34954c add 2.1
 ### Priority 3: Feature Enhancements
 
 1. **Extended Model Support**
-   - Additional OpenAI models (GPT-4, GPT-3.5)
+   - Additional OpenAI models (GPT-5.4, GPT-5)
    - Additional Gemini models (Pro, Ultra)
    - Claude API integration
    - Model-specific parameter tuning

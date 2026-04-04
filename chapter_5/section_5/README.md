@@ -234,13 +234,13 @@ Usage: python -m src.main [OPTIONS]
       python -m src.main -c data/contract_0.md
 
       # With custom model     python -m src.main -c data/contract_0.md -m
-      gpt-4o
+      gpt-5.4
 
       # With custom output directory     python -m src.main -c
       data/contract_0.md -od reports
 
 Options:
-  -m, --model [GPT_5_2|GPT_5|GPT_5_MINI|GPT_5_NANO]
+  -m, --model [GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO]
                                   The model to use for the request.
   -od, --output-directory PATH    The directory to save output files.
   -c, --contract-file PATH        Path to the contract document file (markdown

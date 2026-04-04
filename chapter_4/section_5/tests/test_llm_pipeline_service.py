@@ -62,7 +62,7 @@ class TestAnalyzeDocumentOpenAINode:
         with patch("src.service.llm_pipeline_service.openai_client") as mock_client:
             mock_client.beta.chat.completions.parse = AsyncMock(return_value=mock_response)
 
-            state = {**base_pipeline_state, "llm_provider": LLMProvider.OPENAI, "model": "gpt-4o"}
+            state = {**base_pipeline_state, "llm_provider": LLMProvider.OPENAI, "model": "gpt-5.4"}
             result = await analyze_document_openai_node(state)
 
             assert result["error"] is None
@@ -87,7 +87,7 @@ class TestAnalyzeDocumentOpenAINode:
             state = {
                 **base_pipeline_state,
                 "llm_provider": LLMProvider.OPENAI,
-                "model": "gpt-4o",
+                "model": "gpt-5.4",
                 "retry_count": 1,
                 "evaluation_result": sample_evaluation_poor,
             }

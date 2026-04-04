@@ -5,6 +5,9 @@ services:
   gateway:
     container_name: llm-gateway
     image: shibui/llm-best-practice:chapter3_section6_gateway
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
     platform: linux/amd64
     ports:
       - "8080:8080"
@@ -27,6 +30,9 @@ services:
   backend:
     container_name: llm-backend
     image: shibui/llm-best-practice:chapter3_section6_backend
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
     platform: linux/amd64
     ports:
       - "8000:8000"

@@ -72,7 +72,7 @@ class TestCharacterOutputQuality:
 
         judge_response = await judge_with_openai(
             judge_request=judge_request,
-            model=OpenAIModel.GPT_4O_MINI,
+            model=OpenAIModel.GPT_5_4_MINI,
         )
 
         assert judge_response.is_passing(threshold=3.0), "Generated character should meet minimum quality threshold"
@@ -98,7 +98,7 @@ class TestCharacterOutputQuality:
 
         judge_response = await judge_with_openai(
             judge_request=judge_request,
-            model=OpenAIModel.GPT_4O_MINI,
+            model=OpenAIModel.GPT_5_4_MINI,
         )
 
         assert not judge_response.is_passing(threshold=3.0), "Low quality output should fail quality threshold"
@@ -253,7 +253,7 @@ class TestEndToEndWithJudge:
 
         character_response, judge_response = await request_with_judge(
             character_request=request,
-            model=OpenAIModel.GPT_4O_MINI,
+            model=OpenAIModel.GPT_5_4_MINI,
             provider="openai",
         )
 
@@ -277,7 +277,7 @@ class TestEndToEndWithJudge:
 
         character_response, judge_response = await request_with_judge(
             character_request=request,
-            model=OpenAIModel.GPT_4O_MINI,
+            model=OpenAIModel.GPT_5_4_MINI,
             provider="openai",
         )
 
@@ -306,7 +306,7 @@ class TestEndToEndWithJudge:
 
         character_response, judge_response = await request_with_judge(
             character_request=request,
-            model=OpenAIModel.GPT_4O_MINI,
+            model=OpenAIModel.GPT_5_4_MINI,
             provider="openai",
         )
 

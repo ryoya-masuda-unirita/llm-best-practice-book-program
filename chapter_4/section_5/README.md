@@ -4,7 +4,7 @@
 
 このプロジェクトは、**LangGraphを活用したLLMパイプライン**の実践的な実装例を示すサンプルコードです。複雑なタスクを複数のステージに分割し、各ステージでLLMの役割を明確に分担することで、高精度な文書分析システムを実現します。
 
-LLM-as-a-Judge（LLMを評価者として活用する）パターンを採用し、分析結果の品質を自動評価して、必要に応じて改善フィードバックを与えながら再実行する仕組みを実装しています。OpenAI GPT-4oとGoogle Gemini 2.5の両方に対応し、構造化出力による型安全な実装を実現しています。
+LLM-as-a-Judge（LLMを評価者として活用する）パターンを採用し、分析結果の品質を自動評価して、必要に応じて改善フィードバックを与えながら再実行する仕組みを実装しています。OpenAI GPT-5.4とGoogle Gemini 2.5の両方に対応し、構造化出力による型安全な実装を実現しています。
 
 ## 機能
 
@@ -191,7 +191,7 @@ Usage: python -m src.main [OPTIONS]
 Options:
   -lp, --llm-provider [OPENAI|GEMINI]
                                   The LLM provider to use.  [required]
-  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
+  -m, --model [GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
                                   The model to use for the request.
                                   [required]
   -od, --output-directory PATH    The directory to save output files.

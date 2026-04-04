@@ -14,7 +14,6 @@ from pathlib import Path
 
 import click
 from google.genai import types
-
 from src.client import GeminiModel, google_genai_client
 from src.logger import make_logger
 from src.service.request_llm import SessionResultCache, process_with_function_calling

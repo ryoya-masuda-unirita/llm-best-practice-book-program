@@ -21,7 +21,7 @@ def log_dir(tmp_path):
 def mock_openai_response():
     response = Mock()
     response.id = "chatcmpl-123"
-    response.model = "gpt-4"
+    response.model = "gpt-5.4"
     response.choices = [
         Mock(
             message=Mock(role="assistant", content="Hello! How can I help you?"),
@@ -78,13 +78,13 @@ def test_chat_completions_wrapper_create(log_dir, mock_openai_response):
 
     wrapper = ChatCompletionsWrapper(mock_completions, log_dir)
     response = wrapper.create(
-        model="gpt-4",
+        model="gpt-5.4",
         messages=[{"role": "user", "content": "Hello"}],
         temperature=0.7,
     )
 
     assert response.id == "chatcmpl-123"
-    assert response.model == "gpt-4"
+    assert response.model == "gpt-5.4"
     assert response.usage.total_tokens == 18
 
     log_files = list(Path(log_dir).glob("openai_*.json"))
@@ -94,7 +94,7 @@ def test_chat_completions_wrapper_create(log_dir, mock_openai_response):
         log_data = json.load(f)
 
     assert log_data["method"] == "chat.completions.create"
-    assert log_data["request"]["model"] == "gpt-4"
+    assert log_data["request"]["model"] == "gpt-5.4"
     assert log_data["request"]["messages"] == [{"role": "user", "content": "Hello"}]
     assert log_data["request"]["temperature"] == 0.7
     assert log_data["response"]["id"] == "chatcmpl-123"
@@ -108,13 +108,13 @@ async def test_async_chat_completions_wrapper_create(log_dir, mock_openai_respon
 
     wrapper = AsyncChatCompletionsWrapper(mock_completions, log_dir)
     response = await wrapper.create(
-        model="gpt-4",
+        model="gpt-5.4",
         messages=[{"role": "user", "content": "Hello"}],
         temperature=0.7,
     )
 
     assert response.id == "chatcmpl-123"
-    assert response.model == "gpt-4"
+    assert response.model == "gpt-5.4"
     assert response.usage.total_tokens == 18
 
     log_files = list(Path(log_dir).glob("async_openai_*.json"))
@@ -124,7 +124,7 @@ async def test_async_chat_completions_wrapper_create(log_dir, mock_openai_respon
         log_data = json.load(f)
 
     assert log_data["method"] == "chat.completions.create"
-    assert log_data["request"]["model"] == "gpt-4"
+    assert log_data["request"]["model"] == "gpt-5.4"
     assert log_data["response"]["usage"]["total_tokens"] == 18
 
 
@@ -177,7 +177,7 @@ def test_multiple_requests_create_separate_logs(log_dir, mock_openai_response):
     wrapper = ChatCompletionsWrapper(mock_completions, log_dir)
     for i in range(3):
         wrapper.create(
-            model="gpt-4",
+            model="gpt-5.4",
             messages=[{"role": "user", "content": f"Hello {i}"}],
         )
 
@@ -191,7 +191,7 @@ def test_log_captures_all_parameters(log_dir, mock_openai_response):
 
     wrapper = ChatCompletionsWrapper(mock_completions, log_dir)
     wrapper.create(
-        model="gpt-4",
+        model="gpt-5.4",
         messages=[{"role": "user", "content": "Hello"}],
         temperature=0.8,
         max_tokens=100,

@@ -131,7 +131,7 @@ $ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
 Options:
-  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI]
+  -m, --model [GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO]
                                   The OpenAI model to use for the request.
                                   [required]
   -od, --output-directory PATH    The directory to save output files.
@@ -148,13 +148,13 @@ Options:
 
 ```bash
 # デフォルト設定で実行
-uv run python -m src.main -m GPT_4O_MINI
+uv run python -m src.main -m GPT_5_4_MINI
 
 # 特定の変数ファイルを使用
-uv run python -m src.main -m GPT_4O -v variables/character_artist.yaml
+uv run python -m src.main -m GPT_5_4 -v variables/character_artist.yaml
 
 # テンプレートと変数を両方指定
-uv run python -m src.main -m GPT_4O -t templates/character_generation.yaml -v variables/warrior.yaml
+uv run python -m src.main -m GPT_5_4 -t templates/character_generation.yaml -v variables/warrior.yaml
 ```
 
 #### 実行例
@@ -162,8 +162,8 @@ uv run python -m src.main -m GPT_4O -t templates/character_generation.yaml -v va
 - テンプレートの利用例
 
 ```bash
-$ uv run python -m src.main -m GPT_4O -t templates/character_generation.yaml -v variables/warrior.yaml
-[2026-01-18 14:59:16,520] [INFO] [__main__] [main.py:87] [main] Model: gpt-4o
+$ uv run python -m src.main -m GPT_5_4 -t templates/character_generation.yaml -v variables/warrior.yaml
+[2026-01-18 14:59:16,520] [INFO] [__main__] [main.py:87] [main] Model: gpt-5.4
 Output directory: outputs
 Template: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_12/templates/character_generation.yaml
 Variables: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_12/variables/warrior.yaml
@@ -282,7 +282,7 @@ BONUS: Template Reuse Demonstration
    Success rate: 100.0%
    Average score: 0.96
    Required variables: gender, age
-   Recommended models: gpt-4o-mini
+   Recommended models: gpt-5.4-mini
    Recommended temperature: 1.0
 
 2. warrior_character_template
@@ -290,7 +290,7 @@ BONUS: Template Reuse Demonstration
    Success rate: 100.0%
    Average score: 0.96
    Required variables: gender, age
-   Recommended models: gpt-4o-mini
+   Recommended models: gpt-5.4-mini
    Recommended temperature: 1.0
 
 3. warrior_character_template
@@ -298,7 +298,7 @@ BONUS: Template Reuse Demonstration
    Success rate: 100.0%
    Average score: 0.96
    Required variables: gender, age
-   Recommended models: gpt-4o-mini
+   Recommended models: gpt-5.4-mini
    Recommended temperature: 1.0
 
 ✓ Exported template 'warrior_character_template' for team sharing:
@@ -321,7 +321,7 @@ Template reuse demonstration completed!
 
 ```bash
 $ uv run python -m src.examples.integration_example
-[2026-01-18 15:06:55,387] [INFO] [__main__] [integration_example.py:191] [log_configuration] Model: gpt-4o
+[2026-01-18 15:06:55,387] [INFO] [__main__] [integration_example.py:191] [log_configuration] Model: gpt-5.4
 Output directory: outputs
 Template: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_12/templates/character_generation.yaml
 Variables: default
@@ -529,10 +529,10 @@ Performance Summary:
   data_extraction: 66.7%
 
 ✓ Model Performance:
-  gpt-4o:
+  gpt-5.4:
     Total uses: 1
     Success rate: 0.0%
-  gpt-4o-mini:
+  gpt-5.4-mini:
     Total uses: 64
     Success rate: 68.8%
     Average score: 0.71

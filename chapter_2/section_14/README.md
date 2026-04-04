@@ -145,7 +145,7 @@ Usage: python -m src.main [OPTIONS]
   Analyze and extract document structure using LLM-generated scripts.
 
 Options:
-  -m, --model [claude-opus-4-5|claude-haiku-4-5|claude-sonnet-4-5|claude-opus-4-1]
+  -m, --model [claude-opus-4-6|claude-sonnet-4-6|claude-haiku-4-5]
                                   The Anthropic model to use for analysis.
                                   [required]
   -i, --input PATH                Path to the input document (text or
@@ -156,17 +156,17 @@ Options:
 
 ```bash
 # 基本的な使用方法
-python -m src.main -m claude-sonnet-4-5 -i data/contract_0.md
+python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md
 
 # 出力ディレクトリを指定
-python -m src.main -m claude-sonnet-4-5 -i data/contract_0.md -od outputs
+python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md -od outputs
 ```
 
 #### CLIオプション
 
 | オプション | 短縮形 | 必須 | デフォルト | 説明 |
 |-----------|-------|------|-----------|------|
-| `--model` | `-m` | Yes | - | 使用するモデル（`claude-sonnet-4-5` または `claude-opus-4-1`） |
+| `--model` | `-m` | Yes | - | 使用するモデル（`claude-sonnet-4-6` または `claude-opus-4-6`） |
 | `--input` | `-i` | Yes | - | 入力文書ファイルのパス |
 | `--output-directory` | `-od` | No | `outputs` | 出力ファイルの保存先ディレクトリ |
 
@@ -175,9 +175,9 @@ python -m src.main -m claude-sonnet-4-5 -i data/contract_0.md -od outputs
 契約書（`data/contract_0.md`）を処理した場合の実行ログ:
 
 ```bash
-$ python -m src.main -m claude-sonnet-4-5 -i data/contract_0.md
+$ python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md
 
-[2026-01-18 15:26:24,431] [INFO] [__main__] [main.py:52] [main] Model: claude-sonnet-4-5
+[2026-01-18 15:26:24,431] [INFO] [__main__] [main.py:52] [main] Model: claude-sonnet-4-6
 Input file: data/contract_0.md
 Output directory: outputs
 [2026-01-18 15:26:24,438] [INFO] [__main__] [main.py:60] [main] Document loaded: 1822 characters

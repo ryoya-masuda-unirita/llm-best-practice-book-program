@@ -11,14 +11,14 @@ class LLMProvider(StrEnum):
 class OpenAIModel(StrEnum):
     """Enum for OpenAI models."""
 
+    GPT_5_4 = "gpt-5.4"
+    GPT_5_4_MINI = "gpt-5.4-mini"
+    GPT_5_4_NANO = "gpt-5.4-nano"
+    GPT_5_2 = "gpt-5.2"
+    GPT_5_1 = "gpt-5.1"
     GPT_5 = "gpt-5"
     GPT_5_MINI = "gpt-5-mini"
     GPT_5_NANO = "gpt-5-nano"
-    GPT_4_1 = "gpt-4.1"
-    GPT_4_1_MINI = "gpt-4.1-mini"
-    GPT_4_1_NANO = "gpt-4.1-nano"
-    GPT_4O = "gpt-4o"
-    GPT_4O_MINI = "gpt-4o-mini"
 
     @staticmethod
     def list_str() -> list[str]:

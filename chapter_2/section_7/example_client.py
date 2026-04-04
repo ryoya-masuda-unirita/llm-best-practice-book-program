@@ -7,11 +7,11 @@ LLM APIのサンプルクライアント
 使用方法:
     # ストリーミング
     python example_client.py --prompt "こんにちは"
-    python example_client.py --model gpt-4o --prompt "Pythonについて教えて"
+    python example_client.py --model gpt-5.4 --prompt "Pythonについて教えて"
 
     # 非ストリーミング (同期)
     python example_client.py --mode completion --prompt "こんにちは"
-    python example_client.py --mode completion --model gpt-4o --prompt "Pythonについて教えて"
+    python example_client.py --mode completion --model gpt-5.4 --prompt "Pythonについて教えて"
 """
 
 import asyncio

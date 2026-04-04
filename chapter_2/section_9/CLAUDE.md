@@ -265,11 +265,11 @@ uv sync
 make install
 
 # Run with OpenAI
-uv run python -m src.main --model gpt-4o
+uv run python -m src.main --model gpt-5.4
 make run-openai
 
 # Custom output directory
-uv run python -m src.main -m gpt-4o-mini -od ./my_outputs
+uv run python -m src.main -m gpt-5.4-mini -od ./my_outputs
 ```
 
 ### Programmatic Usage

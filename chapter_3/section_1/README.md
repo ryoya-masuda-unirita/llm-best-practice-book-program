@@ -137,14 +137,14 @@ uv sync
 #### 基本的な使い方
 
 ```bash
-# OpenAI GPT-4oを使用
-uv run python -m src.main --llm-provider OPENAI --model GPT_4O
+# OpenAI GPT-5.4を使用
+uv run python -m src.main --llm-provider OPENAI --model GPT_5_4
 
 # 短縮オプション
-uv run python -m src.main -lp OPENAI -m GPT_4O
+uv run python -m src.main -lp OPENAI -m GPT_5_4
 
 # Anthropic Claude Sonnet 4.5を使用
-uv run python -m src.main -lp ANTHROPIC -m CLAUDE_SONNET_4_5
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_SONNET_4_6
 
 # Gemini 2.5 Proを使用
 uv run python -m src.main -lp GEMINI -m GEMINI_2_5_PRO
@@ -157,7 +157,7 @@ uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH
 
 ```bash
 # カスタム出力ディレクトリを指定
-uv run python -m src.main -lp OPENAI -m GPT_4O --output-directory ./custom_output
+uv run python -m src.main -lp OPENAI -m GPT_5_4 --output-directory ./custom_output
 
 # 短縮オプション
 uv run python -m src.main -lp GEMINI -m GEMINI_2_5_PRO -od ./my_characters
@@ -167,13 +167,13 @@ uv run python -m src.main -lp GEMINI -m GEMINI_2_5_PRO -od ./my_characters
 
 ```bash
 # OpenAI の各モデル
+uv run python -m src.main -lp OPENAI -m GPT_5_4
 uv run python -m src.main -lp OPENAI -m GPT_5
-uv run python -m src.main -lp OPENAI -m GPT_4O
-uv run python -m src.main -lp OPENAI -m GPT_4O_MINI
+uv run python -m src.main -lp OPENAI -m GPT_5_MINI
 
 # Anthropic の各モデル
-uv run python -m src.main -lp ANTHROPIC -m CLAUDE_SONNET_4_5
-uv run python -m src.main -lp ANTHROPIC -m CLAUDE_OPUS_4_1
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_SONNET_4_6
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_OPUS_4_6
 
 # Gemini の各モデル
 uv run python -m src.main -lp GEMINI -m GEMINI_2_5_PRO
@@ -191,10 +191,10 @@ Options:
   -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use (openai, anthropic,
                                   or gemini).  [required]
-  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|
-               GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|
-               GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_5|CLAUDE_HAIKU_4_5|
-               CLAUDE_SONNET_4_5|CLAUDE_OPUS_4_1]
+  -m, --model [GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|
+               GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|
+               GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_6|CLAUDE_HAIKU_4_5|
+               CLAUDE_SONNET_4_6]
                                   The model to use for the request.
                                   [required]
   -od, --output-directory PATH    The directory to save output files.
@@ -205,7 +205,7 @@ Options:
 
 実行すると、以下のような構造化されたJSONファイルが生成されます：
 
-**ファイル名**: `outputs/openai_gpt-4o_a1b2c3d4.json`
+**ファイル名**: `outputs/openai_gpt-5.4_a1b2c3d4.json`
 
 ```json
 {
@@ -232,17 +232,17 @@ Options:
 
 **実行ログ例**:
 ```bash
-$ uv run python -m src.main -lp OPENAI -m GPT_4O_MINI
+$ uv run python -m src.main -lp OPENAI -m GPT_5_4_MINI
 [2026-01-18 15:46:30,144] [INFO] [__main__] [main.py:58] [main] LLM provider: openai
-Model: gpt-4o-mini
+Model: gpt-5.4-mini
 Output directory: outputs
-[2026-01-18 15:46:30,144] [INFO] [src.client.factory] [factory.py:37] [create_client] Creating client: provider=openai, model=gpt-4o-mini
-[2026-01-18 15:46:30,272] [INFO] [src.client.adapters] [adapters.py:24] [__init__] Initialized OpenAI adapter with model: gpt-4o-mini
-[2026-01-18 15:46:30,273] [INFO] [src.service.request_llm] [request_llm.py:17] [request_llm] Making LLM request: provider=openai, model=gpt-4o-mini
-[2026-01-18 15:46:30,273] [DEBUG] [src.client.adapters] [adapters.py:32] [chat] OpenAI request: model=gpt-4o-mini
+[2026-01-18 15:46:30,144] [INFO] [src.client.factory] [factory.py:37] [create_client] Creating client: provider=openai, model=gpt-5.4-mini
+[2026-01-18 15:46:30,272] [INFO] [src.client.adapters] [adapters.py:24] [__init__] Initialized OpenAI adapter with model: gpt-5.4-mini
+[2026-01-18 15:46:30,273] [INFO] [src.service.request_llm] [request_llm.py:17] [request_llm] Making LLM request: provider=openai, model=gpt-5.4-mini
+[2026-01-18 15:46:30,273] [DEBUG] [src.client.adapters] [adapters.py:32] [chat] OpenAI request: model=gpt-5.4-mini
 [2026-01-18 15:46:36,320] [INFO] [src.service.request_llm] [request_llm.py:27] [request_llm] Successfully received response from openai
 [2026-01-18 15:46:36,320] [INFO] [__main__] [main.py:77] [main] Character generated successfully!
-[2026-01-18 15:46:36,320] [INFO] [__main__] [main.py:78] [main] File saved to: outputs/openai_gpt-4o-mini_cb3b09ee.json
+[2026-01-18 15:46:36,320] [INFO] [__main__] [main.py:78] [main] File saved to: outputs/openai_gpt-5.4-mini_cb3b09ee.json
 [2026-01-18 15:46:36,320] [INFO] [__main__] [main.py:79] [main] Character: Luna Calder, 28 years old
 [2026-01-18 15:46:36,321] [DEBUG] [src.client.adapters] [adapters.py:49] [aclose] Closed OpenAI client
 ```

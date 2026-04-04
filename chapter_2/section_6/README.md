@@ -6,14 +6,23 @@
 
 リアルタイム応答が不要な大規模タスク（ドキュメント要約、データ分析、コンテンツ生成など）において、リクエストの受付と処理を分離することで、システムのスケーラビリティと耐障害性を向上させます。クライアントはジョブを登録後、ジョブIDを使って非同期に進捗確認と結果取得を行います。
 
-本実装では、架空のキャラクター生成をユースケースとして採用しています。ユーザーは複数のキャラクター生成リクエスト（性別、年齢、性格特性など）をバッチで投入し、バックグラウンドワーカーがGemini Batch APIを呼び出して処理を実行します。
+本実装では、架空のキャラクター生成をユースケースとして採用しています。ユーザーは複数のキャラクター生成リクエスト（性別、年齢、性格特性など）をバッチで投入し、バックグラウンドワーカーが各プロバイダーのBatch APIを呼び出して処理を実行します。
+
+### 対応プロバイダー
+
+| プロバイダー | モデル | Batch API方式 |
+|------------|--------|---------------|
+| OpenAI | gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.1, gpt-5, gpt-5-mini, gpt-5-nano | JSONLファイルアップロード → バッチ作成 → ポーリング → 結果JSONL取得 |
+| Gemini | gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite | インラインリクエスト → バッチ作成 → ポーリング → インライン結果取得 |
+| Anthropic | claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5 | リクエストリスト → バッチ作成 → ポーリング → 結果ストリーミング取得 |
 
 ## 機能
 
+- **マルチプロバイダー対応**: OpenAI、Gemini、Anthropicの3つのBatch APIに対応
 - **バッチジョブ登録API**: 複数のキャラクター生成リクエストを一括登録し、即座にジョブIDを返却
 - **ジョブステータス追跡**: リアルタイムで処理進捗（完了数、失敗数、保留数）を確認
 - **結果取得API**: 完了したジョブの結果を取得
-- **バックグラウンドワーカー**: Redisキューを監視し、Gemini Batch APIでジョブを並行処理
+- **バックグラウンドワーカー**: Redisキューを監視し、各プロバイダーのBatch APIでジョブを並行処理
 - **水平スケーリング**: ワーカーを複数起動することでスループットを向上
 - **自動クリーンアップ**: TTL（24時間）によりジョブデータを自動削除
 
@@ -22,23 +31,23 @@
 ### ディレクトリ構成
 
 ```
-chapter_3/section_6/
+chapter_2/section_6/
 ├── src/
 │   ├── api/
 │   │   ├── batch_server.py    # バッチジョブ管理API（ポート8001）
 │   │   └── llm_server.py      # 同期LLM API（ポート8000）
 │   ├── worker/
-│   │   └── batch_worker.py    # バックグラウンドワーカー
+│   │   └── batch_worker.py    # バックグラウンドワーカー（全プロバイダー対応）
 │   ├── client/
-│   │   ├── llm_client.py      # Geminiクライアント
+│   │   ├── llm_client.py      # LLMクライアント（OpenAI、Gemini、Anthropic）
 │   │   └── redis_client.py    # Redisクライアント
 │   ├── model/
 │   │   ├── model.py           # キャラクターモデル
 │   │   └── batch_model.py     # バッチジョブモデル
 │   ├── service/
-│   │   └── request_llm.py     # Gemini Batch API呼び出し
+│   │   └── request_llm.py     # Batch API呼び出し（OpenAI、Gemini、Anthropic）
 │   ├── prompt/
-│   │   └── prompt.py          # プロンプト生成
+│   │   └── prompt.py          # プロバイダー別プロンプト生成
 │   ├── config.py              # 設定管理
 │   └── logger.py              # ロガー
 ├── docker-compose.yml
@@ -63,19 +72,26 @@ chapter_3/section_6/
 |                 |  |              |  |                      |
 | POST /generate  |  | POST /submit |  | - ジョブ取得ループ     |
 |                 |  | GET /status  |  | - ポーリングループ     |
-|                 |  | GET /result  |  | - Gemini API送信      |
+|                 |  | GET /result  |  | - プロバイダー別送信   |
 +--------+--------+  +------+-------+  +-----------+----------+
          |                  |                      |
-         +------------------+----------------------+
-                            |
-                     +------v------+
-                     |    Redis    |
-                     | (Port 6379) |
-                     |             |
-                     | - ジョブキュー |
-                     | - ステータス  |
-                     | - 結果       |
-                     +-------------+
+         +------------------+----------+-----------+
+                            |          |
+                     +------v------+   |
+                     |    Redis    |   |
+                     | (Port 6379) |   |
+                     |             |   |
+                     | - ジョブキュー |   |
+                     | - ステータス  |   |
+                     | - 結果       |   |
+                     +-------------+   |
+                                       |
+              +------------------------+------------------------+
+              |                        |                        |
+      +-------v-------+       +-------v-------+       +--------v------+
+      |  OpenAI API   |       |  Gemini API   |       | Anthropic API |
+      | Batch API     |       | Batch API     |       | Batch API     |
+      +---------------+       +---------------+       +---------------+
 ```
 
 ## 使い方
@@ -90,6 +106,8 @@ chapter_3/section_6/
   - `uvicorn>=0.30.0`
   - `pydantic>=2.10.0`
   - `google-genai>=1.0.0`
+  - `openai>=2.4.0`
+  - `anthropic>=0.74.1`
 
 ### セットアップ
 
@@ -97,12 +115,15 @@ chapter_3/section_6/
 
 ```bash
 cp .env.example .env
+cp .envrc.example .envrc
 # .envファイルを編集してAPIキーを設定
 ```
 
 ```bash
 # .env
+OPENAI_API_KEY=<your_openai_api_key>
 GEMINI_API_KEY=<your_gemini_api_key>
+ANTHROPIC_API_KEY=<your_anthropic_api_key>
 ```
 
 2. **依存関係のインストール**
@@ -156,10 +177,26 @@ make docker-build
 make docker-up
 ```
 
-#### コマンドライン
+#### OpenAI Batch API
 
 ```bash
-# バッチジョブを登録
+# バッチジョブを登録（OpenAI）
+curl -X POST http://localhost:8001/batch/submit \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "openai",
+    "model": "gpt-5.4-mini",
+    "character_requests": [
+      {"gender": "female", "age": 25, "additional_instructions": "cheerful"},
+      {"gender": "male", "age": 30, "additional_instructions": "intellectual"}
+    ]
+  }'
+```
+
+#### Gemini Batch API
+
+```bash
+# バッチジョブを登録（Gemini）
 curl -X POST http://localhost:8001/batch/submit \
   -H "Content-Type: application/json" \
   -d '{
@@ -170,7 +207,27 @@ curl -X POST http://localhost:8001/batch/submit \
       {"gender": "male", "age": 30, "additional_instructions": "intellectual"}
     ]
   }'
+```
 
+#### Anthropic Batch API
+
+```bash
+# バッチジョブを登録（Anthropic）
+curl -X POST http://localhost:8001/batch/submit \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-6",
+    "character_requests": [
+      {"gender": "female", "age": 22, "additional_instructions": "brave warrior"},
+      {"gender": "male", "age": 35, "additional_instructions": "wise scholar"}
+    ]
+  }'
+```
+
+#### ジョブ管理
+
+```bash
 # ジョブステータスを取得
 curl http://localhost:8001/batch/{job_id}/status
 
@@ -184,9 +241,8 @@ curl http://localhost:8001/batch/queue/stats
 curl http://localhost:8001/batch/jobs
 ```
 
-#### Swagger UI 
+#### Swagger UI
 API: `http://localhost:8000/docs`
-API: `http://localhost:8001/docs`
 
 ### 出力例
 
@@ -194,28 +250,34 @@ API: `http://localhost:8001/docs`
 $ curl -X POST http://localhost:8001/batch/submit \
   -H "Content-Type: application/json" \
   -d '{
-    "provider": "gemini",
-    "model": "gemini-2.5-flash",
+    "provider": "openai",
+    "model": "gpt-5.4-mini",
     "character_requests": [
-      {"gender": "female", "age": 25, "additional_instructions": "cheerful"},
-      {"gender": "male", "age": 30, "additional_instructions": "intellectual"}
+      {"gender": "male", "age": 30, "additional_instructions": "cheerful"}
     ]
   }'
 
-{"job_id":"eadc410c-0bb6-4c98-86d9-c8e783c7fbab","status":"pending","total_tasks":2,"submitted_at":1768636286.8760014}
+{"job_id":"7b3f25d3-b05c-4599-9902-627371352c3d","status":"pending","total_tasks":1,"submitted_at":1775269281.5831172}
 
-$ curl http://localhost:8001/batch/eadc410c-0bb6-4c98-86d9-c8e783c7fbab/status
+$ curl http://localhost:8001/batch/7b3f25d3-b05c-4599-9902-627371352c3d/status
 
-{"job_id":"eadc410c-0bb6-4c98-86d9-c8e783c7fbab","status":"completed","total_tasks":1,"completed_tasks":1,"failed_tasks":0,"pending_tasks":0,"submitted_at":1768635937.4919648,"started_at":1768635937.4952552,"completed_at":1768636173.9760518}
+{"job_id":"7b3f25d3-b05c-4599-9902-627371352c3d","status":"completed","total_tasks":1,"completed_tasks":1,"failed_tasks":0,"pending_tasks":0,"submitted_at":1775269281.5831172,"started_at":1775269281.6482563,"completed_at":1775269361.8253925}
 
-$ curl http://localhost:8001/batch/eadc410c-0bb6-4c98-86d9-c8e783c7fbab/result
-{"job_id":"eadc410c-0bb6-4c98-86d9-c8e783c7fbab","status":"completed","provider":"gemini","model":"gemini-2.5-flash","tasks":[{"task_index":0,"status":"completed","character":{"first_name":"Elara","last_name":"Vance","gender":"female","age":100,"personalities":[{"short_personality":"Wise & Observant","description":"Elara possesses a profound wisdom cultivated over a century of life, allowing her to offer insightful advice and see through superficialities. She is incredibly observant, noticing subtle details others often miss, which contributes to her sharp understanding of people and situations."},{"short_personality":"Playful & Mischievous","description":"Despite her advanced age, Elara retains a surprisingly youthful and playful spirit. She enjoys lighthearted banter and has a mischievous glint in her eyes, often orchestrating harmless pranks or witty remarks to entertain herself and those around her, much like a clever, curious cat."},{"short_personality":"Independent & Resilient","description":"Having navigated a full century of change, Elara is fiercely independent, preferring to rely on her own wit and strength rather than becoming a burden. Her resilience is legendary, having faced countless challenges with an unwavering spirit and a quiet determination that has seen her through all of life's ups and downs."}]},"error":null,"processing_time_ms":236478.39045524597}],"submitted_at":1768635937.4920466,"completed_at":1768636173.9760518}
+$ curl http://localhost:8001/batch/7b3f25d3-b05c-4599-9902-627371352c3d/result
+
+{"job_id":"7b3f25d3-b05c-4599-9902-627371352c3d","status":"completed","provider":"openai","model":"gpt-5.4-mini","tasks":[{"task_index":0,"status":"completed","character":{"first_name":"Ren","last_name":"Mizuhara","gender":"male","age":30,"personalities":[{"short_personality":"cheerful, resilient, perceptive","description":"Ren maintains a bright, uplifting demeanor even in difficult situations..."},{"short_personality":"kind, improvisational, curious","description":"He is naturally kind and tends to assume the best in people..."},{"short_personality":"optimistic, loyal, quietly determined","description":"Ren believes problems can be solved and people can change..."}]},"error":null,"processing_time_ms":80210.7150554657}],"submitted_at":1775269281.5853896,"completed_at":1775269361.8253925}
 
 $ curl http://localhost:8001/batch/queue/stats
 
 {"queue_name":"llm_batch_jobs","pending_jobs":0}
-
-$ curl http://localhost:8001/batch/jobs
-
-{"job_ids":["687c6962-0a58-416e-a054-50a49dfeaf42","eadc410c-0bb6-4c98-86d9-c8e783c7fbab","2ea22c25-52b6-4686-a933-62726a0075c6","e61a060b-99de-4b57-a6e5-90e83aa5a347","3b39c27f-2ea6-4597-8c5d-520128c2621d"],"count":5}
 ```
+
+### Batch APIのジョブ状態
+
+各プロバイダーのBatch APIは異なる状態遷移を持ちます：
+
+| プロバイダー | 処理中の状態 | 完了状態 | 失敗状態 |
+|------------|------------|---------|---------|
+| OpenAI | `validating`, `in_progress`, `finalizing` | `completed` | `failed`, `expired`, `cancelled` |
+| Gemini | `JOB_STATE_PENDING`, `JOB_STATE_RUNNING` | `JOB_STATE_SUCCEEDED` | `JOB_STATE_FAILED`, `JOB_STATE_CANCELLED`, `JOB_STATE_EXPIRED` |
+| Anthropic | `in_progress` | `ended` | — （結果内の各リクエスト単位で成功/失敗を判定） |

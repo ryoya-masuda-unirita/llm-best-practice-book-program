@@ -28,7 +28,7 @@ class TestOpenAIAdapter:
     def adapter(self):
         """Create an OpenAIAdapter instance for testing."""
         with patch("src.client.adapters.AsyncOpenAI") as mock_openai:
-            adapter = OpenAIAdapter(model=OpenAIModel.GPT_4O)
+            adapter = OpenAIAdapter(model=OpenAIModel.GPT_5_4)
             adapter._client = mock_openai.return_value
             return adapter
 
@@ -39,8 +39,8 @@ class TestOpenAIAdapter:
     def test_initialization(self):
         """Test adapter initialization with model."""
         with patch("src.client.adapters.AsyncOpenAI") as mock_openai:
-            adapter = OpenAIAdapter(model=OpenAIModel.GPT_4O)
-            assert adapter._model == OpenAIModel.GPT_4O
+            adapter = OpenAIAdapter(model=OpenAIModel.GPT_5_4)
+            assert adapter._model == OpenAIModel.GPT_5_4
             mock_openai.assert_called_once()
 
     def test_get_provider_name(self, adapter):
@@ -49,7 +49,7 @@ class TestOpenAIAdapter:
 
     def test_get_model_name(self, adapter):
         """Test model name retrieval."""
-        assert adapter.get_model_name() == OpenAIModel.GPT_4O
+        assert adapter.get_model_name() == OpenAIModel.GPT_5_4
 
     @pytest.mark.asyncio
     async def test_chat_success(self, adapter):
@@ -67,7 +67,7 @@ class TestOpenAIAdapter:
         assert result.message == "Hello"
         assert result.confidence == 0.95
         adapter._client.responses.parse.assert_called_once_with(
-            model=OpenAIModel.GPT_4O,
+            model=OpenAIModel.GPT_5_4,
             input=messages,
             text_format=MockResponse,
         )
@@ -86,7 +86,7 @@ class TestOpenAIAdapter:
 
         assert result == mock_parsed
         adapter._client.responses.parse.assert_called_once_with(
-            model=OpenAIModel.GPT_4O,
+            model=OpenAIModel.GPT_5_4,
             input=messages,
             text_format=MockResponse,
             temperature=0.7,
@@ -213,7 +213,7 @@ class TestAnthropicAdapter:
     def adapter(self):
         """Create an AnthropicAdapter instance for testing."""
         with patch("src.client.adapters.AsyncAnthropic") as mock_client:
-            adapter = AnthropicAdapter(model=AnthropicModel.CLAUDE_SONNET_4_5)
+            adapter = AnthropicAdapter(model=AnthropicModel.CLAUDE_SONNET_4_6)
             adapter._client = mock_client.return_value
             return adapter
 
@@ -224,8 +224,8 @@ class TestAnthropicAdapter:
     def test_initialization(self):
         """Test adapter initialization with model."""
         with patch("src.client.adapters.AsyncAnthropic") as mock_client:
-            adapter = AnthropicAdapter(model=AnthropicModel.CLAUDE_OPUS_4_1)
-            assert adapter._model == AnthropicModel.CLAUDE_OPUS_4_1
+            adapter = AnthropicAdapter(model=AnthropicModel.CLAUDE_OPUS_4_6)
+            assert adapter._model == AnthropicModel.CLAUDE_OPUS_4_6
             mock_client.assert_called_once()
 
     def test_get_provider_name(self, adapter):
@@ -234,7 +234,7 @@ class TestAnthropicAdapter:
 
     def test_get_model_name(self, adapter):
         """Test model name retrieval."""
-        assert adapter.get_model_name() == AnthropicModel.CLAUDE_SONNET_4_5
+        assert adapter.get_model_name() == AnthropicModel.CLAUDE_SONNET_4_6
 
     @pytest.mark.asyncio
     async def test_chat_success(self, adapter):
@@ -250,7 +250,7 @@ class TestAnthropicAdapter:
 
         assert result == mock_parsed
         call_args = adapter._client.beta.messages.parse.call_args
-        assert call_args.kwargs["model"] == AnthropicModel.CLAUDE_SONNET_4_5
+        assert call_args.kwargs["model"] == AnthropicModel.CLAUDE_SONNET_4_6
         assert call_args.kwargs["messages"] == messages
         assert call_args.kwargs["output_format"] == MockResponse
         assert call_args.kwargs["max_tokens"] == 1024
@@ -289,7 +289,7 @@ class TestAdapterComparison:
     async def test_both_adapters_return_basemodel(self):
         """Verify both adapters return Pydantic BaseModel instances."""
         with patch("src.client.adapters.AsyncOpenAI"):
-            openai_adapter = OpenAIAdapter(model=OpenAIModel.GPT_4O)
+            openai_adapter = OpenAIAdapter(model=OpenAIModel.GPT_5_4)
             mock_parsed = MockResponse(message="OpenAI", confidence=0.9)
             mock_result = MagicMock()
             mock_result.output_parsed = mock_parsed
@@ -312,7 +312,7 @@ class TestAdapterComparison:
     def test_both_adapters_have_consistent_interface(self):
         """Verify both adapters expose the same interface methods."""
         with patch("src.client.adapters.AsyncOpenAI"):
-            openai_adapter = OpenAIAdapter(model=OpenAIModel.GPT_4O)
+            openai_adapter = OpenAIAdapter(model=OpenAIModel.GPT_5_4)
 
         with patch("src.client.adapters.genai.Client"):
             gemini_adapter = GeminiAdapter(model=GeminiModel.GEMINI_2_5_PRO)

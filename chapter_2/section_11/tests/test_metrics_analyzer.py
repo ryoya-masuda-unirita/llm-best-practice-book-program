@@ -68,7 +68,7 @@ class TestAggregateByGroups:
         by_model = analyzer.aggregate_by_model(sample_metrics_list)
 
         assert len(by_model) == 1
-        assert "gpt-4o-mini" in by_model
+        assert "gpt-5.4-mini" in by_model
 
     def test_aggregate_by_provider(self, sample_metrics_list: list[ProfilerMetrics]):
         analyzer = MetricsAnalyzer()
@@ -95,7 +95,7 @@ class TestAnomalyDetection:
             input_tokens=100,
             output_tokens=50,
             total_tokens=150,
-            model="gpt-4o-mini",
+            model="gpt-5.4-mini",
             provider="openai",
         )
 
@@ -113,7 +113,7 @@ class TestAnomalyDetection:
             input_tokens=8000,
             output_tokens=4000,
             total_tokens=12000,
-            model="gpt-4o-mini",
+            model="gpt-5.4-mini",
             provider="openai",
         )
 
@@ -131,7 +131,7 @@ class TestAnomalyDetection:
             input_tokens=100,
             output_tokens=50,
             total_tokens=150,
-            model="gpt-4o-mini",
+            model="gpt-5.4-mini",
             provider="openai",
             quality_score=1.5,
         )
@@ -152,7 +152,7 @@ class TestAnomalyDetection:
             input_tokens=100,
             output_tokens=50,
             total_tokens=150,
-            model="gpt-4o-mini",
+            model="gpt-5.4-mini",
             provider="openai",
         )
 
@@ -179,7 +179,7 @@ class TestAlertGeneration:
             input_tokens=100,
             output_tokens=50,
             total_tokens=150,
-            model="gpt-4o-mini",
+            model="gpt-5.4-mini",
             provider="openai",
         )
 
@@ -200,7 +200,7 @@ class TestAlertGeneration:
             input_tokens=100,
             output_tokens=50,
             total_tokens=150,
-            model="gpt-4o-mini",
+            model="gpt-5.4-mini",
             provider="openai",
             quality_score=2.5,
         )

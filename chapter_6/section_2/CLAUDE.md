@@ -113,11 +113,11 @@ chapter_3/section_9/
 
 ### Available Models
 
-**OpenAI**: gpt-5, gpt-5-mini, gpt-5-nano, gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, gpt-4o, gpt-4o-mini
+**OpenAI**: gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.1, gpt-5, gpt-5-mini, gpt-5-nano
 
 **Gemini**: gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite
 
-**Anthropic**: claude-sonnet-4-5, claude-opus-4-1
+**Anthropic**: claude-sonnet-4-6, claude-opus-4-6
 
 ## Dependencies
 
@@ -158,16 +158,16 @@ uv sync
 
 ```bash
 # OpenAI
-uv run python -m src.main -lp openai -m gpt-4o-mini
+uv run python -m src.main -lp openai -m gpt-5.4-mini
 
 # Gemini
 uv run python -m src.main -lp gemini -m gemini-2.5-flash
 
 # Anthropic
-uv run python -m src.main -lp anthropic -m claude-sonnet-4-5
+uv run python -m src.main -lp anthropic -m claude-sonnet-4-6
 
 # With custom output directory
-uv run python -m src.main -lp openai -m gpt-4o -od ./custom_output
+uv run python -m src.main -lp openai -m gpt-5.4 -od ./custom_output
 ```
 
 ### CLI Options
@@ -264,7 +264,7 @@ Each API call generates a JSON log file with:
   "method": "chat.completions.create",
   "duration_ms": 3247.82,
   "request": {
-    "model": "gpt-4o-mini",
+    "model": "gpt-5.4-mini",
     "messages": [...],
     "temperature": 1.0
   },

@@ -82,9 +82,9 @@ chapter_3/section_10/
 
 | Provider   | Models                                          | MCP Pattern    |
 |------------|------------------------------------------------|----------------|
-| OpenAI     | gpt-5, gpt-5-mini, gpt-5-nano, gpt-4.1, gpt-4o | Manual         |
+| OpenAI     | gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.1, gpt-5, gpt-5-mini, gpt-5-nano | Manual         |
 | Gemini     | gemini-2.5-pro, gemini-2.5-flash               | Native         |
-| Anthropic  | claude-sonnet-4-5, claude-opus-4-1             | Manual         |
+| Anthropic  | claude-sonnet-4-6, claude-opus-4-6             | Manual         |
 
 ### Data Models (`src/model/model.py`)
 
@@ -136,10 +136,10 @@ direnv allow
 uv run python -m src.main -lp GEMINI -m gemini-2.5-flash -lat 39.7456 -lon -97.0892
 
 # With OpenAI
-uv run python -m src.main -lp OPENAI -m gpt-4o-mini -lat 39.7456 -lon -97.0892
+uv run python -m src.main -lp OPENAI -m gpt-5.4-mini -lat 39.7456 -lon -97.0892
 
 # With Anthropic Claude
-uv run python -m src.main -lp ANTHROPIC -m claude-sonnet-4-5 -lat 39.7456 -lon -97.0892
+uv run python -m src.main -lp ANTHROPIC -m claude-sonnet-4-6 -lat 39.7456 -lon -97.0892
 
 # Custom output directory
 uv run python -m src.main -lp GEMINI -m gemini-2.5-flash -lat 39.7456 -lon -97.0892 -od ./my_outputs

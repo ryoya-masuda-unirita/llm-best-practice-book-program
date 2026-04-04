@@ -21,6 +21,9 @@ services:
   llm-server:
     container_name: llm-api-server
     image: shibui/llm-best-practice:chapter4_section1
+    build:
+      context: .
+      dockerfile: Dockerfile
     platform: linux/amd64
     ports:
       - "8000:8000"
@@ -46,6 +49,9 @@ services:
   knowledge-server:
     container_name: knowledge-api-server
     image: shibui/llm-best-practice:chapter4_section1
+    build:
+      context: .
+      dockerfile: Dockerfile
     platform: linux/amd64
     ports:
       - "8001:8001"

@@ -409,7 +409,7 @@ curl -X POST http://localhost:8080/v1/generate \
   -H "Content-Type: application/json" \
   -d '{
     "provider": "openai",
-    "model": "gpt-4o-mini",
+    "model": "gpt-5.4-mini",
     "prompt": [
       {"role": "system", "content": "You are a helpful assistant."},
       {"role": "user", "content": "Say hello!"}

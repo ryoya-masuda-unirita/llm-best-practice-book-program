@@ -33,7 +33,7 @@ logger = make_logger(__name__)
 def create_llm_client(llm_provider: LLMProvider) -> ILLMClient:
     """Create an LLM client based on the provider."""
     if llm_provider == LLMProvider.OPENAI:
-        return OpenAILLMClient(model=OpenAIModel.GPT_4O_MINI)
+        return OpenAILLMClient(model=OpenAIModel.GPT_5_4_MINI)
     elif llm_provider == LLMProvider.GEMINI:
         return GeminiLLMClient(model=GeminiModel.GEMINI_2_5_FLASH)
     else:
@@ -276,7 +276,7 @@ async def example_5_structured_output(llm_provider: Optional[LLMProvider] = None
 
         llm_client: ILLMClient = MockStructuredClient()
     elif llm_provider == LLMProvider.OPENAI:
-        llm_client = OpenAILLMClient(model=OpenAIModel.GPT_4O_MINI, response_format=Character)
+        llm_client = OpenAILLMClient(model=OpenAIModel.GPT_5_4_MINI, response_format=Character)
     elif llm_provider == LLMProvider.GEMINI:
         llm_client = GeminiLLMClient(model=GeminiModel.GEMINI_2_5_FLASH, response_schema=Character)
     else:

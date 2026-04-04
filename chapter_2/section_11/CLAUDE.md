@@ -99,7 +99,7 @@ chapter_3/section_8/
 Wraps LLM API calls to transparently collect performance metrics using async context managers.
 
 ```python
-async with profiler.profile(prompt_id="gen", model="gpt-4o", provider="openai") as ctx:
+async with profiler.profile(prompt_id="gen", model="gpt-5.4", provider="openai") as ctx:
     result = await client.generate(...)
     ctx["input_tokens"] = result.usage.input_tokens
     ctx["output_tokens"] = result.usage.output_tokens
@@ -176,11 +176,11 @@ uv sync
 python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH
 
 # With profiling enabled
-python -m src.main -g MALE -a 30 -lp OPENAI -m GPT_4O_MINI --enable-profiling
+python -m src.main -g MALE -a 30 -lp OPENAI -m GPT_5_4_MINI --enable-profiling
 
 # With separate judge provider and HTML report
 python -m src.main -g FEMALE -a 22 -lp GEMINI -m GEMINI_2_5_FLASH \
-  -jp ANTHROPIC -jm CLAUDE_SONNET_4_5 -p -prf html
+  -jp ANTHROPIC -jm CLAUDE_SONNET_4_6 -p -prf html
 ```
 
 ### CLI Options

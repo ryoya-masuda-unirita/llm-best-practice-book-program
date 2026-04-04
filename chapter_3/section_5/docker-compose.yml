@@ -24,6 +24,9 @@ services:
   llm-server:
     container_name: llm-api-server
     image: shibui/llm-best-practice:chapter3_section5_web
+    build:
+      context: .
+      dockerfile: Dockerfile.web
     platform: linux/amd64
     ports:
       - "8000:8000"
@@ -52,6 +55,9 @@ services:
   llm-worker:
     container_name: llm-worker
     image: shibui/llm-best-practice:chapter3_section5_web
+    build:
+      context: .
+      dockerfile: Dockerfile.web
     platform: linux/amd64
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}

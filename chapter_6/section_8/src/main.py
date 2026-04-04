@@ -5,7 +5,6 @@ import sys
 from functools import wraps
 
 import click
-
 from src.examples import (
     example_1_agent_with_conservative_lock,
     example_2_with_optimistic_lock,

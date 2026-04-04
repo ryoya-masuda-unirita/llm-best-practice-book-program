@@ -3,7 +3,6 @@ from typing import Literal
 from uuid import uuid4
 
 import click
-
 from src.logger import make_logger
 from src.model.model import (
     ArticleReview,

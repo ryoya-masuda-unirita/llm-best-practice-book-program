@@ -27,8 +27,8 @@ class TestCacheManager:
         """Test that cache key generation is consistent for same inputs."""
         cache_manager = CacheManager(cache_dir=temp_cache_dir)
 
-        key1 = cache_manager._generate_cache_key(sample_prompt, "gpt-4")
-        key2 = cache_manager._generate_cache_key(sample_prompt, "gpt-4")
+        key1 = cache_manager._generate_cache_key(sample_prompt, "gpt-5.4")
+        key2 = cache_manager._generate_cache_key(sample_prompt, "gpt-5.4")
 
         assert key1 == key2
         assert len(key1) == 64  # SHA256 hex digest length
@@ -36,9 +36,9 @@ class TestCacheManager:
     @pytest.mark.parametrize(
         "prompt,model,expected_different",
         [
-            ([{"role": "system", "content": "test1"}], "gpt-4", True),
-            ([{"role": "system", "content": "test"}], "gpt-3.5", True),
-            ([{"role": "system", "content": "test"}], "gpt-4", True),
+            ([{"role": "system", "content": "test1"}], "gpt-5.4", True),
+            ([{"role": "system", "content": "test"}], "gpt-5", True),
+            ([{"role": "system", "content": "test"}], "gpt-5.4", True),
         ],
     )
     def test_generate_cache_key_unique_for_different_inputs(
@@ -47,7 +47,7 @@ class TestCacheManager:
         """Test that cache keys differ when inputs differ."""
         cache_manager = CacheManager(cache_dir=temp_cache_dir)
 
-        key1 = cache_manager._generate_cache_key(sample_prompt, "gpt-4")
+        key1 = cache_manager._generate_cache_key(sample_prompt, "gpt-5.4")
         key2 = cache_manager._generate_cache_key(prompt, model)
 
         if expected_different:
@@ -58,10 +58,10 @@ class TestCacheManager:
         cache_manager = CacheManager(cache_dir=temp_cache_dir, ttl=3600)
 
         # Set cache
-        cache_manager.set(sample_prompt, "gpt-4", sample_character_response)
+        cache_manager.set(sample_prompt, "gpt-5.4", sample_character_response)
 
         # Get cache
-        cached_response = cache_manager.get(sample_prompt, "gpt-4")
+        cached_response = cache_manager.get(sample_prompt, "gpt-5.4")
 
         assert cached_response is not None
         assert cached_response.first_name == sample_character_response.first_name
@@ -73,7 +73,7 @@ class TestCacheManager:
         """Test that get returns None for cache miss."""
         cache_manager = CacheManager(cache_dir=temp_cache_dir)
 
-        cached_response = cache_manager.get(sample_prompt, "gpt-4")
+        cached_response = cache_manager.get(sample_prompt, "gpt-5.4")
 
         assert cached_response is None
 
@@ -82,13 +82,13 @@ class TestCacheManager:
         cache_manager = CacheManager(cache_dir=temp_cache_dir, ttl=1)  # 1 second TTL
 
         # Set cache
-        cache_manager.set(sample_prompt, "gpt-4", sample_character_response)
+        cache_manager.set(sample_prompt, "gpt-5.4", sample_character_response)
 
         # Wait for expiration
         time.sleep(1.1)
 
         # Try to get expired cache
-        cached_response = cache_manager.get(sample_prompt, "gpt-4")
+        cached_response = cache_manager.get(sample_prompt, "gpt-5.4")
 
         assert cached_response is None
 
@@ -96,7 +96,7 @@ class TestCacheManager:
         """Test that cache file contains correct structure."""
         cache_manager = CacheManager(cache_dir=temp_cache_dir)
 
-        cache_manager.set(sample_prompt, "gpt-4", sample_character_response)
+        cache_manager.set(sample_prompt, "gpt-5.4", sample_character_response)
 
         # Find the cache file
         cache_files = list(Path(temp_cache_dir).glob("*.json"))
@@ -110,14 +110,14 @@ class TestCacheManager:
         assert "prompt" in cache_data
         assert "model" in cache_data
         assert "response" in cache_data
-        assert cache_data["model"] == "gpt-4"
+        assert cache_data["model"] == "gpt-5.4"
 
     def test_corrupted_cache_file_handling(self, temp_cache_dir, sample_prompt, mocker):
         """Test that corrupted cache files are handled gracefully."""
         cache_manager = CacheManager(cache_dir=temp_cache_dir)
 
         # Create a corrupted cache file
-        cache_key = cache_manager._generate_cache_key(sample_prompt, "gpt-4")
+        cache_key = cache_manager._generate_cache_key(sample_prompt, "gpt-5.4")
         cache_path = cache_manager._get_cache_path(cache_key)
 
         with open(cache_path, "w") as f:
@@ -127,7 +127,7 @@ class TestCacheManager:
         mock_logger = mocker.patch("src.service.cache_manager.logger")
 
         # Try to get corrupted cache
-        cached_response = cache_manager.get(sample_prompt, "gpt-4")
+        cached_response = cache_manager.get(sample_prompt, "gpt-5.4")
 
         assert cached_response is None
         mock_logger.warning.assert_called_once()
@@ -139,15 +139,15 @@ class TestCacheManager:
         cache_manager = CacheManager(cache_dir=temp_cache_dir, ttl=1)
 
         # Set multiple cache entries
-        cache_manager.set(sample_prompt, "gpt-4", sample_character_response)
-        cache_manager.set(sample_prompt, "gpt-3.5", sample_character_response)
+        cache_manager.set(sample_prompt, "gpt-5.4", sample_character_response)
+        cache_manager.set(sample_prompt, "gpt-5", sample_character_response)
 
         # Wait for expiration
         time.sleep(1.1)
 
         # Add a fresh entry with a different model to avoid overwriting
         cache_manager_fresh = CacheManager(cache_dir=temp_cache_dir, ttl=3600)
-        cache_manager_fresh.set(sample_prompt, "gpt-4o", sample_character_response)
+        cache_manager_fresh.set(sample_prompt, "gpt-5.4-mini", sample_character_response)
 
         # Clear expired
         cleared = cache_manager.clear_expired()
@@ -163,9 +163,9 @@ class TestCacheManager:
         cache_manager = CacheManager(cache_dir=temp_cache_dir)
 
         # Set multiple cache entries with different models
-        cache_manager.set(sample_prompt, "gpt-4", sample_character_response)
-        cache_manager.set(sample_prompt, "gpt-3.5", sample_character_response)
-        cache_manager.set(sample_prompt, "gpt-4o", sample_character_response)
+        cache_manager.set(sample_prompt, "gpt-5.4", sample_character_response)
+        cache_manager.set(sample_prompt, "gpt-5", sample_character_response)
+        cache_manager.set(sample_prompt, "gpt-5.4-mini", sample_character_response)
 
         # Clear all
         cleared = cache_manager.clear_all()
@@ -189,7 +189,7 @@ class TestCacheManager:
         mock_response.model_dump.return_value = {"test": "data"}
 
         # Try to set cache (should not raise exception)
-        cache_manager.set(sample_prompt, "gpt-4", mock_response)
+        cache_manager.set(sample_prompt, "gpt-5.4", mock_response)
 
         # Verify error was logged
         mock_logger.error.assert_called_once()
@@ -209,13 +209,13 @@ class TestCacheManager:
         cache_manager = CacheManager(cache_dir=temp_cache_dir, ttl=ttl)
 
         # Set cache
-        cache_manager.set(sample_prompt, "gpt-4", sample_character_response)
+        cache_manager.set(sample_prompt, "gpt-5.4", sample_character_response)
 
         # Wait
         time.sleep(wait_time)
 
         # Get cache
-        cached_response = cache_manager.get(sample_prompt, "gpt-4")
+        cached_response = cache_manager.get(sample_prompt, "gpt-5.4")
 
         if should_exist:
             assert cached_response is not None

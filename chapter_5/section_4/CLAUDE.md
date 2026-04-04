@@ -208,14 +208,14 @@ uv run python -m src.main -p example/learner_profile.json
 uv run python -m src.main -g "Learn data analysis" -k "Excel basics,Statistics"
 
 # Use a specific model
-uv run python -m src.main -g "Learn SQL" -m gpt-4o-mini
+uv run python -m src.main -g "Learn SQL" -m gpt-5.4-mini
 ```
 
 ### CLI Options
 
 | Option                  | Short | Description                           | Default   |
 |-------------------------|-------|---------------------------------------|-----------|
-| --model                 | -m    | OpenAI model to use                   | gpt-4o    |
+| --model                 | -m    | OpenAI model to use                   | gpt-5.4    |
 | --output-directory      | -od   | Directory for output files            | outputs   |
 | --profile-file          | -p    | JSON file with learner profile        | None      |
 | --goal                  | -g    | Learning goal description             | None      |

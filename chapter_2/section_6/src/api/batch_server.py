@@ -5,7 +5,7 @@ import uuid
 
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, Field
-from src.client.llm_client import GeminiModel, LLMProvider
+from src.client.llm_client import AnthropicModel, GeminiModel, LLMProvider, OpenAIModel
 from src.client.redis_client import redis_client
 from src.logger import make_logger
 from src.model.batch_model import (
@@ -85,6 +85,16 @@ async def submit_batch_job(request: BatchJobRequest) -> BatchJobResponse:
     """
     try:
         if request.provider == LLMProvider.GEMINI and request.model not in GeminiModel.list_str():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid model '{request.model}' for provider '{request.provider}'",
+            )
+        if request.provider == LLMProvider.OPENAI and request.model not in OpenAIModel.list_str():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid model '{request.model}' for provider '{request.provider}'",
+            )
+        if request.provider == LLMProvider.ANTHROPIC and request.model not in AnthropicModel.list_str():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid model '{request.model}' for provider '{request.provider}'",

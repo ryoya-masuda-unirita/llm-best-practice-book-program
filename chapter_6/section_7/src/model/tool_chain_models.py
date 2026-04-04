@@ -15,7 +15,6 @@ from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
-
 from src.model.schemas import (
     ToolInput,
     ToolOutput,

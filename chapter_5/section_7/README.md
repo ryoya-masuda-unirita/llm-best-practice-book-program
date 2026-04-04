@@ -263,7 +263,7 @@ Usage: python -m src.main generate [OPTIONS]
     -u user_abc123
 
 Options:
-  -m, --model [GPT_5_2|GPT_5|GPT_5_MINI|GPT_5_NANO]
+  -m, --model [GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO]
                                   OpenAI model to use.
   -o, --output-dir PATH           Directory to save output files.
   -p, --profile-file PATH         Path to a JSON file containing user profile.
@@ -284,7 +284,7 @@ Options:
 
 | オプション | 短縮形 | 説明 |
 |-----------|-------|------|
-| `--model` | `-m` | 使用するOpenAIモデル（デフォルト: gpt-4o） |
+| `--model` | `-m` | 使用するOpenAIモデル（デフォルト: gpt-5.4） |
 | `--output-dir` | `-o` | 出力ディレクトリ（デフォルト: outputs） |
 | `--profile-file` | `-p` | ユーザープロフィールJSONファイルへのパス |
 | `--user-id` | `-u` | 既存ユーザーのID（メモリを自動読み込み） |

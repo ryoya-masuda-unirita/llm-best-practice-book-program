@@ -24,12 +24,16 @@ services:
   llm-server:
     container_name: llm-api-server
     image: shibui/llm-best-practice:chapter2_section6
+    build:
+      context: .
+      dockerfile: Dockerfile
     platform: linux/amd64
     ports:
       - "8000:8000"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=0
@@ -53,12 +57,16 @@ services:
   batch-server:
     container_name: llm-batch-server
     image: shibui/llm-best-practice:chapter2_section6
+    build:
+      context: .
+      dockerfile: Dockerfile
     platform: linux/amd64
     ports:
       - "8001:8001"
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=0
@@ -82,10 +90,14 @@ services:
   batch-worker:
     container_name: llm-batch-worker
     image: shibui/llm-best-practice:chapter2_section6
+    build:
+      context: .
+      dockerfile: Dockerfile
     platform: linux/amd64
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=0

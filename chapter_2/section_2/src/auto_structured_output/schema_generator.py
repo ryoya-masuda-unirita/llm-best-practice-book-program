@@ -19,7 +19,7 @@ class LLMClient(Protocol):
 
 class SchemaGenerator:
     def __init__(self, max_retries: int = 3):
-        self.basic_prediction_model = OpenAIModel(os.getenv("BASIC_PREDICTION_MODEL", OpenAIModel.GPT_4O))
+        self.basic_prediction_model = OpenAIModel(os.getenv("BASIC_PREDICTION_MODEL", OpenAIModel.GPT_5_4))
         self.high_reasoning_model = OpenAIModel(os.getenv("HIGH_PREDICTION_MODEL", self.basic_prediction_model))
         self.max_retries = max_retries
 

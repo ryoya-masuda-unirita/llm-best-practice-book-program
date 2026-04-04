@@ -65,7 +65,7 @@ chapter_2/section_2/
 │  │  Step 1: スキーマ生成                                     │   │
 │  │  ┌─────────────┐    ┌─────────────┐    ┌────────────┐   │   │
 │  │  │   Prompt    │───▶│  OpenAI API │───▶│JSON Schema │   │   │
-│  │  │  Templates  │    │  (gpt-4o)   │    │  生成      │   │   │
+│  │  │  Templates  │    │  (gpt-5.4)   │    │  生成      │   │   │
 │  │  └─────────────┘    └─────────────┘    └────────────┘   │   │
 │  │                                              │           │   │
 │  │                                              ▼           │   │
@@ -147,7 +147,7 @@ Usage: python -m src.main [OPTIONS]
   demonstrates the two-step auto-structured output approach.
 
 Options:
-  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI]
+  -m, --model [GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO]
                                   The model to use for the request.
                                   [required]
   -e, --example [example_1_simple_user_model|example_2_product_with_enum|example_3_optional_fields|example_4_array_fields|example_5_datetime_fields|example_1_nested_objects|example_2_complex_article|example_3_array_of_objects|example_4_deep_nesting|example_5_anyof_union_types|example_6_validation_constraints|example_1_customer_feedback_analysis|example_2_meeting_summary|example_3_research_paper_metadata|example_4_job_application_evaluation|example_5_financial_transaction_analysis|example_6_high_reasoning]
@@ -160,13 +160,13 @@ Options:
 
 ```bash
 # シンプルなユーザーモデルの生成
-python -m src.main -m GPT_4O -e example_1_simple_user_model
+python -m src.main -m GPT_5_4 -e example_1_simple_user_model
 
 # 出力ディレクトリを指定して実行
-python -m src.main -m GPT_4O -e example_2_product_with_enum -od ./my_outputs
+python -m src.main -m GPT_5_4 -e example_2_product_with_enum -od ./my_outputs
 
 # 高推論モードのサンプル実行
-python -m src.main -m GPT_4O -e example_1_customer_feedback_analysis
+python -m src.main -m GPT_5_4 -e example_1_customer_feedback_analysis
 ```
 
 #### サンプル一覧
@@ -266,7 +266,7 @@ python -m src.main -m GPT_4O -e example_1_customer_feedback_analysis
 ### 実行例
 
 ```bash
-$ uv run python -m src.main -m GPT_4O -e example_1_simple_user_model
+$ uv run python -m src.main -m GPT_5_4 -e example_1_simple_user_model
 
 [2026-01-17 16:12:27,600] [INFO] [__main__] [main.py:100] [main] Executing example: example_1_simple_user_model
 

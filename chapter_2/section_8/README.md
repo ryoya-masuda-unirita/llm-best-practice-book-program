@@ -159,7 +159,7 @@ python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH
 python -m src.main -g FEMALE -a 25 -lp OPENAI -m GPT_5_MINI
 
 # Anthropicで生成し、Anthropicで評価
-python -m src.main -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_SONNET_4_5
+python -m src.main -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_SONNET_4_6
 ```
 
 #### クロスプロバイダー評価（推奨）
@@ -176,13 +176,13 @@ python -m src.main \
 # OpenAIで生成、Anthropicで評価
 python -m src.main \
   -g MALE -a 40 \
-  -lp OPENAI -m GPT_4O \
-  -jp ANTHROPIC -jm CLAUDE_OPUS_4_1
+  -lp OPENAI -m GPT_5_4 \
+  -jp ANTHROPIC -jm CLAUDE_OPUS_4_6
 
 # Anthropicで生成、Geminiで評価
 python -m src.main \
   -g FEMALE -a 30 \
-  -lp ANTHROPIC -m CLAUDE_SONNET_4_5 \
+  -lp ANTHROPIC -m CLAUDE_SONNET_4_6 \
   -jp GEMINI -jm GEMINI_2_5_PRO
 ```
 
@@ -217,14 +217,14 @@ Options:
                                   generation.
   -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use.  [required]
-  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_5_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_5|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_5|CLAUDE_OPUS_4_1]
+  -m, --model [GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_6|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
                                   The model to use for the request.
                                   [required]
   -od, --output-directory PATH    The directory to save output files.
   -jp, --judge-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use for judgment
                                   (defaults to same as generation provider).
-  -jm, --judge-model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_5_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_5|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_5|CLAUDE_OPUS_4_1]
+  -jm, --judge-model [GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_6|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
                                   The model to use for judgment (defaults to
                                   same as generation model).
   --help                          Show this message and exit.

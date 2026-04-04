@@ -54,7 +54,7 @@ Section 1とSection 2で学んだ基本的なLLM実装をベースに、**プロ
 
 ### 5. デュアルLLMプロバイダーサポート
 
-- **OpenAI**: GPT-4o-miniによる構造化出力
+- **OpenAI**: GPT-5.4-miniによる構造化出力
 - **Gemini**: Gemini-2.5-flashによるJSONスキーマ検証
 - **クロスプロバイダーフォールバック**: OpenAI失敗時にGeminiへ、またはその逆
 
@@ -213,12 +213,12 @@ Options:
                                   generation.
   -lp, --llm-provider [OPENAI|GEMINI]
                                   The LLM provider to use.  [required]
-  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
+  -m, --model [GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
                                   The model to use for the request.
                                   [required]
   -fs, --fallback-strategy [PRIMARY|PARAMETER_CACHE|SEMANTIC_CACHE|ALTERNATIVE_PROVIDER]
                                   The fallback strategy to use.  [required]
-  -am, --alternative-model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
+  -am, --alternative-model [GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
                                   The alternative model to use for fallback
                                   requests.  [required]
   -od, --output-directory PATH    The directory to save output files.
@@ -239,7 +239,7 @@ uv run python -m src.main \
   --llm-provider GEMINI \
   --model GEMINI_2_5_FLASH \
   --fallback-strategy PRIMARY \
-  --alternative-model GPT_4O_MINI \
+  --alternative-model GPT_5_4_MINI \
   --timeout 10
 
 # OpenAI APIを使用（プライマリリクエストのみ）
@@ -247,13 +247,13 @@ uv run python -m src.main \
   --gender MALE \
   --age 30 \
   --llm-provider OPENAI \
-  --model GPT_4O_MINI \
+  --model GPT_5_4_MINI \
   --fallback-strategy PRIMARY \
   --alternative-model GEMINI_2_5_FLASH \
   --timeout 10
 
 # 短縮オプション
-uv run python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH -fs PRIMARY -am GPT_4O_MINI -t 10
+uv run python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH -fs PRIMARY -am GPT_5_4_MINI -t 10
 ```
 
 #### フォールバック戦略の設定
@@ -263,19 +263,19 @@ uv run python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH -fs PRI
 uv run python -m src.main \
   -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
   --fallback-strategy PARAMETER_CACHE \
-  --alternative-model GPT_4O_MINI \
+  --alternative-model GPT_5_4_MINI \
   --timeout 10
 
 # セマンティックキャッシュをフォールバックに使用
 uv run python -m src.main \
   -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
   --fallback-strategy SEMANTIC_CACHE \
-  --alternative-model GPT_4O_MINI \
+  --alternative-model GPT_5_4_MINI \
   --timeout 10
 
 # 代替プロバイダーをフォールバックに使用（OpenAI → Gemini）
 uv run python -m src.main \
-  -g MALE -a 28 -lp OPENAI -m GPT_4O_MINI \
+  -g MALE -a 28 -lp OPENAI -m GPT_5_4_MINI \
   --fallback-strategy ALTERNATIVE_PROVIDER \
   --alternative-model GEMINI_2_5_FLASH \
   --timeout 5
@@ -287,13 +287,13 @@ uv run python -m src.main \
 # カスタムタイムアウトを指定（5秒）
 uv run python -m src.main \
   -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
-  -fs PRIMARY -am GPT_4O_MINI \
+  -fs PRIMARY -am GPT_5_4_MINI \
   --timeout 5
 
 # 非常に短いタイムアウト（3秒）でフォールバック動作をテスト
 uv run python -m src.main \
   -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
-  -fs PARAMETER_CACHE -am GPT_4O_MINI \
+  -fs PARAMETER_CACHE -am GPT_5_4_MINI \
   -t 3
 ```
 
@@ -303,12 +303,12 @@ uv run python -m src.main \
 # フォールバックを無効化（プライマリプロバイダーのみ使用）
 uv run python -m src.main \
   -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
-  -fs PRIMARY -am GPT_4O_MINI -t 10 \
+  -fs PRIMARY -am GPT_5_4_MINI -t 10 \
   --disable-fallback
 
 # デバッグ用: OpenAIのみ、フォールバックなし、短いタイムアウト
 uv run python -m src.main \
-  -g MALE -a 30 -lp OPENAI -m GPT_4O_MINI \
+  -g MALE -a 30 -lp OPENAI -m GPT_5_4_MINI \
   -fs PRIMARY -am GEMINI_2_5_FLASH -t 5 -df
 ```
 
@@ -318,12 +318,12 @@ uv run python -m src.main \
 # カスタム出力ディレクトリを指定
 uv run python -m src.main \
   -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
-  -fs PRIMARY -am GPT_4O_MINI -t 10 \
+  -fs PRIMARY -am GPT_5_4_MINI -t 10 \
   --output-directory ./custom_output
 
 # 短縮オプション
 uv run python -m src.main \
-  -g MALE -a 28 -lp OPENAI -m GPT_4O_MINI \
+  -g MALE -a 28 -lp OPENAI -m GPT_5_4_MINI \
   -fs PRIMARY -am GEMINI_2_5_FLASH -t 10 \
   -od ./my_characters
 ```
@@ -334,7 +334,7 @@ uv run python -m src.main \
 # キャラクターに追加指示を与える
 uv run python -m src.main \
   -g FEMALE -a 22 -lp GEMINI -m GEMINI_2_5_FLASH \
-  -fs PRIMARY -am GPT_4O_MINI -t 10 \
+  -fs PRIMARY -am GPT_5_4_MINI -t 10 \
   --additional-instructions "魔法使いの見習いという設定で"
 ```
 
@@ -345,13 +345,13 @@ uv run python -m src.main \
 uv run python -m src.main \
   -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
   -fs ALTERNATIVE_PROVIDER \
-  -am GPT_4O_MINI \
+  -am GPT_5_4_MINI \
   -t 30 \
   -od ./outputs
 
 # 開発/テスト環境向け設定例（短いタイムアウトでキャッシュフォールバックをテスト）
 uv run python -m src.main \
-  -g MALE -a 28 -lp OPENAI -m GPT_4O_MINI \
+  -g MALE -a 28 -lp OPENAI -m GPT_5_4_MINI \
   -fs SEMANTIC_CACHE \
   -am GEMINI_2_5_FLASH \
   -t 2
@@ -394,7 +394,7 @@ $ uv run python -m src.main \
   --llm-provider GEMINI \
   --model GEMINI_2_5_FLASH \
   --fallback-strategy PRIMARY \
-  --alternative-model GPT_4O_MINI \
+  --alternative-model GPT_5_4_MINI \
   --timeout 10
 [2026-01-18 15:57:03,753] [INFO] [__main__] [main.py:126] [main] Starting character generation with the following parameters:
 Gender: female
@@ -405,7 +405,7 @@ LLM Parameters:
 LLM provider: gemini
 Model: gemini-2.5-flash
 Fallback strategy: primary
-Alternative model: gpt-4o-mini
+Alternative model: gpt-5.4-mini
 Output directory: outputs
 Timeout: 10.0s
 Fallback enabled: True

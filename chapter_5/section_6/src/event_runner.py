@@ -24,7 +24,7 @@ Usage:
     python -m src.event_runner --watch-directory data/
 
     # With custom model and output
-    python -m src.event_runner -w data/ -m gpt-4o -od reports/
+    python -m src.event_runner -w data/ -m gpt-5.4 -od reports/
 """
 
 import asyncio
@@ -274,7 +274,7 @@ async def main(
         python -m src.event_runner -w contracts/
 
         # With custom model
-        python -m src.event_runner -w data/ -m gpt-4o
+        python -m src.event_runner -w data/ -m gpt-5.4
 
         # With custom output directory
         python -m src.event_runner -w data/ -od reports/

@@ -162,7 +162,7 @@ uv run python -m src.main \
   --gender MALE \
   --age 30 \
   --llm-provider OPENAI \
-  --model GPT_4O_MINI \
+  --model GPT_5_4_MINI \
   --enable-profiling
 
 # 異なるプロバイダーで生成と評価を分離
@@ -172,7 +172,7 @@ uv run python -m src.main \
   --llm-provider GEMINI \
   --model GEMINI_2_5_FLASH \
   --judge-provider ANTHROPIC \
-  --judge-model CLAUDE_SONNET_4_5 \
+  --judge-model CLAUDE_SONNET_4_6 \
   --enable-profiling \
   --profiler-report-format html
 ```
@@ -193,14 +193,14 @@ Options:
                                   generation.
   -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use.  [required]
-  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_5|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_5|CLAUDE_OPUS_4_1]
+  -m, --model [GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_6|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
                                   The model to use for the request.
                                   [required]
   -od, --output-directory PATH    The directory to save output files.
   -jp, --judge-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use for judgment
                                   (defaults to same as generation provider).
-  -jm, --judge-model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_5|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_5|CLAUDE_OPUS_4_1]
+  -jm, --judge-model [GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_6|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
                                   The model to use for judgment (defaults to
                                   same as generation model).
   -p, --enable-profiling          Enable performance profiling for the
@@ -221,7 +221,7 @@ $ uv run python -m src.main \
   --llm-provider GEMINI \
   --model GEMINI_2_5_FLASH \
   --judge-provider ANTHROPIC \
-  --judge-model CLAUDE_SONNET_4_5 \
+  --judge-model CLAUDE_SONNET_4_6 \
   --enable-profiling \
   --profiler-report-format html
 [2026-01-18 14:22:21,221] [INFO] [__main__] [main.py:126] [main] Character Generation Request:
@@ -230,7 +230,7 @@ Age: 22
 Additional Instructions: 
 
 Generation LLM: gemini / gemini-2.5-flash
-Judge LLM: anthropic / claude-sonnet-4-5
+Judge LLM: anthropic / claude-sonnet-4-6
 Output directory: outputs
 [2026-01-18 14:22:21,221] [INFO] [__main__] [main.py:155] [main] Performance profiling is enabled.
 [2026-01-18 14:22:21,221] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:146] [profiled_request_with_judge] Generating prompt...
@@ -282,9 +282,9 @@ Output directory: outputs
 [2026-01-18 14:22:23,881] [INFO] [src.service.prompt_profiler] [prompt_profiler.py:222] [profile] Profiled request 6291bdc3-fe8f-4b2e-9a78-6f3e72fa56a0: prompt=character_generation_gemini, model=gemini-2.5-flash, latency=2660.23ms, tokens=673 (in=388, out=285), status=success
 [2026-01-18 14:22:23,881] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:176] [profiled_request_with_judge] Character generation completed.
 [2026-01-18 14:22:23,881] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:178] [profiled_request_with_judge] Evaluating character with LLM-as-a-Judge...
-[2026-01-18 14:22:23,882] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:77] [judge_with_anthropic] Requesting judgment from Anthropic model: claude-sonnet-4-5
+[2026-01-18 14:22:23,882] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:77] [judge_with_anthropic] Requesting judgment from Anthropic model: claude-sonnet-4-6
 [2026-01-18 14:22:38,478] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:88] [judge_with_anthropic] Judgment completed. Overall score: 5.00/5.0
-[2026-01-18 14:22:38,479] [INFO] [src.service.prompt_profiler] [prompt_profiler.py:222] [profile] Profiled request b952c227-24ac-4a4b-b65d-64277f1c3833: prompt=llm_as_a_judge_anthropic, model=claude-sonnet-4-5, latency=14597.65ms, tokens=517 (in=311, out=206), status=success
+[2026-01-18 14:22:38,479] [INFO] [src.service.prompt_profiler] [prompt_profiler.py:222] [profile] Profiled request b952c227-24ac-4a4b-b65d-64277f1c3833: prompt=llm_as_a_judge_anthropic, model=claude-sonnet-4-6, latency=14597.65ms, tokens=517 (in=311, out=206), status=success
 [2026-01-18 14:22:38,480] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:230] [profiled_request_with_judge] Evaluation completed. Overall score: 5.00/5.0
 [2026-01-18 14:22:38,480] [INFO] [__main__] [main.py:180] [main] Character file saved to outputs/8779952a32fb430486c8263df4f2baec_gemini_character.json
 [2026-01-18 14:22:38,480] [INFO] [__main__] [main.py:185] [main] Judge evaluation saved to outputs/8779952a32fb430486c8263df4f2baec_anthropic_judge.json

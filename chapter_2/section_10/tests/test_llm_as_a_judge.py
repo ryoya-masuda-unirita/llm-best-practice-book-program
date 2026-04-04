@@ -125,7 +125,7 @@ class TestJudgeService:
 
         result = await judge_with_openai(
             judge_request=sample_judge_request,
-            model=OpenAIModel.GPT_4O_MINI,
+            model=OpenAIModel.GPT_5_4_MINI,
         )
 
         assert result == sample_judge_response

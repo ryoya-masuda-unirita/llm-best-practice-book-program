@@ -102,7 +102,7 @@ chapter_3/section_3/
 ### LLM Client (`src/client/llm_client.py`)
 
 - `AnthropicModel` - Enum of available models
-  - `CLAUDE_SONNET_4_5` - claude-sonnet-4-5
+  - `CLAUDE_SONNET_4_6` - claude-sonnet-4-6
   - `CLAUDE_OPUS_4` - claude-opus-4
 - `anthropic_client` - AsyncAnthropic client instance
 
@@ -123,8 +123,8 @@ chapter_3/section_3/
 
 | Plan | Available Models |
 |------|------------------|
-| FREE | claude-sonnet-4-5 |
-| STANDARD | claude-sonnet-4-5, claude-opus-4 |
+| FREE | claude-sonnet-4-6 |
+| STANDARD | claude-sonnet-4-6, claude-opus-4 |
 
 ## Dependencies
 
@@ -177,7 +177,7 @@ make docker-up
 curl -X POST http://localhost:8000/generate \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-sonnet-4-5",
+    "model": "claude-sonnet-4-6",
     "user_plan": "free",
     "character_request": {
       "gender": "female",
@@ -192,7 +192,7 @@ curl -X POST http://localhost:8000/generate \
 curl -X POST http://localhost:8000/classify \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-sonnet-4-5",
+    "model": "claude-sonnet-4-6",
     "user_plan": "free",
     "text": "This product is excellent!",
     "categories": ["Positive", "Negative", "Neutral"]

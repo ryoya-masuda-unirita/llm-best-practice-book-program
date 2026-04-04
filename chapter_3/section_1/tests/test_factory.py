@@ -29,8 +29,8 @@ class TestLLMClientFactory:
         """Test retrieval of OpenAI supported models."""
         models = LLMClientFactory.get_supported_models(LLMProvider.OPENAI)
         assert isinstance(models, list)
-        assert OpenAIModel.GPT_4O in models
-        assert OpenAIModel.GPT_4O_MINI in models
+        assert OpenAIModel.GPT_5_4 in models
+        assert OpenAIModel.GPT_5_4_MINI in models
         assert len(models) > 0
 
     def test_get_supported_models_gemini(self):
@@ -45,8 +45,8 @@ class TestLLMClientFactory:
         """Test retrieval of Anthropic supported models."""
         models = LLMClientFactory.get_supported_models(LLMProvider.ANTHROPIC)
         assert isinstance(models, list)
-        assert AnthropicModel.CLAUDE_SONNET_4_5 in models
-        assert AnthropicModel.CLAUDE_OPUS_4_1 in models
+        assert AnthropicModel.CLAUDE_SONNET_4_6 in models
+        assert AnthropicModel.CLAUDE_OPUS_4_6 in models
         assert len(models) > 0
 
     def test_get_supported_models_unknown_provider(self):
@@ -64,8 +64,8 @@ class TestLLMClientFactory:
 
     def test_is_valid_combination_valid_openai(self):
         """Test valid OpenAI provider-model combination."""
-        assert LLMClientFactory.is_valid_combination(LLMProvider.OPENAI, OpenAIModel.GPT_4O)
-        assert LLMClientFactory.is_valid_combination(LLMProvider.OPENAI, OpenAIModel.GPT_4O_MINI)
+        assert LLMClientFactory.is_valid_combination(LLMProvider.OPENAI, OpenAIModel.GPT_5_4)
+        assert LLMClientFactory.is_valid_combination(LLMProvider.OPENAI, OpenAIModel.GPT_5_4_MINI)
 
     def test_is_valid_combination_valid_gemini(self):
         """Test valid Gemini provider-model combination."""
@@ -74,30 +74,30 @@ class TestLLMClientFactory:
 
     def test_is_valid_combination_valid_anthropic(self):
         """Test valid Anthropic provider-model combination."""
-        assert LLMClientFactory.is_valid_combination(LLMProvider.ANTHROPIC, AnthropicModel.CLAUDE_SONNET_4_5)
-        assert LLMClientFactory.is_valid_combination(LLMProvider.ANTHROPIC, AnthropicModel.CLAUDE_OPUS_4_1)
+        assert LLMClientFactory.is_valid_combination(LLMProvider.ANTHROPIC, AnthropicModel.CLAUDE_SONNET_4_6)
+        assert LLMClientFactory.is_valid_combination(LLMProvider.ANTHROPIC, AnthropicModel.CLAUDE_OPUS_4_6)
 
     def test_is_valid_combination_invalid_provider(self):
         """Test invalid provider returns False."""
-        assert not LLMClientFactory.is_valid_combination("invalid_provider", OpenAIModel.GPT_4O)
+        assert not LLMClientFactory.is_valid_combination("invalid_provider", OpenAIModel.GPT_5_4)
 
     def test_is_valid_combination_invalid_model_for_provider(self):
         """Test invalid model for provider returns False."""
         # Try to use a Gemini model with OpenAI provider
         assert not LLMClientFactory.is_valid_combination(LLMProvider.OPENAI, GeminiModel.GEMINI_2_5_PRO)
         # Try to use an OpenAI model with Gemini provider
-        assert not LLMClientFactory.is_valid_combination(LLMProvider.GEMINI, OpenAIModel.GPT_4O)
+        assert not LLMClientFactory.is_valid_combination(LLMProvider.GEMINI, OpenAIModel.GPT_5_4)
 
     def test_is_valid_combination_case_insensitive(self):
         """Test that validation is case-insensitive for provider."""
-        assert LLMClientFactory.is_valid_combination("openai", OpenAIModel.GPT_4O)
-        assert LLMClientFactory.is_valid_combination("OPENAI", OpenAIModel.GPT_4O)
+        assert LLMClientFactory.is_valid_combination("openai", OpenAIModel.GPT_5_4)
+        assert LLMClientFactory.is_valid_combination("OPENAI", OpenAIModel.GPT_5_4)
 
     @patch("src.client.factory.OpenAIAdapter")
     def test_create_client_openai(self, mock_adapter):
         """Test creation of OpenAI client."""
-        LLMClientFactory.create_client(LLMProvider.OPENAI, OpenAIModel.GPT_4O)
-        mock_adapter.assert_called_once_with(model=OpenAIModel.GPT_4O)
+        LLMClientFactory.create_client(LLMProvider.OPENAI, OpenAIModel.GPT_5_4)
+        mock_adapter.assert_called_once_with(model=OpenAIModel.GPT_5_4)
 
     @patch("src.client.factory.GeminiAdapter")
     def test_create_client_gemini(self, mock_adapter):
@@ -108,7 +108,7 @@ class TestLLMClientFactory:
     @patch("src.client.factory.OpenAIAdapter")
     def test_create_client_openai_different_models(self, mock_adapter):
         """Test creation of OpenAI clients with different models."""
-        for model in [OpenAIModel.GPT_4O, OpenAIModel.GPT_4O_MINI]:
+        for model in [OpenAIModel.GPT_5_4, OpenAIModel.GPT_5_4_MINI]:
             LLMClientFactory.create_client(LLMProvider.OPENAI, model)
 
         assert mock_adapter.call_count == 2
@@ -124,13 +124,13 @@ class TestLLMClientFactory:
     @patch("src.client.factory.AnthropicAdapter")
     def test_create_client_anthropic(self, mock_adapter):
         """Test creation of Anthropic client."""
-        LLMClientFactory.create_client(LLMProvider.ANTHROPIC, AnthropicModel.CLAUDE_SONNET_4_5)
-        mock_adapter.assert_called_once_with(model=AnthropicModel.CLAUDE_SONNET_4_5)
+        LLMClientFactory.create_client(LLMProvider.ANTHROPIC, AnthropicModel.CLAUDE_SONNET_4_6)
+        mock_adapter.assert_called_once_with(model=AnthropicModel.CLAUDE_SONNET_4_6)
 
     @patch("src.client.factory.AnthropicAdapter")
     def test_create_client_anthropic_different_models(self, mock_adapter):
         """Test creation of Anthropic clients with different models."""
-        for model in [AnthropicModel.CLAUDE_SONNET_4_5, AnthropicModel.CLAUDE_OPUS_4_1]:
+        for model in [AnthropicModel.CLAUDE_SONNET_4_6, AnthropicModel.CLAUDE_OPUS_4_6]:
             LLMClientFactory.create_client(LLMProvider.ANTHROPIC, model)
 
         assert mock_adapter.call_count == 2
@@ -148,16 +148,16 @@ class TestLLMClientFactory:
 
         # Try to use an OpenAI model with Gemini provider
         with pytest.raises(ValueError, match="Invalid model"):
-            LLMClientFactory.create_client(LLMProvider.GEMINI, OpenAIModel.GPT_4O)
+            LLMClientFactory.create_client(LLMProvider.GEMINI, OpenAIModel.GPT_5_4)
 
     def test_create_client_case_insensitive_provider(self):
         """Test that provider parameter is case-insensitive."""
         with patch("src.client.factory.OpenAIAdapter") as mock_adapter:
-            LLMClientFactory.create_client("openai", OpenAIModel.GPT_4O)
+            LLMClientFactory.create_client("openai", OpenAIModel.GPT_5_4)
             mock_adapter.assert_called_once()
 
         with patch("src.client.factory.OpenAIAdapter") as mock_adapter:
-            LLMClientFactory.create_client("OPENAI", OpenAIModel.GPT_4O)
+            LLMClientFactory.create_client("OPENAI", OpenAIModel.GPT_5_4)
             mock_adapter.assert_called_once()
 
     @patch("src.client.factory.OpenAIAdapter")
@@ -167,9 +167,9 @@ class TestLLMClientFactory:
         mock_instance = mock_adapter.return_value
         mock_instance.chat = lambda: None
         mock_instance.get_provider_name = lambda: LLMProvider.OPENAI
-        mock_instance.get_model_name = lambda: OpenAIModel.GPT_4O
+        mock_instance.get_model_name = lambda: OpenAIModel.GPT_5_4
 
-        client = LLMClientFactory.create_client(LLMProvider.OPENAI, OpenAIModel.GPT_4O)
+        client = LLMClientFactory.create_client(LLMProvider.OPENAI, OpenAIModel.GPT_5_4)
 
         # Verify the client has the expected interface methods
         assert hasattr(client, "chat")
@@ -183,11 +183,11 @@ class TestFactoryIntegration:
     def test_create_openai_adapter_integration(self):
         """Test creating actual OpenAI adapter instance."""
         with patch("src.client.adapters.AsyncOpenAI"):
-            client = LLMClientFactory.create_client(LLMProvider.OPENAI, OpenAIModel.GPT_4O)
+            client = LLMClientFactory.create_client(LLMProvider.OPENAI, OpenAIModel.GPT_5_4)
             assert isinstance(client, OpenAIAdapter)
             assert isinstance(client, LLMClient)
             assert client.get_provider_name() == LLMProvider.OPENAI
-            assert client.get_model_name() == OpenAIModel.GPT_4O
+            assert client.get_model_name() == OpenAIModel.GPT_5_4
 
     def test_create_gemini_adapter_integration(self):
         """Test creating actual Gemini adapter instance."""
@@ -201,7 +201,7 @@ class TestFactoryIntegration:
     def test_multiple_clients_from_factory(self):
         """Test creating multiple different clients from factory."""
         with patch("src.client.adapters.AsyncOpenAI"), patch("src.client.adapters.genai.Client"):
-            openai_client = LLMClientFactory.create_client(LLMProvider.OPENAI, OpenAIModel.GPT_4O)
+            openai_client = LLMClientFactory.create_client(LLMProvider.OPENAI, OpenAIModel.GPT_5_4)
             gemini_client = LLMClientFactory.create_client(LLMProvider.GEMINI, GeminiModel.GEMINI_2_5_PRO)
 
             # Verify they are different types
@@ -225,8 +225,8 @@ class TestFactoryProviderModelsMapping:
     def test_provider_models_openai_contains_models(self):
         """Test that OpenAI models are properly registered."""
         openai_models = LLMClientFactory.PROVIDER_MODELS[LLMProvider.OPENAI]
-        assert OpenAIModel.GPT_4O in openai_models
-        assert OpenAIModel.GPT_4O_MINI in openai_models
+        assert OpenAIModel.GPT_5_4 in openai_models
+        assert OpenAIModel.GPT_5_4_MINI in openai_models
         # Check that it matches the enum
         assert openai_models == OpenAIModel.list_str()
 

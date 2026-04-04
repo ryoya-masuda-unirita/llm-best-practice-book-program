@@ -249,18 +249,22 @@ class LLMProvider(StrEnum):
     ANTHROPIC = "anthropic"
 
 class OpenAIModel(StrEnum):
+    GPT_5_4 = "gpt-5.4"
+    GPT_5_4_MINI = "gpt-5.4-mini"
+    GPT_5_4_NANO = "gpt-5.4-nano"
+    GPT_5_2 = "gpt-5.2"
+    GPT_5_1 = "gpt-5.1"
     GPT_5 = "gpt-5"
     GPT_5_MINI = "gpt-5-mini"
-    GPT_4O = "gpt-4o"
-    # ... more models
+    GPT_5_NANO = "gpt-5-nano"
 
     @staticmethod
     def list_str() -> list[str]:
         return [model for model in OpenAIModel]
 
 class AnthropicModel(StrEnum):
-    CLAUDE_SONNET_4_5 = "claude-sonnet-4-5"
-    CLAUDE_OPUS_4_1 = "claude-opus-4-1"
+    CLAUDE_SONNET_4_6 = "claude-sonnet-4-6"
+    CLAUDE_OPUS_4_6 = "claude-opus-4-6"
 
     @staticmethod
     def list_str() -> list[str]:
@@ -320,7 +324,7 @@ async def test_openai_chat_success(self, mocker):
     mock_response.output_parsed = CharacterResponse(...)
 
     # Test the adapter
-    adapter = OpenAIAdapter(model="gpt-4o")
+    adapter = OpenAIAdapter(model="gpt-5.4")
     result = await adapter.chat(messages, CharacterResponse)
 
     # Verify
@@ -335,7 +339,7 @@ async def test_anthropic_chat_success(self, mocker):
     mock_response.parsed_output = CharacterResponse(...)
 
     # Test the adapter
-    adapter = AnthropicAdapter(model="claude-sonnet-4-5")
+    adapter = AnthropicAdapter(model="claude-sonnet-4-6")
     result = await adapter.chat(messages, CharacterResponse)
 
     # Verify
@@ -358,7 +362,7 @@ async def test_anthropic_chat_success(self, mocker):
 def test_create_client_openai(self):
     client = LLMClientFactory.create_client(
         provider=LLMProvider.OPENAI,
-        model=OpenAIModel.GPT_4O
+        model=OpenAIModel.GPT_5_4
     )
     assert isinstance(client, OpenAIAdapter)
     assert client.get_provider_name() == LLMProvider.OPENAI
@@ -373,7 +377,7 @@ def test_invalid_combination(self):
 def test_create_client_anthropic(self):
     client = LLMClientFactory.create_client(
         provider=LLMProvider.ANTHROPIC,
-        model=AnthropicModel.CLAUDE_SONNET_4_5
+        model=AnthropicModel.CLAUDE_SONNET_4_6
     )
     assert isinstance(client, AnthropicAdapter)
     assert client.get_provider_name() == LLMProvider.ANTHROPIC
@@ -398,7 +402,7 @@ This project already includes three providers (OpenAI, Anthropic, Gemini). Here'
 1. **Define model enum** (`client/model.py`):
 ```python
 class AnthropicModel(StrEnum):
-    CLAUDE_SONNET = "claude-sonnet-4-5"
+    CLAUDE_SONNET = "claude-sonnet-4-6"
     CLAUDE_HAIKU = "claude-haiku-4-5"
 
     @staticmethod
@@ -603,18 +607,18 @@ Example concurrent usage:
 async def compare_providers():
     # Create clients
     openai_client = LLMClientFactory.create_client(
-        LLMProvider.OPENAI, OpenAIModel.GPT_4O
+        LLMProvider.OPENAI, OpenAIModel.GPT_5_4
     )
     anthropic_client = LLMClientFactory.create_client(
-        LLMProvider.ANTHROPIC, AnthropicModel.CLAUDE_SONNET_4_5
+        LLMProvider.ANTHROPIC, AnthropicModel.CLAUDE_SONNET_4_6
     )
     gemini_client = LLMClientFactory.create_client(
         LLMProvider.GEMINI, GeminiModel.GEMINI_2_5_PRO
     )
 
     # Run requests concurrently
-    openai_task = request_llm(openai_client, "gpt-4o")
-    anthropic_task = request_llm(anthropic_client, "claude-sonnet-4-5")
+    openai_task = request_llm(openai_client, "gpt-5.4")
+    anthropic_task = request_llm(anthropic_client, "claude-sonnet-4-6")
     gemini_task = request_llm(gemini_client, "gemini-2.5-pro")
 
     results = await asyncio.gather(
@@ -830,8 +834,8 @@ Combine responses from multiple providers:
 async def ensemble_request(prompt, provider_configs):
     """
     provider_configs: list of (provider, model) tuples
-    e.g., [(LLMProvider.OPENAI, "gpt-4o"),
-           (LLMProvider.ANTHROPIC, "claude-sonnet-4-5"),
+    e.g., [(LLMProvider.OPENAI, "gpt-5.4"),
+           (LLMProvider.ANTHROPIC, "claude-sonnet-4-6"),
            (LLMProvider.GEMINI, "gemini-2.5-pro")]
     """
     clients = [

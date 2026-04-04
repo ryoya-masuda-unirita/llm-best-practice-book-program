@@ -120,7 +120,7 @@ curl -X POST http://localhost:8000/generate/queue \
   -H "Content-Type: application/json" \
   -d '{
     "provider": "openai",
-    "model": "gpt-4o-mini",
+    "model": "gpt-5.4-mini",
     "character_request": {
       "gender": "female",
       "age": 25,

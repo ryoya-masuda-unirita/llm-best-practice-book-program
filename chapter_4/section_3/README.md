@@ -108,9 +108,9 @@ chapter_3/section_3/
 1. **環境変数ファイルの作成**
 
 ```bash
-cp .env.example .envrc
-
-# .envrcを編集してAPIキーを設定
+cp .env.example .env
+cp .envrc.example .envrc
+# .envファイルを編集してAPIキーを設定
 # ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
 ```
 
@@ -158,7 +158,7 @@ $ curl http://localhost:8000/health | jq .
 $ curl -X POST http://localhost:8000/generate \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-sonnet-4-5",
+    "model": "claude-sonnet-4-6",
     "user_plan": "free",
     "character_request": {
       "gender": "female",
@@ -190,7 +190,7 @@ $ curl -X POST http://localhost:8000/generate \
       }
     ]
   },
-  "model": "claude-sonnet-4-5",
+  "model": "claude-sonnet-4-6",
   "processing_time_ms": 10019.26589012146
 }
 ```
@@ -201,7 +201,7 @@ $ curl -X POST http://localhost:8000/generate \
 $ curl -X POST http://localhost:8000/classify \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-sonnet-4-5",
+    "model": "claude-sonnet-4-6",
     "user_plan": "free",
     "text": "この製品は素晴らしい！期待以上の品質でした。",
     "categories": ["ポジティブ", "ネガティブ", "中立"]
@@ -211,7 +211,7 @@ $ curl -X POST http://localhost:8000/classify \
 100   568  100   355  100   213     72     43  0:00:04  0:00:04 --:--:--   115
 {
   "category": "ポジティブ",
-  "model": "claude-sonnet-4-5",
+  "model": "claude-sonnet-4-6",
   "processing_time_ms": 4895.140171051025,
   "classification_result": {
     "reasoning": "「素晴らしい」「期待以上の品質」という明確な肯定的表現が使用されており、製品に対する高い満足度が示されています。",
@@ -241,7 +241,7 @@ $ curl -X POST http://localhost:8000/generate \
                                  Dload  Upload   Total   Spent    Left  Speed
 100   274  100   102  100   172  17273  29127 --:--:-- --:--:-- --:--:-- 54800
 {
-  "detail": "Model 'claude-opus-4' is not available for free plan. Available models: claude-sonnet-4-5"
+  "detail": "Model 'claude-opus-4' is not available for free plan. Available models: claude-sonnet-4-6"
 }
 ```
 
@@ -250,16 +250,16 @@ $ curl -X POST http://localhost:8000/generate \
 #### コンソールログ出力
 
 ```
-[2025-10-25 10:30:45] [INFO] [src.service.text_generation_service] Generating character using Anthropic model: claude-sonnet-4-5
-[2025-10-25 10:30:47] [INFO] [src.api.llm_server] Successfully generated character using claude-sonnet-4-5 for free plan in 1234.56ms
+[2025-10-25 10:30:45] [INFO] [src.service.text_generation_service] Generating character using Anthropic model: claude-sonnet-4-6
+[2025-10-25 10:30:47] [INFO] [src.api.llm_server] Successfully generated character using claude-sonnet-4-6 for free plan in 1234.56ms
 
-[2025-10-25 10:31:12] [INFO] [src.service.text_classification_service] Classifying text using Anthropic model: claude-sonnet-4-5
+[2025-10-25 10:31:12] [INFO] [src.service.text_classification_service] Classifying text using Anthropic model: claude-sonnet-4-6
 [2025-10-25 10:31:13] [INFO] [src.service.text_classification_service] Classification result: ポジティブ (confidence: high) - 「素晴らしい」などの肯定的表現が含まれているため
-[2025-10-25 10:31:13] [INFO] [src.api.llm_server] Successfully classified text using claude-sonnet-4-5 for free plan in 789.12ms. Result: ポジティブ
+[2025-10-25 10:31:13] [INFO] [src.api.llm_server] Successfully classified text using claude-sonnet-4-6 for free plan in 789.12ms. Result: ポジティブ
 ```
 
 #### プラン制限の警告ログ
 
 ```
-[2025-10-25 10:32:00] [WARNING] [src.api.llm_server] Validation error: Model 'claude-opus-4' is not available for free plan. Available models: claude-sonnet-4-5
+[2025-10-25 10:32:00] [WARNING] [src.api.llm_server] Validation error: Model 'claude-opus-4' is not available for free plan. Available models: claude-sonnet-4-6
 ```

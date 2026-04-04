@@ -33,7 +33,7 @@
 
 ### LLM統合機能
 
-- **マルチプロバイダー対応**: OpenAI GPT-4o-mini、Google Gemini 2.5 Flash、Anthropic Claude Sonnet 4.5をサポート
+- **マルチプロバイダー対応**: OpenAI GPT-5.4-mini、Google Gemini 2.5 Flash、Anthropic Claude Sonnet 4.5をサポート
 - **構造化出力**: Pydanticモデルによる型安全なLLM応答
 - **非同期処理**: async/awaitによる効率的なAPI呼び出し
 - **CLIインターフェース**: Clickライブラリによる使いやすいコマンドラインツール
@@ -189,7 +189,7 @@ uv run python -m src.main --llm-provider OPENAI --model GPT_5_MINI --user-id use
 uv run python -m src.main --llm-provider GEMINI --model GEMINI_2_5_FLASH --user-id user123 --output-directory ./outputs
 
 # Anthropic APIを使用
-uv run python -m src.main --llm-provider ANTHROPIC --model CLAUDE_SONNET_4_5 --user-id user123 --output-directory ./outputs
+uv run python -m src.main --llm-provider ANTHROPIC --model CLAUDE_SONNET_4_6 --user-id user123 --output-directory ./outputs
 ```
 
 #### ヘルプの表示
@@ -201,7 +201,7 @@ Usage: python -m src.main [OPTIONS]
 Options:
   -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use.  [required]
-  -m, --model [GPT_5|GPT_5_MINI|GPT_5_NANO|GPT_4_1|GPT_4_1_MINI|GPT_4_1_NANO|GPT_4O|GPT_4O_MINI|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_5|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_5|CLAUDE_OPUS_4_1]
+  -m, --model [GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_6|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
                                   The model to use for the request.
                                   [required]
   -od, --output-directory PATH    The directory to save output files.
@@ -246,7 +246,7 @@ Options:
 LLM操作のメタデータがJSON形式でstdoutに出力されます：
 
 ```json
-{"timestamp": "2025-11-17T05:48:24.147777+00:00", "request_id": "6081711d-b000-45cf-91cc-6bd3dd6853f1", "prompt_id": "0c18299b-06bc-4f56-b7f1-1981b2024675", "user_id": "user_0", "model": "claude-sonnet-4-5", "latency_ms": 9511.006116867065, "status_code": 200, "level": "INFO", "metadata": {"provider": "anthropic", "model": "claude-sonnet-4-5", "response_format": "CharacterResponse"}}
+{"timestamp": "2025-11-17T05:48:24.147777+00:00", "request_id": "6081711d-b000-45cf-91cc-6bd3dd6853f1", "prompt_id": "0c18299b-06bc-4f56-b7f1-1981b2024675", "user_id": "user_0", "model": "claude-sonnet-4-6", "latency_ms": 9511.006116867065, "status_code": 200, "level": "INFO", "metadata": {"provider": "anthropic", "model": "claude-sonnet-4-6", "response_format": "CharacterResponse"}}
 ```
 
 **フィールドの説明**:
@@ -304,7 +304,7 @@ LLM操作のメタデータがJSON形式でstdoutに出力されます：
   "metadata": {
     "request_id": "6081711d-b000-45cf-91cc-6bd3dd6853f1",
     "provider": "anthropic",
-    "model": "claude-sonnet-4-5",
+    "model": "claude-sonnet-4-6",
     "response_format": "CharacterResponse"
   }
 }
@@ -315,14 +315,14 @@ LLM操作のメタデータがJSON形式でstdoutに出力されます：
 コンソールには以下のようなログが出力されます：
 
 ```
-$ uv run python -m src.main --llm-provider ANTHROPIC --model CLAUDE_SONNET_4_5 --user-id user123 --output-directory ./outputs
+$ uv run python -m src.main --llm-provider ANTHROPIC --model CLAUDE_SONNET_4_6 --user-id user123 --output-directory ./outputs
 
 [2026-01-17 16:25:32,886] [INFO] [__main__] [main.py:70] [main] LLM provider: anthropic
-Model: claude-sonnet-4-5
+Model: claude-sonnet-4-6
 Output directory: ./outputs
 User ID: user123
 Storage type: local
 Prompt stored successfully at: prompt_storage/2026/01/17/a5f48ef0-e54f-4653-8a3e-2543b5b70878.json
-{"timestamp": "2026-01-17T07:25:41.607821+00:00", "request_id": "9a5b4376-21bd-4ccd-bffa-c976e91b0aa9", "prompt_id": "a5f48ef0-e54f-4653-8a3e-2543b5b70878", "user_id": "user123", "model": "claude-sonnet-4-5", "latency_ms": 8721.174955368042, "status_code": 200, "level": "INFO", "metadata": {"provider": "gemini", "model": "claude-sonnet-4-5", "response_format": "CharacterResponse"}}
+{"timestamp": "2026-01-17T07:25:41.607821+00:00", "request_id": "9a5b4376-21bd-4ccd-bffa-c976e91b0aa9", "prompt_id": "a5f48ef0-e54f-4653-8a3e-2543b5b70878", "user_id": "user123", "model": "claude-sonnet-4-6", "latency_ms": 8721.174955368042, "status_code": 200, "level": "INFO", "metadata": {"provider": "gemini", "model": "claude-sonnet-4-6", "response_format": "CharacterResponse"}}
 [2026-01-17 16:25:41,609] [INFO] [__main__] [main.py:98] [main] File saved to ./outputs/anthropic_54cfc5f31cac41a5b1e8a25f7655eec0.json
 ```

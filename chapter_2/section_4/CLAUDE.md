@@ -173,7 +173,7 @@ metadata: dict[str, Any]   # Additional context
 1. **track_llm_request()** - Context Manager Pattern
    ```python
    async with llmops_logger.track_llm_request(
-       model="gpt-4o-mini",
+       model="gpt-5.4-mini",
        temperature=1.0,
        prompt_content=prompt,
        user_id="user123"
@@ -201,7 +201,7 @@ metadata: dict[str, Any]   # Additional context
    await llmops_logger.log_llm_request(
        request_id=request_id,
        prompt_id=prompt_id,
-       model="gpt-4",
+       model="gpt-5.4",
        temperature=0.7,
        prompt_content=prompt,
        response_content=response,
@@ -269,14 +269,14 @@ async def generate_character(user_id: str):
     prompt = make_prompt()
 
     async with llmops_logger.track_llm_request(
-        model="gpt-4o-mini",
+        model="gpt-5.4-mini",
         temperature=1.0,
         prompt_content=prompt,
         user_id=user_id,
         metadata={"feature": "character_generation", "provider": "openai"}
     ) as tracking:
         response = await openai_client.beta.chat.completions.parse(
-            model="gpt-4o-mini",
+            model="gpt-5.4-mini",
             messages=prompt,
             response_format=CharacterResponse,
             temperature=1.0
@@ -306,7 +306,7 @@ llmops_logger = create_llmops_logger()
 start_time = time.time()
 try:
     response = await openai_client.beta.chat.completions.parse(
-        model="gpt-4o-mini",
+        model="gpt-5.4-mini",
         messages=prompt,
         response_format=CharacterResponse,
         temperature=0.7
@@ -318,7 +318,7 @@ try:
     await llmops_logger.log_llm_request(
         request_id=str(uuid4()),
         prompt_id=str(uuid4()),
-        model="gpt-4o-mini",
+        model="gpt-5.4-mini",
         temperature=0.7,
         prompt_content=prompt,
         response_content=parsed_response.model_dump() if parsed_response else None,
@@ -331,7 +331,7 @@ except Exception as e:
     await llmops_logger.log_llm_request(
         request_id=str(uuid4()),
         prompt_id=str(uuid4()),
-        model="gpt-4o-mini",
+        model="gpt-5.4-mini",
         temperature=0.7,
         prompt_content=prompt,
         latency_ms=latency_ms,
@@ -514,22 +514,22 @@ minversion = 3.13
 uv sync
 
 # Run with OpenAI (model required)
-uv run python -m src.main --llm-provider openai --model gpt-4o-mini --user-id user123
+uv run python -m src.main --llm-provider openai --model gpt-5.4-mini --user-id user123
 
 # Run with Gemini (model required)
 uv run python -m src.main --llm-provider gemini --model gemini-2.5-flash --user-id user456
 
 # Run with Anthropic (model required)
-uv run python -m src.main --llm-provider anthropic --model claude-sonnet-4-5 --user-id user789
+uv run python -m src.main --llm-provider anthropic --model claude-sonnet-4-6 --user-id user789
 
 # Specify output directory
 uv run python -m src.main --llm-provider gemini --model gemini-2.5-flash --output-directory ./results
 
 # Specify storage type
-uv run python -m src.main --llm-provider openai --model gpt-4o-mini --storage-type local
+uv run python -m src.main --llm-provider openai --model gpt-5.4-mini --storage-type local
 
 # Short form options
-uv run python -m src.main -lp anthropic -m claude-sonnet-4-5 -u user123 -od ./outputs
+uv run python -m src.main -lp anthropic -m claude-sonnet-4-6 -u user123 -od ./outputs
 ```
 
 ### Log Output Examples
@@ -541,7 +541,7 @@ uv run python -m src.main -lp anthropic -m claude-sonnet-4-5 -u user123 -od ./ou
   "request_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
   "prompt_id": "p1q2r3s4-t5u6-v7w8-xyz9-ab1234567890",
   "user_id": "user123",
-  "model": "gpt-4o-mini",
+  "model": "gpt-5.4-mini",
   "temperature": 1.0,
   "latency_ms": 1234.56,
   "status_code": 200,
@@ -704,13 +704,13 @@ llmops_logger = create_llmops_logger()
 
 # Variant A
 async with llmops_logger.track_llm_request(
-    model="gpt-4o-mini",
+    model="gpt-5.4-mini",
     temperature=0.7,
     prompt_content=prompt_v1,
     metadata={"experiment": "prompt_test", "variant": "A"}
 ) as tracking:
     response = await openai_client.beta.chat.completions.parse(
-        model="gpt-4o-mini",
+        model="gpt-5.4-mini",
         messages=prompt_v1,
         response_format=CharacterResponse,
         temperature=0.7
@@ -719,13 +719,13 @@ async with llmops_logger.track_llm_request(
 
 # Variant B
 async with llmops_logger.track_llm_request(
-    model="gpt-4o-mini",
+    model="gpt-5.4-mini",
     temperature=0.7,
     prompt_content=prompt_v2,
     metadata={"experiment": "prompt_test", "variant": "B"}
 ) as tracking:
     response = await openai_client.beta.chat.completions.parse(
-        model="gpt-4o-mini",
+        model="gpt-5.4-mini",
         messages=prompt_v2,
         response_format=CharacterResponse,
         temperature=0.7
@@ -1100,7 +1100,7 @@ The system is designed for extension through:
   - Automatic latency tracking
   - PII masking (regex-based)
   - Request functions for OpenAI, Gemini, and Anthropic (src/service/request_llm.py)
-  - Multi-provider support: OpenAI (GPT-4o-mini), Gemini (2.5 Flash), Anthropic (Claude Sonnet 4.5)
+  - Multi-provider support: OpenAI (GPT-5.4-mini), Gemini (2.5 Flash), Anthropic (Claude Sonnet 4.5)
   - CLI interface with multiple options (--llm-provider, --model, --storage-type, etc.)
   - Comprehensive test suite (111 tests total)
   - Makefile for build and test automation

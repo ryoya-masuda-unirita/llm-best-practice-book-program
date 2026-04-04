@@ -49,7 +49,7 @@ async def analyze_document_openai_node(state: PipelineState) -> PipelineState:
     logger.info(f"Analyzing document with OpenAI (attempt {retry_count + 1})")
 
     try:
-        model = state.get("model", OpenAIModel.GPT_4O)
+        model = state.get("model", OpenAIModel.GPT_5_4)
         prompt = make_document_analysis_prompt(state["document_content"])
 
         evaluation_result = state.get("evaluation_result")
@@ -154,7 +154,7 @@ async def judge_analysis_openai_node(state: PipelineState) -> PipelineState:
             logger.warning("No analysis result to evaluate")
             return state
 
-        model = state.get("model", OpenAIModel.GPT_4O)
+        model = state.get("model", OpenAIModel.GPT_5_4)
         prompt = make_judge_prompt(state["document_content"], state["analysis_result"])
 
         result = await openai_client.responses.parse(

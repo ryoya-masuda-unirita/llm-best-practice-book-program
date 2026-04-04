@@ -14,7 +14,7 @@ The implementation showcases two key patterns:
 
 - **Comprehensive Prompt Testing Framework**: Multiple test patterns for validating prompt behavior
 - **LLM-as-a-Judge Integration**: Automated quality evaluation using LLM-based judges
-- **Multi-Provider Support**: Works with both OpenAI GPT-4o-mini and Google Gemini 2.5 Flash
+- **Multi-Provider Support**: Works with both OpenAI GPT-5.4-mini and Google Gemini 2.5 Flash
 - **Structured Output Validation**: Type-safe responses using Pydantic models
 - **Flexible Evaluation Criteria**: Support for both default and custom evaluation criteria
 - **Regression Detection**: Tests designed to catch quality degradation when prompts change
@@ -284,7 +284,7 @@ uv run python -m src.main \
   -a 30 \
   -ai "Generate a detective from the modern world." \
   -lp openai \
-  -m gpt-4o-mini
+  -m gpt-5.4-mini
 ```
 
 #### Advanced Options
@@ -297,7 +297,7 @@ uv run python -m src.main -g female -a 25 -lp gemini -m gemini-2.5-flash -od ./c
 uv run python -m src.main \
   -g female -a 25 \
   -lp gemini -m gemini-2.5-flash \
-  -jp openai -jm gpt-4o-mini
+  -jp openai -jm gpt-5.4-mini
 ```
 
 #### CLI Options

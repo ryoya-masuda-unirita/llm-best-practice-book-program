@@ -24,6 +24,9 @@ services:
   llm-server:
     container_name: llm-api-server
     image: shibui/llm-best-practice:chapter4_section2_web
+    build:
+      context: .
+      dockerfile: Dockerfile.web
     platform: linux/amd64
     ports:
       - "8000:8000"

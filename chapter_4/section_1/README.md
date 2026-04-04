@@ -151,10 +151,9 @@ chapter_3/section_5/
 1. **環境変数の設定**
 
 ```bash
-# .envrc.exampleをコピーして.envrcを作成
+cp .env.example .env
 cp .envrc.example .envrc
-
-# エディタで.envrcを開き、APIキーを設定
+# .envファイルを編集してAPIキーを設定
 # .envrc
 export GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
 ```

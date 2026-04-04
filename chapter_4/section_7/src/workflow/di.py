@@ -116,7 +116,7 @@ class DynamicPromptBuilder(BasePromptBuilder):
 class OpenAILLMClient(BaseLLMClient):
     """OpenAI LLM client."""
 
-    def __init__(self, model: str = OpenAIModel.GPT_4O_MINI, response_format: type[BaseModel] | None = None, **params):
+    def __init__(self, model: str = OpenAIModel.GPT_5_4_MINI, response_format: type[BaseModel] | None = None, **params):
         super().__init__(model, **params)
         self.response_format = response_format
 

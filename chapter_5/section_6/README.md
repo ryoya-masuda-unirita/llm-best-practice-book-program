@@ -151,6 +151,9 @@ uv sync
 # contract/ ディレクトリを監視（デフォルト）
 uv run python -m src.event_runner
 
+# data/ディレクトリを監視している状態での実行例
+cp data/contract_0.md data/contract_0_1.md
+
 # カスタムディレクトリを監視
 uv run python -m src.event_runner -w contracts/
 
@@ -193,14 +196,14 @@ Usage: python -m src.event_runner [OPTIONS]
 
       # Watch custom directory     python -m src.event_runner -w contracts/
 
-      # With custom model     python -m src.event_runner -w data/ -m gpt-4o
+      # With custom model     python -m src.event_runner -w data/ -m gpt-5.4
 
       # With custom output directory     python -m src.event_runner -w data/
       -od reports/
 
 Options:
   -w, --watch-directory PATH      Directory to watch for new contract files.
-  -m, --model [GPT_5_2|GPT_5|GPT_5_MINI|GPT_5_NANO]
+  -m, --model [GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO]
                                   The model to use for contract review.
   -od, --output-directory PATH    Directory to save compliance reports.
   --help                          Show this message and exit.

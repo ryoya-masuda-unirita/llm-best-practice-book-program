@@ -114,7 +114,7 @@ class InventoryOptimizationAgent:
         cost_usd = (token_count_input * 0.00015 + token_count_output * 0.0006) / 1000
 
         return PromptMetadata(
-            model_name=OpenAIModel.GPT_4O_MINI,
+            model_name=OpenAIModel.GPT_5_4_MINI,
             temperature=0.3,
             use_case=f"Inventory optimization for product {product_id}",
             category=PromptCategory.DATA_EXTRACTION,
