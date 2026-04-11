@@ -138,7 +138,7 @@ uv sync
 
 ```bash
 # Gemini APIを使用してバッチ処理（並行5リクエスト）
-python -m src.main \
+uv run python -m src.main \
   --request-file character_requests.yaml \
   --model GEMINI_2_5_FLASH \
   --parallelism 5
@@ -148,7 +148,7 @@ python -m src.main \
 
 ```bash
 # 短縮オプションを使用
-python -m src.main \
+uv run python -m src.main \
   -rf character_requests.yaml \
   -m GEMINI_2_5_FLASH \
   -p 5 \
@@ -159,19 +159,19 @@ python -m src.main \
 
 ```bash
 # 低速・安全（並行2リクエスト）
-python -m src.main -rf character_requests.yaml -m GEMINI_2_5_FLASH -p 2
+uv run python -m src.main -rf character_requests.yaml -m GEMINI_2_5_FLASH -p 2
 
 # 標準（並行5リクエスト）
-python -m src.main -rf character_requests.yaml -m GEMINI_2_5_FLASH -p 5
+uv run python -m src.main -rf character_requests.yaml -m GEMINI_2_5_FLASH -p 5
 
 # 高速（並行10リクエスト）※レート制限に注意
-python -m src.main -rf character_requests.yaml -m GEMINI_2_5_FLASH -p 10
+uv run python -m src.main -rf character_requests.yaml -m GEMINI_2_5_FLASH -p 10
 ```
 
 #### ヘルプの表示
 
 ```bash
-$ python -m src.main --help
+$ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
 Options:

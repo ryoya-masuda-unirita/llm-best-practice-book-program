@@ -153,13 +153,13 @@ uv sync
 
 ```bash
 # Geminiで生成し、Geminiで評価
-python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH
+uv run python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH
 
 # OpenAIで生成し、OpenAIで評価
-python -m src.main -g FEMALE -a 25 -lp OPENAI -m GPT_5_MINI
+uv run python -m src.main -g FEMALE -a 25 -lp OPENAI -m GPT_5_MINI
 
 # Anthropicで生成し、Anthropicで評価
-python -m src.main -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_SONNET_4_6
+uv run python -m src.main -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_SONNET_4_6
 ```
 
 #### クロスプロバイダー評価（推奨）
@@ -168,19 +168,19 @@ python -m src.main -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_SONNET_4_6
 
 ```bash
 # Geminiで生成、OpenAIで評価
-python -m src.main \
+uv run python -m src.main \
   -g FEMALE -a 25 \
   -lp GEMINI -m GEMINI_2_5_FLASH \
   -jp OPENAI -jm GPT_5_MINI
 
 # OpenAIで生成、Anthropicで評価
-python -m src.main \
+uv run python -m src.main \
   -g MALE -a 40 \
   -lp OPENAI -m GPT_5_4 \
   -jp ANTHROPIC -jm CLAUDE_OPUS_4_6
 
 # Anthropicで生成、Geminiで評価
-python -m src.main \
+uv run python -m src.main \
   -g FEMALE -a 30 \
   -lp ANTHROPIC -m CLAUDE_SONNET_4_6 \
   -jp GEMINI -jm GEMINI_2_5_PRO
@@ -189,7 +189,7 @@ python -m src.main \
 #### 追加指示の指定
 
 ```bash
-python -m src.main \
+uv run python -m src.main \
   -g FEMALE -a 30 \
   -ai "mysterious artist" \
   -lp GEMINI -m GEMINI_2_5_FLASH \
@@ -199,7 +199,7 @@ python -m src.main \
 #### ヘルプの表示
 
 ```bash
-python -m src.main --help
+uv run python -m src.main --help
 ```
 
 **出力例**:
@@ -292,7 +292,7 @@ Options:
 #### 実行ログ例
 
 ```bash
-$ python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH
+$ uv run python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH
 
 [2026-01-17 17:04:18,436] [INFO] [__main__] [main.py:99] [main] Character Generation Request:
 Gender: female

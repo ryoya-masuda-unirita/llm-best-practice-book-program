@@ -160,13 +160,13 @@ Options:
 
 ```bash
 # シンプルなユーザーモデルの生成
-python -m src.main -m GPT_5_4 -e example_1_simple_user_model
+uv run python -m src.main -m GPT_5_4 -e example_1_simple_user_model
 
 # 出力ディレクトリを指定して実行
-python -m src.main -m GPT_5_4 -e example_2_product_with_enum -od ./my_outputs
+uv run python -m src.main -m GPT_5_4 -e example_2_product_with_enum -od ./my_outputs
 
 # 高推論モードのサンプル実行
-python -m src.main -m GPT_5_4 -e example_1_customer_feedback_analysis
+uv run python -m src.main -m GPT_5_4 -e example_1_customer_feedback_analysis
 ```
 
 #### サンプル一覧

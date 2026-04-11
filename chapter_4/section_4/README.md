@@ -165,7 +165,7 @@ uv sync
 ### 使用方法、実行方法
 
 ```shell
-$ python -m src.main --help
+$ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS] COMMAND [ARGS]...
 
   RAG System CLI - A modular RAG system using strategy pattern.

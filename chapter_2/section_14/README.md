@@ -156,10 +156,10 @@ Options:
 
 ```bash
 # 基本的な使用方法
-python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md
+uv run python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md
 
 # 出力ディレクトリを指定
-python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md -od outputs
+uv run python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md -od outputs
 ```
 
 #### CLIオプション
@@ -175,7 +175,7 @@ python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md -od outputs
 契約書（`data/contract_0.md`）を処理した場合の実行ログ:
 
 ```bash
-$ python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md
+$ uv run python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md
 
 [2026-01-18 15:26:24,431] [INFO] [__main__] [main.py:52] [main] Model: claude-sonnet-4-6
 Input file: data/contract_0.md

@@ -192,15 +192,15 @@ uv sync
 
 ```bash
 # 基本的な使用方法
-python -m src.main -c <契約書ファイル> -t <テンプレートファイル>
+uv run python -m src.main -c <契約書ファイル> -t <テンプレートファイル>
 
 # 例: NDA契約書のレビュー
-python -m src.main \
+uv run python -m src.main \
   -c example/sample_nda.md \
   -t example/standard_nda_template.md
 
 # モデル選択とカスタム出力ディレクトリ
-python -m src.main \
+uv run python -m src.main \
   -m GEMINI_2_5_FLASH \
   -c example/sample_consulting_02.md \
   -t example/standard_consulting_template.md \
@@ -253,7 +253,7 @@ Options:
 ### 出力例
 
 ```bash
-$ python -m src.main \
+$ uv run python -m src.main \
   -m GEMINI_2_5_FLASH \
   -c example/sample_consulting_02.md \
   -t example/standard_consulting_template.md \

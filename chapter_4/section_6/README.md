@@ -121,34 +121,34 @@ uv sync
 
 ```bash
 # 利用可能なオプションを表示
-python -m src.main --help
+uv run python -m src.main --help
 
 # シンプルなGeminiワークフローを実行
-python -m src.main -w example_gemini_simple
+uv run python -m src.main -w example_gemini_simple
 
 # 条件分岐ワークフローを実行
-python -m src.main -w example_conditional_workflow
+uv run python -m src.main -w example_conditional_workflow
 
 # ループワークフローを実行
-python -m src.main -w example_loop_workflow
+uv run python -m src.main -w example_loop_workflow
 
 # チェックポイント/リカバリのデモ
-python -m src.main -w example_checkpoint_recovery
+uv run python -m src.main -w example_checkpoint_recovery
 
 # 複雑なコンテンツ生成パイプライン
-python -m src.main -w example_complex_content_pipeline
+uv run python -m src.main -w example_complex_content_pipeline
 
 # 複雑なリサーチワークフロー
-python -m src.main -w example_complex_research_workflow
+uv run python -m src.main -w example_complex_research_workflow
 
 # すべてのワークフローを実行
-python -m src.main -w all
+uv run python -m src.main -w all
 ```
 
 ### CLIオプション
 
 ```
-$ python -m src.main --help
+$ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
   Run workflow orchestration examples.
@@ -163,7 +163,7 @@ Options:
 ### 出力例
 
 ```
-$ python -m src.main -w example_gemini_simple
+$ uv run python -m src.main -w example_gemini_simple
 
 [2026-02-07 08:43:48,295] [INFO] [__main__] [main.py:64] [main] Running: example_gemini_simple
 [2026-02-07 08:43:48,295] [INFO] [src.examples] [examples.py:94] [example_gemini_simple] ============================================================

@@ -197,13 +197,13 @@ uv sync
 
 ```bash
 # 基本的な使い方
-python -m src.main --query "全生徒の成績を分析してください"
+uv run python -m src.main --query "全生徒の成績を分析してください"
 
 # モデルを指定
-python -m src.main --model GEMINI_2_5_FLASH --query "数学の成績を分析してください"
+uv run python -m src.main --model GEMINI_2_5_FLASH --query "数学の成績を分析してください"
 
 # 結果をファイルに保存
-python -m src.main --query "生徒a1b2c3d4の成績分析" --output-directory ./output
+uv run python -m src.main --query "生徒a1b2c3d4の成績分析" --output-directory ./output
 ```
 
 **CLIオプション**:
@@ -229,7 +229,7 @@ Options:
 ### 出力例
 
 ```bash
-$ python -m src.main -q "数学の成績を分析してください"
+$ uv run python -m src.main -q "数学の成績を分析してください"
 ```
 
 **出力**:
@@ -263,7 +263,7 @@ $ python -m src.main -q "数学の成績を分析してください"
 
 **実行ログ**:
 ```bash
-$ python -m src.main -q "数学の成績を分析してください"
+$ uv run python -m src.main -q "数学の成績を分析してください"
 [2026-02-08 09:49:43,389] [INFO] [__main__] [main.py:140] [main] Session ID: 1a3985a3-6939-4047-bdda-091f39664f9a
 [2026-02-08 09:49:43,389] [INFO] [__main__] [main.py:141] [main] Starting data analysis with model: gemini-2.5-flash
 [2026-02-08 09:49:43,389] [INFO] [__main__] [main.py:142] [main] Query: 数学の成績を分析してください

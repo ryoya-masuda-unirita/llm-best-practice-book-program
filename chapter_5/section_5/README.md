@@ -192,13 +192,13 @@ uv sync
 
 ```bash
 # 契約書ファイルを指定して実行
-python -m src.main -c data/contract_0.md
+uv run python -m src.main -c data/contract_0.md
 
 # モデルを指定
-python -m src.main -c data/contract_0.md -m GPT_5_2
+uv run python -m src.main -c data/contract_0.md -m GPT_5_2
 
 # 出力ディレクトリを指定
-python -m src.main -c data/contract_0.md -od reports
+uv run python -m src.main -c data/contract_0.md -od reports
 ```
 
 #### CLIオプション
@@ -213,7 +213,7 @@ python -m src.main -c data/contract_0.md -od reports
 #### ヘルプの表示
 
 ```bash
-$ python -m src.main --help
+$ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
   Contract Risk Compliance Pipeline - A Pipeline AI Agent System
@@ -834,7 +834,7 @@ Options:
 
 **実行ログ例**:
 ```bash
-$ python -m src.main -c data/contract_0.md -m GPT_5_2
+$ uv run python -m src.main -c data/contract_0.md -m GPT_5_2
 [2026-02-07 09:19:06,203] [INFO] [__main__] [main.py:87] [main] Contract Risk Compliance Pipeline
 Model: gpt-5.2
 Contract file: data/contract_0.md

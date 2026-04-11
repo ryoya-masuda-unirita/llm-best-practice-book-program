@@ -123,7 +123,7 @@ uv sync
 ### 使用方法、実行方法
 
 ```shell
-$ python -m src.main --help
+$ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
   Run Dependency Injection workflow examples.
@@ -152,13 +152,13 @@ Options:
 
 ```bash
 # すべてのサンプルを実行
-python -m src.main --workflow all
+uv run python -m src.main --workflow all
 
 # 特定のサンプルを実行
-python -m src.main --workflow example_1_manual_di
+uv run python -m src.main --workflow example_1_manual_di
 
 # 直接実行
-python -m src.examples
+uv run python -m src.examples
 ```
 
 #### Example 1: 手動依存性注入
@@ -166,7 +166,7 @@ python -m src.examples
 最もシンプルなDIの例：
 
 ```bash
-python -m src.main --workflow example_1_manual_di
+uv run python -m src.main --workflow example_1_manual_di
 ```
 
 **実装コード**:
@@ -197,7 +197,7 @@ workflow = (
 サービスコンテナによる依存関係管理：
 
 ```bash
-python -m src.main --workflow example_2_di_container_singleton
+uv run python -m src.main --workflow example_2_di_container_singleton
 ```
 
 **実装コード**:
@@ -224,7 +224,7 @@ workflow = build_workflow(llm_client, response_parser, prompt_builder)
 異なるLLMプロバイダーを簡単に切り替え：
 
 ```bash
-python -m src.main --workflow example_3_swapping_providers
+uv run python -m src.main --workflow example_3_swapping_providers
 ```
 
 **実装コード**:
@@ -246,7 +246,7 @@ for provider_name, llm_client in providers:
 #### Example 1: 手動DI
 
 ```
-$ python -m src.main --workflow example_1_manual_di 
+$ uv run python -m src.main --workflow example_1_manual_di 
 
 [2026-02-07 08:49:38,563] [INFO] [__main__] [main.py:111] [main] Running workflow: example_1_manual_di
 
@@ -283,7 +283,7 @@ translate -> start
 #### Example 4: 多段階パイプライン
 
 ```
-$ python -m src.main --workflow example_4_multi_stage_pipeline
+$ uv run python -m src.main --workflow example_4_multi_stage_pipeline
 
 [2026-02-07 08:50:14,665] [INFO] [__main__] [main.py:111] [main] Running workflow: example_4_multi_stage_pipeline
 

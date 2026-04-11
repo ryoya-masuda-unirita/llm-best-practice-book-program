@@ -131,26 +131,26 @@ uv sync  # または: pip install -e .
 
 ```bash
 # 全サンプルを実行
-python -m src.main -a all
+uv run python -m src.main -a all
 
 # 特定のサンプルを実行
-python -m src.main -a example_1_basic_agent
-python -m src.main -a example_2_react_agent
-python -m src.main -a example_3_multi_strategy_agent
-python -m src.main -a example_4_config_based_agent
-python -m src.main -a example_5_graph_mediator
-python -m src.main -a example_6_parallel_execution
-python -m src.main -a example_7_memory_snapshots
-python -m src.main -a example_8_execution_control
+uv run python -m src.main -a example_1_basic_agent
+uv run python -m src.main -a example_2_react_agent
+uv run python -m src.main -a example_3_multi_strategy_agent
+uv run python -m src.main -a example_4_config_based_agent
+uv run python -m src.main -a example_5_graph_mediator
+uv run python -m src.main -a example_6_parallel_execution
+uv run python -m src.main -a example_7_memory_snapshots
+uv run python -m src.main -a example_8_execution_control
 
 # ヘルプ表示
-python -m src.main --help
+uv run python -m src.main --help
 ```
 
 ### CLIオプション
 
 ```shell
-$ python -m src.main --help
+$ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
 Options:
@@ -181,7 +181,7 @@ Options:
 ### 出力例
 
 ```bash
-$ python -m src.main -a example_1_basic_agent
+$ uv run python -m src.main -a example_1_basic_agent
 
 [2026-02-07 08:54:06,213] [INFO] [__main__] [main.py:84] [main] Running agent: example_1_basic_agent
 
@@ -215,7 +215,7 @@ Life turns, new cycle.
 ```
 
 ```bash
-$ python -m src.main -a example_2_react_agent      
+$ uv run python -m src.main -a example_2_react_agent      
 [2026-02-07 08:55:18,581] [INFO] [__main__] [main.py:84] [main] Running agent: example_2_react_agent
 
 [2026-02-07 08:55:18,581] [INFO] [src.examples] [examples.py:66] [example_2_react_agent] 

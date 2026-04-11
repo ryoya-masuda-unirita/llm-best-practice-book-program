@@ -131,16 +131,16 @@ uv sync
 
 ```bash
 # ヘルプの表示
-python -m src.main --help
+uv run python -m src.main --help
 
 # 基本的な使用方法
-python -m src.main -r "孤独な宇宙飛行士が地球を見つめながら人生を振り返る物語"
+uv run python -m src.main -r "孤独な宇宙飛行士が地球を見つめながら人生を振り返る物語"
 
 # モデルを指定して実行
-python -m src.main -m GEMINI_2_5_PRO -r "A bittersweet tale of childhood friends reuniting after 20 years"
+uv run python -m src.main -m GEMINI_2_5_PRO -r "A bittersweet tale of childhood friends reuniting after 20 years"
 
 # 出力ディレクトリを指定
-python -m src.main -od my_novels -r "希望と絶望の狭間で戦う少女の物語"
+uv run python -m src.main -od my_novels -r "希望と絶望の狭間で戦う少女の物語"
 ```
 
 **CLIオプション：**
@@ -191,7 +191,7 @@ Options:
 
 実行ログ：
 ```shell
-$ python -m src.main -r "孤独な宇宙飛行士が地球を見つめながら人生を振り返る物語" -od outputs
+$ uv run python -m src.main -r "孤独な宇宙飛行士が地球を見つめながら人生を振り返る物語" -od outputs
 [2026-02-07 09:03:34,332] [INFO] [__main__] [main.py:69] [main] Deep Think Novel Writer
 Model: gemini-2.5-flash
 Request: 孤独な宇宙飛行士が地球を見つめながら人生を振り返る物語

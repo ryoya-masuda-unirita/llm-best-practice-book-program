@@ -135,25 +135,25 @@ Options:
 
 ```bash
 # CLIヘルプの表示
-python -m src.main --help
+uv run python -m src.main --help
 
 # 特定の戦略のデモを実行
-python -m src.main --agent example_1_agent_with_conservative_lock
-python -m src.main --agent example_2_with_optimistic_lock
-python -m src.main --agent example_3_with_preemptive_lock
-python -m src.main --agent example_4_with_immutable_memory
+uv run python -m src.main --agent example_1_agent_with_conservative_lock
+uv run python -m src.main --agent example_2_with_optimistic_lock
+uv run python -m src.main --agent example_3_with_preemptive_lock
+uv run python -m src.main --agent example_4_with_immutable_memory
 
 # 全ての戦略を順番に実行
-python -m src.main --agent all
+uv run python -m src.main --agent all
 
 # メモリ保存先ディレクトリを指定
-python -m src.main --agent all --memory-directory ./custom_memory
+uv run python -m src.main --agent all --memory-directory ./custom_memory
 ```
 
 ### 出力例
 
 ```bash
-$ python -m src.main --agent example_1_agent_with_conservative_lock
+$ uv run python -m src.main --agent example_1_agent_with_conservative_lock
 
 [2026-02-08 09:58:05,649] [INFO] [__main__] [main.py:83] [main] Running agent: example_1_agent_with_conservative_lock
 

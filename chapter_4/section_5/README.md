@@ -180,12 +180,12 @@ uv run python -m src.main \
 #### ヘルプの表示
 
 ```bash
-python -m src.main --help
+uv run python -m src.main --help
 ```
 
 **出力例**:
 ```
-$ python -m src.main --help
+$ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
 Options:

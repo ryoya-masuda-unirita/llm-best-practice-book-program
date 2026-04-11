@@ -201,7 +201,7 @@ uv run python -m src.main show -u user_analysis --show-patterns
 ### CLIオプション一覧
 
 ```bash
-$ python -m src.main --help
+$ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS] COMMAND [ARGS]...
 
   Learning AI Agent - Training Plan Generator
@@ -243,7 +243,7 @@ Commands:
 #### `generate` コマンド
 
 ```bash
-$ python -m src.main generate --help
+$ uv run python -m src.main generate --help
 Usage: python -m src.main generate [OPTIONS]
 
   Generate a personalized 1-week training plan.
@@ -298,7 +298,7 @@ Options:
 #### `feedback` コマンド
 
 ```bash
-$ python -m src.main feedback --help
+$ uv run python -m src.main feedback --help
 Usage: python -m src.main feedback [OPTIONS]
 
   Submit feedback on a completed training plan.

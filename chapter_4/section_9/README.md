@@ -140,7 +140,7 @@ uv sync
 ### 使用方法、実行方法
 
 ```bash
-$ python -m src.main --help
+$ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
 Options:
