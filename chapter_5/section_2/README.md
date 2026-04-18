@@ -20,34 +20,6 @@ Deep Thinkingは、Gemini 2.5シリーズで利用可能な機能で、モデル
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_4/section_2/
-├── src/
-│   ├── __init__.py
-│   ├── main.py                 # CLIエントリーポイント
-│   ├── config.py               # 設定管理
-│   ├── logger.py               # ロギング設定
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py       # LLMクライアント定義
-│   ├── model/
-│   │   ├── __init__.py
-│   │   └── llm_pipeline_model.py  # データモデル・定数
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── llm_pipeline_prompt.py # プロンプト定義
-│   └── service/
-│       ├── __init__.py
-│       └── llm_pipeline_service.py # エージェントロジック
-├── outputs/                    # 生成された小説の出力先
-├── pyproject.toml              # プロジェクト設定
-├── Makefile                    # 開発用コマンド
-├── .envrc.example              # 環境変数テンプレート
-└── README.md
-```
-
 ### アーキテクチャ
 
 ```

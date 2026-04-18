@@ -21,47 +21,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_3/section_4/
-├── src/
-│   ├── __init__.py
-│   ├── config.py                      # 設定管理（環境変数、API キー）
-│   ├── logger.py                      # ロギング設定
-│   ├── api/
-│   │   ├── __init__.py
-│   │   └── llm_server.py              # バックエンドLLM APIサーバー
-│   ├── api_gateway/
-│   │   ├── __init__.py
-│   │   ├── gateway_server.py          # ゲートウェイサーバー（FastAPIアプリケーション）
-│   │   ├── gateway_service.py         # ゲートウェイコアサービス
-│   │   ├── api_key_manager.py         # APIキー管理
-│   │   ├── monitoring.py              # 監視・ロギング
-│   │   └── models.py                  # ゲートウェイ用Pydanticモデル
-│   ├── client/
-│   │   ├── __init__.py
-│   │   ├── llm_client.py              # LLMプロバイダー定義
-│   │   └── gateway_client.py          # ゲートウェイクライアント
-│   ├── model/
-│   │   ├── __init__.py
-│   │   └── model.py                   # データモデル定義
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── prompt.py                  # プロンプト生成ロジック
-│   └── service/
-│       ├── __init__.py
-│       └── request_llm.py             # LLMリクエスト処理
-├── .envrc.example                      # 環境変数設定のサンプル
-├── docker-compose.yml                  # Docker Compose設定
-├── Dockerfile.backend                  # バックエンドサーバー用Dockerfile
-├── Dockerfile.gateway                  # ゲートウェイサーバー用Dockerfile
-├── Makefile                            # 開発・デプロイコマンド
-├── pyproject.toml                      # プロジェクト依存関係
-├── README.md                           # このファイル
-└── CLAUDE.md                           # プロジェクト設計ドキュメント
-```
-
 ### アーキテクチャ
 
 このプロジェクトは、**ゲートウェイパターン**を採用した3層アーキテクチャで構成されています：
@@ -153,8 +112,8 @@ cp .env.example .env
 cp .envrc.example .envrc
 # .envファイルを編集してAPIキーを設定
 # .envrc
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+OPENAI_API_KEY=<your_openai_api_key_here>
+GEMINI_API_KEY=<your_gemini_api_key_here>
 GATEWAY_URL=http://localhost:8080
 BACKEND_URL=http://localhost:8000
 GATEWAY_TIMEOUT=30.0

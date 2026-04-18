@@ -22,34 +22,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_2/section_2/
-├── src/
-│   ├── main.py                          # CLIエントリーポイント
-│   ├── config.py                        # 設定管理（環境変数）
-│   ├── logger.py                        # ロギング設定
-│   ├── auto_structured_output/          # コアモジュール
-│   │   ├── extractor.py                 # メインオーケストレーター
-│   │   ├── schema_generator.py          # スキーマ生成・リトライ
-│   │   ├── model_builder.py             # JSON Schema → Pydantic変換
-│   │   ├── validators.py                # スキーマバリデーション
-│   │   ├── prompts.py                   # プロンプトテンプレート
-│   │   └── model.py                     # 型定義（SupportedType, StringFormat）
-│   ├── client/
-│   │   └── llm_client.py                # OpenAIクライアント設定
-│   └── examples/                        # 17個の実践的サンプル
-│       ├── runner.py                    # 実行ロジック
-│       ├── basic_usage.py               # 基本例（5例）
-│       ├── advanced_examples.py         # 応用例（6例）
-│       └── high_reasoning_examples.py   # 高度推論例（6例）
-├── outputs/                             # 生成されたスキーマ出力先
-├── .envrc.example                       # 環境変数テンプレート
-├── Makefile                             # 開発タスク
-└── pyproject.toml                       # 依存関係
-```
-
 ### アーキテクチャ
 
 ```
@@ -121,7 +93,7 @@ cp .envrc.example .envrc
 `.envrc`を編集してAPIキーを設定:
 
 ```bash
-export OPENAI_API_KEY="sk-your-openai-api-key-here"
+OPENAI_API_KEY=<your_openai_api_key_here>
 BASIC_PREDICTION_MODEL="gpt-5-mini"
 HIGH_PREDICTION_MODEL="gpt-5.1"
 ```

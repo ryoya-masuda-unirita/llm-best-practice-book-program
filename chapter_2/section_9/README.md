@@ -21,53 +21,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_2/section_6/
-├── src/
-│   ├── __init__.py              # パッケージ初期化
-│   ├── config.py                # 設定管理（API キー読み込み）
-│   ├── logger.py                # ロギング設定
-│   ├── main.py                  # メインエントリーポイント
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py        # LLMクライアント初期化
-│   ├── model/
-│   │   ├── __init__.py
-│   │   └── model.py             # Pydanticデータモデル定義
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── prompt.py            # プロンプト生成ロジック
-│   └── service/
-│       ├── __init__.py
-│       ├── request_llm.py       # LLM APIリクエスト処理
-│       └── template_engine.py   # テンプレートエンジン実装
-├── templates/                    # プロンプトテンプレートファイル
-│   ├── character_generation.yaml # キャラクター生成テンプレート
-│   ├── product_description.yaml  # 商品説明文テンプレート
-│   ├── email_formal.yaml         # フォーマルメールテンプレート
-│   └── email_casual.yaml         # カジュアルメールテンプレート
-├── variables/                    # テンプレート変数定義ファイル
-│   ├── character_artist.yaml     # 芸術家キャラクター変数
-│   ├── character_detective.yaml  # 探偵キャラクター変数
-│   ├── product_electronics.yaml  # 家電商品変数
-│   ├── product_apparel.yaml      # アパレル商品変数
-│   ├── email_campaign_summer.yaml # サマーキャンペーン変数
-│   └── email_campaign_winter.yaml # ウィンターキャンペーン変数
-├── tests/                        # テストファイル
-│   ├── __init__.py
-│   ├── conftest.py              # pytest設定とフィクスチャ
-│   ├── test_template_engine.py  # TemplateEngineのテスト
-│   └── test_prompt.py           # プロンプト生成のテスト
-├── outputs/                      # 生成結果の保存先（自動作成）
-├── .envrc.example                # 環境変数設定のサンプル
-├── pyproject.toml                # プロジェクト依存関係
-├── Makefile                      # タスク自動化
-├── README.md                     # このファイル
-└── CLAUDE.md                     # プロジェクト状態レポート
-```
-
 ### アーキテクチャ
 
 このプロジェクトは、テンプレート駆動型の4層アーキテクチャで構成されています：
@@ -124,7 +77,7 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
+OPENAI_API_KEY=<your_openai_api_key_here>
 ```
 
 2. **依存関係のインストール**

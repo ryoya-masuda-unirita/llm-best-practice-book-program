@@ -18,39 +18,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_3/section_13/
-├── src/
-│   ├── __init__.py
-│   ├── config.py                # 設定管理
-│   ├── logger.py                # ロギング設定
-│   ├── main.py                  # メインエントリーポイント
-│   ├── examples.py              # DIサンプル実装（6つの例）
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py        # LLMクライアント初期化
-│   └── workflow/
-│       ├── __init__.py          # ワークフローコンポーネントのエクスポート
-│       ├── base.py              # 基底クラス（Node、ExecutionContext）
-│       ├── workflow.py          # Workflowクラス（DAG管理）
-│       ├── builder.py           # WorkflowBuilderパターン
-│       ├── engine.py            # WorkflowEngine（実行エンジン）
-│       ├── nodes.py             # ノード実装（Start、End、Prompt等）
-│       ├── di.py                # DI関連コンポーネント（統合版）
-│       ├── state.py             # ワークフロー状態管理
-│       ├── mediator.py          # Mediatorパターン実装
-│       └── memento.py           # Mementoパターン実装（チェックポイント）
-├── checkpoints/                  # チェックポイント保存先（自動作成）
-├── .envrc.example               # 環境変数設定のサンプル
-├── pyproject.toml               # プロジェクト依存関係
-├── README.md                    # このファイル
-├── CLAUDE.md                    # 設計原則と解説
-├── REFACTORING_SUMMARY.md       # リファクタリング詳細
-└── MIGRATION_SUMMARY.md         # マイグレーションガイド
-```
-
 ### アーキテクチャ
 
 このプロジェクトは、以下の階層型アーキテクチャで構成されています：
@@ -109,8 +76,8 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-export OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
-export GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+OPENAI_API_KEY=<your_openai_api_key_here>
+GEMINI_API_KEY=<your_gemini_api_key_here>
 ```
 
 2. **依存関係のインストール**

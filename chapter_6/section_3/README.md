@@ -17,36 +17,6 @@ LLMの出力プロセスは確率的であり、同一のプロンプトを与�
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_6/section_3/
-├── .envrc.example       # 環境変数テンプレート
-├── pyproject.toml       # プロジェクト設定
-├── README.md            # このファイル
-├── Makefile             # 実行用Makefile
-└── src/
-    ├── __init__.py
-    ├── main.py          # CLIエントリーポイント
-    ├── config.py        # 設定管理
-    ├── logger.py        # ロガー設定
-    ├── client/
-    │   ├── __init__.py
-    │   └── llm_client.py    # LLMクライアント定義
-    ├── model/
-    │   ├── __init__.py
-    │   ├── model.py             # キャラクター生成モデル
-    │   └── llm_as_a_judge_model.py  # 評価モデル
-    ├── prompt/
-    │   ├── __init__.py
-    │   ├── prompt.py                # 生成用プロンプト
-    │   └── llm_as_a_judge_prompt.py # 評価用プロンプト
-    └── service/
-        ├── __init__.py
-        ├── request_llm.py       # Best-of-N生成ロジック
-        └── llm_as_a_judge.py    # 評価実行ロジック
-```
-
 ### アーキテクチャ
 
 ```

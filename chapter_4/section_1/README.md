@@ -28,42 +28,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_3/section_5/
-├── src/
-│   ├── __init__.py                 # パッケージ初期化、共有ThreadPoolExecutor
-│   ├── config.py                   # 設定管理（APIキー読み込み）
-│   ├── logger.py                   # ロギング設定
-│   ├── api/
-│   │   ├── __init__.py
-│   │   ├── llm_server.py           # LLM APIサーバー（Port 8000）
-│   │   └── knowledge_server.py     # 知識ベースAPIサーバー（Port 8001）
-│   ├── client/
-│   │   ├── __init__.py
-│   │   ├── llm_client.py           # Gemini APIクライアント初期化
-│   │   └── chromadb_client.py      # ChromaDBクライアント（ローカル/リモート対応）
-│   ├── model/
-│   │   ├── __init__.py
-│   │   ├── model.py                # LLMデータモデル定義
-│   │   └── knowledge.py            # 知識ベース用データモデル（Command/Query）
-│   ├── service/
-│   │   ├── __init__.py
-│   │   ├── request_llm.py          # LLMリクエストハンドラ
-│   │   ├── embedding_service.py    # Gemini Embedding生成サービス
-│   │   ├── knowledge_command.py    # Commandサイド（非同期書き込み）
-│   │   └── knowledge_query.py      # Queryサイド（同期読み取り）
-│   └── prompt/
-│       ├── __init__.py
-│       └── prompt.py               # プロンプト生成ロジック
-├── data/
-│   └── chromadb/                   # ローカル開発時のChromaDBデータ（自動作成）
-├── docker-compose.yml              # Docker Compose設定
-├── pyproject.toml                  # プロジェクト依存関係
-└── README.md                       # このファイル
-```
-
 ### アーキテクチャ
 
 このプロジェクトは、CQRSパターンに基づく3層アーキテクチャで構成されています：
@@ -155,7 +119,7 @@ cp .env.example .env
 cp .envrc.example .envrc
 # .envファイルを編集してAPIキーを設定
 # .envrc
-export GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+GEMINI_API_KEY=<your_gemini_api_key_here>
 ```
 
 2. **サービスの起動**

@@ -20,45 +20,6 @@ LLM-as-a-Judge（LLMを評価者として活用する）パターンを採用し
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_2/section_12/
-├── src/
-│   ├── __init__.py              # パッケージ初期化
-│   ├── config.py                # 設定管理（API キー読み込み）
-│   ├── logger.py                # ロギング設定
-│   ├── main.py                  # メインエントリーポイント
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py        # LLMクライアント初期化
-│   ├── model/
-│   │   ├── __init__.py
-│   │   └── llm_pipeline_model.py    # Pydanticデータモデル定義
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── llm_pipeline_prompt.py   # プロンプト生成ロジック
-│   └── service/
-│       ├── __init__.py
-│       └── llm_pipeline_service.py  # LangGraphパイプライン実装
-├── dataset/                      # サンプル文書データ
-│   ├── document_0.md
-│   ├── document_1.md
-│   └── document_2.md
-├── outputs/                      # 生成結果の保存先（自動作成）
-├── tests/                        # テストファイル
-│   ├── __init__.py
-│   ├── conftest.py
-│   ├── test_models.py
-│   └── test_llm_pipeline_service.py
-├── .envrc.example                # 環境変数設定のサンプル
-├── pyproject.toml                # プロジェクト依存関係
-├── pytest.ini                    # Pytestの設定ファイル
-├── Makefile                      # タスク自動化スクリプト
-├── README.md                     # このファイル
-└── CLAUDE.md                     # プロジェクト設計ドキュメント
-```
-
 ### アーキテクチャ
 
 このプロジェクトは、LangGraphを中心とした多段階パイプラインアーキテクチャで構成されています：
@@ -124,8 +85,8 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+OPENAI_API_KEY=<your_openai_api_key_here>
+GEMINI_API_KEY=<your_gemini_api_key_here>
 ```
 
 2. **依存関係のインストール**

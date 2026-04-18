@@ -15,34 +15,6 @@ LLMを用いたAIエージェントは推論に数秒から数十秒を要する
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_6/section_8/
-├── src/
-│   ├── __init__.py
-│   ├── main.py                    # CLIエントリーポイント
-│   ├── examples.py                # 各戦略のデモ実装
-│   ├── config.py                  # 設定管理
-│   ├── logger.py                  # ログ設定
-│   ├── client/
-│   │   └── llm_client.py          # LLMクライアント
-│   └── agent/
-│       ├── core/                  # エージェントコア機能
-│       └── extensions/
-│           └── memory/            # メモリ戦略実装
-│               ├── conservative_lock.py   # 事前ロック
-│               ├── optimistic_lock.py     # 楽観的ロック
-│               ├── preemptible_lock.py    # 優先度ロック
-│               ├── immutable_memory.py    # Immutableメモリ
-│               ├── lock_manager.py        # ロック管理抽象化
-│               └── models.py              # データモデル
-├── memory/                        # メモリファイル保存先（実行時生成）
-├── pyproject.toml
-├── Makefile
-└── README.md
-```
-
 ### アーキテクチャ
 
 ```
@@ -111,7 +83,7 @@ chapter_6/section_8/
 ```bash
 cp .envrc.example .envrc
 # .envrcを編集してAPIキーを設定
-export GEMINI_API_KEY="your-gemini-api-key-here"
+GEMINI_API_KEY=<your_gemini_api_key_here>
 ```
 
 2. **依存関係のインストール**

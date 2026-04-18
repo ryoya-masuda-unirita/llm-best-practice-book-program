@@ -19,45 +19,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_2/section_4/
-├── src/
-│   ├── __init__.py
-│   ├── config.py                # 設定管理（API キー読み込み）
-│   ├── logger.py                # ロギング設定
-│   ├── main.py                  # メインエントリーポイント（バッチ処理）
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py        # LLMクライアント初期化
-│   ├── model/
-│   │   ├── __init__.py
-│   │   ├── model.py             # Pydanticデータモデル定義
-│   │   └── llmops_log.py        # LLMOpsログモデル
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── prompt.py            # プロンプト生成ロジック
-│   └── service/
-│       ├── __init__.py
-│       ├── request_llm.py       # リトライロジック＆バッチ処理（核心部分）
-│       ├── llmops_logger.py     # LLMOps用ロガー
-│       └── prompt_storage.py    # プロンプト保存機能
-├── tests/
-│   ├── __init__.py
-│   ├── conftest.py              # pytestフィクスチャ
-│   └── test_request_llm.py      # リトライロジックのテスト（16ケース）
-├── outputs/                      # 生成結果の保存先（自動作成）
-├── prompt_storage/               # プロンプト保存先（自動作成）
-├── character_requests.yaml       # キャラクター生成リクエスト定義（33件）
-├── .envrc.example                # 環境変数設定のサンプル
-├── pytest.ini                    # pytest設定
-├── pyproject.toml                # プロジェクト依存関係
-├── Makefile                      # 開発用タスク
-├── README.md                     # このファイル
-└── CLAUDE.md                     # 開発ガイドライン
-```
-
 ### アーキテクチャ
 
 このプロジェクトは、以下の多層アーキテクチャで構成されています：
@@ -122,7 +83,7 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+GEMINI_API_KEY=<your_gemini_api_key_here>
 ```
 
 2. **依存関係のインストール**

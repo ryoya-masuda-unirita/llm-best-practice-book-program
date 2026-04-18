@@ -22,44 +22,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_3/section_2/
-├── src/
-│   ├── __init__.py                # パッケージ初期化
-│   ├── config.py                  # 設定管理（API キー、キャッシュ設定）
-│   ├── logger.py                  # ロギング設定
-│   ├── api/
-│   │   ├── __init__.py
-│   │   └── llm_server.py          # FastAPI サーバー実装
-│   ├── client/
-│   │   ├── __init__.py
-│   │   ├── llm_client.py          # LLMクライアント初期化
-│   │   └── cache_client.py        # キャッシュクライアント（Redis、インメモリ）
-│   ├── model/
-│   │   ├── __init__.py
-│   │   └── model.py               # Pydanticデータモデル定義
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── prompt.py              # プロンプト生成ロジック
-│   └── service/
-│       ├── __init__.py
-│       ├── interface.py           # ILLMService インターフェース（Bridge）
-│       ├── storage.py             # ストレージ層実装（キャッシュ）
-│       ├── execution.py           # 実行層実装（LLM API呼び出し）
-│       └── factory.py             # Factoryパターン実装
-├── .env.example                    # 環境変数設定のサンプル
-├── .envrc.example                  # direnv設定のサンプル
-├── docker-compose.yml              # Docker Compose設定
-├── Dockerfile.web                  # Webサーバー用Dockerfile
-├── Makefile                        # 開発用コマンド
-├── pyproject.toml                  # プロジェクト依存関係
-├── README.md                       # このファイル
-└── CLAUDE.md                       # プロジェクト設計書
-
-```
-
 ### アーキテクチャ
 
 本プロジェクトは、**Bridge Pattern** を中核とした3層アーキテクチャで構成されています：
@@ -131,7 +93,7 @@ cp .env.example .env
 cp .envrc.example .envrc
 # .envファイルを編集してAPIキーを設定
 # .env
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
+OPENAI_API_KEY=<your_openai_api_key_here>
 
 # キャッシュ設定（デフォルト）
 CACHE_ENABLED=true

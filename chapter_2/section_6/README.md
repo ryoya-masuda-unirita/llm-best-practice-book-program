@@ -28,35 +28,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_2/section_6/
-├── src/
-│   ├── api/
-│   │   ├── batch_server.py    # バッチジョブ管理API（ポート8001）
-│   │   └── llm_server.py      # 同期LLM API（ポート8000）
-│   ├── worker/
-│   │   └── batch_worker.py    # バックグラウンドワーカー（全プロバイダー対応）
-│   ├── client/
-│   │   ├── llm_client.py      # LLMクライアント（OpenAI、Gemini、Anthropic）
-│   │   └── redis_client.py    # Redisクライアント
-│   ├── model/
-│   │   ├── model.py           # キャラクターモデル
-│   │   └── batch_model.py     # バッチジョブモデル
-│   ├── service/
-│   │   └── request_llm.py     # Batch API呼び出し（OpenAI、Gemini、Anthropic）
-│   ├── prompt/
-│   │   └── prompt.py          # プロバイダー別プロンプト生成
-│   ├── config.py              # 設定管理
-│   └── logger.py              # ロガー
-├── docker-compose.yml
-├── Dockerfile
-├── Makefile
-├── pyproject.toml
-└── .env.example
-```
-
 ### アーキテクチャ
 
 ```
@@ -121,9 +92,9 @@ cp .envrc.example .envrc
 
 ```bash
 # .env
-OPENAI_API_KEY=<your_openai_api_key>
-GEMINI_API_KEY=<your_gemini_api_key>
-ANTHROPIC_API_KEY=<your_anthropic_api_key>
+OPENAI_API_KEY=<your_openai_api_key_here>
+GEMINI_API_KEY=<your_gemini_api_key_here>
+ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
 ```
 
 2. **依存関係のインストール**

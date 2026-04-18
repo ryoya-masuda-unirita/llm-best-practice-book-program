@@ -16,39 +16,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_5/section_7/
-├── CLAUDE.md                    # プロジェクト設計ドキュメント
-├── pyproject.toml               # プロジェクト設定・依存関係
-├── contract/                    # 契約書ファイル格納ディレクトリ（監視対象）
-│   ├── contract_0.md
-│   ├── contract_1.md
-│   └── ...
-├── outputs/                     # 生成されたレポート出力先
-└── src/
-    ├── __init__.py
-    ├── event_runner.py          # イベント駆動ランナー（エントリポイント）
-    ├── config.py                # 設定
-    ├── logger.py                # ロギング設定
-    ├── client/
-    │   └── llm_client.py        # LLMクライアント定義
-    ├── model/
-    │   ├── model.py             # パイプラインモデル定義
-    │   └── event_model.py       # イベントモデル定義
-    ├── service/
-    │   ├── service.py           # パイプラインサービス
-    │   └── event_handler.py     # イベントハンドラー
-    ├── layer/
-    │   └── contract_pipeline/   # パイプラインステージ実装
-    │       ├── extraction.py    # 抽出ステージ
-    │       ├── risk_scoring.py  # リスク評価ステージ
-    │       └── report.py        # レポート生成ステージ
-    └── prompt/
-        └── prompt.py            # プロンプト定義
-```
-
 ### アーキテクチャ
 
 本システムは、ファイル監視とイベント駆動処理を組み合わせた2層構造で設計されています。

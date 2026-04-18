@@ -21,34 +21,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_2/section_5/
-├── src/
-│   ├── __init__.py              # パッケージ初期化
-│   ├── config.py                # 設定管理（API キー読み込み）
-│   ├── logger.py                # ロギング設定
-│   ├── main.py                  # メインエントリーポイント
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py        # LLMクライアント初期化
-│   ├── model/
-│   │   ├── __init__.py
-│   │   └── model.py             # Pydanticデータモデル定義
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── prompt.py            # プロンプト生成ロジック
-│   └── service/
-│       ├── __init__.py
-│       └── request_llm.py       # Batch API リクエスト処理
-├── outputs/                      # 生成結果の保存先（自動作成）
-├── .envrc.example                # 環境変数設定のサンプル
-├── pyproject.toml                # プロジェクト依存関係
-├── Makefile                      # タスク自動化
-└── README.md                     # このファイル
-```
-
 ### アーキテクチャ
 
 このプロジェクトは、以下の3層アーキテクチャで構成されています：
@@ -98,7 +70,7 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+GEMINI_API_KEY=<your_gemini_api_key_here>
 ```
 
 2. **依存関係のインストール**

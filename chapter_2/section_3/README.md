@@ -20,44 +20,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_2/section_14/
-├── CLAUDE.md              # プロジェクト説明ドキュメント
-├── README.md              # 本ファイル
-├── Makefile               # 開発用コマンド
-├── pyproject.toml         # プロジェクト設定・依存関係
-├── .envrc.example         # 環境変数テンプレート
-├── data/                  # サンプル画像データ
-│   ├── 002_請求書_47491048.png
-│   ├── 003_請求書_49016461.png
-│   ├── 099_請求書_53728899.png
-│   ├── slide_0.png
-│   ├── slide_1.png
-│   ├── slide_2.png
-│   ├── slide_3.png
-│   └── slide_4.png
-├── outputs/               # 出力ディレクトリ
-└── src/
-    ├── __init__.py
-    ├── main.py            # CLIエントリーポイント
-    ├── config.py          # 設定管理
-    ├── logger.py          # ロギング設定
-    ├── client/
-    │   ├── __init__.py
-    │   └── llm_client.py  # Gemini APIクライアント
-    ├── model/
-    │   ├── __init__.py
-    │   └── model.py       # Pydanticデータモデル定義
-    ├── prompt/
-    │   ├── __init__.py
-    │   └── prompt.py      # プロンプト生成
-    └── service/
-        ├── __init__.py
-        └── request_llm.py # LLMリクエスト処理
-```
-
 ### アーキテクチャ
 
 ```
@@ -122,7 +84,7 @@ chapter_2/section_14/
 cp .envrc.example .envrc
 
 # .envrc を編集してAPIキーを設定
-GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_API_KEY=<your_gemini_api_key_here>
 ```
 
 2. 依存関係のインストール:

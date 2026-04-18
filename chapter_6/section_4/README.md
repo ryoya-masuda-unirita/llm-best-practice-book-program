@@ -24,43 +24,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_6/section_4/
-├── src/
-│   ├── agent/
-│   │   ├── core/                    # コア抽象クラス（安定したインターフェース）
-│   │   │   ├── base.py              # Tool, Strategy, Action, ToolResult
-│   │   │   ├── memory.py            # Memory抽象クラス, MemorySnapshot
-│   │   │   ├── mediator.py          # Node基底クラス, NodeResult, NodeType
-│   │   │   └── toolbox.py           # Toolbox基底クラス
-│   │   └── extensions/              # 具象実装
-│   │       ├── mediators/
-│   │       │   └── article_pipeline.py  # ArticlePipelineMediator
-│   │       ├── memory/
-│   │       │   └── pipeline.py          # PipelineMemory, PipelineMemoryCaretaker
-│   │       ├── nodes/
-│   │       │   └── pipeline.py          # PipelineState, 各種生成ノード
-│   │       └── tools/
-│   │           └── generation.py        # LLM生成ツール群
-│   ├── client/
-│   │   └── llm_client.py            # Geminiクライアント, LLMProvider
-│   ├── model/
-│   │   └── model.py                 # Pydanticモデル（ArticleOutline等）
-│   ├── prompt/
-│   │   └── prompt.py                # 各フェーズ用システムプロンプト
-│   ├── service/
-│   │   ├── runner_service.py        # パイプラインエントリーポイント
-│   │   └── helper.py                # UIヘルパー、ファイルI/O
-│   ├── config.py                    # 環境設定
-│   └── main.py                      # CLIエントリーポイント
-├── outputs/                         # 生成された記事（自動作成）
-├── .envrc.example                   # 環境変数テンプレート
-├── pyproject.toml                   # プロジェクト依存関係
-└── Makefile                         # 開発コマンド
-```
-
 ### アーキテクチャ
 
 #### パイプラインフロー
@@ -170,7 +133,7 @@ cp .envrc.example .envrc
 
 ```bash
 # .envrc
-export GEMINI_API_KEY="your-gemini-api-key-here"
+GEMINI_API_KEY=<your_gemini_api_key_here>
 ```
 
 3. 依存関係をインストール:

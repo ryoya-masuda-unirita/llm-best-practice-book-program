@@ -19,40 +19,6 @@ LLMは確率的な出力を行うため、単純な算数であっても桁数�
 
 ## プロジェクト構成
 
-### ディレクトリ構成.../
-
-```
-section_16/
-├── src/
-│   ├── __init__.py
-│   ├── main.py              # CLIエントリーポイント
-│   ├── config.py            # 設定管理
-│   ├── logger.py            # ロギング設定
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py    # Anthropic APIクライアント
-│   ├── model/
-│   │   ├── __init__.py
-│   │   └── model.py         # Pydanticデータモデル
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── prompt.py        # LLMプロンプト定義
-│   └── service/
-│       ├── __init__.py
-│       ├── document_processor.py  # 文書処理オーケストレーション
-│       ├── request_llm.py         # LLMリクエスト処理
-│       ├── script_executor.py     # スクリプト実行・検証
-│       └── validator.py           # LLM-as-a-Judge品質評価
-├── data/                     # サンプル入力文書
-│   ├── contract_0.md
-│   ├── report_0.md
-│   └── python_blog_0.md
-├── outputs/                  # 出力ファイル
-├── pyproject.toml
-├── .envrc.example
-└── README.md
-```
-
 ### アーキテクチャ
 
 ```

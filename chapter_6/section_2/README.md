@@ -19,42 +19,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_3/section_9/
-├── src/
-│   ├── __init__.py              # パッケージ初期化
-│   ├── config.py                # 設定管理（APIキー、ログディレクトリ）
-│   ├── logger.py                # ロギング設定
-│   ├── main.py                  # メインエントリーポイント
-│   ├── client/
-│   │   ├── __init__.py
-│   │   ├── llm_client.py            # ラッパークライアントの初期化
-│   │   ├── openai_wrapper_client.py     # OpenAIラッパー実装
-│   │   ├── gemini_wrapper_client.py     # Geminiラッパー実装
-│   │   └── anthropic_wrapper_client.py  # Anthropicラッパー実装
-│   ├── model/
-│   │   ├── __init__.py
-│   │   └── model.py             # Pydanticデータモデル定義
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── prompt.py            # プロンプト生成ロジック
-│   └── service/
-│       ├── __init__.py
-│       └── request_llm.py       # LLMリクエスト処理
-├── tests/
-│   ├── __init__.py
-│   └── test_wrapper_client.py   # ラッパーのテストコード
-├── outputs/                      # 生成結果の保存先（自動作成）
-├── usage_logs/                   # 使用ログの保存先（自動作成）
-├── .envrc.example                # 環境変数設定のサンプル
-├── Makefile                      # 開発用コマンド
-├── pyproject.toml                # プロジェクト依存関係
-├── README.md                     # このファイル
-└── CLAUDE.md                     # プロジェクト詳細ドキュメント
-```
-
 ### アーキテクチャ
 
 このプロジェクトは、ラッパーパターンを採用した3層アーキテクチャで構成されています：
@@ -114,9 +78,9 @@ chapter_3/section_9/
 cp .envrc.example .envrc
 
 # .envrcを編集してAPIキーを設定
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
-GOOGLE_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
-ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
+OPENAI_API_KEY=<your_openai_api_key_here>
+GOOGLE_API_KEY=<your_google_api_key_here>
+ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
 ```
 
 2. **依存関係のインストール**

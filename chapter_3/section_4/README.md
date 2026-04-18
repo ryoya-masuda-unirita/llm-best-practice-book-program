@@ -22,48 +22,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_3/section_1/
-├── src/
-│   ├── __init__.py              # パッケージ初期化
-│   ├── config.py                # 設定管理（APIキー読み込み）
-│   ├── logger.py                # ロギング設定
-│   ├── proxy/
-│   │   ├── __init__.py
-│   │   ├── proxy_server.py      # プロキシサーバー本体（FastAPI）
-│   │   ├── rate_limiter.py      # レート制限（トークンバケット）
-│   │   ├── circuit_breaker.py   # サーキットブレーカー
-│   │   └── request_queue.py     # リクエストキュー
-│   ├── api/
-│   │   ├── __init__.py
-│   │   └── llm_server.py        # LLM APIサーバー（FastAPI）
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py        # Geminiクライアント初期化
-│   ├── model/
-│   │   ├── __init__.py
-│   │   └── model.py             # Pydanticデータモデル定義
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── prompt.py            # プロンプト生成ロジック
-│   └── service/
-│       ├── __init__.py
-│       └── request_llm.py       # LLMリクエスト処理
-├── .env.example                 # 環境変数設定のサンプル（ローカル用）
-├── .envrc.example               # 環境変数設定のサンプル（Docker/direnv用）
-├── .dockerignore                # Docker ビルド除外ファイル
-├── Dockerfile.web               # LLM APIサーバー用Dockerfile
-├── Dockerfile.proxy             # プロキシサーバー用Dockerfile
-├── docker-compose.yml           # Docker Compose設定
-├── Makefile                     # 開発・実行用コマンド
-├── pyproject.toml               # プロジェクト依存関係
-├── README.md                    # このファイル
-├── CLAUDE.md                    # プロジェクト状態レポート（英語）
-└── DOCKER.md                    # Docker詳細ガイド（英語）
-```
-
 ### アーキテクチャ
 
 このプロジェクトは、以下の3層アーキテクチャで構成されています：
@@ -158,7 +116,7 @@ cp .env.example .env
 cp .envrc.example .envrc
 
 # エディタでファイルを開き、APIキーを設定
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+GEMINI_API_KEY=<your_gemini_api_key_here>
 ```
 
 #### ローカル実行の場合の追加手順

@@ -17,45 +17,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_5/section_3/
-├── src/
-│   ├── __init__.py
-│   ├── main.py                      # CLIエントリーポイント
-│   ├── config.py                    # 環境設定
-│   ├── logger.py                    # ログ設定
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py            # LLMクライアント・モデル定義
-│   ├── model/
-│   │   ├── __init__.py
-│   │   └── multi_agent_model.py     # Pydanticデータモデル・AgentState
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── multi_agent_prompt.py    # 各エージェント用システムプロンプト
-│   └── service/
-│       ├── __init__.py
-│       └── multi_agent_service.py   # LangGraphパイプライン実装
-├── example/                          # サンプル契約書・テンプレート
-│   ├── standard_nda_template.md
-│   ├── sample_nda.md
-│   ├── sample_nda_02.md
-│   ├── sample_nda_03.md
-│   ├── standard_purchase_order_template.md
-│   ├── sample_purchase_order_01.md
-│   ├── sample_purchase_order_02.md
-│   ├── standard_consulting_template.md
-│   ├── sample_consulting_01.md
-│   └── sample_consulting_02.md
-├── outputs/                          # 生成されたレビューレポート
-├── pyproject.toml
-├── Makefile
-├── .envrc.example
-└── README.md
-```
-
 ### アーキテクチャ
 
 ```

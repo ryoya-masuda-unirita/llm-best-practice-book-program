@@ -36,44 +36,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_2/section_8/
-├── src/
-│   ├── __init__.py                    # パッケージ初期化
-│   ├── config.py                      # 設定管理（APIキー読み込み）
-│   ├── logger.py                      # ロギング設定
-│   ├── main.py                        # メインエントリーポイント
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py              # LLMクライアント初期化
-│   ├── model/
-│   │   ├── __init__.py
-│   │   ├── model.py                   # キャラクターモデル定義
-│   │   └── llm_as_a_judge_model.py    # Judge評価モデル定義
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   ├── prompt.py                  # キャラクター生成プロンプト
-│   │   └── llm_as_a_judge_prompt.py   # Judge評価プロンプト
-│   └── service/
-│       ├── __init__.py
-│       ├── request_llm.py             # LLMリクエスト処理
-│       └── llm_as_a_judge.py          # Judge評価サービス
-├── tests/
-│   ├── __init__.py
-│   ├── conftest.py                    # pytestフィクスチャ定義
-│   ├── test_prompt_unit_testing.py    # プロンプトユニットテスト
-│   └── test_llm_as_a_judge.py         # Judge機能テスト
-├── outputs/                            # 生成結果の保存先（自動作成）
-├── .envrc.example                      # 環境変数設定のサンプル
-├── pyproject.toml                      # プロジェクト依存関係
-├── pytest.ini                          # pytest設定ファイル
-├── Makefile                            # 開発用コマンド
-├── README.md                           # このファイル
-└── CLAUDE.md                           # プロジェクト状態レポート
-```
-
 ### アーキテクチャ
 
 このプロジェクトは、以下の3層アーキテクチャ + テスト層で構成されています：
@@ -139,9 +101,9 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
-ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
+OPENAI_API_KEY=<your_openai_api_key_here>
+GEMINI_API_KEY=<your_gemini_api_key_here>
+ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
 ```
 
 2. **依存関係のインストール**

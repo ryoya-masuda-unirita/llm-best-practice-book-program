@@ -40,46 +40,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_2/section_2/
-├── src/
-│   ├── __init__.py                    # パッケージ初期化
-│   ├── main.py                        # メインエントリーポイント（CLI）
-│   ├── config.py                      # 設定管理（APIキー読み込み）
-│   ├── logger.py                      # 基本ロガー設定
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py              # LLMクライアント初期化
-│   ├── model/
-│   │   ├── __init__.py
-│   │   ├── model.py                   # キャラクターレスポンスモデル
-│   │   ├── llmops_log.py              # 構造化ログエントリモデル
-│   │   └── prompt_data.py             # プロンプトデータモデル
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── prompt.py                  # プロンプト生成ロジック
-│   └── service/
-│       ├── __init__.py
-│       ├── llmops_logger.py           # メインロギングインターフェース
-│       └── prompt_storage.py          # プロンプトストレージ実装
-├── tests/
-│   ├── __init__.py
-│   ├── conftest.py                    # テストフィクスチャ（tempfile使用）
-│   ├── test_llmops_log.py             # ログエントリモデルのテスト
-│   ├── test_llmops_logger.py          # ロガーインターフェースのテスト
-│   └── test_prompt_storage.py         # ストレージ実装のテスト
-├── prompt_storage/                     # プロンプト保存先（実行時に自動作成、gitignore）
-│   └── YYYY/MM/DD/*.json              # 日付パーティショニング構造
-├── outputs/                            # キャラクター生成結果の保存先
-├── .envrc.example                      # 環境変数設定のサンプル
-├── pyproject.toml                      # プロジェクト依存関係
-├── pytest.ini                          # テスト設定
-├── README.md                           # このファイル
-└── CLAUDE.md                           # 設計仕様書
-```
-
 ### アーキテクチャ
 
 このプロジェクトは、以下の二層ロギングアーキテクチャで構成されています：
@@ -165,9 +125,9 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-export OPENAI_API_KEY="sk-xxxxxxxxxxxxxxxxxxxxx"
-export GEMINI_API_KEY="AIzaSyXXXXXXXXXXXXXXXXXXXX"
-export ANTHROPIC_API_KEY="sk-ant-xxxxxxxxxxxxxxxxxxxxx"
+OPENAI_API_KEY=<your_openai_api_key_here>
+GEMINI_API_KEY=<your_gemini_api_key_here>
+ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
 ```
 
 2. **依存関係のインストール**

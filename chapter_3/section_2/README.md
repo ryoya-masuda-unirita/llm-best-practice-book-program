@@ -70,43 +70,6 @@ Section 1とSection 2で学んだ基本的なLLM実装をベースに、**プロ
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_2/section_3/
-├── src/
-│   ├── __init__.py              # パッケージ初期化
-│   ├── config.py                # 設定管理（API キー、タイムアウト、TTL）
-│   ├── logger.py                # ロギング設定
-│   ├── main.py                  # メインエントリーポイント
-│   ├── client/
-│   │   ├── __init__.py
-│   │   ├── llm_client.py        # LLMクライアント初期化（OpenAI/Gemini）
-│   │   └── llm_request_wrapper.py  # フォールバックロジックを含むリクエストラッパー
-│   ├── model/
-│   │   ├── __init__.py
-│   │   └── model.py             # Pydanticデータモデル定義
-│   ├── prompt/
-│   │   └── prompt.py            # プロンプト生成ロジック
-│   └── service/
-│       ├── __init__.py
-│       ├── cache_manager.py     # TTL付きレスポンスキャッシング（パラメーター/セマンティック）
-│       ├── fallback_coordinator.py  # フォールバック戦略の統括
-│       └── template_response.py # テンプレート応答生成
-├── tests/
-│   ├── __init__.py
-│   ├── conftest.py              # pytestフィクスチャ
-│   ├── test_cache_manager.py    # キャッシュマネージャーのテスト
-│   └── test_fallback_coordinator.py # フォールバックコーディネーターのテスト
-├── .cache/                      # パラメーターキャッシュストレージ（.gitignore）
-├── .semantic_cache/             # セマンティックキャッシュストレージ（.gitignore）
-├── outputs/                     # 生成結果の保存先（自動作成）
-├── .envrc.example               # 環境変数設定のサンプル
-├── pyproject.toml               # プロジェクト依存関係
-├── README.md                    # このファイル
-└── CLAUDE.md                    # プロジェクト状態レポート（英語）
-```
-
 ### アーキテクチャ
 
 このプロジェクトは、以下の4層アーキテクチャで構成されています：
@@ -182,8 +145,8 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-OPENAI_API_KEY=sk-proj-xxxxxxxxxxxxxxxxxxxxx
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+OPENAI_API_KEY=<your_openai_api_key_here>
+GEMINI_API_KEY=<your_gemini_api_key_here>
 
 # オプション設定（デフォルト値で問題なければ省略可）
 LLM_REQUEST_TIMEOUT=10.0    # リクエストタイムアウト（秒）

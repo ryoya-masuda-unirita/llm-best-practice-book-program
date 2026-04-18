@@ -18,42 +18,6 @@ RAGシステムは「ドキュメント読み込み」「テキスト分割」�
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_3/section_11/
-├── src/
-│   ├── __init__.py              # パッケージ初期化
-│   ├── config.py                # 設定管理（API キー読み込み）
-│   ├── logger.py                # ロギング設定
-│   ├── main.py                  # CLIエントリーポイント
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py        # Gemini クライアント初期化
-│   ├── model/
-│   │   ├── __init__.py
-│   │   └── rag_model.py         # Pydanticデータモデル定義
-│   ├── strategy/
-│   │   ├── __init__.py
-│   │   ├── base.py              # 共通インターフェース定義
-│   │   ├── loader.py            # 文書読み込みコンポーネント
-│   │   ├── chunker.py           # セマンティックチャンク分割コンポーネント
-│   │   ├── embedder.py          # 埋め込み生成コンポーネント
-│   │   ├── retriever.py         # ベクトル検索コンポーネント
-│   │   └── generator.py         # 回答生成コンポーネント
-│   └── service/
-│       ├── __init__.py
-│       └── rag_pipeline.py      # パイプラインオーケストレーター
-├── data/                         # ドキュメント格納ディレクトリ
-│   ├── chapter2_section1.md
-│   ├── chapter2_section2.md
-│   └── chapter2_section3.md
-├── .envrc.example                # 環境変数設定のサンプル
-├── pyproject.toml                # プロジェクト依存関係
-├── CLAUDE.md                     # プロジェクト設計思想
-└── README.md                     # このファイル
-```
-
 ### アーキテクチャ
 
 ```
@@ -148,7 +112,7 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+GEMINI_API_KEY=<your_gemini_api_key_here>
 ```
 
 2. **依存関係のインストール**

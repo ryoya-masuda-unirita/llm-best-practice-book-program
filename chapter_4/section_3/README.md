@@ -19,40 +19,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_3/section_3/
-├── src/
-│   ├── __init__.py              # パッケージ初期化
-│   ├── config.py                # 設定管理（APIキー読み込み）
-│   ├── logger.py                # ロギング設定
-│   ├── api/
-│   │   ├── __init__.py
-│   │   └── llm_server.py        # FastAPI アプリケーション
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py        # Anthropicクライアント初期化
-│   ├── model/
-│   │   ├── __init__.py
-│   │   └── model.py             # Pydanticデータモデル定義
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── prompt.py            # プロンプト生成ロジック
-│   └── service/
-│       ├── __init__.py
-│       ├── interfaces.py        # サービスインターフェイス定義（ISP）
-│       ├── container.py         # 依存性注入コンテナ
-│       ├── text_generation_service.py    # テキスト生成サービス実装
-│       └── text_classification_service.py # テキスト分類サービス実装
-├── .env.example                 # 環境変数設定のサンプル
-├── docker-compose.yml           # Docker Compose設定
-├── Dockerfile.web               # Webサーバー用Dockerfile
-├── Makefile                     # 開発用コマンド定義
-├── pyproject.toml               # プロジェクト依存関係
-└── README.md                    # このファイル
-```
-
 ### アーキテクチャ
 
 ```
@@ -111,7 +77,7 @@ chapter_3/section_3/
 cp .env.example .env
 cp .envrc.example .envrc
 # .envファイルを編集してAPIキーを設定
-# ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
+ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
 ```
 
 2. **依存関係のインストール**

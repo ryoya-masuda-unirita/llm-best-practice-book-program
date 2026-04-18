@@ -24,40 +24,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_2/section_9/
-├── src/
-│   ├── __init__.py              # パッケージ初期化
-│   ├── config.py                # 設定管理（API キー読み込み）
-│   ├── logger.py                # ロギング設定
-│   ├── api/
-│   │   ├── __init__.py
-│   │   └── app.py               # FastAPIアプリケーション（メインAPI）
-│   ├── service/
-│   │   ├── __init__.py
-│   │   └── streaming_service.py # ストリーミング・非ストリーミングロジック
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py        # LLMクライアント初期化
-│   └── model/
-│       ├── __init__.py
-│       └── model.py             # Pydanticデータモデル定義
-├── tests/
-│   ├── __init__.py
-│   ├── conftest.py              # pytestフィクスチャ設定
-│   ├── test_api.py              # APIエンドポイントのテスト
-│   ├── test_models.py           # データモデルのテスト
-│   └── test_streaming_service.py # ストリーミングサービスのテスト
-├── .envrc.example               # 環境変数設定のサンプル
-├── pyproject.toml               # プロジェクト依存関係
-├── pytest.ini                   # pytest設定ファイル
-├── run_server.py                # サーバー起動スクリプト
-├── example_client.py            # 統合テストクライアントCLI
-└── README.md                    # このファイル
-```
-
 ### アーキテクチャ
 
 このプロジェクトは、以下の4層アーキテクチャで構成されています：
@@ -115,8 +81,7 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+OPENAI_API_KEY=<your_openai_api_key_here>
 ```
 
 2. **依存関係のインストール**

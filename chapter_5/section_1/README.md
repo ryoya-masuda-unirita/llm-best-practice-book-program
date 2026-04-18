@@ -19,34 +19,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_5/section_1/
-├── src/
-│   ├── __init__.py
-│   ├── config.py                 # 設定管理（APIキー読み込み）
-│   ├── logger.py                 # ロギング設定
-│   ├── main.py                   # メインエントリーポイント（CLI）
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py         # LLMクライアント初期化
-│   ├── model/
-│   │   ├── __init__.py
-│   │   └── model.py              # エージェント状態・データモデル定義
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── prompt.py             # システムプロンプト・ユーザープロンプト
-│   └── service/
-│       ├── __init__.py
-│       └── service.py            # ReActエージェント実装・ツール定義
-├── outputs/                       # 推薦結果の保存先（自動作成）
-├── .envrc.example                 # 環境変数設定のサンプル
-├── pyproject.toml                 # プロジェクト依存関係
-├── README.md                      # このファイル
-└── CLAUDE.md                      # プロジェクト設計ドキュメント
-```
-
 ### アーキテクチャ
 
 ```
@@ -131,7 +103,7 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
+ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
 ```
 
 2. **依存関係のインストール**

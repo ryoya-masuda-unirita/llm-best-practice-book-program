@@ -19,31 +19,6 @@ LLMを組み込んだソフトウェアでは、単一のLLM呼び出しで完�
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-section_12/
-├── src/
-│   ├── __init__.py
-│   ├── main.py              # CLIエントリポイント
-│   ├── config.py            # 設定管理
-│   ├── logger.py            # ロギング設定
-│   ├── client.py            # Geminiクライアント・エグゼキュータ
-│   ├── examples.py          # ワークフロー実行例
-│   └── workflow/
-│       ├── __init__.py
-│       ├── models.py        # 基底クラス（Node, Edge, ExecutionContext, WorkflowState）
-│       ├── nodes.py         # ノード実装（Start, End, Prompt, IfElse等）
-│       ├── workflow.py      # Workflowクラス（DAG構造）
-│       ├── builder.py       # WorkflowBuilder（Builderパターン）
-│       ├── engine.py        # WorkflowEngine（実行エンジン）
-│       └── checkpoint.py    # チェックポイント管理
-├── checkpoints/             # チェックポイント保存先
-├── pyproject.toml
-├── .envrc.example
-└── README.md
-```
-
 ### アーキテクチャ
 
 ```
@@ -107,7 +82,7 @@ cp .envrc.example .envrc
 
 # Gemini APIキーを設定
 # https://aistudio.google.com/app/apikey から取得
-export GEMINI_API_KEY="your-gemini-api-key-here"
+GEMINI_API_KEY=<your_gemini_api_key_here>
 ```
 
 2. 依存関係のインストール

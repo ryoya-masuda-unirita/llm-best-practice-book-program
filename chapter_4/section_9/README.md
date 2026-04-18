@@ -18,36 +18,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-src/
-├── main.py                    # CLIエントリーポイント
-├── examples.py                # 8つのサンプルコード
-├── config.py                  # 環境変数設定
-├── logger.py                  # ロギング設定
-├── client/
-│   └── llm_client.py          # Google Gemini APIクライアント
-└── agent/
-    ├── core/                  # コア層（安定した抽象化）
-    │   ├── base.py            # 基本インターフェース（Tool, Strategy, Action等）
-    │   ├── agent.py           # BaseAgent実装
-    │   ├── controller.py      # ExecutionController（Chain of Responsibility）
-    │   ├── mediator.py        # GraphMediator（Mediator Pattern）
-    │   ├── memory.py          # Memory抽象クラス（Memento Pattern）
-    │   ├── states.py          # 状態管理（State Pattern）
-    │   └── toolbox.py         # ToolBox（Composite Pattern）
-    └── extensions/            # 拡張層（具体的な実装）
-        ├── factory.py         # AgentBuilder, create_agent_from_config
-        ├── agents/            # ConfigurableAgent, MultiStrategyAgent
-        ├── strategies/        # ChainOfThought, ReAct, TreeOfThought
-        ├── handlers/          # MaxSteps, CostLimit, ToolRateLimit等
-        ├── mediators/         # SimpleGraphMediator, ParallelGraphMediator
-        ├── memory/            # ConversationalMemory, ContextMemory, MemoryCaretaker
-        ├── nodes/             # AgentNode, DecisionNode, AggregatorNode
-        └── tools/             # Calculator, WebSearch, TextGenerator
-```
-
 ### アーキテクチャ
 
 ```
@@ -128,7 +98,7 @@ cp .envrc.example .envrc
 ```bash
 # Google Gemini API Key
 # Get your key from: https://aistudio.google.com/app/apikey
-export GEMINI_API_KEY="your-gemini-api-key-here"
+GEMINI_API_KEY=<your_gemini_api_key_here>
 ```
 
 2. 依存関係のインストール

@@ -17,48 +17,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_5/section_6/
-├── src/
-│   ├── __init__.py
-│   ├── main.py                         # CLIエントリーポイント
-│   ├── config.py                       # 環境設定
-│   ├── logger.py                       # ロギングユーティリティ
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py               # OpenAIモデル定義
-│   ├── model/
-│   │   ├── __init__.py
-│   │   └── model.py                    # Pydanticデータモデル
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── prompt.py                   # 各ステージのプロンプトテンプレート
-│   ├── layer/
-│   │   ├── __init__.py
-│   │   ├── base.py                     # 抽象基底エージェントクラス
-│   │   └── contract_pipeline/
-│   │       ├── __init__.py
-│   │       ├── extraction.py           # 抽出ステージエージェント
-│   │       ├── risk_scoring.py         # リスク評価ステージエージェント
-│   │       └── report.py               # レポート生成ステージエージェント
-│   └── service/
-│       ├── __init__.py
-│       └── service.py                  # LangGraphパイプラインオーケストレーション
-├── data/
-│   ├── contract_0.md                   # サンプル契約書（ソフトウェア開発委託）
-│   ├── contract_1.md                   # サンプル契約書
-│   ├── contract_2.md                   # サンプル契約書
-│   └── contract_3.md                   # サンプル契約書
-├── outputs/                            # 生成レポート出力先
-├── .envrc.example                      # 環境変数テンプレート
-├── pyproject.toml                      # プロジェクト依存関係
-├── Makefile                            # 開発コマンド
-├── CLAUDE.md                           # プロジェクト技術仕様
-└── README.md                           # このファイル
-```
-
 ### アーキテクチャ
 
 ```
@@ -177,7 +135,7 @@ cp .envrc.example .envrc
 `.envrc`を編集し、OpenAI APIキーを設定：
 
 ```bash
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
+OPENAI_API_KEY=<your_openai_api_key_here>
 ```
 
 3. **依存関係のインストール**

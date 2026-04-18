@@ -25,45 +25,6 @@ LangGraphによるステートマシンを活用し、各層のエージェン�
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_5/section_4/
-├── src/
-│   ├── __init__.py              # パッケージ初期化
-│   ├── config.py                # 設定管理（APIキー読み込み）
-│   ├── logger.py                # ロギング設定
-│   ├── main.py                  # CLIエントリーポイント
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py        # OpenAIモデル定義
-│   ├── layer/                   # 4層エージェント実装
-│   │   ├── __init__.py
-│   │   ├── base.py              # BaseAgent抽象クラス
-│   │   ├── strategy.py          # 戦略層エージェント
-│   │   ├── tactics.py           # 戦術層エージェント
-│   │   ├── execution.py         # 実行層エージェント
-│   │   └── reflection.py        # 省察層エージェント
-│   ├── model/
-│   │   ├── __init__.py
-│   │   └── model.py             # Pydanticデータモデル
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── prompt.py            # 各層のプロンプト定義
-│   └── service/
-│       ├── __init__.py
-│       └── service.py           # LangGraphオーケストレーション
-├── example/                     # サンプル学習者プロファイル
-│   ├── learner_profile_data_analysis.json
-│   ├── learner_profile_python.json
-│   └── learner_profile_management.json
-├── outputs/                     # 生成された学習プラン
-├── .envrc.example               # 環境変数テンプレート
-├── pyproject.toml               # プロジェクト依存関係
-├── Makefile                     # 開発コマンド
-└── README.md                    # このファイル
-```
-
 ### アーキテクチャ
 
 ```
@@ -224,7 +185,7 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
+OPENAI_API_KEY=<your_openai_api_key_here>
 ```
 
 2. **依存関係のインストール**

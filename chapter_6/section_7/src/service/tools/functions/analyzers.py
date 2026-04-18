@@ -74,7 +74,9 @@ def calculate_subject_stats(df: pl.DataFrame, subjects: list[str]) -> dict[str, 
 
 def calculate_overall_mean(df: pl.DataFrame, subjects: list[str]) -> float:
     """Calculate the overall mean across all subjects."""
-    return round(df.select(subjects).mean().to_numpy().mean(), 2)
+    means = df.select(subjects).mean()
+    values = [means[col][0] for col in subjects if means[col][0] is not None]
+    return round(sum(values) / len(values), 2) if values else 0.0
 
 
 def analyze_scores(

@@ -16,39 +16,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_5/section_5/
-├── src/
-│   ├── __init__.py              # パッケージ初期化
-│   ├── config.py                # 設定（APIキー管理）
-│   ├── logger.py                # ロギング設定
-│   ├── main.py                  # CLIエントリポイント
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py        # OpenAIモデル定義
-│   ├── model/
-│   │   ├── __init__.py
-│   │   └── model.py             # Pydanticデータモデル
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── prompt.py            # プロンプトテンプレート
-│   └── service/
-│       ├── __init__.py
-│       ├── service.py           # トレーニングプラン生成サービス
-│       └── memory_service.py    # メモリ管理サービス
-├── example/
-│   ├── profile_data_analysis.json  # サンプルプロフィール（データ分析）
-│   └── profile_management.json     # サンプルプロフィール（マネジメント）
-├── memory/                      # ユーザーメモリ保存ディレクトリ（自動生成）
-├── outputs/                     # 生成されたプラン保存ディレクトリ（自動生成）
-├── .envrc.example               # 環境変数テンプレート
-├── pyproject.toml               # プロジェクト依存関係
-├── Makefile                     # ビルドコマンド
-└── README.md                    # このファイル
-```
-
 ### アーキテクチャ
 
 ```
@@ -112,7 +79,7 @@ chapter_5/section_5/
 cp .envrc.example .envrc
 
 # .envrcを編集してAPIキーを設定
-# OPENAI_API_KEY=your_api_key_here
+OPENAI_API_KEY=<your_openai_api_key_here>
 ```
 
 2. 依存関係のインストール:

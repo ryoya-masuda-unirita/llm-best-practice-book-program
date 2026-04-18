@@ -19,48 +19,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_3/section_8/
-├── CLAUDE.md                 # プロジェクト仕様書
-├── README.md                 # 本ファイル
-├── pyproject.toml            # 依存関係定義
-├── .envrc.example            # 環境変数テンプレート
-├── Makefile                  # ビルドコマンド
-├── src/
-│   ├── __init__.py
-│   ├── main.py               # CLIエントリーポイント
-│   ├── config.py             # 設定管理
-│   ├── logger.py             # ロギング設定
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py     # LLMクライアント定義
-│   ├── model/
-│   │   ├── __init__.py
-│   │   ├── model.py          # キャラクターモデル
-│   │   ├── llm_as_a_judge_model.py  # 評価モデル
-│   │   └── profiler_metrics.py      # プロファイラーメトリクスモデル
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   ├── prompt.py         # キャラクター生成プロンプト
-│   │   └── llm_as_a_judge_prompt.py  # 評価プロンプト
-│   └── service/
-│       ├── __init__.py
-│       ├── request_llm.py    # 標準LLMリクエスト
-│       ├── llm_as_a_judge.py # 評価サービス
-│       ├── prompt_profiler.py      # 収集層
-│       ├── metrics_analyzer.py     # 分析層
-│       ├── profiler_reporter.py    # 可視化層
-│       └── profiled_request_llm.py # プロファイリング付きリクエスト
-└── tests/
-    ├── __init__.py
-    ├── conftest.py
-    ├── test_prompt_profiler.py
-    ├── test_metrics_analyzer.py
-    └── test_profiler_reporter.py
-```
-
 ### アーキテクチャ
 
 ```

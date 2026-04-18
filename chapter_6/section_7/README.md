@@ -19,53 +19,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_6/section_7/
-├── src/
-│   ├── main.py                 # CLIエントリーポイント
-│   ├── config.py               # 設定管理
-│   ├── logger.py               # ロギング設定
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py       # Gemini APIクライアント
-│   ├── model/
-│   │   ├── __init__.py
-│   │   ├── model.py            # 基本データモデル
-│   │   ├── schemas.py          # ツール入出力スキーマ（Pydantic）
-│   │   └── tool_chain_models.py # Tool Chain関連モデル
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── prompt.py           # システムプロンプト定義
-│   └── service/
-│       ├── __init__.py
-│       ├── request_llm.py      # LLMリクエスト処理・Tool Chain実行
-│       └── tools/
-│           ├── __init__.py
-│           ├── data_tools.py   # データ分析ツール関数群
-│           ├── tool_chain.py   # Tool Chain Executor
-│           ├── tool_metadata.py # ツールメタデータ定義
-│           └── functions/      # 個別処理関数
-│               ├── __init__.py
-│               ├── analyzers.py
-│               ├── formatters.py
-│               ├── loaders.py
-│               └── validators.py
-├── data/                       # サンプルデータ（学校データ）
-│   ├── students.json
-│   ├── 1st_quarter_test_score.json
-│   ├── 1st_quarter_grade_report.json
-│   ├── 1st_quarter_curriculum.json
-│   └── ... (各四半期のデータ)
-├── tests/                      # テストコード
-├── pyproject.toml
-├── .envrc.example
-├── Makefile
-├── CLAUDE.md
-└── README.md
-```
-
 ### アーキテクチャ
 
 ```

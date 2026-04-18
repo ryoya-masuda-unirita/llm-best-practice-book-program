@@ -23,42 +23,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_2/section_11/
-├── src/
-│   ├── __init__.py              # パッケージ初期化
-│   ├── config.py                # 設定管理（API キー読み込み）
-│   ├── logger.py                # ロギング設定
-│   ├── main.py                  # メインエントリーポイント
-│   ├── client/                  # LLMクライアント関連
-│   │   ├── __init__.py
-│   │   ├── base.py              # 抽象基底クラス（LLMClient）
-│   │   ├── adapters.py          # 具体的なAdapter実装（OpenAI, Anthropic, Gemini）
-│   │   ├── factory.py           # Factoryパターン実装
-│   │   └── model.py             # プロバイダー・モデル定義
-│   ├── model/                   # データモデル
-│   │   ├── __init__.py
-│   │   └── model.py             # Pydanticデータモデル定義
-│   ├── prompt/                  # プロンプト管理
-│   │   ├── __init__.py
-│   │   └── prompt.py            # プロンプト生成ロジック
-│   └── service/                 # サービス層
-│       ├── __init__.py
-│       └── request_llm.py       # 統一されたLLMリクエスト処理
-├── tests/                       # テストコード
-│   ├── __init__.py
-│   ├── test_adapters.py         # Adapterのテスト
-│   └── test_factory.py          # Factoryのテスト
-├── outputs/                     # 生成結果の保存先（自動作成）
-├── .envrc.example               # 環境変数設定のサンプル
-├── Makefile                     # 開発用タスク定義
-├── pyproject.toml               # プロジェクト依存関係
-├── README.md                    # このファイル
-└── CLAUDE.md                    # 設計ドキュメント
-```
-
 ### アーキテクチャ
 
 このプロジェクトは、以下の4層アーキテクチャで構成されています：
@@ -120,9 +84,9 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
-ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxx
+OPENAI_API_KEY=<your_openai_api_key_here>
+GEMINI_API_KEY=<your_gemini_api_key_here>
+ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
 ```
 
 2. **依存関係のインストール**

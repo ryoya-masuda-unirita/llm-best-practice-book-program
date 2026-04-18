@@ -18,56 +18,6 @@ LLMからTool call（関数呼び出し）を行う際、出力されたデー�
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-section_6/
-├── src/
-│   ├── __init__.py
-│   ├── main.py                    # CLIエントリーポイント
-│   ├── config.py                  # 設定管理（API Key等）
-│   ├── logger.py                  # ロギング設定
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py          # Gemini APIクライアント
-│   ├── model/
-│   │   ├── __init__.py
-│   │   └── model.py               # Pydanticモデル（ToolResult等）
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── prompt.py              # システムプロンプト・ツール定義
-│   └── service/
-│       ├── __init__.py
-│       ├── request_llm.py         # LLMリクエスト処理・セッションキャッシュ
-│       └── tools/
-│           ├── __init__.py
-│           ├── data_tools.py      # 統合関数（Composite Functions）
-│           └── functions/
-│               ├── __init__.py
-│               ├── loaders.py     # データ読み込み
-│               ├── validators.py  # 入力検証
-│               ├── analyzers.py   # データ分析（Polars使用）
-│               └── formatters.py  # 結果フォーマット
-├── data/
-│   ├── students.json              # 生徒マスタ（5名）
-│   ├── 1st_quarter_test_score.json
-│   ├── 2nd_quarter_test_score.json
-│   ├── 3rd_quarter_test_score.json
-│   ├── 4th_quarter_test_score.json
-│   ├── 1st_quarter_grade_report.json
-│   ├── 2nd_quarter_grade_report.json
-│   ├── 3rd_quarter_grade_report.json
-│   ├── 4th_quarter_grade_report.json
-│   ├── 1st_quarter_curriculum.json
-│   ├── 2nd_quarter_curriculum.json
-│   ├── 3rd_quarter_curriculum.json
-│   └── 4th_quarter_curriculum.json
-├── pyproject.toml
-├── .envrc.example
-├── Makefile
-└── README.md
-```
-
 ### アーキテクチャ
 
 ```

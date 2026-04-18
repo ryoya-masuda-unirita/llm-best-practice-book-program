@@ -19,62 +19,6 @@ Parallel World パターンとは、AI エージェントシステムにおけ�
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_6/section_5/
-├── src/
-│   ├── __init__.py              # パッケージ初期化
-│   ├── config.py                # 設定管理（API キー）
-│   ├── logger.py                # ログ設定
-│   ├── main.py                  # メインエントリーポイント（CLI コマンド）
-│   ├── agent/                   # AI エージェントフレームワーク
-│   │   ├── __init__.py          # 公開 API のエクスポート
-│   │   ├── core/                # 安定したコア抽象化
-│   │   │   ├── base.py          # Tool, Strategy, Action, ToolResult
-│   │   │   ├── states.py        # AgentState, AgentContext, AgentStatus
-│   │   │   ├── memory.py        # Memory, MemorySnapshot
-│   │   │   ├── toolbox.py       # ToolBox (Composite パターン)
-│   │   │   ├── controller.py    # ExecutionHandler, ExecutionController
-│   │   │   ├── mediator.py      # GraphMediator, Node, Edge
-│   │   │   └── agent.py         # BaseAgent
-│   │   └── extensions/          # 柔軟な実装
-│   │       ├── tools/
-│   │       │   └── generation.py  # 記事パイプライン用 LLM 生成ツール
-│   │       ├── nodes/
-│   │       │   └── pipeline.py    # 各生成フェーズのパイプラインノード
-│   │       ├── memory/
-│   │       │   └── pipeline.py    # フェーズベースのロールバック機能付きメモリ
-│   │       └── mediators/
-│   │           └── article_pipeline.py  # ArticlePipelineMediator
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py        # LLM クライアント初期化（Gemini）
-│   ├── model/
-│   │   ├── __init__.py
-│   │   └── model.py             # Pydantic データモデル定義
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── prompt.py            # プロンプト生成ロジック
-│   └── service/
-│       ├── __init__.py
-│       ├── helper.py            # UI 表示およびファイル保存ヘルパー
-│       └── runner_service.py    # エージェントパイプラインへのラッパー
-├── outputs/                     # 生成結果（自動作成）
-│   └── parallel_world_article_<uuid>/
-│       ├── parallel_world_article_<uuid>.json  # 選択された記事（JSON）
-│       ├── parallel_world_article_<uuid>.md    # 選択された記事（Markdown）
-│       └── all_variants/        # 全候補バリアント
-│           ├── variant_1_grade_5.md
-│           ├── variant_2_grade_4.md
-│           └── variant_3_grade_3.md
-├── pyproject.toml               # プロジェクト依存関係
-├── Makefile                     # 開発コマンド
-├── .envrc.example               # 環境変数サンプル
-├── CLAUDE.md                    # Claude Code 用プロジェクト指示書
-└── README.md                    # このファイル
-```
-
 ### アーキテクチャ
 
 ```
@@ -171,7 +115,7 @@ cp .envrc.example .envrc
 
 ```bash
 # .envrc
-export GEMINI_API_KEY="your-gemini-api-key-here"
+GEMINI_API_KEY=<your_gemini_api_key_here>
 ```
 
 3. **依存関係のインストール**

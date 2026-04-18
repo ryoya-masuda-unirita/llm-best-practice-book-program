@@ -20,32 +20,6 @@ Producer-Consumerパターンを採用し、FastAPI APIサーバーがリクエ�
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-src/
-├── __init__.py
-├── config.py              # 環境変数ベースの設定管理
-├── logger.py              # ロギング設定
-├── api/
-│   ├── __init__.py
-│   └── llm_server.py      # FastAPI REST APIサーバー
-├── client/
-│   ├── __init__.py
-│   └── llm_client.py      # OpenAI APIクライアント
-├── model/
-│   ├── __init__.py
-│   └── model.py           # Pydanticデータモデル
-├── prompt/
-│   ├── __init__.py
-│   └── prompt.py          # プロンプト生成
-└── service/
-    ├── __init__.py
-    ├── queue_manager.py   # Redis優先度キュー管理
-    ├── request_llm.py     # LLM APIリクエスト処理
-    └── worker.py          # バックグラウンドワーカー
-```
-
 ### アーキテクチャ
 
 ```
@@ -94,7 +68,7 @@ cp .envrc.example .envrc
 # .envファイルを編集してAPIキーを設定
 
 # 必須の環境変数
-export OPENAI_API_KEY="your_openai_api_key"
+OPENAI_API_KEY=<your_openai_api_key_here>
 
 # Redis設定（デフォルト値あり）
 export REDIS_HOST="localhost"

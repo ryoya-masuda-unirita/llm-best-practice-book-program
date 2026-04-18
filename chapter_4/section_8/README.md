@@ -27,35 +27,6 @@
 
 ## プロジェクト構成
 
-### ディレクトリ構成
-
-```
-chapter_4/section_8/
-├── src/
-│   ├── __init__.py
-│   ├── config.py           # 設定管理（pydanticベース）
-│   ├── logger.py           # ロギング設定
-│   ├── main.py             # CLIエントリポイント（click）
-│   ├── examples.py         # 8つのサンプル実装
-│   ├── agent/
-│   │   ├── __init__.py     # パッケージエクスポート
-│   │   ├── base.py         # 基底抽象クラス（Tool, Strategy, Memory, Action）
-│   │   ├── memory.py       # メモリ実装（ContextMemory, ConversationalMemory）
-│   │   ├── toolbox.py      # ツール管理（ToolBox, CategorizableToolBox）
-│   │   ├── strategies.py   # 思考戦略（CoT, ReAct, ToT）
-│   │   ├── states.py       # 状態管理（AgentState, AgentContext）
-│   │   ├── controller.py   # 実行制御（安全ハンドラチェーン）
-│   │   ├── agent.py        # エージェント実装（Base, Configurable, MultiStrategy）
-│   │   ├── factory.py      # Builder & Factoryパターン
-│   │   └── mediator.py     # マルチエージェント調停（グラフベース）
-│   └── client/
-│       ├── __init__.py
-│       └── llm_client.py   # LLMクライアント初期化（Gemini）
-├── pyproject.toml          # プロジェクト設定
-├── .envrc.example          # 環境変数テンプレート
-└── README.md
-```
-
 ### アーキテクチャ
 
 ```
@@ -121,7 +92,7 @@ cd chapter_4/section_8
 # 環境変数設定
 cp .envrc.example .envrc
 # .envrcを編集してAPIキーを設定:
-# export GEMINI_API_KEY=your-gemini-api-key-here
+GEMINI_API_KEY=<your_gemini_api_key_here>
 
 # 依存関係インストール
 uv sync  # または: pip install -e .
