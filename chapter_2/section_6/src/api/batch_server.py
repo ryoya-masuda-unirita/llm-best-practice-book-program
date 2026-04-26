@@ -179,7 +179,8 @@ async def get_batch_job_result(job_id: str) -> BatchJobResultResponse:
         if not result_data:
             if status_data["status"] in [JobStatus.PENDING, JobStatus.PROCESSING]:
                 raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
+                    status_code=status.HTTP_202_ACCEPTED,
+                    headers={"Retry-After": "5"},
                     detail=f"Job {job_id} is still {status_data['status']}. Results not available yet.",
                 )
             raise HTTPException(
