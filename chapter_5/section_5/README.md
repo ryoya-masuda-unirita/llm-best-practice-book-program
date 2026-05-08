@@ -1,4 +1,4 @@
-# Chapter 5 Section 6: パイプライン型AIエージェント
+# Chapter 5 Section 5: パイプライン型AIエージェント
 
 ## 概要
 

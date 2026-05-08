@@ -110,14 +110,20 @@
 ```bash
 cp .env.example .env
 cp .envrc.example .envrc
-# .envファイルを編集してAPIキーを設定
-# .envrc
+```
+
+`.env`ファイルを編集してAPIキーを設定:
+
+```bash
+# .env
 OPENAI_API_KEY=<your_openai_api_key_here>
 GEMINI_API_KEY=<your_gemini_api_key_here>
 GATEWAY_URL=http://localhost:8080
 BACKEND_URL=http://localhost:8000
 GATEWAY_TIMEOUT=30.0
 ```
+
+> **注意**: Docker Composeは`.env`ファイルから環境変数を読み込みます。`.envrc`はdirenv用（ローカル開発の便利ツール）で、中身は`dotenv`コマンドのみです。`.env`ファイルにAPIキーを設定すれば、ローカル実行・Docker実行の両方で動作します。
 
 2. **依存関係のインストール**
 

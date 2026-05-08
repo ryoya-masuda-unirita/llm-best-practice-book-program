@@ -109,13 +109,13 @@ uv run python -m src.main \
 
 # OpenAI APIを使用
 uv run python -m src.main \
-  --llm-provider openai \
+  --llm-provider OPENAI \
   --model GPT_5_MINI \
   --document-path dataset/document_1.md
 
 # 短縮オプション
 uv run python -m src.main \
-  -lp openai \
+  -lp OPENAI \
   -m GPT_5_MINI \
   -dp dataset/document_0.md
 ```

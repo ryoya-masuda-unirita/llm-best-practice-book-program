@@ -119,8 +119,7 @@ def render_freeform_tab(provider: LLMProvider, model: str) -> None:
     st.header("自由形式プロンプトインターフェース")
     st.markdown(
         """
-任意のプロンプトを入力してください。システムはキャラクターを生成しようとしますが、
-結果が一貫しなかったり、期待した形式と一致しない場合があります。
+年齢と性別を含めて入力してください。
 """
     )
 
@@ -177,8 +176,7 @@ def render_structured_form_tab(provider: LLMProvider, model: str) -> None:
     st.header("構造化フォームインターフェース")
     st.markdown(
         """
-以下のフォームに入力してください。システムが内部で最適化されたプロンプトを構築し、
-一貫性のある予測可能な結果を保証します。
+以下のフォームに入力してください。
 """
     )
 

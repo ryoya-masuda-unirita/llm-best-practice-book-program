@@ -114,7 +114,7 @@ uv sync
 
 ```bash
 # Webアプリケーションを起動
-streamlit run app.py
+uv run streamlit run app.py
 ```
 
 ブラウザが自動的に開き（通常は `http://localhost:8501`）、以下の操作が可能になります：

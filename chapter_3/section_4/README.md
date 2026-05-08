@@ -109,15 +109,15 @@
 **1. 環境変数ファイルの作成**
 
 ```bash
-# ローカル実行の場合: .env.exampleをコピーして.envを作成
+# .env.exampleをコピーして.envを作成
 cp .env.example .env
-
-# Docker実行の場合: .envrc.exampleをコピーして.envrcを作成
 cp .envrc.example .envrc
 
-# エディタでファイルを開き、APIキーを設定
+# .envファイルを編集してAPIキーを設定
 GEMINI_API_KEY=<your_gemini_api_key_here>
 ```
+
+> **注意**: Docker Composeは`.env`ファイルから環境変数を読み込みます。`.envrc`はdirenv用（ローカル開発の便利ツール）で、中身は`dotenv`コマンドのみです。`.env`ファイルにAPIキーを設定すれば、ローカル実行・Docker実行の両方で動作します。
 
 #### ローカル実行の場合の追加手順
 

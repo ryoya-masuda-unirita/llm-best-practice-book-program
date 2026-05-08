@@ -19,53 +19,6 @@ LLMアプリケーションにおけるプロンプトを体系的に記録・�
 
 ## アーキテクチャ
 
-```
-src/
-├── model/                          # データモデル
-│   ├── model.py                    # キャラクタージェネレーションのモデル
-│   ├── prompt_log.py              # ログエントリ、評価基準、メタデータ
-│   └── prompt_template.py         # テンプレートとアンチパターン
-│
-├── service/                        # ビジネスロジック
-│   ├── prompt_storage.py          # ストレージ層(ファイルベース)
-│   ├── prompt_analyzer.py         # 評価とパターン抽出
-│   ├── prompt_catalog.py          # テンプレート検索・管理
-│   ├── prompt_analytics.py        # 分析とレポート生成
-│   ├── prompt_service.py          # 統合APIサービス
-│   ├── template_engine.py         # Jinja2テンプレートエンジン
-│   └── request_llm.py             # LLMリクエスト処理
-│
-├── client/                         # LLMクライアント
-│   └── llm_client.py              # OpenAI APIクライアント
-│
-├── prompt/                         # プロンプト定義
-│   └── prompt.py                  # プロンプト構造
-│
-├── examples/                       # 使用例
-│   ├── basic_example.py           # 基本的な使い方
-│   ├── integration_example.py     # 既存システムとの統合例
-│   └── advanced_example.py        # 高度な分析とレポート生成
-│
-├── main.py                         # メインCLI
-├── config.py                       # 設定管理
-└── logger.py                       # ロギング設定
-
-templates/                          # プロンプトテンプレート
-├── character_generation.yaml      # キャラクター生成
-├── email_casual.yaml              # カジュアルメール
-├── email_formal.yaml              # フォーマルメール
-└── product_description.yaml       # 商品説明
-
-variables/                          # 変数ファイル
-├── character_artist.yaml
-├── character_detective.yaml
-├── warrior.yaml
-├── email_campaign_summer.yaml
-├── email_campaign_winter.yaml
-├── product_apparel.yaml
-└── product_electronics.yaml
-```
-
 ### ワークフロー
 
 このシステムは、以下の継続的改善サイクルを実装しています：

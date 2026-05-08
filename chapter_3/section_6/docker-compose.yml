@@ -16,7 +16,7 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT:-30.0}
     env_file:
-      - .envrc
+      - .env
     command:
       - uvicorn
       - src.api_gateway.gateway_server:app
@@ -43,7 +43,7 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     env_file:
-      - .envrc
+      - .env
     command:
       - uvicorn
       - src.api.llm_server:app

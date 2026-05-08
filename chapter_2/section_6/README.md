@@ -97,6 +97,8 @@ GEMINI_API_KEY=<your_gemini_api_key_here>
 ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
 ```
 
+> **注意**: Docker Composeは`.env`ファイルから環境変数を読み込みます。`.envrc`はdirenv用（ローカル開発の便利ツール）で、中身は`dotenv`コマンドのみです。`.env`ファイルにAPIキーを設定すれば、ローカル実行・Docker実行の両方で動作します。
+
 2. **依存関係のインストール**
 
 ```bash

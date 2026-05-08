@@ -1,4 +1,4 @@
-# Chapter 4 Section 1: LLMシステムのストレージと実行を分離する(CQRSパターンの応用)
+# Chapter 4 Section 2: LLMシステムのストレージと実行を分離する(CQRSパターンの応用)
 
 ## 概要
 

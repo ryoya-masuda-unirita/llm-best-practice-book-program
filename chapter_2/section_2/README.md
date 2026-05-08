@@ -94,8 +94,8 @@ cp .envrc.example .envrc
 
 ```bash
 OPENAI_API_KEY=<your_openai_api_key_here>
-BASIC_PREDICTION_MODEL="gpt-5-mini"
-HIGH_PREDICTION_MODEL="gpt-5.1"
+BASIC_PREDICTION_MODEL=gpt-5.4
+HIGH_PREDICTION_MODEL=gpt-5.4
 ```
 
 2. 依存関係をインストール
