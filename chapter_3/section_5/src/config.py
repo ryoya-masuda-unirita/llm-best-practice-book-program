@@ -11,18 +11,26 @@ class Config(BaseModel):
         arbitrary_types_allowed=True,
     )
 
+    gemini_api_key: Secret[str] = Field(default=os.environ["GEMINI_API_KEY"], description="API key for Gemini")
     openai_api_key: Secret[str] = Field(default=os.environ["OPENAI_API_KEY"], description="API key for OpenAI")
-
-    redis_host: str = Field(default=os.environ.get("REDIS_HOST", "localhost"), description="Redis host")
-    redis_port: int = Field(default=int(os.environ.get("REDIS_PORT", "6379")), description="Redis port")
-    redis_db: int = Field(default=int(os.environ.get("REDIS_DB", "0")), description="Redis database number")
-
-    high_priority_ratio: float = Field(default=0.7, description="Processing capacity ratio for high priority queue")
-    medium_priority_ratio: float = Field(default=0.2, description="Processing capacity ratio for medium priority queue")
-    low_priority_ratio: float = Field(default=0.1, description="Processing capacity ratio for low priority queue")
-
-    task_timeout_seconds: int = Field(default=300, description="Maximum time to wait for task completion (seconds)")
-    max_retry_attempts: int = Field(default=3, description="Maximum number of retry attempts for failed tasks")
+    backend_url: str = Field(default=os.environ.get("BACKEND_URL", "http://localhost:8000"), description="Backend URL")
+    proxy_url: str = Field(default=os.environ.get("PROXY_URL", "http://localhost:8080"), description="Proxy URL")
+    proxy_max_retries: int = Field(
+        default=int(os.environ.get("PROXY_MAX_RETRIES", "3")), description="Proxy max retries"
+    )
+    proxy_retry_backoff: float = Field(
+        default=float(os.environ.get("PROXY_RETRY_BACKOFF", "2.0")), description="Proxy retry backoff in seconds"
+    )
+    gateway_url: str = Field(
+        default=os.environ.get("GATEWAY_URL", "http://localhost:8080"), description="Gateway server URL"
+    )
+    gateway_api_token: Secret[str] = Field(
+        default=os.environ.get("GATEWAY_API_TOKEN", "dev-token-12345"),
+        description="API token for gateway authentication",
+    )
+    gateway_timeout: float = Field(
+        default=float(os.environ.get("GATEWAY_TIMEOUT", "30.0")), description="Gateway request timeout in seconds"
+    )
 
 
 config = Config()

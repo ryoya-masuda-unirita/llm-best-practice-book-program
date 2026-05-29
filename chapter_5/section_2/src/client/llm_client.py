@@ -1,8 +1,5 @@
 from enum import StrEnum
 
-from google import genai
-from src.config import config
-
 
 class LLMProvider(StrEnum):
     GEMINI = "gemini"
@@ -18,6 +15,3 @@ class GeminiModel(StrEnum):
     @staticmethod
     def list_str() -> list[str]:
         return [model for model in GeminiModel]
-
-
-google_genai_client = genai.Client(api_key=config.gemini_api_key)

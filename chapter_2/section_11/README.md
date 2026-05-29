@@ -1,105 +1,99 @@
-# Chapter 2 Section 11: プロンプトパフォーマンスのプロファイリング
+# Chapter 2 Section 13: 外部サービス活用
 
 ## 概要
 
-本プロジェクトは、LLMへのプロンプト実行を定量的に計測・分析し、品質、コスト、応答速度の最適化を科学的に実現するプロファイリングシステムの実装例です。
+このプロジェクトは、**外部サービス活用** を用いたLLMの実装を示すサンプルコードです。LLMの卓越した自然言語処理能力を司令塔として活かしつつ、リアルタイム情報の取得といった専門的なタスクを外部のAPIやツールに委譲する設計パターンを実践します。
 
-従来の「勘と経験」に頼った感覚的なプロンプト調整から脱却し、データドリブンな改善サイクルを確立することで、プロンプトエンジニアリングを工学的な営みへと昇華させます。各プロンプトの実行に伴うメトリクス（レイテンシ、トークン使用量、コスト、品質スコア）を収集し、時系列分析や比較評価を通じてボトルネックの特定と継続的な最適化を可能にします。
-
-本実装では、キャラクター生成タスクを題材に、3層アーキテクチャ（収集層・分析層・可視化層）によるプロファイリングシステムを構築しています。生成されたキャラクターはLLM-as-a-Judgeによって品質評価され、その結果もプロファイリングデータとして統合されます。
+具体的には、**MCP (Model Context Protocol)** を使用して、米国国立気象局（NWS）の天気予報APIから気象データを取得し、LLMがそのデータを解釈して適切な服装を提案するアプリケーションを構築します。OpenAI、Google Gemini、Anthropic Claudeの3つのプロバイダーに対応し、それぞれ異なるMCP統合パターンを示します。
 
 ## 機能
 
-- **マルチプロバイダー対応**: OpenAI、Google Gemini、Anthropic の3つのLLMプロバイダーをサポート
-- **パフォーマンスプロファイリング**: リクエストごとのレイテンシ、トークン使用量、推定コストを自動計測
-- **LLM-as-a-Judge統合**: 生成結果の品質を自動評価し、品質スコアをメトリクスに統合
-- **異常検出とアラート**: 設定可能な閾値に基づく警告・クリティカルアラートの自動生成
-- **多角的分析**: プロンプト別、モデル別、プロバイダー別、時系列での集計と比較
-- **複数形式でのレポート出力**: JSON、HTML、テキスト形式でのレポート生成
+- **外部サービス連携**: MCP経由で米国国立気象局（NWS）の天気予報APIを呼び出し
+- **構造化出力**: Pydanticモデルを活用した型安全な服装提案レスポンス
+- **マルチプロバイダー対応**: OpenAI、Google Gemini、Anthropic Claudeの3つをサポート
+- **2つのMCP統合パターン**:
+  - **手動方式（OpenAI/Anthropic）**: MCPツールを手動で呼び出し、結果をプロンプトに含める
+  - **ネイティブ方式（Gemini）**: MCPセッションをネイティブにツールとして渡す
+- **非同期処理**: async/awaitパターンによる効率的なAPI呼び出し
+- **型安全性**: Pydanticによる厳密な型検証とバリデーション
+- **CLIインターフェース**: Clickライブラリを使用した使いやすいコマンドラインツール
+- **環境変数管理**: python-dotenvによる安全なAPIキー管理
+- **ログ出力**: 詳細なログ機能による実行状況の可視化
+- **JSON出力**: 生成結果をJSON形式でファイルに保存
 
 ## プロジェクト構成
 
 ### アーキテクチャ
 
+このプロジェクトは、LLMを中心に外部サービス（天気予報API）を連携させる4層アーキテクチャで構成されています：
+
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              CLIエントリーポイント                           │
-│                              (src/main.py)                                  │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                      │
-                    ┌─────────────────┴─────────────────┐
-                    ▼                                   ▼
-        ┌─────────────────────┐             ┌─────────────────────┐
-        │   標準リクエスト     │             │  プロファイリング付き │
-        │  (request_llm.py)   │             │ (profiled_request_  │
-        │                     │             │      llm.py)        │
-        └─────────────────────┘             └─────────────────────┘
-                    │                                   │
-                    │                       ┌───────────┴───────────┐
-                    │                       ▼                       ▼
-                    │           ┌─────────────────────┐   ┌─────────────────┐
-                    │           │   【収集層】         │   │                 │
-                    │           │  PromptProfiler     │   │  LLM-as-a-Judge │
-                    │           │ (prompt_profiler.py)│   │                 │
-                    │           └─────────────────────┘   └─────────────────┘
-                    │                       │
-                    │                       ▼
-                    │           ┌─────────────────────┐
-                    │           │   【分析層】         │
-                    │           │  MetricsAnalyzer    │
-                    │           │(metrics_analyzer.py)│
-                    │           └─────────────────────┘
-                    │                       │
-                    │                       ▼
-                    │           ┌─────────────────────┐
-                    │           │   【可視化層】       │
-                    │           │  ProfilerReporter   │
-                    │           │(profiler_reporter.py)│
-                    │           └─────────────────────┘
-                    │                       │
-                    ▼                       ▼
-        ┌─────────────────────────────────────────────────────────────────────┐
-        │                         LLMクライアント                              │
-        │                      (llm_client.py)                                │
-        │  ┌─────────────┐   ┌─────────────┐   ┌─────────────────────────┐   │
-        │  │   OpenAI    │   │   Gemini    │   │       Anthropic         │   │
-        │  └─────────────┘   └─────────────┘   └─────────────────────────┘   │
-        └─────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│         CLI Layer (main.py)             │
+│     - コマンドライン引数解析             │
+│     - 出力ディレクトリ管理               │
+│     - 結果の表示とファイル保存           │
+└─────────────────┬───────────────────────┘
+                  │
+┌─────────────────▼───────────────────────┐
+│      Business Logic Layer               │
+│  - リクエスト処理 (request_llm.py)      │
+│  - プロンプト生成 (prompt.py)           │
+│  - データモデル (model.py)              │
+│  - LLMクライアント管理 (llm_client.py)  │
+└─────────────────┬───────────────────────┘
+                  │
+┌─────────────────▼───────────────────────┐
+│      External Service Layer             │
+│  - MCPサーバー (weather_server.py)      │
+│  - 天気予報API統合                      │
+└─────────────────┬───────────────────────┘
+                  │
+┌─────────────────▼───────────────────────┐
+│      Infrastructure Layer               │
+│  - 設定管理 (config.py)                 │
+│  - ログ管理 (logger.py)                 │
+│  - 外部API (OpenAI, Gemini, NWS)        │
+└─────────────────────────────────────────┘
 ```
 
 ## 使い方
 
 ### 環境構成
 
-- Python: 3.13.2以上
-- 依存ライブラリ:
-  - `anthropic>=0.74.1`
-  - `click>=8.3.0`
-  - `google-genai>=1.45.0`
-  - `openai>=2.4.0`
-  - `pydantic>=2.12.2`
-  - `python-dotenv>=1.1.1`
+- **Python**: 3.13.2以上
+- **依存ライブラリ**:
+  - anthropic>=0.74.1
+  - click>=8.3.0
+  - fastapi>=0.119.0
+  - google-genai>=1.45.0
+  - httpx>=0.28.1
+  - mcp[cli]>=1.20.0
+  - openai>=2.4.0
+  - pydantic>=2.12.2
+  - python-dotenv>=1.1.1
+  - redis>=7.0.0
+  - uvicorn>=0.37.0
 
 ### セットアップ
 
-1. 環境変数を設定:
+1. **環境変数ファイルの作成**
 
 ```bash
+# .envrc.exampleをコピーして.envrcを作成
 cp .envrc.example .envrc
-```
 
-`.envrc` を編集し、各LLMプロバイダーのAPIキーを設定:
-
-```bash
+# エディタで.envrcを開き、APIキーを設定
+# .envrc
 OPENAI_API_KEY=<your_openai_api_key_here>
 GEMINI_API_KEY=<your_gemini_api_key_here>
 ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
 ```
 
-2. 依存関係のインストール:
+2. **依存関係のインストール**
 
 ```bash
-# uvを使用
+# uvを使用する
 uv sync
 ```
 
@@ -108,251 +102,272 @@ uv sync
 #### 基本的な使い方
 
 ```bash
-# Gemini でキャラクター生成（プロファイリングなし）
-uv run python -m src.main \
-  --gender FEMALE \
-  --age 25 \
-  --llm-provider GEMINI \
-  --model GEMINI_2_5_FLASH
+# Gemini APIを使用
+uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.7456 -lon -97.0892 -od ./outputs
 
-# OpenAI でキャラクター生成（プロファイリング有効）
-uv run python -m src.main \
-  --gender MALE \
-  --age 30 \
-  --llm-provider OPENAI \
-  --model GPT_5_4_MINI \
-  --enable-profiling
+# OpenAI APIを使用
+uv run python -m src.main -lp OPENAI -m GPT_5_MINI -lat 39.7456 -lon -97.0892 -od ./outputs
 
-# 異なるプロバイダーで生成と評価を分離
-uv run python -m src.main \
-  --gender FEMALE \
-  --age 22 \
-  --llm-provider GEMINI \
-  --model GEMINI_2_5_FLASH \
-  --judge-provider ANTHROPIC \
-  --judge-model CLAUDE_SONNET_4_6 \
-  --enable-profiling \
-  --profiler-report-format html
+# 異なる座標で実行（例: カンザス州）
+uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.0119 -lon -95.6788 -od ./outputs
 ```
 
-#### CLIオプション一覧
+**重要**: このツールは米国国立気象局（NWS）のAPIを使用しているため、**米国内の座標のみ対応**しています。
+
+#### パラメータ説明
+
+- `-lp, --llm-provider`: LLMプロバイダー（`OPENAI` または `GEMINI`）【必須】
+- `-m, --model`: 使用するモデル【必須】
+  - OpenAI: `gpt-5.5`, `gpt-5`, `gpt-5-mini`, `gpt-5.4`, `gpt-5.4-mini` など
+  - Gemini: `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-3.5-flash`, `gemini-3.1-flash-lite`
+- `-lat, --latitude`: 緯度（例: 39.7456）【必須】
+- `-lon, --longitude`: 経度（例: -97.0892）【必須】
+- `-od, --output-directory`: 出力ディレクトリ（デフォルト: `outputs`）
+
+#### ヘルプの表示
 
 ```bash
 $ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
+  天気予報に基づいて服装を提案します
+
+  Example:     python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.7456
+  -lon -97.0892
+
 Options:
-  -g, --gender [FEMALE|MALE]      The gender of the character to generate.
-                                  [required]
-  -a, --age INTEGER RANGE         The age of the character to generate.
-                                  [0<=x<=100; required]
-  -ai, --additional-instructions TEXT
-                                  Additional instructions for character
-                                  generation.
   -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use.  [required]
   -m, --model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_7|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
                                   The model to use for the request.
                                   [required]
+  -lat, --latitude FLOAT          緯度 (例: 39.7456 for Kansas, USA)  [required]
+  -lon, --longitude FLOAT         経度 (例: -97.0892 for Kansas, USA)  [required]
   -od, --output-directory PATH    The directory to save output files.
-  -jp, --judge-provider [OPENAI|GEMINI|ANTHROPIC]
-                                  The LLM provider to use for judgment
-                                  (defaults to same as generation provider).
-  -jm, --judge-model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_7|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
-                                  The model to use for judgment (defaults to
-                                  same as generation model).
-  -p, --enable-profiling          Enable performance profiling for the
-                                  request.
-  -prf, --profiler-report-format [json|html|txt]
-                                  Format for the profiler report.
   --help                          Show this message and exit.
+```
+
+#### 米国の主要都市の座標例
+
+```bash
+# ニューヨーク市（マンハッタン）
+uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 40.7128 -lon -74.0060 -od ./outputs
+
+# ロサンゼルス
+uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 34.0522 -lon -118.2437 -od ./outputs
+
+# シカゴ
+uv run python -m src.main -lp OPENAI -m GPT_5_MINI -lat 41.8781 -lon -87.6298 -od ./outputs
+
+# シアトル
+uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 47.6062 -lon -122.3321 -od ./outputs
 ```
 
 ### 出力例
 
-#### プロファイリングサマリー（ターミナル出力）
+実行すると、以下のような構造化されたJSONファイルと詳細なログが生成されます：
 
-```bash
-$ uv run python -m src.main \
-  --gender FEMALE \
-  --age 22 \
-  --llm-provider GEMINI \
-  --model GEMINI_2_5_FLASH \
-  --judge-provider ANTHROPIC \
-  --judge-model CLAUDE_SONNET_4_6 \
-  --enable-profiling \
-  --profiler-report-format html
-[2026-01-18 14:22:21,221] [INFO] [__main__] [main.py:126] [main] Character Generation Request:
-Gender: female
-Age: 22
-Additional Instructions: 
+**ファイル名**: `outputs/outfit_gemini_dd9eb6dd3ac748e9a79e64908ea0d413.json`
 
-Generation LLM: gemini / gemini-2.5-flash
-Judge LLM: anthropic / claude-sonnet-4-6
+```json
+{
+    "location": "今日の予報地域",
+    "weather_summary": "今日は一日を通して晴れ間が広がる見込みですが、最高気温は約8.9℃（48°F）と非常に肌寒い一日となるでしょう。風もやや強く吹くため、しっかりとした防寒対策が必要です。",
+    "current_weather": {
+        "period_name": "Saturday",
+        "temperature": 48,
+        "temperature_unit": "F",
+        "wind_speed": "5 to 15 mph",
+        "wind_direction": "Northwest",
+        "forecast_summary": "Mostly sunny, with a high near 48. Northwest wind 5 to 15 mph."
+    },
+    "outfit_recommendations": [
+        {
+            "clothing_type": "アウター",
+            "item_suggestion": "厚手のダウンジャケットまたはウールコート",
+            "reason": "最高気温が約8.9℃と低く、風も強めに吹くため、体全体をしっかりと覆い、保温性の高いダウンジャケットやウールコートで寒さから身を守ることが必須です。"
+        },
+        {
+            "clothing_type": "トップス",
+            "item_suggestion": "厚手のセーターや裏起毛のスウェットシャツ",
+            "reason": "アウターの下には、保温性の高い厚手のセーターや裏起毛のスウェットシャツを着用し、重ね着で体温を逃がさないようにしましょう。ヒートテックなどの機能性インナーもおすすめです。"
+        },
+        {
+            "clothing_type": "ボトムス",
+            "item_suggestion": "保温性の高いパンツ（例: コーデュロイパンツ、ウールパンツ、裏起毛パンツ）",
+            "reason": "足元も冷えやすいので、保温効果のあるコーデュロイパンツやウールパンツ、または裏起毛のパンツを選び、下半身の冷えを防ぎましょう。"
+        },
+        {
+            "clothing_type": "小物",
+            "item_suggestion": "マフラー、手袋、ニット帽",
+            "reason": "首元、手先、耳元は特に冷えやすいので、マフラー、手袋、ニット帽で徹底的に防寒対策をすることで、より快適に過ごせます。"
+        }
+    ],
+    "additional_advice": "日中は晴れ間が広がりそうですが、気温は非常に低く、風も冷たく感じられるでしょう。外出時は最大限の防寒対策を心がけ、重ね着で調整できるように準備してください。暖かい飲み物を持ち歩くのも良いでしょう。"
+}
+```
+
+**実行ログ例**:
+```
+$ uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.7456 -lon -97.0892
+[2026-01-18 15:22:40,321] [INFO] [__main__] [main.py:73] [main] LLM provider: gemini
+Model: gemini-2.5-flash
+Latitude: 39.7456
+Longitude: -97.0892
 Output directory: outputs
-[2026-01-18 14:22:21,221] [INFO] [__main__] [main.py:155] [main] Performance profiling is enabled.
-[2026-01-18 14:22:21,221] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:146] [profiled_request_with_judge] Generating prompt...
-[2026-01-18 14:22:21,221] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:149] [profiled_request_with_judge] Generating character...
-[2026-01-18 14:22:23,881] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:94] [profiled_request_gemini] sdk_http_response=HttpResponse(
+[2026-01-18 15:22:40,951] [INFO] [src.service.request_llm] [request_llm.py:81] [request_gemini_outfit] MCP session initialized for Gemini. Requesting outfit recommendation for lat=39.7456, lon=-97.0892
+[01/18/26 15:22:40] INFO     Processing request of type ListToolsRequest                                                                      server.py:674
+[01/18/26 15:22:42] INFO     Processing request of type CallToolRequest                                                                       server.py:674
+[01/18/26 15:22:43] INFO     HTTP Request: GET https://api.weather.gov/points/39.7456,-97.0892 "HTTP/1.1 200 OK"                            _client.py:1740
+                    INFO     HTTP Request: GET https://api.weather.gov/gridpoints/TOP/32,81/forecast "HTTP/1.1 200 OK"                      _client.py:1740
+[2026-01-18 15:22:51,347] [INFO] [src.service.request_llm] [request_llm.py:95] [request_gemini_outfit] Gemini response: sdk_http_response=HttpResponse(
   headers=<dict len=11>
 ) candidates=[Candidate(
   content=Content(
     parts=[
       Part(
-        text="""{
-  "first_name": "Akari",
-  "last_name": "Sato",
-  "gender": "female",
-  "age": 22,
-  "personalities": [
+        text="""```json
+{
+  "location": "緯度39.7456、経度-97.0892の地点",
+  "weather_summary": "今日は一日を通して晴れ間が広がりますが、強い風が吹き、体感温度は非常に低くなるでしょう。",
+  "current_weather": {
+    "period_name": "日中（日曜）",
+    "temperature": 43,
+    "temperature_unit": "F",
+    "wind_speed": "15 to 20 mph",
+    "wind_direction": "W",
+    "forecast_summary": "ほとんど晴れ、最高気温は43°F付近。西風15～20mph、突風は35mphにも達するでしょう。"
+  },
+  "outfit_recommendations": [
     {
-      "short_personality": "Curious",
-      "description": "Akari possesses an insatiable curiosity, always questioning the 'how' and 'why' of the world around her. This drives her to constantly seek out new information, learn diverse skills, and explore unfamiliar places, often getting lost in research or fascinating documentaries."
+      "clothing_type": "アウター",
+      "item_suggestion": "厚手のダウンコートまたはウールコート",
+      "reason": "気温が低く、特に強い風が吹くため、体温をしっかりと保つ厚手のコートは必須です。風を通しにくい素材がおすすめです。"
     },
     {
-      "short_personality": "Resourceful",
-      "description": "When faced with a challenge, Akari rarely gives up. She's incredibly resourceful, capable of improvising solutions with whatever tools are at hand and thinking outside the box. This trait makes her an excellent problem-solver in both mundane and extraordinary situations."
+      "clothing_type": "トップス",
+      "item_suggestion": "厚手のセーターやフリース、または機能性インナー（ヒートテックなど）の上に重ね着",
+      "reason": "コートの下にも保温性の高い衣類を重ね着することで、寒さから体を守ります。特に風が強い日は、重ね着で空気の層を作り体温を逃がさないことが重要です。"
     },
     {
-      "short_personality": "Reserved",
-      "description": "Despite her adventurous spirit, Akari tends to be reserved and somewhat introspective, especially in new social settings. She prefers to observe and listen before contributing, and while she values deep connections, she's not one to easily open up to just anyone. Her emotional world often runs deeper than she lets on."
+      "clothing_type": "ボトムス",
+      "item_suggestion": "裏起毛のパンツ、または保温性のある素材のスカートに厚手のタイツ",
+      "reason": "下半身も冷えやすいため、保温性の高い素材を選びましょう。風を防ぐ素材のパンツも良いでしょう。"
+    },
+    {
+      "clothing_type": "小物類",
+      "item_suggestion": "マフラー、手袋、ニット帽",
+      "reason": "風が強く、体感温度が非常に低くなるため、首、耳、手などの末端をしっかりと保護することが凍傷や体温低下を防ぎます。"
     }
-  ]
-}"""
+  ],
+  "additional_advice": "本日は非常に風が強く、体感温度が実際の気温よりもかなり低く感じられます。外出する際は、防寒対策を徹底し、特に露出する部分を冷やさな いように心がけてください。風で物が飛ばされないように注意し、不要な外出は控えることをお勧めします。"
+}
+```""",
+        thought_signature=b'\n\xa5\x1b\x01r\xc8\xda|l\xef~\x9f!\xd3\x8a\xe5Jv\x1b\x00\r\xac\xb9d\xed1\xac\xe4\xf0\xdbP%\xe0\x1b^\xc0*\xb8X\xe8\xdf]A\xa6\x9af\x9bQ\xa3\x7f\xe0qR\x04Q\x14\x80\xd8\x0b\x1d\xb6\xb9Z\xeb\xc8\xf9\xd2\xb1\xc9\x9b\x8b\xb0\xf1\xc2\x94\xa8\xddx\xfd\xc5Q+x4M\xd9 \xb4\x0b7p\xd6\xc0\x1be\xf30...'
       ),
     ],
     role='model'
   ),
   finish_reason=<FinishReason.STOP: 'STOP'>,
   index=0
-)] create_time=None model_version='gemini-2.5-flash' prompt_feedback=None response_id='D25saZXnLc6k0-kPj-LVuAg' usage_metadata=GenerateContentResponseUsageMetadata(
-  candidates_token_count=285,
-  prompt_token_count=388,
+)] create_time=None model_version='gemini-2.5-flash' prompt_feedback=None response_id='O3xsaaXuCoGr0-kPrfzg-QE' usage_metadata=GenerateContentResponseUsageMetadata(
+  candidates_token_count=589,
+  prompt_token_count=1373,
   prompt_tokens_details=[
     ModalityTokenCount(
       modality=<MediaModality.TEXT: 'TEXT'>,
-      token_count=388
+      token_count=1373
     ),
   ],
-  thoughts_token_count=47,
-  total_token_count=720
-) automatic_function_calling_history=[] parsed=CharacterResponse(first_name='Akari', last_name='Sato', gender=<Gender.FEMALE: 'female'>, age=22, personalities=[CharacterPersonality(short_personality='Curious', description="Akari possesses an insatiable curiosity, always questioning the 'how' and 'why' of the world around her. This drives her to constantly seek out new information, learn diverse skills, and explore unfamiliar places, often getting lost in research or fascinating documentaries."), CharacterPersonality(short_personality='Resourceful', description="When faced with a challenge, Akari rarely gives up. She's incredibly resourceful, capable of improvising solutions with whatever tools are at hand and thinking outside the box. This trait makes her an excellent problem-solver in both mundane and extraordinary situations."), CharacterPersonality(short_personality='Reserved', description="Despite her adventurous spirit, Akari tends to be reserved and somewhat introspective, especially in new social settings. She prefers to observe and listen before contributing, and while she values deep connections, she's not one to easily open up to just anyone. Her emotional world often runs deeper than she lets on.")])
-[2026-01-18 14:22:23,881] [INFO] [src.service.prompt_profiler] [prompt_profiler.py:222] [profile] Profiled request 6291bdc3-fe8f-4b2e-9a78-6f3e72fa56a0: prompt=character_generation_gemini, model=gemini-2.5-flash, latency=2660.23ms, tokens=673 (in=388, out=285), status=success
-[2026-01-18 14:22:23,881] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:176] [profiled_request_with_judge] Character generation completed.
-[2026-01-18 14:22:23,881] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:178] [profiled_request_with_judge] Evaluating character with LLM-as-a-Judge...
-[2026-01-18 14:22:23,882] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:77] [judge_with_anthropic] Requesting judgment from Anthropic model: claude-sonnet-4-6
-[2026-01-18 14:22:38,478] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:88] [judge_with_anthropic] Judgment completed. Overall score: 5.00/5.0
-[2026-01-18 14:22:38,479] [INFO] [src.service.prompt_profiler] [prompt_profiler.py:222] [profile] Profiled request b952c227-24ac-4a4b-b65d-64277f1c3833: prompt=llm_as_a_judge_anthropic, model=claude-sonnet-4-6, latency=14597.65ms, tokens=517 (in=311, out=206), status=success
-[2026-01-18 14:22:38,480] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:230] [profiled_request_with_judge] Evaluation completed. Overall score: 5.00/5.0
-[2026-01-18 14:22:38,480] [INFO] [__main__] [main.py:180] [main] Character file saved to outputs/8779952a32fb430486c8263df4f2baec_gemini_character.json
-[2026-01-18 14:22:38,480] [INFO] [__main__] [main.py:185] [main] Judge evaluation saved to outputs/8779952a32fb430486c8263df4f2baec_anthropic_judge.json
-[2026-01-18 14:22:38,480] [INFO] [__main__] [main.py:186] [main] Overall evaluation score: 5.00/5.0
-[2026-01-18 14:22:38,684] [INFO] [src.service.profiler_reporter] [profiler_reporter.py:515] [save_report] Report saved to: outputs/8779952a32fb430486c8263df4f2baec_profiler_report.html
-[2026-01-18 14:22:38,685] [INFO] [__main__] [main.py:209] [main] Profiler report saved to outputs/8779952a32fb430486c8263df4f2baec_profiler_report.html
+  thoughts_token_count=899,
+  total_token_count=2861
+) automatic_function_calling_history=[UserContent(
+  parts=[
+    Part(
+      text="""緯度39.7456、経度-97.0892の地点の天気予報を取得して、
+今日外出する際の最適な服装を提案してください。
 
-============================================================
-PERFORMANCE PROFILING SUMMARY
-============================================================
-Prompt Performance Summary
-==========================
-
-Report Generated: 2026-01-18T05:22:38.685756+00:00
-Sample Count: 3
-Time Range: 2026-01-18T05:22:23.881766+00:00 to 2026-01-18T05:22:38.480099+00:00
-
-LATENCY
-----------------------------------------
-  Mean:    6,639.37 ms
-  Median:  2,660.23 ms
-  P95:     14,597.65 ms
-  P99:     14,597.65 ms
-  Min:     2,660.23 ms
-  Max:     14,597.65 ms
-  Std Dev: 6,892.07 ms
-
-TOKEN USAGE
-----------------------------------------
-  Total Input:   1,087
-  Total Output:  776
-  Total:         1,863
-  Avg Input:     362.3
-  Avg Output:    258.7
-
-SUCCESS RATE
-----------------------------------------
-  Successful:  3
-  Failed:      0
-  Rate:        100.0%
-
-QUALITY SCORES
-----------------------------------------
-  Average: 5.00 / 5.0
-  Min:     5.00 / 5.0
-  Max:     5.00 / 5.0
-
-COST ESTIMATE
-----------------------------------------
-  Total: $0.0043
-  Avg:   $0.0014 per request
-
-Performance Alerts
-==================
-
-Report Generated: 2026-01-18T05:22:38.685903+00:00
-Total Alerts: 1
-
-CRITICAL ALERTS
-----------------------------------------
-  [2026-01-18T05:22:38] Critical latency detected: 14597.65ms exceeds 10000.0ms threshold
-```
-
-#### 生成されたキャラクター（JSON）
-
-```json
+以下の構造のJSONで回答してください：
 {
-    "first_name": "エミ",
-    "last_name": "田中",
-    "gender": "female",
-    "age": 25,
-    "personalities": [
-        {
-            "short_personality": "好奇心旺盛",
-            "description": "常に新しい知識や経験を求めています。見知らぬ場所を探索したり、未読の本を読み漁ったり、異文化に触れることに深い喜びを感じます。その探求心は彼女を常に動かし続けます。"
-        },
-        {
-            "short_personality": "共感的",
-            "description": "他人の感情や視点に深く共感し、理解しようと努めます。困っている人を見ると放っておけず、常に思いやりを持って接します。そのため、周囲からは頼れる相談相手として慕われています。"
-        },
-        {
-            "short_personality": "決断力がある",
-            "description": "一度決めた目標に向かって、迷うことなく行動できます。困難な状況に直面しても、冷静に判断し、迅速かつ効果的な解決策を見出すことができます。この特性は、彼女を頼りになるリーダーにしています。"
-        }
-    ]
+  "location": "場所の説明",
+  "weather_summary": "今日の天気の概要",
+  "current_weather": {
+    "period_name": "予報期間の名前",
+    "temperature": 気温（数値）,
+    "temperature_unit": "F",
+    "wind_speed": "風速",
+    "wind_direction": "風向き",
+    "forecast_summary": "天気予報の要約"
+  },
+  "outfit_recommendations": [
+    {
+      "clothing_type": "服装の種類",
+      "item_suggestion": "具体的なアイテムの提案",
+      "reason": "その服装を提案する理由"
+    }
+  ],
+  "additional_advice": "その他のアドバイス"
 }
-```
 
-#### 評価結果（JSON）
-
-```json
-{
-    "evaluations": [
-        {
-            "reasoning": "リクエストパラメータ（Gender: female, Age: 25）に忠実に従っており、質問内容に沿ったキャラクター情報が正確に生成されています。誤った情報やハルシネーションは含まれていません。",
-            "criterion_name": "accuracy",
-            "score": 5
+気温、風速、天気の状況を総合的に考慮して、日本の気候と文化に適した提案をしてください。
+outfit_recommendationsには最低3つのアイテムを含めてください。"""
+    ),
+  ],
+  role='user'
+), Content(
+  parts=[
+    Part(
+      function_call=FunctionCall(
+        args={
+          'latitude': 39.7456,
+          'longitude': -97.0892
         },
-        {
-            "reasoning": "質問で求められている「詳細な性格」が3つの異なる特性として具体的に記述されており、ユーザーの要求を完全に満たしています。リクエストパラメータもすべて網羅されています。",
-            "criterion_name": "comprehensiveness",
-            "score": 5
-        },
-        {
-            "reasoning": "JSON形式で構造化されており、非常に読みやすいです。各性格の説明も簡潔かつ明瞭で、専門用語もなく理解しやすい表現が使われています。",
-            "criterion_name": "clarity",
-            "score": 5
+        name='get_forecast'
+      ),
+      thought_signature=b'\n\xf8\x07\x01r\xc8\xda|\x1a\xf8\xbc\xa4lO\xcd/I>\xdd\xf0!I\x9f\x98\x97x\xf5\xc0z\x16\xe3*\xe9>\x86a\x96\rsb\xb7\x88j9\xe9\x9a#\xcbL.B(\\\xcc\xda\x87{\x19J\x0e\xd6\xc1I\x91\xc6\xa3\x80l\xb4\xc3\x0eU0\xf4#\x9c]\xa7\tf\xb8I\xce\xa8>~!)\xcc019t7\xa4@f...'
+    ),
+  ],
+  role='model'
+), Content(
+  parts=[
+    Part(
+      function_response=FunctionResponse(
+        name='get_forecast',
+        response={
+          'result': CallToolResult(
+            content=[<... 1 item at Max depth ...>],
+            isError=False,
+            structuredContent={<... 1 item at Max depth ...>}
+          )
         }
-    ],
-    "overall_score": 5.0,
-    "summary": "質問とリクエストパラメータに完全に合致し、詳細かつ明瞭なキャラクター情報が生成されています。非常に質の高い回答です。"
-}
+      )
+    ),
+  ],
+  role='user'
+)] parsed=None
+Warning: there are non-text parts in the response: ['thought_signature'], returning concatenated text result from text parts. Check the full candidates.content.parts accessor to get the full model response.
+[2026-01-18 15:22:51,412] [INFO] [__main__] [main.py:104] [main] File saved to outputs/outfit_gemini_1b0df08100614ec9b9b10287c3621824.json
+[2026-01-18 15:22:51,412] [INFO] [__main__] [main.py:106] [main] 
+=== 服装提案 ===
+場所: 緯度39.7456、経度-97.0892の地点
+天気概要: 今日は一日を通して晴れ間が広がりますが、強い風が吹き、体感温度は非常に低くなるでしょう。
+
+現在の天気:
+  期間: 日中（日曜）
+  気温: 43°F
+  風: 15 to 20 mph W
+  予報: ほとんど晴れ、最高気温は43°F付近。西風15～20mph、突風は35mphにも達するでしょう。
+
+推奨服装:
+
+[2026-01-18 15:22:51,412] [INFO] [__main__] [main.py:120] [main]   1. アウター: 厚手のダウンコートまたはウールコート
+     理由: 気温が低く、特に強い風が吹くため、体温をしっかりと保つ厚手のコートは必須です。風を通しにくい素材がおすすめです。
+[2026-01-18 15:22:51,412] [INFO] [__main__] [main.py:120] [main]   2. トップス: 厚手のセーターやフリース、または機能性インナー（ヒートテックなど）の上に重 ね着
+     理由: コートの下にも保温性の高い衣類を重ね着することで、寒さから体を守ります。特に風が強い日は、重ね着で空気の層を作り体温を逃がさないことが重要です。
+[2026-01-18 15:22:51,412] [INFO] [__main__] [main.py:120] [main]   3. ボトムス: 裏起毛のパンツ、または保温性のある素材のスカートに厚手のタイツ
+     理由: 下半身も冷えやすいため、保温性の高い素材を選びましょう。風を防ぐ素材のパンツも良いでしょう。
+[2026-01-18 15:22:51,412] [INFO] [__main__] [main.py:120] [main]   4. 小物類: マフラー、手袋、ニット帽
+     理由: 風が強く、体感温度が非常に低くなるため、首、耳、手などの末端をしっかりと保護することが凍傷や体温低下を防ぎます。
+[2026-01-18 15:22:51,412] [INFO] [__main__] [main.py:123] [main] 
+追加アドバイス: 本日は非常に風が強く、体感温度が実際の気温よりもかなり低く感じられます。外出する際は、防寒対策を徹底し、特に露出する部分を冷やさないように 心がけてください。風で物が飛ばされないように注意し、不要な外出は控えることをお勧めします。
 ```

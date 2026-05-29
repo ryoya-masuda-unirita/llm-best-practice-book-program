@@ -1,485 +1,651 @@
-# Chapter 2 Section 6: Structured Template Prompting - Project Status Report
+# Chapter 2 Section 8: Prompt Unit Testing with LLM-as-a-Judge
 
-**Generated**: 2025-10-18
-**Project**: Structured Template Prompting with Jinja2 and YAML
-**Status**: ✅ Implementation Complete - Production Ready
-**Version**: 1.0
+## Overview
 
----
+This project demonstrates **Prompt Unit Testing**, a design practice for verifying the behavior of prompts given to LLMs (Large Language Models) and continuously ensuring their quality and stability. In LLM-integrated applications, changes to prompts can have unexpected impacts on the entire system's output.
 
-## 📊 Project Overview
+This practice applies the concept of unit testing from traditional software development to prompt engineering. By introducing a mechanism to automatically verify the impact of prompt changes, it aims to detect unintended quality degradation (regression) early and enhance the reliability of LLM systems.
 
-This section implements a production-ready structured template prompting system for Large Language Model (LLM) applications. The system addresses critical challenges in prompt management: maintainability, reusability, testability, and collaborative development.
+The implementation showcases two key patterns:
+1. **Prompt Unit Testing**: Systematic testing of prompts using representative inputs, structure validation, and regression detection
+2. **LLM-as-a-Judge**: Using another LLM to evaluate the quality of generated outputs based on defined criteria
 
-### Core Problem
+## Features
 
-Traditional prompt management approaches fail for LLM applications because:
-- Hardcoded prompts in source code are difficult to modify and maintain
-- Copy-paste duplication leads to inconsistency and maintenance overhead
-- Non-technical team members cannot easily improve prompts
-- Testing and version control of prompts is challenging
-- Dynamic prompt assembly from multiple sources becomes unmanageable
+- **Comprehensive Prompt Testing Framework**: Multiple test patterns for validating prompt behavior
+- **LLM-as-a-Judge Integration**: Automated quality evaluation using LLM-based judges
+- **Multi-Provider Support**: Works with both OpenAI GPT-5.4-mini and Google Gemini 2.5 Flash
+- **Structured Output Validation**: Type-safe responses using Pydantic models
+- **Flexible Evaluation Criteria**: Support for both default and custom evaluation criteria
+- **Regression Detection**: Tests designed to catch quality degradation when prompts change
+- **Mock-based Testing**: Fast unit tests using mocks alongside integration tests
+- **Quality Thresholds**: Configurable pass/fail thresholds for automated quality gates
+- **JSON Export**: Save both generation results and evaluation reports
+- **Async Architecture**: Efficient async/await pattern for API calls
 
-### Solution
+## Project Structure
 
-A template-driven architecture that separates prompt structure from code, enabling:
-- YAML-based template definition with Jinja2 for dynamic variable injection
-- Complete separation of prompt logic (templates) from data (variables)
-- Validation to ensure all required variables are provided
-- Multiple template variations for A/B testing and multi-use cases
-- Non-engineer prompt editing without touching code
-- Clean version control and collaboration workflows
-
----
-
-## ✅ Completed Features
-
-### Core Components
-- [x] TemplateEngine class with Jinja2 integration (src/service/template_engine.py - 147 lines)
-- [x] Variable extraction (`get_template_variables`)
-- [x] Variable validation (`validate_variables`)
-- [x] Template rendering (`render_template`)
-- [x] Message format conversion (`render_prompt_messages`)
-- [x] YAML template format with system_prompt and user_prompt keys
-- [x] Support for Jinja2 features (variables, conditionals, loops, filters)
-
-### Templates and Variables
-- [x] Character generation template (templates/character_generation.yaml)
-- [x] Product description template (templates/product_description.yaml)
-- [x] Email templates: formal and casual (templates/email_*.yaml)
-- [x] Character variable files: artist, detective (variables/character_*.yaml)
-- [x] Product variable files: electronics, apparel (variables/product_*.yaml)
-- [x] Email campaign variables: summer, winter (variables/email_campaign_*.yaml)
-
-### Application Integration
-- [x] Prompt generation using templates (src/prompt/prompt.py)
-- [x] LLM request handlers for OpenAI (src/service/request_llm.py)
-- [x] CLI with model and provider selection (src/main.py)
-- [x] Pydantic models for type safety (src/model/model.py)
-- [x] Configuration management (src/config.py)
-- [x] Logging setup (src/logger.py)
-
-### Testing
-- [x] 54 comprehensive tests across 2 test files
-- [x] TemplateEngine tests (46 tests) - initialization, validation, rendering, edge cases
-- [x] Prompt generation tests (8 tests)
-- [x] Test fixtures for temporary template directories (tests/conftest.py)
-- [x] Coverage for Unicode, special characters, nested structures
-
-### Infrastructure
-- [x] Makefile for common tasks (install, test, run, lint)
-- [x] pytest configuration with asyncio support
-- [x] Environment variable management
-- [x] Dependencies: jinja2>=3.1.6, pyyaml>=6.0.3
-
-### Documentation
-- [x] Comprehensive README.md (Japanese, production-ready)
-- [x] CLAUDE.md design specification (this file)
-- [x] Inline code documentation
-- [x] Usage examples and patterns
-
----
-
-## 📁 Project Structure
+### Directory Structure
 
 ```
-section_6/
+chapter_2/section_7/
 ├── src/
-│   ├── __init__.py
-│   ├── main.py                    # CLI entry point
-│   ├── config.py                  # Configuration (API keys)
-│   ├── logger.py                  # Logging setup
+│   ├── __init__.py              # Package initialization
+│   ├── config.py                # Configuration management (API keys)
+│   ├── logger.py                # Logging setup
+│   ├── main.py                  # Main entry point with CLI
 │   ├── client/
 │   │   ├── __init__.py
-│   │   └── llm_client.py          # OpenAI client
+│   │   └── llm_client.py        # LLM client initialization (OpenAI, Gemini)
 │   ├── model/
 │   │   ├── __init__.py
-│   │   └── model.py               # Request/Response models
+│   │   ├── model.py             # Character models (Request/Response)
+│   │   └── llm_as_a_judge_model.py  # Judge models (Request/Response)
 │   ├── prompt/
 │   │   ├── __init__.py
-│   │   └── prompt.py              # make_prompt function
+│   │   ├── prompt.py            # Character generation prompt
+│   │   └── llm_as_a_judge_prompt.py # Judge evaluation prompt
 │   └── service/
 │       ├── __init__.py
-│       ├── request_llm.py         # LLM request handlers
-│       └── template_engine.py     # Template engine (147 lines)
-├── templates/                      # YAML templates (4 files)
-│   ├── character_generation.yaml
-│   ├── product_description.yaml
-│   ├── email_formal.yaml
-│   └── email_casual.yaml
-├── variables/                      # Variable definitions (6 files)
-│   ├── character_artist.yaml
-│   ├── character_detective.yaml
-│   ├── product_electronics.yaml
-│   ├── product_apparel.yaml
-│   ├── email_campaign_summer.yaml
-│   └── email_campaign_winter.yaml
-├── tests/                          # Test suite (54 tests)
+│       ├── request_llm.py       # Character generation service
+│       └── llm_as_a_judge.py    # Judge evaluation service
+├── tests/
 │   ├── __init__.py
-│   ├── conftest.py
-│   ├── test_template_engine.py    # 46 tests
-│   └── test_prompt.py             # 8 tests
-├── outputs/                        # Generated files (gitignored)
-├── .envrc.example
-├── pyproject.toml
-├── pytest.ini
-├── Makefile
-├── README.md
-└── CLAUDE.md
+│   ├── conftest.py              # Pytest fixtures
+│   ├── test_prompt_unit_testing.py  # Main prompt unit tests
+│   └── test_llm_as_a_judge.py   # LLM-as-a-Judge functionality tests
+├── outputs/                      # Generated results (auto-created)
+├── .envrc.example               # Environment variables template
+├── pyproject.toml               # Project dependencies
+├── pytest.ini                   # Pytest configuration
+├── Makefile                     # Development commands
+├── README.md                    # Project documentation (Japanese)
+└── CLAUDE.md                    # This file
 ```
 
-**Statistics**:
-- 17 Python files
-- 54 comprehensive tests
-- 4 template files
-- 6 variable files
+### Architecture
 
----
+The project follows a layered architecture with clear separation of concerns:
 
-## 🎓 Key Implementation Details
-
-### 1. TemplateEngine (src/service/template_engine.py)
-
-**Purpose**: Core template management system using Jinja2 and YAML
-
-**Key Methods**:
-- `get_template_variables(template_name)` - Extract all variable names from a template
-- `validate_variables(template_name, variables)` - Validate that all required variables are provided
-- `render_template(template_name, variables, validate=True)` - Render template to dict
-- `render_prompt_messages(...)` - Render and convert to LLM API message format
-
-**Features**:
-- Automatic variable extraction using `jinja2.meta.find_undeclared_variables()`
-- Validation before rendering to catch errors early
-- Support for Jinja2 filters, conditionals, loops
-- Proper YAML indentation handling (`trim_blocks`, `lstrip_blocks`)
-
-### 2. YAML Template Format
-
-**Standard Structure**:
-```yaml
-system_prompt: >-
-  System instruction text here.
-  {{ variable_name }}
-
-user_prompt: >-
-  User instruction text here.
-  {% if optional_variable %}
-  {{ optional_variable }}
-  {% endif %}
+```
+┌─────────────────────────────────────────────────┐
+│         CLI Layer (main.py)                     │
+│     - Command-line argument parsing             │
+│     - Output directory management               │
+│     - Orchestration of generation + evaluation  │
+└─────────────────┬───────────────────────────────┘
+                  │
+┌─────────────────▼───────────────────────────────┐
+│      Business Logic Layer                       │
+│  - Prompt generation (prompt.py)                │
+│  - LLM client management (llm_client.py)        │
+│  - Data models (model.py)                       │
+│  - Judge prompts (llm_as_a_judge_prompt.py)     │
+└─────────────────┬───────────────────────────────┘
+                  │
+┌─────────────────▼───────────────────────────────┐
+│      Service Layer                              │
+│  - Character generation (request_llm.py)        │
+│  - Judge evaluation (llm_as_a_judge.py)         │
+│  - Coordinated workflows (request_with_judge)   │
+└─────────────────┬───────────────────────────────┘
+                  │
+┌─────────────────▼───────────────────────────────┐
+│      Infrastructure Layer                       │
+│  - Configuration (config.py)                    │
+│  - Logging (logger.py)                          │
+│  - External APIs (OpenAI, Gemini)               │
+└─────────────────────────────────────────────────┘
 ```
 
-**Jinja2 Features Supported**:
-- Variable substitution: `{{ variable }}`
-- Conditionals: `{% if condition %}...{% endif %}`
-- Loops: `{% for item in list %}...{% endfor %}`
-- Filters: `{{ variable | indent(2) }}`
+### Implementation Details
 
-### 3. Variable Files
+#### 1. Data Models
 
-Separate YAML files containing data to inject into templates:
-
-```yaml
-# variables/character_artist.yaml
-gender: "female"
-age: 28
-additional_instructions: "このキャラクターは画家で、感受性が豊かです。"
-```
-
-**Benefits**:
-- Same template, multiple data sets
-- Easy A/B testing
-- Non-engineer editable
-- Version control for variations
-
-### 4. Prompt Generation (src/prompt/prompt.py)
+**Character Models** (`src/model/model.py`):
 
 ```python
-# Initialize template engine once at module level
-_template_engine = TemplateEngine(template_dir=_template_dir)
+class CharacterRequest(BaseModel):
+    gender: Gender
+    age: int  # 0-100
+    additional_instructions: Optional[str]
 
-def make_prompt(character_request: CharacterRequest) -> list:
-    # Prepare variables
-    template_variables = {
-        "response_schema": response_schema,
-        "gender": character_request.gender.value,
-        "age": character_request.age,
-        "additional_instructions": character_request.additional_instructions or "",
-    }
-
-    # Render with validation
-    return _template_engine.render_prompt_messages(
-        template_name="character_generation.yaml",
-        variables=template_variables,
-        validate=True
-    )
+class CharacterResponse(BaseModel):
+    first_name: str
+    last_name: str
+    gender: Gender
+    age: int  # 0-100
+    personalities: list[CharacterPersonality]  # Exactly 3 traits
 ```
 
----
+**Judge Models** (`src/model/llm_as_a_judge_model.py`):
 
-## 🧪 Testing Strategy
+```python
+class EvaluationScore(IntEnum):
+    COMPLETELY_INAPPROPRIATE = 1
+    POOR = 2
+    ACCEPTABLE = 3
+    GOOD = 4
+    PERFECT = 5
 
-### Test Coverage (54 tests)
+class JudgeRequest(BaseModel):
+    question: str
+    response: str
+    context: str | None
 
-**TemplateEngine Tests** (46 tests):
-- Initialization: valid/invalid directories, string paths
-- Variable extraction: simple, loops, conditionals, multiple vars
-- Variable validation: missing, extra, partial variables
-- Template rendering: loops, conditionals, nested structures
-- Message conversion: default keys, custom keys, missing keys
-- Edge cases: Unicode, None values, special chars, boolean values
+class JudgeResponse(BaseModel):
+    evaluations: list[EvaluationCriterion]
+    overall_score: float  # 1.0-5.0
+    summary: str
+```
 
-**Prompt Generation Tests** (8 tests):
-- Correct message format
-- Variable injection
-- Schema inclusion
-- Conditional sections
-- Validation enforcement
+#### 2. Prompt Unit Testing Patterns
+
+The test suite (`tests/test_prompt_unit_testing.py`) demonstrates six key testing patterns:
+
+**a) Structure Validation** (`TestCharacterPromptStructure`):
+- Verifies prompt includes all required fields
+- Checks format enforcement (JSON)
+- Validates parameter propagation
+
+**b) Quality Testing** (`TestCharacterOutputQuality`):
+- Uses LLM-as-a-Judge to validate output quality
+- Tests both high-quality and low-quality detection
+- Ensures quality thresholds work correctly
+
+**c) Representative Inputs** (`TestRepresentativeInputs`):
+- Tests 3-5 key scenarios covering main use cases
+- Young female fantasy character (primary use case)
+- Elderly male realistic character (different demographics)
+- Minimal input (edge case)
+
+**d) Custom Criteria** (`TestCustomJudgeCriteria`):
+- Demonstrates domain-specific evaluation criteria
+- Example: creativity, fantasy_elements, consistency for fantasy characters
+
+**e) Regression Detection** (`TestRegressionDetection`):
+- Verifies all required fields are present
+- Checks personality traits have descriptions
+- Validates JSON serialization
+- Ensures names are non-empty
+- Confirms age/gender match requests
+
+**f) End-to-End Integration** (`TestEndToEndWithJudge`):
+- Full workflow test (skipped by default)
+- Requires actual API calls
+- Validates complete generation + evaluation pipeline
+
+#### 3. LLM-as-a-Judge Implementation
+
+**Judge Service** (`src/service/llm_as_a_judge.py`):
+
+```python
+async def judge_with_openai(
+    judge_request: JudgeRequest,
+    model: OpenAIModel,
+) -> JudgeResponse:
+    """Evaluate response using OpenAI as judge."""
+    prompt = make_judge_prompt(judge_request)
+    result = await openai_client.beta.chat.completions.parse(
+        model=model,
+        messages=prompt,
+        response_format=JudgeResponse,
+    )
+    return result.choices[0].message.parsed
+```
+
+**Default Evaluation Criteria**:
+1. **Accuracy**: Does the response correctly answer the question?
+2. **Comprehensiveness**: Is all necessary information included?
+3. **Clarity**: Is the response clear and easy to understand?
+
+**Custom Criteria Support**:
+```python
+custom_criteria = [
+    {"name": "creativity", "description": "Is the character unique..."},
+    {"name": "fantasy_elements", "description": "Does it contain magic..."},
+]
+prompt = make_custom_judge_prompt(request, criteria=custom_criteria)
+```
+
+#### 4. Integrated Workflow
+
+The `request_with_judge` function (`src/service/request_llm.py`) coordinates:
+
+1. **Character Generation**: Generate character using OpenAI or Gemini
+2. **Automatic Evaluation**: Evaluate result using LLM-as-a-Judge
+3. **Return Both**: Return both character and evaluation results
+
+```python
+character_result, judge_result = await request_with_judge(
+    prompt=prompt,
+    model=model,
+    provider=provider,
+    judge_model=judge_model,
+    judge_provider=judge_provider,
+)
+```
+
+## Usage
+
+### Environment Setup
+
+- **Python**: 3.13.2 or higher
+- **Dependencies**:
+  - click>=8.3.0
+  - google-genai>=1.45.0
+  - openai>=2.4.0
+  - pydantic>=2.12.2
+  - python-dotenv>=1.1.1
+  - pytest>=8.4.2 (dev)
+  - pytest-asyncio>=1.2.0 (dev)
+  - pytest-mock>=3.15.1 (dev)
+
+### Setup
+
+1. **Create environment variables file**
+
+```bash
+# Copy example and edit
+cp .envrc.example .envrc
+
+# Add your API keys
+# .envrc
+OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
+GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
+```
+
+2. **Install dependencies**
+
+```bash
+# Using uv (recommended)
+uv sync
+
+# Using pip
+pip install -e .
+```
+
+### Running Character Generation
+
+#### Basic Usage
+
+```bash
+# Generate with Gemini (default)
+uv run python -m src.main \
+  -g female \
+  -a 25 \
+  -ai "Generate a wizard from a fantasy world." \
+  -lp gemini \
+  -m gemini-2.5-flash
+
+# Generate with OpenAI
+uv run python -m src.main \
+  -g male \
+  -a 30 \
+  -ai "Generate a detective from the modern world." \
+  -lp openai \
+  -m gpt-5.4-mini
+```
+
+#### Advanced Options
+
+```bash
+# Custom output directory
+uv run python -m src.main -g female -a 25 -lp gemini -m gemini-2.5-flash -od ./custom_output
+
+# Use different models for generation and judgment
+uv run python -m src.main \
+  -g female -a 25 \
+  -lp gemini -m gemini-2.5-flash \
+  -jp openai -jm gpt-5.4-mini
+```
+
+#### CLI Options
+
+```
+Options:
+  -g, --gender [female|male]       Character gender (required)
+  -a, --age INTEGER RANGE          Character age 0-100 (required)
+  -ai, --additional-instructions   Additional generation instructions
+  -lp, --llm-provider              Provider for generation (openai|gemini)
+  -m, --model                      Model for generation
+  -jp, --judge-provider            Provider for judgment (optional)
+  -jm, --judge-model              Model for judgment (optional)
+  -od, --output-directory PATH     Output directory (default: outputs)
+  --help                           Show help message
+```
+
+### Output Example
+
+Running the generation creates two JSON files:
+
+**Character File**: `outputs/{uuid}_gemini_character.json`
+```json
+{
+    "first_name": "Aria",
+    "last_name": "Stormweaver",
+    "gender": "female",
+    "age": 25,
+    "personalities": [
+        {
+            "short_personality": "Curious scholar",
+            "description": "Driven by an insatiable thirst for knowledge, constantly studying ancient texts and experimenting with new spell combinations."
+        },
+        {
+            "short_personality": "Compassionate healer",
+            "description": "Uses magic primarily to help others, often prioritizing healing and protection spells over offensive magic."
+        },
+        {
+            "short_personality": "Impulsive risk-taker",
+            "description": "Sometimes acts without fully thinking through consequences, especially when pursuing a fascinating magical discovery."
+        }
+    ]
+}
+```
+
+**Judge File**: `outputs/{uuid}_gemini_judge.json`
+```json
+{
+    "evaluations": [
+        {
+            "criterion_name": "accuracy",
+            "score": 5,
+            "reasoning": "The response perfectly matches the request for a 25-year-old female wizard character from a fantasy world."
+        },
+        {
+            "criterion_name": "comprehensiveness",
+            "score": 4,
+            "reasoning": "Includes all required fields with detailed personality descriptions, though could expand on magical abilities."
+        },
+        {
+            "criterion_name": "clarity",
+            "score": 5,
+            "reasoning": "Clear, well-structured output with easy-to-understand personality descriptions."
+        }
+    ],
+    "overall_score": 4.67,
+    "summary": "Excellent character generation that meets all requirements with creative and consistent personality traits."
+}
+```
+
+**Console Output**:
+```
+[2025-10-18 10:30:45] [INFO] [__main__] Character Generation Request:
+Gender: female
+Age: 25
+Additional Instructions: Generate a wizard from a fantasy world.
+
+Generation LLM: gemini / gemini-2.5-flash
+Judge LLM: gemini / gemini-2.5-flash
+Output directory: outputs
+
+[2025-10-18 10:30:46] [INFO] [src.service.request_llm] Step 1: Generating character...
+[2025-10-18 10:30:48] [INFO] [src.service.request_llm] Character generation completed.
+[2025-10-18 10:30:48] [INFO] [src.service.request_llm] Step 2: Evaluating character with LLM-as-a-Judge...
+[2025-10-18 10:30:50] [INFO] [src.service.llm_as_a_judge] Judgment completed. Overall score: 4.67/5.0
+[2025-10-18 10:30:50] [INFO] [__main__] Character file saved to outputs/abc123_gemini_character.json
+[2025-10-18 10:30:50] [INFO] [__main__] Judge evaluation saved to outputs/abc123_gemini_judge.json
+[2025-10-18 10:30:50] [INFO] [__main__] Overall evaluation score: 4.67/5.0
+```
 
 ### Running Tests
 
+#### Run All Tests
+
 ```bash
-# All tests
-make test
+# Run all tests (mocked, no API calls)
 uv run pytest
 
-# With coverage
-make pytest-cov
+# Verbose output
+uv run pytest -v
 
-# Specific test file
-uv run pytest tests/test_template_engine.py -v
-
-# Failed tests only
-make pytest-failed
+# Show print statements
+uv run pytest -s
 ```
 
----
-
-## 🚀 Usage Examples
-
-### Basic CLI Usage
+#### Run Specific Test Classes
 
 ```bash
-# Install dependencies
-uv sync
-make install
+# Test prompt structure validation
+uv run pytest tests/test_prompt_unit_testing.py::TestCharacterPromptStructure -v
 
-# Run with OpenAI
-uv run python -m src.main --model gpt-5.4
-make run-openai
+# Test quality evaluation
+uv run pytest tests/test_prompt_unit_testing.py::TestCharacterOutputQuality -v
 
-# Custom output directory
-uv run python -m src.main -m gpt-5.4-mini -od ./my_outputs
+# Test regression detection
+uv run pytest tests/test_prompt_unit_testing.py::TestRegressionDetection -v
+
+# Test LLM-as-a-Judge functionality
+uv run pytest tests/test_llm_as_a_judge.py -v
 ```
 
-### Programmatic Usage
+#### Run Integration Tests
+
+```bash
+# Run integration test (requires API keys and makes real API calls)
+uv run pytest -k "test_full_generation" -v
+
+# Skip integration tests (default behavior)
+uv run pytest -v -k "not test_full_generation"
+```
+
+#### Test Organization
+
+Tests are organized with pytest markers:
+
+- `@pytest.mark.asyncio`: Async tests
+- `@pytest.mark.skip`: Skipped tests (e.g., integration tests)
+- `@pytest.mark.integration`: Integration tests requiring API calls
+- `@pytest.mark.unit`: Fast unit tests with mocks
+
+### Development Commands
+
+```bash
+# Lint code
+make lint
+
+# Format code
+make fmt
+
+# Lint + format
+make fix
+
+# Type checking
+make mypy
+```
+
+## Key Design Patterns
+
+### 1. Representative Input Testing
+
+Instead of testing all possible inputs, focus on 3-5 representative cases:
 
 ```python
-from src.service.template_engine import TemplateEngine
+class TestRepresentativeInputs:
+    async def test_young_female_fantasy_character(self):
+        """Test Case 1: Primary use case"""
 
-# Initialize engine
-engine = TemplateEngine(template_dir="templates")
+    async def test_elderly_male_realistic_character(self):
+        """Test Case 2: Different demographics"""
 
-# Define variables
-variables = {
-    "gender": "female",
-    "age": 28,
-    "additional_instructions": "Creative and artistic."
-}
-
-# Render to LLM message format
-messages = engine.render_prompt_messages(
-    template_name="character_generation.yaml",
-    variables=variables,
-    validate=True
-)
-
-# Use with LLM API
-response = await llm_client.generate(messages=messages)
+    async def test_young_adult_no_additional_instructions(self):
+        """Test Case 3: Minimal input edge case"""
 ```
 
----
+### 2. Flexible Validation
 
-## 💡 Key Benefits
+Tests verify "conditions that must be met" rather than exact output matching:
 
-### 1. Enhanced Maintainability
-- Centralized prompt management
-- No code changes for prompt updates
-- Version control for prompt history
-- Easy rollback to previous versions
+```python
+# ✓ Good: Flexible validation
+assert len(response.personalities) == 3
+assert response.age == request.age
+assert all(len(p.description) > len(p.short_personality) for p in response.personalities)
 
-### 2. Improved Reusability
-- One template, multiple variable sets
-- Easy A/B testing
-- Template variations for different use cases
-
-### 3. Team Collaboration
-- Non-engineers can edit YAML files
-- Product managers can iterate on prompts
-- Domain experts can refine instructions
-- No code deployment for prompt changes
-
-### 4. Better Testing
-- Templates testable in isolation
-- Systematic validation testing
-- Edge case coverage
-- Mock data testing
-
-### 5. Flexibility
-- Jinja2 provides powerful features
-- Conditional content
-- Loop constructs
-- Filter functions
-
----
-
-## ⚖️ Trade-offs and Considerations
-
-### Benefits
-1. Maintainability: Centralized prompt management
-2. Reusability: One template, many variable sets
-3. Testability: Easy to test templates in isolation
-4. Collaboration: Non-engineers can edit YAML files
-5. Version Control: Git-friendly prompt history
-6. Validation: Catch missing variables early
-
-### Trade-offs
-1. **Complexity**: Additional abstraction layer
-   - Mitigation: Good documentation, examples
-
-2. **Over-abstraction Risk**: Too many template layers
-   - Mitigation: Keep templates simple, limit nesting
-
-3. **Debugging Challenges**: Errors in template or variables
-   - Mitigation: Detailed error messages, validation
-
-4. **Performance**: Template parsing overhead
-   - Mitigation: Cache compiled templates (Jinja2 default)
-
-5. **Logic in Templates**: Temptation to add business logic
-   - Mitigation: Keep templates simple, complex logic in Python
-
----
-
-## 📚 Best Practices
-
-### Do's
-1. Keep templates simple - minimize logic
-2. Always validate in production (`validate=True`)
-3. Use variable files for data separation
-4. Write template tests
-5. Document required variables
-6. Version control templates and variables
-7. Use meaningful file names
-8. Monitor template usage
-
-### Don'ts
-1. Don't put business logic in templates
-2. Don't skip validation in production
-3. Don't hardcode variables
-4. Don't over-abstract
-5. Don't ignore template errors
-6. Don't mix languages in same file
-7. Don't commit sensitive data
-8. Don't skip documentation
-
----
-
-## 🔮 Future Enhancements
-
-### Planned Features
-1. **Template Inheritance** - Base templates with extensions
-2. **Template Macros** - Reusable template components
-3. **Template Linting** - Validate YAML and Jinja2 syntax
-4. **Template Preview** - Render with sample data
-5. **Performance Optimization** - Template caching
-6. **Advanced Validation** - Type checking for variables
-7. **Multi-model Templates** - Model-specific optimizations
-8. **Template Analytics** - Track usage and performance
-
----
-
-## 🛠️ Troubleshooting
-
-### Common Issues
-
-**1. TemplateNotFound Error**
+# ✗ Bad: Exact matching
+assert response.first_name == "Aria"  # Too strict, fails on valid variations
 ```
-jinja2.exceptions.TemplateNotFound: character_generation.yaml
+
+### 3. Regression Detection
+
+Tests serve as canaries for prompt changes:
+
+```python
+async def test_personality_traits_have_descriptions(self):
+    """If this fails after prompt change, descriptions may be missing."""
+    for personality in response.personalities:
+        assert len(personality.description) > 0
+        assert len(personality.description) > len(personality.short_personality)
 ```
-Solution: Check template directory path, verify file exists
 
-**2. Missing Variables**
+### 4. Quality Threshold Gates
+
+Use LLM-as-a-Judge with configurable thresholds:
+
+```python
+assert judge_response.is_passing(threshold=3.0), \
+    "Generated character should meet minimum quality threshold"
 ```
-TemplateValidationError: Missing required variables: {'age'}
+
+### 5. Custom Evaluation Criteria
+
+Define domain-specific criteria for specialized use cases:
+
+```python
+custom_criteria = [
+    {"name": "creativity", "description": "Uniqueness and originality"},
+    {"name": "fantasy_elements", "description": "Appropriate magical elements"},
+    {"name": "consistency", "description": "Internal logical consistency"},
+]
 ```
-Solution: Use `get_template_variables()` to check required variables
 
-**3. YAML Syntax Error**
+## Best Practices Demonstrated
+
+### From CLAUDE.md Documentation
+
+This implementation follows the best practices outlined in the project documentation:
+
+1. **Structured Prompt Management**: Prompts are managed as code in separate modules (`prompt.py`, `llm_as_a_judge_prompt.py`)
+
+2. **Start with 3-5 Key Cases**: The `TestRepresentativeInputs` class demonstrates starting with the most important scenarios
+
+3. **Flexible Validation Utilities**: Tests use a combination of:
+   - Structure validation (field presence, type checking)
+   - Keyword/content verification
+   - LLM-as-a-Judge for quality assessment
+
+4. **CI/CD Integration Ready**:
+   - Pytest configuration in `pytest.ini`
+   - Fast mocked tests for CI
+   - Optional integration tests for comprehensive validation
+
+5. **Cost-Aware Testing Strategy**:
+   - Most tests use mocks (no API costs)
+   - Integration tests are skipped by default
+   - Can run full suite in nightly builds
+
+6. **Clear Test Organization**:
+   - Separate test classes for different concerns
+   - Descriptive test names explaining what they validate
+   - Comments explaining why tests matter for regression detection
+
+## Trade-offs and Considerations
+
+### Test Brittleness
+
+**Challenge**: Model updates may change output style, breaking tests
+
+**Mitigation**:
+- Use flexible assertions (presence checks, not exact matches)
+- Focus on structural requirements, not stylistic details
+- Configurable quality thresholds to adjust sensitivity
+
+### Execution Time and Cost
+
+**Challenge**: API calls add time and cost to test runs
+
+**Mitigation**:
+- Mock responses for unit tests (instant, free)
+- Skip integration tests by default (`@pytest.mark.skip`)
+- Run full suite only in nightly builds or before releases
+
+### Quality Threshold Calibration
+
+**Challenge**: Setting thresholds too loose misses issues, too strict causes false failures
+
+**Strategy**:
+- Default threshold: 3.0/5.0 (acceptable quality)
+- Adjust based on use case criticality
+- Monitor threshold effectiveness over time
+
+## Extension Points
+
+### Adding New Evaluation Criteria
+
+```python
+# Define custom criteria
+custom_criteria = [
+    {"name": "tone", "description": "Appropriate tone for target audience"},
+    {"name": "technical_accuracy", "description": "Factual correctness"},
+]
+
+# Use in tests
+prompt = make_custom_judge_prompt(request, criteria=custom_criteria)
 ```
-yaml.scanner.ScannerError: mapping values are not allowed here
+
+### Testing Different Prompt Versions
+
+```python
+# Version A (current)
+def make_prompt_v1(request: CharacterRequest) -> list:
+    return [...]
+
+# Version B (experimental)
+def make_prompt_v2(request: CharacterRequest) -> list:
+    return [...]
+
+# A/B test in unit tests
+async def test_prompt_version_comparison():
+    v1_result = await generate_with_prompt(make_prompt_v1(request))
+    v2_result = await generate_with_prompt(make_prompt_v2(request))
+
+    v1_score = await judge(v1_result)
+    v2_score = await judge(v2_result)
+
+    # Ensure v2 doesn't degrade quality
+    assert v2_score >= v1_score - 0.5
 ```
-Solution: Check indentation and colons in YAML
 
-**4. Undefined Variable**
+### Snapshot Testing
+
+For outputs that should remain stable:
+
+```python
+# First run creates snapshot
+def test_output_snapshot(snapshot):
+    result = generate_character(...)
+    snapshot.assert_match(result.model_dump_json(), "character_output.json")
+
+# Subsequent runs compare against snapshot
+# Update snapshot with: pytest --snapshot-update
 ```
-jinja2.exceptions.UndefinedError: 'age' is undefined
-```
-Solution: Enable validation or use default values in template
 
----
+## Summary
 
-## 📖 References
+This project demonstrates a comprehensive approach to prompt unit testing for LLM applications:
 
-- **Design Pattern**: Template Method Pattern
-- **Jinja2 Documentation**: https://jinja.palletsprojects.com/
-- **YAML Specification**: https://yaml.org/spec/
-- **Best Practices**: Separation of Concerns, DRY principle
-- **Testing**: pytest, fixture-based testing
-- **Chapter Reference**: Chapter 2, Section 6 - Structured Template Prompting
+- **Systematic Testing**: Multiple test patterns covering structure, quality, and regression
+- **Automated Evaluation**: LLM-as-a-Judge pattern for quality assessment
+- **Practical Balance**: Trade-offs between test coverage and execution cost
+- **CI/CD Ready**: Designed for integration into continuous integration pipelines
+- **Extensible**: Easy to add new criteria, prompts, and test cases
 
----
+By applying traditional software testing best practices to prompt engineering, this approach enables safe, continuous improvement of LLM systems while maintaining quality and reliability.
 
-## 📝 Changelog
+## References
 
-### v1.0 (2025-10-18) - Initial Implementation
-
-**Core Features**:
-- TemplateEngine class with Jinja2 integration
-- YAML template format
-- Variable validation
-- Message format conversion
-- Jinja2 features support
-
-**Templates** (4 files):
-- Character generation
-- Product description
-- Email (formal and casual)
-
-**Variable Files** (6 files):
-- Character variations: artist, detective
-- Product variations: electronics, apparel
-- Email campaigns: summer, winter
-
-**Testing**:
-- 54 comprehensive tests
-- Full edge case coverage
-- Temporary directory fixtures
-
-**Infrastructure**:
-- CLI with provider/model selection
-- LLM request handlers
-- Makefile automation
-- pytest configuration
-
-**Documentation**:
-- Comprehensive README.md (Japanese)
-- CLAUDE.md (this file)
-- Code documentation
-- Usage examples
-
----
-
-**Generated by**: Claude Code
-**Date**: 2025-10-18
-**Version**: 1.0
+- **Pydantic**: Type-safe data validation - https://docs.pydantic.dev/
+- **Pytest**: Testing framework - https://docs.pytest.org/
+- **OpenAI Structured Outputs**: https://platform.openai.com/docs/guides/structured-outputs
+- **Google Gemini API**: https://ai.google.dev/gemini-api/docs
+- **LLM-as-a-Judge Pattern**: Using LLMs to evaluate LLM outputs

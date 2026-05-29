@@ -1,49 +1,52 @@
-# School Data Analysis Agent with Function Calling
+# Tool Chain Function Calling Pattern
 
 ## Overview
 
-A CLI-based data analysis assistant that uses Google Gemini with function calling to analyze school data. The application demonstrates best practices for LLM tool usage, including the **ID reference pattern** for managing tool results and **composite functions** for efficient multi-step operations.
+This project demonstrates the **Tool Chain** pattern for LLM function calling. Instead of returning intermediate results to the LLM after each function call, the system executes a chain of tools defined by the LLM upfront, only returning the final result. This reduces token consumption and improves latency.
+
+The implementation uses a school data analysis system as a use case, with tools for analyzing student records, test scores, grade reports, and curriculum data.
 
 ## Architecture
 
 ```
 +------------------------------------------------------------------+
-|                     CLI Layer (main.py)                          |
-|  - Click-based CLI with query input and output options           |
-|  - Session management (UUID, logging, result export)             |
-+----------------------------+-------------------------------------+
-                             |
-                             v
+|                        User Request                               |
 +------------------------------------------------------------------+
-|                   Service Layer                                  |
-|  +------------------------------------------------------------+  |
-|  |  request_llm.py                                            |  |
-|  |  - Gemini API integration with function calling            |  |
-|  |  - SessionResultCache for ID reference pattern             |  |
-|  |  - Iterative tool execution loop (up to 50 iterations)     |  |
-|  +------------------------------------------------------------+  |
-|  +------------------------------------------------------------+  |
-|  |  tools/data_tools.py                                       |  |
-|  |  - 12 composite tool functions                             |  |
-|  |  - ResultStorage for caching detailed data                 |  |
-|  +------------------------------------------------------------+  |
-|  +------------------------------------------------------------+  |
-|  |  tools/functions/                                          |  |
-|  |  - loaders.py: JSON data file loading                      |  |
-|  |  - analyzers.py: Polars-based statistical analysis         |  |
-|  |  - validators.py: Input validation                         |  |
-|  |  - formatters.py: Output formatting                        |  |
-|  +------------------------------------------------------------+  |
-+----------------------------+-------------------------------------+
-                             |
-                             v
+                              |
+                              v
 +------------------------------------------------------------------+
-|                   Data Layer                                     |
-|  data/                                                           |
-|  - students.json (5 students with UUIDs)                         |
-|  - {1st,2nd,3rd,4th}_quarter_test_score.json                     |
-|  - {1st,2nd,3rd,4th}_quarter_grade_report.json                   |
-|  - {1st,2nd,3rd,4th}_quarter_curriculum.json                     |
+|                        Gemini LLM                                 |
+|  +------------------------------------------------------------+  |
+|  | 1. Parse tool metadata                                     |  |
+|  | 2. Output Tool Chain definition (JSON structured output)   |  |
+|  | 3. Generate final report after chain execution             |  |
+|  +------------------------------------------------------------+  |
++------------------------------------------------------------------+
+                              |
+                              v
++------------------------------------------------------------------+
+|                   Tool Chain Executor                             |
+|  +------------------------------------------------------------+  |
+|  | validate_chain() -> dry_run() -> execute()                 |  |
+|  +------------------------------------------------------------+  |
+|                                                                   |
+|  +------------------------------------------------------------+  |
+|  |            Data Flow (Bucket Relay Pattern)                |  |
+|  |                                                            |  |
+|  |  +--------+  output_keys   +--------+   output_keys        |  |
+|  |  | Tool A | ------------> | Tool B | -----------> ...      |  |
+|  |  +--------+  input_mapping +--------+                      |  |
+|  |                                                            |  |
+|  +------------------------------------------------------------+  |
++------------------------------------------------------------------+
+                              |
+                              v
++------------------------------------------------------------------+
+|                     Session Cache                                 |
+|  +------------------------------------------------------------+  |
+|  | result_id -> detailed_data mapping                         |  |
+|  | (LLM context receives only result_id and summary)          |  |
+|  +------------------------------------------------------------+  |
 +------------------------------------------------------------------+
 ```
 
@@ -52,128 +55,142 @@ A CLI-based data analysis assistant that uses Google Gemini with function callin
 ```
 chapter_6/section_6/
 |-- src/
-|   |-- __init__.py
-|   |-- main.py              # CLI entry point with Click
-|   |-- config.py            # API key configuration (Pydantic)
-|   |-- logger.py            # Logging setup
+|   |-- main.py                  # CLI entry point (Click)
+|   |-- config.py                # Configuration (API keys via env)
+|   |-- logger.py                # Logging setup
 |   |-- client/
 |   |   |-- __init__.py
-|   |   |-- llm_client.py    # Gemini client and model definitions
+|   |   `-- llm_client.py        # Gemini API client setup
 |   |-- model/
-|   |   |-- __init__.py
-|   |   |-- model.py         # Pydantic models for tool results
+|   |   |-- __init__.py          # Model exports
+|   |   |-- model.py             # Result models (ToolResult, etc.)
+|   |   |-- schemas.py           # Pydantic I/O schemas for tools
+|   |   `-- tool_chain_models.py # Chain config/result models
 |   |-- prompt/
 |   |   |-- __init__.py
-|   |   |-- prompt.py        # System prompt and tool declarations
-|   |-- service/
+|   |   `-- prompt.py            # System prompt and tool docs
+|   `-- service/
 |       |-- __init__.py
-|       |-- request_llm.py   # LLM request handling with function calling
-|       |-- tools/
-|           |-- __init__.py  # Tool function registry
-|           |-- data_tools.py # Composite tool implementations
-|           |-- functions/
+|       |-- request_llm.py       # LLM request handler, chain executor
+|       `-- tools/
+|           |-- __init__.py      # Tool registry (TOOL_FUNCTIONS)
+|           |-- data_tools.py    # Data analysis tool functions
+|           |-- tool_chain.py    # ToolChainExecutor class
+|           |-- tool_metadata.py # TOOL_METADATA registry
+|           `-- functions/       # Small composable functions
 |               |-- __init__.py
-|               |-- loaders.py    # Data file loaders
-|               |-- analyzers.py  # Statistical analysis (Polars)
-|               |-- validators.py # Input validation
-|               |-- formatters.py # Output formatting
-|-- data/                    # School data files (JSON)
-|-- outputs/                 # Session logs and results
-|-- pyproject.toml
-|-- Makefile
-|-- README.md
+|               |-- analyzers.py
+|               |-- formatters.py
+|               |-- loaders.py
+|               `-- validators.py
+|-- data/                        # Sample school data (JSON files)
+|   |-- students.json
+|   |-- 1st_quarter_test_score.json
+|   |-- 1st_quarter_grade_report.json
+|   |-- 1st_quarter_curriculum.json
+|   `-- ... (Q2, Q3, Q4 data)
+|-- tests/                       # Test files
+|-- pyproject.toml               # Project dependencies
+|-- .envrc.example               # Environment variable template
+|-- Makefile                     # Development commands
+`-- README.md
 ```
 
 ## Key Components
 
-### Tool Functions (12 tools)
+### Tool Chain Executor (`tool_chain.py`)
 
-| Tool | Description |
-|------|-------------|
-| `list_available_data` | List all data files by category |
-| `get_students` | Get all student IDs |
-| `get_test_scores` | Get test scores for a quarter |
-| `get_grade_report` | Get grade reports for a quarter |
-| `get_curriculum` | Get curriculum info for a quarter |
-| `analyze_student_performance` | Comprehensive student analysis across all quarters |
-| `analyze_class_performance` | Class-wide performance analysis |
-| `compare_students` | Compare two students side-by-side |
-| `filter_scores` | Filter scores by class/student/quarter |
-| `filter_grades` | Filter grades by class/student/quarter |
-| `filter_curriculum` | Filter curriculum by class/quarter |
-| `get_result_details` | Retrieve full data by result_id (pull pattern) |
+The `ToolChainExecutor` class handles chain execution:
 
-### ID Reference Pattern
+- `validate_chain()` - Validates chain structure (tool existence, connectable_to rules)
+- `dry_run()` - Executes chain with test data to verify I/O compatibility
+- `execute()` - Runs chain with actual data, passing outputs between steps
 
-The application implements the ID reference pattern to manage LLM context size:
+### Tool Metadata (`tool_metadata.py`)
 
-1. **Tool Execution**: Tools return a summary + `result_id` to the LLM
-2. **Data Caching**: Full detailed data is stored in `SessionResultCache`
-3. **On-Demand Retrieval**: LLM can call `get_result_details(result_id)` to pull full data when needed
+Each tool has metadata defining:
 
-This prevents context overflow when analyzing large datasets.
+- `input_model` / `output_model` - Pydantic schemas for type safety
+- `output_keys` - Keys available for passing to connected tools
+- `connectable_to` - List of tools that can follow this one
+- `is_chain_terminal` - Whether tool typically ends a chain
+- `test_input` - Mini test data for dry run validation
 
-### Data Model
+### Available Tools
 
-- **5 subjects**: Japanese, Math, Physics, History, PE
-- **4 quarters**: Full academic year
-- **5 students**: Each with UUID
-- **Grades**: A, B, C, D, F with teacher advice
-- **Curriculum**: Plan, actual progress, completion rate
+| Tool | Category | Description |
+|------|----------|-------------|
+| `list_available_data` | loader | List all data files |
+| `get_students` | loader | Get student list |
+| `get_test_scores` | loader | Get scores by quarter |
+| `get_grade_report` | loader | Get grades by quarter |
+| `get_curriculum` | loader | Get curriculum by quarter |
+| `filter_scores` | filter | Filter scores by criteria |
+| `filter_grades` | filter | Filter grades by criteria |
+| `filter_curriculum` | filter | Filter curriculum data |
+| `analyze_student_performance` | analyzer | Analyze single student |
+| `analyze_class_performance` | analyzer | Analyze class/subject |
+| `compare_students` | analyzer | Compare two students |
+| `get_result_details` | retriever | Get cached detailed data |
+
+### Request Processing (`request_llm.py`)
+
+The `process_with_tool_chain()` function:
+
+1. Sends user request to Gemini with tool metadata as context
+2. Receives structured JSON output defining the tool chain
+3. Validates and executes the chain (with dry run first)
+4. Caches detailed results, returns summary to LLM
+5. Supports multiple iterations for complex queries
+6. LLM generates final report based on collected data
 
 ## Dependencies
 
 | Package | Purpose |
 |---------|---------|
-| `polars` | High-performance data analysis |
-| `google-genai` | Gemini API client (via root pyproject.toml) |
-| `click` | CLI framework (via root pyproject.toml) |
-| `pydantic` | Data validation and settings (via root pyproject.toml) |
-| `python-dotenv` | Environment variable loading (via root pyproject.toml) |
+| `google-genai` | Gemini API client |
+| `pydantic` | Data validation and schemas |
+| `polars` | Data processing |
+| `click` | CLI framework |
+| `python-dotenv` | Environment variable loading |
 
 ## Usage
 
 ### Setup
 
-1. Copy `.envrc.example` to `.envrc` and set your Gemini API key:
-   ```bash
-   cp .envrc.example .envrc
-   # Edit .envrc and set GEMINI_API_KEY=your-key
-   ```
+```bash
+# Copy environment template
+cp .envrc.example .envrc
 
-2. Load environment (using direnv or manually source):
-   ```bash
-   direnv allow  # or source .envrc
-   ```
+# Set your Gemini API key
+# GEMINI_API_KEY=your_key_here
+
+# Install dependencies
+uv sync
+```
 
 ### Run
 
 ```bash
 # Basic query
-uv run python -m src.main --query "Analyze the performance of all students"
+uv run python src/main.py -q "Analyze math class performance"
 
-# With specific model
-uv run python -m src.main -m gemini-2.5-pro -q "Compare math and physics scores"
+# Specify model
+uv run python src/main.py -m GEMINI_2_5_PRO -q "Compare top students"
 
-# Save output to files
-uv run python -m src.main -q "Show class performance trends" -od ./outputs
+# Save output to directory
+uv run python src/main.py -q "Quarterly analysis" -od ./output
 ```
 
 ### CLI Options
 
 | Option | Short | Description | Default |
 |--------|-------|-------------|---------|
-| `--model` | `-m` | Gemini model to use | `gemini-2.5-flash` |
+| `--model` | `-m` | Gemini model to use | `GEMINI_2_5_FLASH` |
 | `--query` | `-q` | Analysis query (required) | - |
-| `--output-directory` | `-od` | Save session log and result | None |
+| `--output-directory` | `-od` | Save session log and result | - |
 
-### Available Models
-
-- `gemini-2.5-pro`
-- `gemini-2.5-flash` (default)
-- `gemini-2.5-flash-lite`
-- `gemini-3.5-flash`
-- `gemini-3.1-flash-lite`
+Available models: `GEMINI_2_5_PRO`, `GEMINI_2_5_FLASH`, `GEMINI_2_5_FLASH_LITE`
 
 ## Development Commands
 
@@ -193,24 +210,43 @@ make mypy
 
 ## Implementation Notes
 
-### Function Calling Flow
+### Tool Chain JSON Schema
 
-1. User query is sent to Gemini with system prompt and tool declarations
-2. Gemini may respond with function calls (multiple per iteration allowed)
-3. Functions are executed, results cached, summaries returned to LLM
-4. Loop continues until Gemini produces a final text response (max 50 iterations)
-5. Final response is a comprehensive report in the user's language
+The LLM outputs chain definitions as structured JSON:
 
-### Report Generation
+```json
+{
+  "chain_name": "math_analysis",
+  "objective": "Analyze math class performance",
+  "steps": [
+    {"tool_name": "analyze_class_performance", "args": [{"key": "class_name", "value": "math"}]}
+  ],
+  "is_final_iteration": true
+}
+```
 
-The system prompt instructs the LLM to:
-- Respond in the same language as the user's query
-- Always produce a structured report with specific sections
-- Include specific numbers, percentages, and statistics
-- Cite data sources by result_id
+### Data Flow Between Tools
 
-### Session Output
+- Output keys from tool A are mapped to input fields of tool B
+- Auto-mapping occurs when output key names match input field names
+- Manual `input_mapping` can override auto-mapping
 
-When `--output-directory` is specified:
-- `{session_id}_session_log.json`: Full conversation history with tool calls
-- `{session_id}_result.md`: Final analysis report in Markdown
+### Context Token Optimization
+
+- Detailed data stored in `SessionResultCache` with `result_id`
+- LLM context only receives summaries and result IDs
+- `get_result_details` tool retrieves cached data when needed
+
+### Validation Flow
+
+1. **Structure validation** - Check tool names, connectable_to rules
+2. **Dry run** - Execute with test_input to verify I/O compatibility
+3. **Execution** - Run with actual data if dry run passes
+
+### Multi-Iteration Support
+
+For complex queries requiring multiple data collection steps:
+
+- LLM can set `is_final_iteration: false` to request another chain
+- Previous results are included in system prompt context
+- Maximum iterations configurable (default: 10)

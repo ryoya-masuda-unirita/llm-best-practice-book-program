@@ -1,264 +1,136 @@
-"""Models for parallel world pattern article generation."""
-
-import json
 from datetime import datetime
-from typing import Literal, TypedDict
-from uuid import uuid4
+from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class ArticleOutline(BaseModel):
-    """Article outline model."""
+class ToolResultStatus(StrEnum):
+    SUCCESS = "success"
+    ERROR = "error"
+    PARTIAL = "partial"
+
+
+class ToolResult(BaseModel):
+    """Base model for tool call results following the ID reference pattern."""
 
     model_config = ConfigDict(
         validate_assignment=True,
-        frozen=True,
         extra="ignore",
         arbitrary_types_allowed=True,
     )
 
-    reason: str = Field(..., description="Reason for choosing this outline (2-3 sentences)")
-    title: str = Field(..., description="Article title")
-    summary: str = Field(..., description="Article summary (2-3 sentences)")
-    structure: list[str] = Field(
-        ...,
-        description="Article structure with section headers",
-        min_length=3,
-        max_length=10,
-    )
+    tool_name: str = Field(..., description="Name of the tool that was called")
+    result_id: str = Field(..., description="Unique ID to reference the full result data")
+    result_summary: str = Field(..., description="Human-readable summary of the result")
+    status: ToolResultStatus = Field(default=ToolResultStatus.SUCCESS, description="Status of the tool execution")
+    created_at: datetime = Field(default_factory=datetime.now, description="Timestamp of the result creation")
 
-    def to_markdown(self) -> str:
-        """Convert outline to markdown format."""
-        structure_md = "\n".join(f"{i + 1}. {section}" for i, section in enumerate(self.structure))
-        return f"""# {self.title}
-
-## Summary
-{self.summary}
-
-## Structure
-{structure_md}
-"""
+    def to_llm_response(self) -> dict:
+        """Convert to a minimal response for LLM context."""
+        return {
+            "tool_name": self.tool_name,
+            "result_id": self.result_id,
+            "result_summary": self.result_summary,
+            "status": self.status.value,
+        }
 
 
-class ArticleHalf(BaseModel):
-    """Half of an article (first half or second half)."""
+class DataListResult(ToolResult):
+    """Result for listing available data files."""
+
+    file_count: int = Field(..., description="Number of files found")
+    file_categories: list[str] = Field(default_factory=list, description="Categories of data available")
+
+
+class StudentListResult(ToolResult):
+    """Result for student list query."""
+
+    student_count: int = Field(..., description="Number of students")
+    student_ids: list[str] = Field(default_factory=list, description="List of student IDs")
+
+
+class TestScoreResult(ToolResult):
+    """Result for test score queries."""
+
+    quarter: int = Field(..., description="Quarter number (1-4)")
+    student_count: int = Field(..., description="Number of students with scores")
+    subjects: list[str] = Field(default_factory=list, description="Subjects included")
+
+
+class GradeReportResult(ToolResult):
+    """Result for grade report queries."""
+
+    quarter: int = Field(..., description="Quarter number (1-4)")
+    student_count: int = Field(..., description="Number of students in report")
+
+
+class CurriculumResult(ToolResult):
+    """Result for curriculum queries."""
+
+    quarter: int = Field(..., description="Quarter number (1-4)")
+    subjects: list[str] = Field(default_factory=list, description="Subjects included")
+
+
+class StudentAnalysisResult(ToolResult):
+    """Result for comprehensive student performance analysis."""
+
+    student_id: str = Field(..., description="Student ID analyzed")
+    quarters_analyzed: list[int] = Field(default_factory=list, description="Quarters included in analysis")
+    overall_average: float = Field(..., description="Overall average score across all subjects and quarters")
+    strongest_subject: str = Field(..., description="Subject with highest average")
+    weakest_subject: str = Field(..., description="Subject with lowest average")
+
+
+class ClassAnalysisResult(ToolResult):
+    """Result for class-wide performance analysis."""
+
+    class_name: str = Field(..., description="Name of the class analyzed")
+    quarters_analyzed: list[int] = Field(default_factory=list, description="Quarters included in analysis")
+    class_average: float = Field(..., description="Class average score")
+    top_performer_id: str = Field(..., description="Student ID of top performer")
+    curriculum_completion_avg: float = Field(..., description="Average curriculum completion rate")
+
+
+class DetailedDataResult(ToolResult):
+    """Result for retrieving detailed data by result ID."""
+
+    original_result_id: str = Field(..., description="The result ID that was queried")
+    data_type: str = Field(..., description="Type of data retrieved")
+
+
+class ResultStorage(BaseModel):
+    """Storage for tool results with ID reference pattern."""
 
     model_config = ConfigDict(
         validate_assignment=True,
-        frozen=True,
         extra="ignore",
         arbitrary_types_allowed=True,
     )
 
-    reason: str = Field(..., description="Reason for the content")
-    content: str = Field(..., description="Article content in markdown format")
+    results: dict[str, Any] = Field(default_factory=dict, description="Stored results by ID")
+    metadata: dict[str, ToolResult] = Field(default_factory=dict, description="Metadata for each result")
 
+    def store(self, result_id: str, data: Any, metadata: ToolResult) -> None:
+        """Store data with its metadata."""
+        self.results[result_id] = data
+        self.metadata[result_id] = metadata
 
-class BestArticleSelection(BaseModel):
-    """Selection of the best article among multiple variants."""
+    def get(self, result_id: str) -> tuple[Any, ToolResult] | None:
+        """Retrieve data and metadata by result ID."""
+        if result_id in self.results:
+            return self.results[result_id], self.metadata[result_id]
+        return None
 
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-        arbitrary_types_allowed=True,
-    )
+    def exists(self, result_id: str) -> bool:
+        """Check if a result ID exists."""
+        return result_id in self.results
 
-    reason: str = Field(..., description="Reason for selecting this article (2-3 sentences)")
-    selected_id: str = Field(..., description="ID of the selected best article")
+    def list_ids(self) -> list[str]:
+        """List all stored result IDs."""
+        return list(self.results.keys())
 
-
-class ArticleReview(BaseModel):
-    """Review of an article using LLM-as-a-Judge."""
-
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=True,
-        extra="ignore",
-        arbitrary_types_allowed=True,
-    )
-
-    reasoning: str = Field(
-        ...,
-        description="Detailed reasoning for the grade (3-5 sentences)",
-    )
-    grade: int = Field(
-        ...,
-        description="Grade from 1 (very poor) to 5 (excellent)",
-        ge=1,
-        le=5,
-    )
-    strengths: list[str] = Field(
-        default_factory=list,
-        description="Specific strengths of the article (2-4 items)",
-    )
-    weaknesses: list[str] = Field(
-        default_factory=list,
-        description="Specific weaknesses of the article (2-4 items if any)",
-    )
-
-    @staticmethod
-    def worst_grade() -> int:
-        return 1
-
-    @staticmethod
-    def best_grade() -> int:
-        return 5
-
-    def is_acceptable(self) -> bool:
-        """Check if the article quality is acceptable (grade >= 4)."""
-        return self.grade >= 4
-
-    def to_markdown(self) -> str:
-        """Convert review to markdown format."""
-        strengths_md = "\n".join(f"- {s}" for s in self.strengths)
-        weaknesses_md = "\n".join(f"- {w}" for w in self.weaknesses)
-
-        return f"""## Review Grade: {self.grade}/5
-
-### Reasoning
-{self.reasoning}
-
-### Strengths
-{strengths_md}
-
-### Weaknesses
-{weaknesses_md if self.weaknesses else "No significant weaknesses identified."}
-"""
-
-
-class CompletedArticle(BaseModel):
-    """Complete article with both halves."""
-
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=False,
-        extra="ignore",
-        arbitrary_types_allowed=True,
-    )
-
-    session_id: str = Field(default_factory=lambda: uuid4().hex, description="Unique session ID")
-    outline: ArticleOutline = Field(..., description="Article outline")
-    first_half: str = Field(..., description="First half of the article")
-    second_half: str = Field(..., description="Second half of the article")
-    review: ArticleReview | None = Field(None, description="Article review (optional)")
-    language: Literal["en", "ja"] = Field(..., description="Article language")
-    created_at: str = Field(
-        default_factory=lambda: datetime.now().isoformat(),
-        description="Creation timestamp",
-    )
-
-    def get_full_content(self) -> str:
-        """Get the complete article content."""
-        return f"""{self.first_half}
-
-{self.second_half}"""
-
-    def to_markdown(self) -> str:
-        """Convert complete article to markdown format."""
-        full_article = self.get_full_content()
-
-        if self.review:
-            review_section = f"""
----
-
-# Article Review
-
-{self.review.to_markdown()}
-"""
-        else:
-            review_section = ""
-
-        return f"""# {self.outline.title}
-
-{full_article}
-{review_section}
-"""
-
-    def save_as_json(self, file_path: str) -> None:
-        """Save the complete article as a JSON file."""
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(self.model_dump(), f, indent=4, ensure_ascii=False)
-
-    def save_as_markdown(self, file_path: str) -> None:
-        """Save the complete article as a markdown file."""
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(self.to_markdown())
-
-
-class ParallelSession(BaseModel):
-    """Represents a single parallel world session."""
-
-    model_config = ConfigDict(
-        validate_assignment=True,
-        frozen=False,
-        extra="ignore",
-        arbitrary_types_allowed=True,
-    )
-
-    session_id: str = Field(default_factory=lambda: uuid4().hex, description="Unique session ID")
-    parent_session_id: str | None = Field(None, description="Parent session ID (if forked)")
-    outline: ArticleOutline | None = Field(None, description="Article outline")
-    first_half: str | None = Field(None, description="First half of the article")
-    second_half: str | None = Field(None, description="Second half of the article")
-    review: ArticleReview | None = Field(None, description="Article review")
-    metadata: dict = Field(default_factory=dict, description="Additional metadata")
-    created_at: str = Field(
-        default_factory=lambda: datetime.now().isoformat(),
-        description="Creation timestamp",
-    )
-
-    def is_completed(self) -> bool:
-        """Check if this session has all parts completed."""
-        return (
-            self.outline is not None
-            and self.first_half is not None
-            and self.second_half is not None
-            and self.review is not None
-        )
-
-    def to_completed_article(self, language: Literal["en", "ja"]) -> CompletedArticle | None:
-        """Convert to CompletedArticle if all parts are present."""
-        if not self.is_completed():
-            return None
-
-        return CompletedArticle(
-            session_id=self.session_id,
-            outline=self.outline,  # type: ignore
-            first_half=self.first_half,  # type: ignore
-            second_half=self.second_half,  # type: ignore
-            review=self.review,
-            language=language,
-            created_at=self.created_at,
-        )
-
-
-class ParallelWorldState(TypedDict):
-    """State for parallel world article generation pipeline."""
-
-    theme: str
-    language: Literal["en", "ja"]
-    # Phase 1: Multiple outlines generated in parallel
-    outline_sessions: list[ParallelSession]
-    # Phase 2: User selects one outline
-    selected_outline_session_id: str | None
-    # Phase 3: First half generated based on selected outline
-    first_half_session: ParallelSession | None
-    # Phase 4: Multiple second halves generated in parallel
-    second_half_sessions: list[ParallelSession]
-    # Phase 5: Reviews generated for each complete article
-    reviewed_sessions: list[ParallelSession]
-    # Phase 6: User selects best article
-    final_selected_session_id: str | None
-    # Phase 7: Human review (yes/no) and feedback loop
-    human_approved: bool | None  # True if approved, False if needs revision
-    rejected_session_ids: list[str]  # Track rejected sessions to avoid re-showing
-    review_loop_iteration: int  # Track how many times we've looped
-    # Pipeline metadata
-    llm_provider: str
-    model: str
-    error: str | None
-    # Number of parallel sessions to create
-    num_outline_variants: int
-    num_second_half_variants: int
+    def clear(self) -> None:
+        """Clear all stored results."""
+        self.results.clear()
+        self.metadata.clear()

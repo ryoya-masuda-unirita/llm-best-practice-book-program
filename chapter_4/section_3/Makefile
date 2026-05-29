@@ -1,10 +1,6 @@
 DIR := $(shell pwd)
 GIT_COMMIT := $(shell git rev-parse HEAD)
 
-DOCKER_REPO := shibui/llm-best-practice
-DOCKERFILE = $(DIR)/Dockerfile.web
-DOCKER_TAG = chapter4_section3
-
 ############ COMMON COMMANDS ############
 SRC := $(DIR)/
 
@@ -23,30 +19,21 @@ fix: lint fmt
 mypy:
 	uvx mypy $(SRC) --namespace-packages --explicit-package-bases
 
-############ DOCKER COMMANDS ############
+############ RAG COMMANDS ############
 
-.PHONY: docker-build-web
-docker-build-web:
-	docker build \
-		--platform linux/amd64 \
-		-t $(DOCKER_REPO):$(DOCKER_TAG)_web \
-		-f Dockerfile.web \
-		.
+.PHONY: index
+index:
+	uv run python -m src.main index -d data
 
-.PHONY: docker-build
-docker-build: docker-build-web
+.PHONY: query
+query:
+	@if [ -z "$(Q)" ]; then \
+		echo "Error: Please provide a question using Q='your question'"; \
+		echo "Example: make query Q='What are the benefits of structured output?'"; \
+		exit 1; \
+	fi
+	uv run python -m src.main query -d data -q "$(Q)"
 
-.PHONY: docker-up
-docker-up:
-	docker-compose up -d
-
-.PHONY: docker-down
-docker-down:
-	docker-compose down
-
-.PHONY: docker-logs
-docker-logs:
-	docker-compose logs -f
-
-.PHONY: docker-restart
-docker-restart: docker-down docker-up
+.PHONY: query-example
+query-example:
+	uv run python -m src.main query -d data -q "What are the main benefits of structured output for LLM systems?"

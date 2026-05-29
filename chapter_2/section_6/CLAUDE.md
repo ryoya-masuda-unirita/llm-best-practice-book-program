@@ -1,267 +1,630 @@
-# Chapter 3 Section 6: Asynchronous Batch Processing for LLM Applications
+# Chapter 2 Section 5: LLM Streaming API - Project Status Report
 
-## Overview
+**Last Updated**: 2025-10-17
+**Project Version**: 1.0.0
+**Status**: Production Ready
 
-This project demonstrates a production-ready implementation of **asynchronous batch processing** for LLM applications. It showcases how to efficiently handle large-scale LLM tasks by decoupling request submission from processing, using Redis as a message queue and background workers for parallel execution.
+## Executive Summary
 
-### Purpose
+This project demonstrates a production-ready implementation of **LLM streaming responses** using FastAPI and Server-Sent Events (SSE). It provides a unified API interface supporting both OpenAI GPT-5.4-mini and Google Gemini 2.5 Flash models, enabling real-time text generation with efficient resource utilization.
 
-The primary goal is to illustrate best practices for building scalable, fault-tolerant LLM systems that can:
-- Handle bulk processing requests without blocking the API
-- Scale horizontally by adding more workers
-- Provide real-time progress tracking
-- Gracefully handle failures at the task level
-- Optimize resource utilization and cost efficiency
+### Key Achievements
 
-### Use Case
+- FastAPI-based RESTful API with streaming support
+- Multi-provider architecture (OpenAI + Gemini)
+- Async/await pattern for efficient I/O operations
+- Production-ready features (CORS, error handling, logging)
+- Comprehensive test client and usage examples
 
-This implementation focuses on fictional character generation as a representative batch processing use case. Users can submit requests to generate multiple characters with specific attributes (gender, age, personality traits), and the system processes them asynchronously via Gemini Batch API.
+## Project Architecture
 
-## Architecture
+### Technology Stack
 
-### System Components
+- **Web Framework**: FastAPI 0.119.0+
+- **ASGI Server**: Uvicorn 0.37.0+
+- **LLM Providers**:
+  - OpenAI API (openai 2.4.0+)
+  - Google Gemini API (google-genai 1.45.0+)
+- **HTTP Client**: aiohttp 3.11.17+
+- **Data Validation**: Pydantic 2.12.2+
+- **CLI Framework**: Click 8.3.0+
+- **Python Version**: 3.13.2+
 
-```
-+------------------+
-|     Clients      |
-+--------+---------+
-         |
-         +------------------+----------------------+
-         |                  |                      |
-+--------v--------+  +------v-------+  +-----------v----------+
-|   LLM Server    |  | Batch Server |  |    Batch Worker      |
-|   (Port 8000)   |  | (Port 8001)  |  |    (Background)      |
-|                 |  |              |  |                      |
-| POST /generate  |  | POST /submit |  | - Job Pickup Loop    |
-|                 |  | GET /status  |  | - Polling Loop       |
-|                 |  | GET /result  |  | - Gemini Batch API   |
-+--------+--------+  +------+-------+  +-----------+----------+
-         |                  |                      |
-         +------------------+----------------------+
-                            |
-                     +------v------+
-                     |    Redis    |
-                     | (Port 6379) |
-                     |             |
-                     | - Job Queue |
-                     | - Status    |
-                     | - Results   |
-                     +-------------+
-```
-
-### Directory Structure
+### Architecture Layers
 
 ```
-chapter_3/section_6/
-|-- src/
-|   |-- api/
-|   |   |-- batch_server.py     # Batch job management API (port 8001)
-|   |   +-- llm_server.py       # Synchronous LLM API (port 8000)
-|   |-- worker/
-|   |   +-- batch_worker.py     # Background worker with concurrent polling
-|   |-- client/
-|   |   |-- llm_client.py       # Gemini client initialization
-|   |   +-- redis_client.py     # Async Redis wrapper with decorators
-|   |-- model/
-|   |   |-- model.py            # Character request/response models
-|   |   +-- batch_model.py      # Batch job models (status, result)
-|   |-- service/
-|   |   +-- request_llm.py      # Gemini Batch API functions
-|   |-- prompt/
-|   |   +-- prompt.py           # Prompt generation with schema embedding
-|   |-- config.py               # Pydantic config with Secret types
-|   +-- logger.py               # Logging configuration
-|-- docker-compose.yml
-|-- Dockerfile
-|-- Makefile
-|-- pyproject.toml
-+-- .env.example
++--------------------------------------------------+
+|  Presentation Layer                              |
+|  - test_client.py: CLI test client               |
+|  - examples/: Usage demonstrations               |
++------------------+-------------------------------+
+                   |
+                   v
++------------------+-------------------------------+
+|  API Layer (src/api/)                            |
+|  - app.py: FastAPI application & routes          |
+|  - models.py: Request/Response schemas           |
+|  - Endpoints: /health, /stream, /stream/*        |
++------------------+-------------------------------+
+                   |
+                   v
++------------------+-------------------------------+
+|  Service Layer (src/service/)                    |
+|  - streaming_service.py: Async generators        |
+|  - stream_openai_response()                      |
+|  - stream_gemini_response()                      |
++------------------+-------------------------------+
+                   |
+                   v
++------------------+-------------------------------+
+|  Business Logic Layer                            |
+|  - client/: LLM client initialization            |
+|  - model/: Pydantic data models                  |
+|  - prompt/: Prompt generation logic              |
++------------------+-------------------------------+
+                   |
+                   v
++------------------+-------------------------------+
+|  Infrastructure Layer                            |
+|  - config.py: Configuration & API keys           |
+|  - logger.py: Logging setup                      |
+|  - External APIs: OpenAI, Gemini                 |
++--------------------------------------------------+
 ```
 
-## Key Components
+## Directory Structure
 
-### Batch Server (`src/api/batch_server.py`)
+```
+section_5/
+├── src/
+│   ├── __init__.py
+│   ├── config.py              # Environment & API key management
+│   ├── logger.py              # Centralized logging configuration
+│   ├── main.py                # CLI entry point (legacy, non-streaming)
+│   ├── llms.py                # Compatibility layer
+│   │
+│   ├── api/
+│   │   ├── __init__.py
+│   │   ├── app.py             # FastAPI application & endpoints
+│   │   └── models.py          # Pydantic request/response models
+│   │
+│   ├── service/
+│   │   ├── __init__.py
+│   │   └── streaming_service.py  # Core streaming logic
+│   │
+│   ├── client/
+│   │   ├── __init__.py
+│   │   └── llm_client.py      # LLM client initialization & enums
+│   │
+│   ├── model/
+│   │   ├── __init__.py
+│   │   └── model.py           # Business data models
+│   │
+│   └── prompt/
+│       ├── __init__.py
+│       └── prompt.py          # Prompt generation utilities
+│
+├── examples/
+│   └── example_usage.py       # Comprehensive usage demonstrations
+│
+├── .envrc.example             # Environment variables template
+├── .envrc                     # Local environment configuration (gitignored)
+├── pyproject.toml             # Project dependencies & metadata
+├── run_server.py              # Server startup script with CLI options
+├── test_client.py             # Interactive test client
+├── README.md                  # User documentation
+└── CLAUDE.md                  # This file - project status report
+```
 
-FastAPI server for batch job management:
-- `POST /batch/submit` - Submit batch job, returns job_id immediately
-- `GET /batch/{job_id}/status` - Poll job progress
-- `GET /batch/{job_id}/result` - Get completed results
-- `GET /batch/queue/stats` - View queue statistics
-- `GET /batch/jobs` - List all job IDs
+## Implementation Details
 
-Uses helper functions `raise_not_found()` and `raise_internal_error()` for consistent error handling, and Pydantic response models (`QueueStatsResponse`, `JobListResponse`).
+### API Endpoints
 
-### Batch Worker (`src/worker/batch_worker.py`)
+#### 1. Health Check
+```
+GET /health
+Response: {"status": "healthy", "message": "LLM Streaming API is running"}
+```
 
-Background processor with two concurrent async loops:
+#### 2. Unified Streaming Endpoint
+```
+POST /stream
+Body: {
+  "prompt": string (required, min_length=1),
+  "provider": "openai" | "gemini" (default: "gemini"),
+  "model": string | null (optional),
+  "system_instruction": string | null (Gemini only)
+}
+Response: text/event-stream (SSE)
+```
 
-1. **Job Pickup Loop** (`_job_pickup_loop`):
-   - Dequeues jobs from Redis using BLPOP (1s timeout)
-   - Immediately submits to Gemini Batch API
-   - Tracks active jobs in `active_jobs` dict
+#### 3. Provider-Specific Endpoints
+```
+POST /stream/openai
+POST /stream/gemini
+Body: Same as unified endpoint (provider is implicit)
+Response: text/event-stream (SSE)
+```
 
-2. **Polling Loop** (`_poll_active_jobs_loop`):
-   - Polls all active Gemini batch jobs every 5 seconds
-   - Uses `asyncio.gather()` for concurrent status checks
-   - Processes results when jobs complete
+### Streaming Service Implementation
 
-Helper functions:
-- `build_status_response()` - Constructs BatchJobStatusResponse
-- `build_task_results()` - Converts batch results to TaskStatus list
-- `prepare_prompts()` - Prepares prompts from character requests
+#### OpenAI Streaming (src/service/streaming_service.py:12)
 
-### Redis Client (`src/client/redis_client.py`)
+```python
+async def stream_openai_response(prompt: str, model: str = "gpt-5.4-mini") -> AsyncIterator[str]:
+    """Async generator for OpenAI streaming responses"""
 
-Async wrapper around redis-py with:
-- `@ensure_connected` decorator for automatic connection
-- `_status_key()` / `_result_key()` static methods for key generation
-- `DEFAULT_TTL = 86400` (24 hours) for automatic cleanup
-- Methods: `enqueue_job`, `dequeue_job`, `set_job_status`, `get_job_status`, `set_job_result`, `get_job_result`, `get_queue_length`, `list_job_ids`
+    stream = await openai_client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+        stream=True,
+        temperature=1.0,
+    )
 
-### Gemini Batch API (`src/service/request_llm.py`)
+    async for chunk in stream:
+        if chunk.choices[0].delta.content:
+            content = chunk.choices[0].delta.content
+            yield content
+            await asyncio.sleep(0.01)  # Prevent event loop blocking
+```
 
-Three synchronous functions for Gemini Batch API:
-- `submit_gemini_batch(model, prompts)` - Creates batch job, returns job name
-- `get_gemini_batch_status(batch_job_name)` - Returns state name (JOB_STATE_SUCCEEDED, etc.)
-- `get_gemini_batch_results(batch_job_name)` - Parses results into CharacterResponse list
+**Key Features**:
+- Uses OpenAI's native streaming API (`stream=True`)
+- Async iteration over response chunks
+- Non-blocking yields with microsleep
+- Error handling with user-friendly messages
 
-Result parsing handles nested structure: `response.candidates[0].content.parts[0].text`
+#### Gemini Streaming (src/service/streaming_service.py:43)
 
-### Data Models
+```python
+async def stream_gemini_response(
+    prompt: str,
+    model: str = "gemini-2.5-flash",
+    system_instruction: str | None = None,
+) -> AsyncIterator[str]:
+    """Async generator for Gemini streaming responses"""
 
-**JobStatus** enum: `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`
+    config = GenerateContentConfig(temperature=2.0)
+    if system_instruction:
+        config = GenerateContentConfig(
+            system_instruction=system_instruction,
+            temperature=2.0,
+        )
 
-**Key models**:
-- `BatchJobRequest` - Input: provider, model, character_requests (1-100)
-- `BatchJobResponse` - Immediate response: job_id, status, total_tasks
-- `BatchJobStatusResponse` - Progress: completed_tasks, failed_tasks, pending_tasks
-- `BatchJobResultResponse` - Final: tasks list with TaskStatus entries
-- `InternalJobData` - Queue storage: includes submitted_at timestamp
+    response = google_genai_client.models.generate_content_stream(
+        model=model,
+        contents=prompt,
+        config=config,
+    )
+
+    for chunk in response:
+        if chunk.text:
+            yield chunk.text
+```
+
+**Key Features**:
+- Uses Gemini SDK's `generate_content_stream()`
+- System instruction support for role-based responses
+- Synchronous iteration (SDK limitation)
+- Higher temperature setting (2.0) for creative outputs
+
+### FastAPI Application (src/api/app.py)
+
+**Configuration**:
+- CORS enabled for all origins (WARNING: restrict in production)
+- Proper SSE headers: `Cache-Control`, `Connection`, `X-Accel-Buffering`
+- Comprehensive error handling with HTTP status codes
+
+**Request Validation**:
+- Pydantic models ensure type safety
+- Automatic validation for required fields
+- Clear error messages on validation failures
+
+### Test Client (test_client.py)
+
+**Features**:
+- CLI interface using Click
+- Real-time chunk display with proper buffering
+- Support for all endpoint parameters
+- Connection error handling
+- Configurable server URL
+
+**Usage Examples**:
+```bash
+# Basic usage
+python test_client.py --prompt "Hello, world!"
+
+# OpenAI with custom model
+python test_client.py --provider openai --model gpt-5.4 --prompt "Explain AI"
+
+# Gemini with system instruction
+python test_client.py --provider gemini \
+  --prompt "Recommend a healthy lunch" \
+  --system-instruction "You are a nutritionist"
+```
+
+## Current Status
+
+### Completed Features
+
+[x] **Core Streaming Implementation**
+- OpenAI streaming with async generators
+- Gemini streaming with SDK integration
+- Proper SSE formatting and headers
+
+[x] **API Layer**
+- FastAPI application with OpenAPI documentation
+- Unified and provider-specific endpoints
+- Health check endpoint
+
+[x] **Error Handling**
+- Service-level exception catching
+- User-friendly error messages in stream
+- Detailed server-side logging
+- HTTP exception handling
+
+[x] **CORS Support**
+- Middleware configuration
+- All origins allowed (development mode)
+
+[x] **Testing Tools**
+- Interactive CLI test client
+- Comprehensive usage examples
+- Multiple test scenarios
+
+[x] **Documentation**
+- Detailed README with setup instructions
+- Code comments and docstrings
+- Usage examples with expected outputs
+
+### Known Limitations
+
+[!] **CORS Configuration**
+- Currently allows all origins (`allow_origins=["*"]`)
+- **Action Required**: Restrict in production to specific domains
+
+[!] **No Unit Tests**
+- Manual testing only through test_client.py and examples
+- **Recommendation**: Add pytest test suite for API endpoints
+
+[!] **No Rate Limiting**
+- Direct API calls without throttling
+- **Risk**: Potential API quota exhaustion
+- **Recommendation**: Implement rate limiting middleware
+
+[!] **No Authentication**
+- Open endpoints without auth
+- **Risk**: Unauthorized access and usage
+- **Recommendation**: Add API key authentication for production
+
+[!] **No Request Logging**
+- Limited observability for production monitoring
+- **Recommendation**: Add request/response logging with correlation IDs
+
+[!] **Synchronous Gemini Iteration**
+- Gemini SDK uses synchronous iteration
+- Wrapped in async generator but not truly async
+- **Note**: SDK limitation, not implementation issue
+
+## Testing Strategy
+
+### Manual Testing
+
+**1. Server Health Check**
+```bash
+python run_server.py
+curl http://127.0.0.1:8000/health
+# Expected: {"status":"healthy","message":"LLM Streaming API is running"}
+```
+
+**2. OpenAI Streaming**
+```bash
+python test_client.py --provider openai --prompt "Hello, world!"
+# Expected: Real-time text generation from GPT-5.4-mini
+```
+
+**3. Gemini Streaming**
+```bash
+python test_client.py --provider gemini --prompt "こんにちは"
+# Expected: Real-time text generation from Gemini 2.5 Flash
+```
+
+**4. System Instruction (Gemini)**
+```bash
+python test_client.py --provider gemini \
+  --prompt "Recommend a lunch menu" \
+  --system-instruction "You are a nutritionist"
+# Expected: Response with nutritional guidance
+```
+
+**5. Error Handling**
+```bash
+curl -X POST http://127.0.0.1:8000/stream \
+  -H "Content-Type: application/json" \
+  -d '{"prompt": "", "provider": "gemini"}'
+# Expected: HTTP 422 with validation error
+```
+
+**6. Comprehensive Examples**
+```bash
+python examples/example_usage.py
+# Expected: All 5 examples run successfully
+```
+
+### Test Coverage Gaps
+
+Missing unit tests for:
+- [ ] Streaming service functions
+- [ ] API endpoint handlers
+- [ ] Request validation logic
+- [ ] Error handling paths
+- [ ] CORS configuration
+- [ ] Client initialization
 
 ## Dependencies
 
-- `redis>=7.0.0` - Async Redis client
-- `fastapi>=0.115.0` - Web framework
-- `uvicorn>=0.30.0` - ASGI server
-- `pydantic>=2.10.0` - Data validation
-- `google-genai>=1.0.0` - Gemini API client
+### Production Dependencies
 
-## Usage
-
-### Setup
-
-```bash
-# Copy environment template
-cp .env.example .env
-
-# Edit .env with your API key
-# GEMINI_API_KEY=<your_key>
-
-# Install dependencies
-uv sync
+```toml
+[project.dependencies]
+aiohttp = ">=3.11.17"        # Async HTTP client for test tools
+click = ">=8.3.0"            # CLI interface framework
+fastapi = ">=0.119.0"        # Web framework
+google-genai = ">=1.45.0"    # Google Gemini SDK
+openai = ">=2.4.0"           # OpenAI SDK
+pydantic = ">=2.12.2"        # Data validation
+python-dotenv = ">=1.1.1"    # Environment variable management
+uvicorn = ">=0.37.0"         # ASGI server
 ```
 
-### Run with Docker
+### Development Dependencies
 
-```bash
-make docker-build    # Build image
-make docker-up       # Start all services
-make docker-logs     # View logs
-make docker-down     # Stop services
+```toml
+[dependency-groups.dev]
+pytest = ">=8.4.2"           # Test framework (not yet used)
+pytest-asyncio = ">=1.2.0"   # Async test support (not yet used)
+pytest-mock = ">=3.15.1"     # Mocking utilities (not yet used)
 ```
 
-### Run Locally
+## Environment Configuration
+
+### Required Environment Variables
 
 ```bash
-# Terminal 1: Redis
-redis-server
-
-# Terminal 2: Batch Server
-uvicorn src.api.batch_server:app --host 0.0.0.0 --port 8001
-
-# Terminal 3: Worker
-python -m src.worker.batch_worker
+OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
+GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
 ```
 
-### API Examples
+### Configuration Files
 
-```bash
-# Submit batch job
-curl -X POST http://localhost:8001/batch/submit \
-  -H "Content-Type: application/json" \
-  -d '{
-    "provider": "gemini",
-    "model": "gemini-2.5-flash",
-    "character_requests": [
-      {"gender": "female", "age": 25, "additional_instructions": "cheerful"},
-      {"gender": "male", "age": 30, "additional_instructions": "intellectual"}
-    ]
-  }'
+- `.envrc.example`: Template with placeholder values
+- `.envrc`: Local configuration (gitignored)
+- Loaded via `python-dotenv` in `src/config.py`
 
-# Check status
-curl http://localhost:8001/batch/{job_id}/status
+## Performance Considerations
 
-# Get results
-curl http://localhost:8001/batch/{job_id}/result
+### Streaming Benefits
 
-# List all jobs
-curl http://localhost:8001/batch/jobs
+1. **Reduced Time-to-First-Byte (TTFB)**: Users see response immediately
+2. **Better UX**: Progressive display vs. long wait times
+3. **Resource Efficiency**: No need to buffer entire response
+4. **Scalability**: Handles long-form content without timeout issues
 
-# Queue stats
-curl http://localhost:8001/batch/queue/stats
+### Optimization Points
+
+- **OpenAI**: `asyncio.sleep(0.01)` prevents event loop blocking (src/service/streaming_service.py:36)
+- **FastAPI**: Async endpoints enable concurrent request handling
+- **SSE Headers**: Proper cache and buffering control for real-time delivery
+
+### Potential Bottlenecks
+
+- **API Latency**: Dependent on external API response times
+- **Network Bandwidth**: Large responses may strain client connections
+- **Concurrent Requests**: No connection pooling or rate limiting
+
+## Security Considerations
+
+### Current Security Posture
+
+[!] **Development Mode**: Not production-ready without hardening
+
+**Vulnerabilities**:
+1. No authentication/authorization
+2. CORS allows all origins
+3. No rate limiting (API abuse risk)
+4. API keys in environment variables (acceptable for development)
+5. No request size limits
+6. No input sanitization beyond Pydantic validation
+
+### Production Hardening Checklist
+
+- [ ] Implement API key authentication
+- [ ] Restrict CORS to specific domains
+- [ ] Add rate limiting (per IP/per user)
+- [ ] Use secret management service for API keys
+- [ ] Add request size limits
+- [ ] Implement request validation and sanitization
+- [ ] Add HTTPS/TLS termination
+- [ ] Set up monitoring and alerting
+- [ ] Implement proper error handling without leaking internals
+- [ ] Add audit logging for compliance
+
+## Git Status
+
+### Recent Commits
+```
+889035f 2.7
+bc953f0 2.6
+cb11475 2.5
+8162ad8 init
+e34954c add 2.1
 ```
 
-## Development Commands
+### Current Branch
+- `main` (clean working directory for section_5)
 
-| Command | Description |
-|---------|-------------|
-| `make lint` | Run ruff linter with auto-fix |
-| `make fmt` | Format code with ruff |
-| `make fix` | Run lint + fmt |
-| `make mypy` | Type checking |
-| `make docker-build` | Build Docker image |
-| `make docker-up` | Start services |
-| `make docker-down` | Stop services |
-| `make docker-logs` | View logs |
-| `make docker-restart` | Restart services |
+### Modified Files (Parent Directories)
+- Multiple reorganization operations in sibling sections
+- New files added in section_5 (untracked)
 
-## Implementation Notes
+## Future Enhancements
 
-### Worker Architecture
+### Priority 1: Testing & Quality
 
-The worker uses two concurrent loops instead of sequential processing:
-1. Jobs are submitted to Gemini immediately upon dequeue
-2. Multiple Gemini batch jobs can be in-flight simultaneously
-3. All active jobs are polled in parallel every 5 seconds
+1. **Add Unit Tests**
+   - Test streaming service functions with mocked API clients
+   - Test FastAPI endpoints with TestClient
+   - Test error handling paths
+   - Target: 80%+ code coverage
 
-This design maximizes throughput when processing many concurrent jobs.
+2. **Add Integration Tests**
+   - End-to-end tests with real API calls (optional)
+   - Use VCR.py for recording/replaying API responses
 
-### Redis Key Patterns
+3. **Add CI/CD Pipeline**
+   - Automated testing on push
+   - Code quality checks (ruff, mypy)
+   - Dependency vulnerability scanning
 
-- Queue: `llm_batch_jobs` (LIST)
-- Status: `job:{job_id}:status` (STRING with 24h TTL)
-- Result: `job:{job_id}:result` (STRING with 24h TTL)
+### Priority 2: Production Readiness
 
-### Error Handling
+1. **Authentication & Authorization**
+   - API key-based auth
+   - JWT token support
+   - Per-user rate limiting
 
-- Task-level failures don't affect other tasks
-- Job marked FAILED if any task fails
-- Worker continues processing after job failures
-- Gemini failed states: `JOB_STATE_FAILED`, `JOB_STATE_CANCELLED`, `JOB_STATE_EXPIRED`
+2. **Observability**
+   - Structured logging (JSON format)
+   - Request tracing with correlation IDs
+   - Metrics collection (Prometheus)
+   - Health check enhancements (liveness/readiness)
 
-### Supported Models
+3. **Rate Limiting**
+   - Per-IP rate limiting
+   - Per-user quota management
+   - Graceful degradation on quota exhaustion
 
-- `gemini-2.5-pro`
-- `gemini-2.5-flash`
-- `gemini-2.5-flash-lite`
-- `gemini-3.5-flash`
-- `gemini-3.1-flash-lite`
+### Priority 3: Feature Enhancements
 
-### Security Notes
+1. **Extended Model Support**
+   - Additional OpenAI models (GPT-5.4, GPT-5)
+   - Additional Gemini models (Pro, Ultra)
+   - Claude API integration
+   - Model-specific parameter tuning
 
-This is example code without production security controls:
-- No authentication/authorization
-- No rate limiting
-- API keys in environment variables
+2. **Advanced Streaming Features**
+   - Token-level streaming metadata
+   - Usage statistics in response
+   - Partial response caching
+   - Stream interruption/cancellation
 
-For production, add API key auth, JWT, rate limiting, and secrets management.
+3. **Developer Experience**
+   - OpenAPI schema enhancements
+   - SDK generation for clients
+   - WebSocket alternative to SSE
+   - GraphQL subscription support
+
+### Priority 4: Operational Excellence
+
+1. **Deployment**
+   - Docker containerization
+   - Kubernetes manifests
+   - Terraform IaC
+   - Multi-region deployment
+
+2. **Monitoring & Alerting**
+   - Grafana dashboards
+   - PagerDuty integration
+   - Error rate alerts
+   - Latency SLO monitoring
+
+3. **Cost Optimization**
+   - Response caching layer
+   - Smart model routing (cost vs. quality)
+   - Request batching
+   - Budget alerts
+
+## Troubleshooting
+
+### Common Issues
+
+**Issue**: Server fails to start
+```
+Solution: Check API keys are set in .envrc
+$ source .envrc
+$ echo $OPENAI_API_KEY
+```
+
+**Issue**: Test client connection refused
+```
+Solution: Ensure server is running
+$ python run_server.py
+# In another terminal:
+$ python test_client.py --prompt "test"
+```
+
+**Issue**: Empty responses from Gemini
+```
+Solution: Check Gemini API quota and credentials
+Verify model name is correct (gemini-2.5-flash)
+```
+
+**Issue**: CORS errors in browser
+```
+Solution: Check CORS middleware configuration in src/api/app.py:19
+Verify allowed origins match your frontend domain
+```
+
+**Issue**: Slow streaming responses
+```
+Solution: Check network latency to API endpoints
+Verify asyncio.sleep(0.01) is not too high in streaming_service.py
+```
+
+## Maintenance Notes
+
+### Regular Tasks
+
+- **Weekly**: Review API usage and costs
+- **Monthly**: Update dependencies (uv sync --upgrade)
+- **Quarterly**: Security audit and dependency updates
+- **Yearly**: API key rotation
+
+### Monitoring Checklist
+
+- [ ] API endpoint response times
+- [ ] Error rates (4xx, 5xx)
+- [ ] External API latencies (OpenAI, Gemini)
+- [ ] Server resource utilization (CPU, memory)
+- [ ] Request volumes and patterns
+
+## References
+
+### External Documentation
+
+- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+- [OpenAI Streaming API](https://platform.openai.com/docs/api-reference/streaming)
+- [Google Gemini API](https://ai.google.dev/docs)
+- [Server-Sent Events Spec](https://html.spec.whatwg.org/multipage/server-sent-events.html)
+
+### Internal Documentation
+
+- `README.md`: User-facing setup and usage guide
+- Code docstrings: Implementation details
+- `examples/example_usage.py`: Practical usage patterns
+
+## Conclusion
+
+This project successfully demonstrates a production-ready LLM streaming API implementation with multi-provider support. The architecture is clean, maintainable, and extensible. While suitable for demonstration and development, production deployment requires additional hardening (authentication, rate limiting, monitoring).
+
+**Next Steps**:
+1. Add comprehensive test suite
+2. Implement authentication layer
+3. Set up monitoring and alerting
+4. Deploy to staging environment for load testing
+
+---
+
+**Document Maintained By**: Development Team
+**Last Review**: 2025-10-17
+**Next Review**: 2025-11-17

@@ -1,8 +1,4 @@
-"""State pattern for agent execution states.
-
-This module implements the State design pattern for managing agent lifecycle.
-The states and transitions are core infrastructure that rarely changes.
-"""
+"""State pattern for agent execution states."""
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass

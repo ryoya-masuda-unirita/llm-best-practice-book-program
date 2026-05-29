@@ -1,13 +1,15 @@
-"""Pytest configuration and shared fixtures for tests."""
+"""Pytest fixtures for prompt profiler tests."""
+
+from datetime import datetime, timezone
 
 import pytest
-from src.model.llm_as_a_judge_model import EvaluationCriterion, JudgeRequest, JudgeResponse
+from src.model.llm_as_a_judge_model import EvaluationCriterion, JudgeResponse
 from src.model.model import CharacterPersonality, CharacterRequest, CharacterResponse, Gender
+from src.model.profiler_metrics import AlertThreshold, MetricStatus, ProfilerMetrics
 
 
 @pytest.fixture
 def sample_character_request() -> CharacterRequest:
-    """Sample character request for testing."""
     return CharacterRequest(
         gender=Gender.FEMALE,
         age=25,
@@ -17,111 +19,191 @@ def sample_character_request() -> CharacterRequest:
 
 @pytest.fixture
 def sample_character_response() -> CharacterResponse:
-    """Sample character response for testing."""
     return CharacterResponse(
-        first_name="Elena",
-        last_name="Stormweaver",
+        first_name="Luna",
+        last_name="Starweaver",
         gender=Gender.FEMALE,
         age=25,
         personalities=[
             CharacterPersonality(
                 short_personality="Curious",
-                description="Possesses an insatiable thirst for unknown magic and ancient knowledge. Always immersed in research of new spells.",
+                description="Luna possesses an insatiable curiosity about the arcane arts and ancient mysteries. She spends countless hours poring over dusty tomes and experimenting with new spells.",
             ),
             CharacterPersonality(
-                short_personality="Calm and Collected",
-                description="Can make logical decisions without being shaken even in critical situations. Rarely swayed by emotions.",
+                short_personality="Compassionate",
+                description="Despite her scholarly nature, Luna has a deep well of empathy for others. She often uses her magical abilities to help those in need, never expecting anything in return.",
             ),
             CharacterPersonality(
-                short_personality="Secretive",
-                description="Does not speak much about her past or true power. Opens up little by little only to those she trusts.",
+                short_personality="Determined",
+                description="Once Luna sets her mind to a goal, nothing can deter her. Her determination has seen her through countless challenges and dangerous magical experiments.",
             ),
         ],
-    )
-
-
-@pytest.fixture
-def sample_judge_request(sample_character_response: CharacterResponse) -> JudgeRequest:
-    """Sample judge request for testing."""
-    return JudgeRequest(
-        question="Generate a 25-year-old female wizard character from a fantasy world.",
-        response=sample_character_response.model_dump_json(indent=2, ensure_ascii=False),
-        context=None,
-    )
-
-
-@pytest.fixture
-def sample_judge_response() -> JudgeResponse:
-    """Sample judge response for testing."""
-    return JudgeResponse(
-        evaluations=[
-            EvaluationCriterion(
-                criterion_name="accuracy",
-                score=4,
-                reasoning="The specified age (25) and gender (female) are accurately reflected. The fantasy wizard setting is appropriately expressed.",
-            ),
-            EvaluationCriterion(
-                criterion_name="comprehensiveness",
-                score=5,
-                reasoning="All elements including name, gender, age, and three personality traits are included, with both short and detailed descriptions.",
-            ),
-            EvaluationCriterion(
-                criterion_name="clarity",
-                score=4,
-                reasoning="Each personality trait is clearly described and the character's individuality is easy to understand.",
-            ),
-        ],
-        overall_score=4.33,
-        summary="High-quality character generation that meets specified conditions and appropriately expresses the fantasy wizard concept.",
     )
 
 
 @pytest.fixture
 def low_quality_character_response() -> CharacterResponse:
-    """Low quality character response for testing (missing required elements)."""
     return CharacterResponse(
-        first_name="John",
-        last_name="Smith",
+        first_name="X",
+        last_name="Y",
         gender=Gender.MALE,
-        age=30,
+        age=50,
         personalities=[
             CharacterPersonality(
-                short_personality="Normal",
-                description="An ordinary person with no particular characteristics.",
+                short_personality="A",
+                description="A",
             ),
             CharacterPersonality(
-                short_personality="Normal",
-                description="Average personality.",
+                short_personality="B",
+                description="B",
             ),
             CharacterPersonality(
-                short_personality="Normal",
-                description="A regular person.",
+                short_personality="C",
+                description="C",
             ),
         ],
     )
 
 
 @pytest.fixture
+def sample_judge_response() -> JudgeResponse:
+    return JudgeResponse(
+        evaluations=[
+            EvaluationCriterion(
+                criterion_name="accuracy",
+                score=4,
+                reasoning="The character meets the requested gender and age requirements with appropriate fantasy elements.",
+            ),
+            EvaluationCriterion(
+                criterion_name="comprehensiveness",
+                score=4,
+                reasoning="All required fields are present including detailed personality descriptions.",
+            ),
+            EvaluationCriterion(
+                criterion_name="clarity",
+                score=5,
+                reasoning="The response is well-structured and easy to understand.",
+            ),
+        ],
+        overall_score=4.33,
+        summary="A well-crafted fantasy character with rich personality traits.",
+    )
+
+
+@pytest.fixture
 def low_quality_judge_response() -> JudgeResponse:
-    """Low quality judge response for testing (below threshold)."""
     return JudgeResponse(
         evaluations=[
             EvaluationCriterion(
                 criterion_name="accuracy",
                 score=2,
-                reasoning="Generated a 30-year-old male generic character completely different from specified conditions (25-year-old female fantasy wizard).",
+                reasoning="The character does not meet the gender and age requirements.",
             ),
             EvaluationCriterion(
                 criterion_name="comprehensiveness",
-                score=3,
-                reasoning="Required fields exist but fantasy elements are completely missing.",
+                score=2,
+                reasoning="Personality descriptions are too brief and lack detail.",
             ),
             EvaluationCriterion(
                 criterion_name="clarity",
-                score=2,
-                reasoning="All personality traits use vague expression 'Normal', showing no character individuality.",
+                score=3,
+                reasoning="The structure is correct but content is minimal.",
             ),
         ],
         overall_score=2.33,
-        summary="Low-quality generation result that does not meet specified conditions and lacks creativity.",
+        summary="A poorly developed character that fails to meet requirements.",
+    )
+
+
+@pytest.fixture
+def sample_profiler_metrics() -> ProfilerMetrics:
+    return ProfilerMetrics(
+        prompt_id="character_generation",
+        request_id="test-request-001",
+        prompt_name="Character Generation",
+        latency_ms=1500.0,
+        input_tokens=500,
+        output_tokens=200,
+        total_tokens=700,
+        model="gpt-5.4-mini",
+        provider="openai",
+        status=MetricStatus.SUCCESS,
+        status_code=200,
+        quality_score=4.0,
+        estimated_cost_usd=0.0004,
+    )
+
+
+@pytest.fixture
+def sample_metrics_list() -> list[ProfilerMetrics]:
+    base_time = datetime.now(timezone.utc)
+
+    metrics = []
+    for i in range(10):
+        metrics.append(
+            ProfilerMetrics(
+                prompt_id="character_generation",
+                request_id=f"test-request-{i:03d}",
+                prompt_name="Character Generation",
+                timestamp=(base_time).isoformat(),
+                latency_ms=1000.0 + (i * 100),
+                input_tokens=500 + (i * 10),
+                output_tokens=200 + (i * 5),
+                total_tokens=700 + (i * 15),
+                model="gpt-5.4-mini",
+                provider="openai",
+                status=MetricStatus.SUCCESS if i < 9 else MetricStatus.ERROR,
+                status_code=200 if i < 9 else 500,
+                quality_score=3.0 + (i * 0.2) if i < 9 else None,
+                estimated_cost_usd=0.0003 + (i * 0.0001),
+            )
+        )
+    return metrics
+
+
+@pytest.fixture
+def mixed_prompt_metrics() -> list[ProfilerMetrics]:
+    base_time = datetime.now(timezone.utc)
+
+    metrics = []
+    prompt_ids = ["prompt_a", "prompt_b", "prompt_c"]
+
+    for i, prompt_id in enumerate(prompt_ids):
+        for j in range(5):
+            metrics.append(
+                ProfilerMetrics(
+                    prompt_id=prompt_id,
+                    request_id=f"{prompt_id}-{j:03d}",
+                    prompt_name=f"Prompt {prompt_id.upper()}",
+                    timestamp=base_time.isoformat(),
+                    latency_ms=1000.0 + (i * 500) + (j * 50),
+                    input_tokens=500 + (i * 100),
+                    output_tokens=200 + (j * 10),
+                    total_tokens=700 + (i * 100) + (j * 10),
+                    model="gpt-5.4-mini",
+                    provider="openai",
+                    status=MetricStatus.SUCCESS,
+                    status_code=200,
+                    quality_score=3.5 + (i * 0.3),
+                    estimated_cost_usd=0.0005,
+                )
+            )
+    return metrics
+
+
+@pytest.fixture
+def alert_thresholds() -> AlertThreshold:
+    return AlertThreshold(
+        latency_warning_ms=2000.0,
+        latency_critical_ms=5000.0,
+        latency_relative_warning=1.5,
+        latency_relative_critical=2.0,
+        token_warning=5000,
+        token_critical=10000,
+        quality_warning=3.0,
+        quality_critical=2.0,
+        cost_warning_usd=0.05,
+        cost_critical_usd=0.2,
+        success_rate_warning=0.95,
+        success_rate_critical=0.90,
     )

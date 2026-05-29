@@ -1,25 +1,6 @@
 version: '3.8'
 
 services:
-  # Redis Cache Server
-  redis:
-    container_name: llm-redis-cache
-    image: redis:8-alpine
-    ports:
-      - "6379:6379"
-    command: redis-server --appendonly yes
-    volumes:
-      - redis-data:/data
-    restart: unless-stopped
-    networks:
-      - llm-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
-
   # LLM API Server (Backend)
   llm-server:
     container_name: llm-api-server
@@ -31,11 +12,9 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - PROXY_URL=http://llm-server:8080
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
     env_file:
       - .envrc
     command:
@@ -46,15 +25,8 @@ services:
       - --port
       - "8000"
     restart: unless-stopped
-    depends_on:
-      redis:
-        condition: service_healthy
     networks:
       - llm-network
-
-volumes:
-  redis-data:
-    driver: local
 
 networks:
   llm-network:

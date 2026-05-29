@@ -1,59 +1,50 @@
-"""ReAct strategy: Reasoning and Acting in sync."""
+"""ReAct (Reasoning + Acting) strategy implementation."""
 
-from src.agent.core.base import Action, ActionType, Tool, ToolResult
+from src.agent.core.base import Action, ActionType, Tool
 from src.agent.extensions.strategies.base_strategy import BaseStrategy
-from src.client.llm_client import GeminiModel
 
 
 class ReActStrategy(BaseStrategy):
-    """ReAct strategy: Reasoning and Acting in sync."""
+    """ReAct pattern with interleaved thought/action/observation cycles."""
 
-    def __init__(self, model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH, max_iterations: int = 10):
-        super().__init__("ReAct", model, max_iterations)
-
-    def _build_trajectory(self, context: dict[str, object]) -> str:
-        actions = context.get("actions", [])
-        observations = context.get("observations", [])
-
-        if not isinstance(actions, list) or not actions:
-            return ""
-
-        trajectory_parts = []
-        for i, action in enumerate(actions):
-            if isinstance(action, Action):
-                entry = f"Iteration {i + 1}:\n"
-                entry += f"Thought: {action.thought or 'N/A'}\n"
-                if action.type == ActionType.TOOL_CALL:
-                    entry += f"Action: {action.tool_name}({action.params})\n"
-                    if i < len(observations):
-                        obs = observations[i]
-                        if isinstance(obs, ToolResult):
-                            entry += f"Observation: {obs.data}" if obs.success else f"Observation: Error - {obs.error}"
-                        else:
-                            entry += f"Observation: {obs}"
-                trajectory_parts.append(entry)
-
-        return "\n".join(trajectory_parts)
+    def __init__(self, model: str = "gemini-2.5-flash", max_iterations: int = 10):
+        super().__init__("react", model, max_iterations)
 
     def think(self, goal: str, context: dict[str, object], available_tools: list[Tool]) -> Action:
-        self.iteration += 1
-        if self.iteration > self.max_iterations:
+        if self._iteration >= self.max_iterations:
             return Action(type=ActionType.FINAL_ANSWER, answer="Maximum iterations reached")
 
-        tools_desc = "\n".join([f"- {t.name}: {t.description}" for t in available_tools])
-        trajectory = self._build_trajectory(context)
+        trajectory = self._build_trajectory()
+        tool_descriptions = "\n".join(f"- {t.name}: {t.description}" for t in available_tools)
 
-        prompt = f"""Goal: {goal}
-Available Tools: {tools_desc}
-{f"Trajectory:\n{trajectory}" if trajectory else ""}
+        prompt = f"""You are a ReAct agent (Reasoning + Acting).
 
-Use this format:
-Thought: <your reasoning>
-Action: TOOL: <tool_name> | PARAMS: {{"param": "value"}}
-or
-Thought: <your final reasoning>
-Action: ANSWER: <final_answer>
+Goal: {goal}
 
-Provide your Thought and Action:"""
+Available Tools:
+{tool_descriptions}
 
-        return self._parse_action(self._call_llm(prompt))
+Previous Trajectory:
+{trajectory}
+
+Follow the Thought -> Action -> Observation cycle.
+Thought: Think about what to do next
+Action: Use a tool or provide final answer
+If you need to use a tool, respond with: Tool: <tool_name>
+If you have the final answer, respond with: Answer: <your_answer>
+"""
+        response = self._call_llm(prompt)
+        return self._parse_action(response, available_tools)
+
+    def _build_trajectory(self) -> str:
+        if not self._steps:
+            return "No previous steps."
+        lines = []
+        for step in self._steps:
+            lines.append(f"Iteration {step.iteration + 1}:")
+            if step.thought:
+                lines.append(f"  Thought: {step.thought}")
+            lines.append(f"  Action: {step.action}")
+            if step.result:
+                lines.append(f"  Observation: {step.result}")
+        return "\n".join(lines)

@@ -92,8 +92,11 @@ class FirstHalfGeneratorTool(Tool):
         language: Literal["en", "ja"],
         model: str,
         provider: LLMProvider,
+        user_requirements: list[str] | None = None,
     ) -> ArticleHalf | None:
-        system_instruction, user_content = make_first_half_generation_system_instruction(outline, language)
+        system_instruction, user_content = make_first_half_generation_system_instruction(
+            outline, language, user_requirements
+        )
         try:
             return await _generate_with_gemini(system_instruction, user_content, ArticleHalf, model)
         except Exception as e:
@@ -156,8 +159,11 @@ class SecondHalfGeneratorTool(Tool):
         language: Literal["en", "ja"],
         model: str,
         provider: LLMProvider,
+        user_requirements: list[str] | None = None,
     ) -> str | None:
-        system_instruction, user_content = make_second_half_generation_system_instruction(outline, first_half, language)
+        system_instruction, user_content = make_second_half_generation_system_instruction(
+            outline, first_half, language, user_requirements
+        )
         try:
             result = await _generate_with_gemini(system_instruction, user_content, ArticleHalf, model)
             return result.content

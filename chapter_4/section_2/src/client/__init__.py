@@ -1,7 +1,3 @@
-from src.client.llm_client import (
-    LLMProvider,
-    OpenAIModel,
-    openai_client,
-)
+from src.client.llm_client import AnthropicModel, anthropic_client
 
-__all__ = ["LLMProvider", "openai_client", "OpenAIModel"]
+__all__ = ["AnthropicModel", "anthropic_client"]

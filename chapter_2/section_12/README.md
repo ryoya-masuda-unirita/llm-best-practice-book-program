@@ -1,618 +1,490 @@
-# Chapter 2 Section 12: プロンプトを再利用するために分析する
-
-LLMアプリケーションにおけるプロンプトを体系的に記録・分析し、再利用可能な知見として蓄積するシステムの実装例です。
+# Chapter 2 Section 14: LLMによるスクリプト生成と実行
 
 ## 概要
 
-キャラクター生成を実例として、プロンプトのログ記録、評価、テンプレート化、分析の一連のワークフローを示します。
+本プロジェクトは、LLMが苦手とする数値計算や複雑なデータ処理に対して、LLM自身にPythonスクリプトを生成させて実行するプラクティスを実装したサンプルアプリケーションです。
 
-### 主な機能
+LLMは確率的な出力を行うため、単純な算数であっても桁数が増えれば計算ミス（ハルシネーション）を起こしやすいという課題があります。本プロジェクトでは、LLMに直接的な回答を求めず、問題を解決するためのPythonスクリプトを生成させ、それをサンドボックス環境で実行するアプローチを採用しています。これにより、LLMの言語能力と従来のプログラミングによる正確な処理を融合させ、信頼性の高いタスク処理を実現します。
 
-1. **プロンプトログの記録**: すべてのLLM実行を詳細なメタデータと共に記録
-2. **評価基準の定義**: タスクごとの成功/失敗の判定基準を設定
-3. **テンプレートの自動生成**: 成功したプロンプトから再利用可能なテンプレートを作成
-4. **アンチパターンの追跡**: 失敗パターンを記録し、将来の過ちを防ぐ
-5. **検索とカタログ**: タグやカテゴリによるテンプレート検索
-6. **分析とレポート**: プロンプトのパフォーマンス分析と改善提案
-7. **コスト追跡**: API使用量とコストの分析
+具体的には、契約書やレポートなどの文書を入力として受け取り、LLMがその文書構造を抽出するPythonスクリプトを自動生成し、実行結果をJSON形式で出力します。スクリプト実行時にエラーが発生した場合は、LLMによる自己修正（Self-Correction）機能により自動的にスクリプトを修正して再実行します。
 
+## 機能
 
-## アーキテクチャ
+- **文書構造の自動抽出**: Markdown形式の文書からタイトル、セクション、サブセクション、メタデータを自動抽出
+- **LLMによるスクリプト生成**: 文書の特性に応じた最適なPython抽出スクリプトを自動生成
+- **セキュアなサンドボックス実行**: 生成されたスクリプトを安全な環境で実行（ファイルシステム・ネットワークアクセス禁止）
+- **自己修正機能**: スクリプト実行エラー時にLLMが自動的にコードを修正して再試行（最大3回）
+- **LLM-as-a-Judge品質評価**: 抽出結果をLLMが1〜5のスコアで評価し、低スコア時は改善提案を生成して再修正
+- **構造化出力**: Anthropic API の Structured Outputs を活用した型安全な出力
 
-### ワークフロー
+## プロジェクト構成
 
-このシステムは、以下の継続的改善サイクルを実装しています：
+### アーキテクチャ
 
 ```
-1. 実行 (Execute)
-   ↓
-   プロンプトをLLMに送信し、応答を受け取る
-
-2. 記録 (Log)
-   ↓
-   プロンプト、応答、メタデータを記録
-
-3. 評価 (Evaluate)
-   ↓
-   事前定義された基準で結果を評価
-
-4. 分析 (Analyze)
-   ↓
-   パターンを抽出し、成功/失敗を分類
-
-5. 学習 (Learn)
-   ↓
-   成功 → テンプレート化
-   失敗 → アンチパターン記録
-
-6. 再利用 (Reuse)
-   ↓
-   テンプレートを検索・適用
-   アンチパターンを回避
-
-7. 最適化 (Optimize)
-   ↓
-   分析結果に基づき改善
-   → 1に戻る
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              CLI (main.py)                               │
+│                         文書ファイル読み込み                              │
+└───────────────────────────────────┬─────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    Document Processor (service層)                        │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │ Step 1: sample_document()                                        │    │
+│  │   - 文書タイプ識別（contract, report, manual等）                  │    │
+│  │   - キーセクション特定                                            │    │
+│  │   - 代表的な文のサンプリング                                      │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                    │                                     │
+│                                    ▼                                     │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │ Step 2: generate_extraction_script()                             │    │
+│  │   - 文書構造に適したPythonスクリプト生成                          │    │
+│  │   - セキュリティ要件をプロンプトで指定                            │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                    │                                     │
+│                                    ▼                                     │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │ Step 3: execute_script_with_retry()                              │    │
+│  │   - スクリプト検証（禁止パターン・モジュールチェック）            │    │
+│  │   - サンドボックス実行（PATH/PYTHONPATH空、タイムアウト設定）     │    │
+│  │   - エラー時は correct_script() で修正して再試行（最大3回）       │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+│                                    │                                     │
+│                                    ▼                                     │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │ Step 4: validate_extraction_result()                            │    │
+│  │   - LLM-as-a-Judgeで抽出結果を1〜5のスコアで評価                 │    │
+│  │   - 低スコア時は改善提案を生成しスクリプトを再修正               │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+└───────────────────────────────────┬─────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                            出力ファイル                                  │
+│  - {filename}_{run_id}_structure.json  # 抽出された文書構造              │
+│  - {filename}_{run_id}_script.py       # 生成されたPythonスクリプト      │
+│  - {filename}_{run_id}_metadata.json   # 処理メタデータ                  │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## 使い方
 
-### インストール
+### 環境構成
+
+- Python: 3.13.2以上
+- 依存ライブラリ:
+  - `anthropic>=0.74.1` - Anthropic API クライアント
+  - `click>=8.3.0` - CLIフレームワーク
+  - `pydantic>=2.12.2` - データバリデーション
+  - `python-dotenv>=1.1.1` - 環境変数管理
+
+### セットアップ
+
+1. 依存関係のインストール:
 
 ```bash
-# 依存関係のインストール
+# uvを使用
 uv sync
 ```
 
-#### 環境変数を設定:
+2. 環境変数の設定:
 
 ```bash
 cp .envrc.example .envrc
+# .envrc を編集して ANTHROPIC_API_KEY を設定
 ```
 
-`.envrc` を編集し、OpenAIのAPIキーを設定:
-
-```bash
-OPENAI_API_KEY=<your_openai_api_key_here>
+```
+ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
 ```
 
-### 基本的な使用方法
+### 使用方法、実行方法
 
 ```bash
+# 使い方
+
 $ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
+  Analyze and extract document structure using LLM-generated scripts.
+
 Options:
-  -m, --model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO]
-                                  The OpenAI model to use for the request.
+  -m, --model [claude-opus-4-7|claude-sonnet-4-6|claude-haiku-4-5]
+                                  The Anthropic model to use for analysis.
                                   [required]
+  -i, --input PATH                Path to the input document (text or
+                                  markdown).  [required]
   -od, --output-directory PATH    The directory to save output files.
-  -t, --template PATH             Template file path (relative to project root
-                                  or absolute). Default:
-                                  templates/character_generation.yaml
-  -v, --variables PATH            Variables file path (relative to project
-                                  root or absolute). If not specified, uses
-                                  default values.
   --help                          Show this message and exit.
 ```
 
-#### 実行コマンド
-
 ```bash
-# デフォルト設定で実行
-uv run python -m src.main -m GPT_5_4_MINI
+# 基本的な使用方法
+uv run python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md
 
-# 特定の変数ファイルを使用
-uv run python -m src.main -m GPT_5_4 -v variables/character_artist.yaml
-
-# テンプレートと変数を両方指定
-uv run python -m src.main -m GPT_5_4 -t templates/character_generation.yaml -v variables/warrior.yaml
+# 出力ディレクトリを指定
+uv run python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md -od outputs
 ```
 
-#### 実行例
+#### CLIオプション
 
-- テンプレートの利用例
+| オプション | 短縮形 | 必須 | デフォルト | 説明 |
+|-----------|-------|------|-----------|------|
+| `--model` | `-m` | Yes | - | 使用するモデル（`claude-sonnet-4-6` または `claude-opus-4-7`） |
+| `--input` | `-i` | Yes | - | 入力文書ファイルのパス |
+| `--output-directory` | `-od` | No | `outputs` | 出力ファイルの保存先ディレクトリ |
+
+### 出力例
+
+契約書（`data/contract_0.md`）を処理した場合の実行ログ:
 
 ```bash
-$ uv run python -m src.main -m GPT_5_4 -t templates/character_generation.yaml -v variables/warrior.yaml
-[2026-01-18 14:59:16,520] [INFO] [__main__] [main.py:87] [main] Model: gpt-5.4
+$ uv run python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md
+
+[2026-01-18 15:26:24,431] [INFO] [__main__] [main.py:52] [main] Model: claude-sonnet-4-6
+Input file: data/contract_0.md
 Output directory: outputs
-Template: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_12/templates/character_generation.yaml
-Variables: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_12/variables/warrior.yaml
-[2026-01-18 14:59:16,526] [INFO] [src.service.request_llm] [request_llm.py:146] [render_prompt_from_template] Using template: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_12/templates/character_generation.yaml
-[2026-01-18 14:59:16,526] [INFO] [src.service.request_llm] [request_llm.py:147] [render_prompt_from_template] Variables: gender=male, age=25
-[2026-01-18 14:59:20,386] [INFO] [__main__] [main.py:109] [main] File saved to outputs/openai_d0655efadf694c06ba76f508c3990bc5.json
+[2026-01-18 15:26:24,438] [INFO] [__main__] [main.py:60] [main] Document loaded: 1822 characters
+[2026-01-18 15:26:24,438] [INFO] [src.service.document_processor] [document_processor.py:31] [extract_document_structure] Step 1: Sampling document sentences...
+[2026-01-18 15:26:36,908] [INFO] [src.service.request_llm] [request_llm.py:26] [sample_document] Sampled document info: sentences=['本契約は、委託者（以下 「甲」という）と受託者（以下「乙」という）との間で、以下の条件に基づき締結される。', '甲は乙に対し、本契約に定める条件に従い、ソフトウェア開発業務（以下「 本業務」という）を委託し、乙はこれを受託する。', '乙が開発するソフトウェアの概要は以下の通りとする。', '乙は以下の成果物を甲に納品するものとする。', '本契 約の有効期間は、2024年4月1日から2024年9月30日までとする。', '甲は乙に対し、本業務の対価として、金1,500万円（消費税別）を支払うものとする。', '甲および乙は 、相手方の機密情報を厳重に管理し、本業務の遂行以外の目的に使用してはならない。', '本業務により生じた成果物に関する著作権（著作権法第27条および第28条の権利 を含む）その他一切の知的財産権は、対価の完済をもって甲に帰属するものとする。', '乙は、成果物の納品後1年間、成果物に瑕疵があった場合には、無償で修補を行うものとする。', '本契約に関する一切の紛争については、東京地方裁判所を第一審の専属的合意管轄裁判所とする。'] document_type='contract' key_sections=['第1条（目 的）', '第2条（業務内容）', '2.1 開発対象', '2.2 成果物', '第3条（契約期間）', '第4条（委託料）', '4.1 金額', '4.2 支払条件', '第5条（機密保持）', '5.1 機 密情報の定義', '5.2 機密保持義務', '第6条（知的財産権）', '6.1 権利の帰属', '6.2 乙の留保権利', '第7条（瑕疵担保責任）', '第8条（損害賠償）', '第9条（解除 ）', '第10条（協議事項）', '第11条（管轄裁判所）']
+[2026-01-18 15:26:36,909] [INFO] [src.service.document_processor] [document_processor.py:33] [extract_document_structure] Document type identified: contract
+[2026-01-18 15:26:36,909] [INFO] [src.service.document_processor] [document_processor.py:34] [extract_document_structure] Key sections found: ['第1条（目的）', '第2条（業務内容）', '2.1 開発対象', '2.2 成果物', '第3条（契約期間）', '第4条（委託料）', '4.1 金額', '4.2 支払条件', '第5条（機密保持）', '5.1 機密 情報の定義', '5.2 機密保持義務', '第6条（知的財産権）', '6.1 権利の帰属', '6.2 乙の留保権利', '第7条（瑕疵担保責任）', '第8条（損害賠償）', '第9条（解除）', '第10条（協議事項）', '第11条（管轄裁判所）']
+[2026-01-18 15:26:36,909] [INFO] [src.service.document_processor] [document_processor.py:36] [extract_document_structure] Step 2: Generating extraction script...
+[2026-01-18 15:26:56,941] [INFO] [src.service.request_llm] [request_llm.py:43] [generate_extraction_script] Generated script explanation: このスクリプトは 、契約書などの文書から構造情報を抽出します。標準入力からMarkdown形式の文書を読み込み、タイトル、セクション（第○条）、サブセクション（数字.数字形式）を階層 的に抽出し、さらに当事者情報や日付などのメタデータも抽出してJSON形式で標準出力に出力します。正規表現を使用して見出しレベルを判定し、ネストした構造を構築し ます。
+[2026-01-18 15:26:56,941] [INFO] [src.service.document_processor] [document_processor.py:42] [extract_document_structure] Script explanation: このスクリプ トは、契約書などの文書から構造情報を抽出します。標準入力からMarkdown形式の文書を読み込み、タイトル、セクション（第○条）、サブセクション（数字.数字形式）を 階層的に抽出し、さらに当事者情報や日付などのメタデータも抽出してJSON形式で標準出力に出力します。正規表現を使用して見出しレベルを判定し、ネストした構造を構 築します。
+[2026-01-18 15:26:56,941] [INFO] [src.service.document_processor] [document_processor.py:139] [_execute_script_with_retry] Step 3: Executing script (attempt 1/4)...
+[2026-01-18 15:26:56,995] [WARNING] [src.service.script_executor] [script_executor.py:86] [execute_script] Script execution failed with return code 1
+[2026-01-18 15:26:56,995] [WARNING] [src.service.document_processor] [document_processor.py:147] [_execute_script_with_retry] Script execution failed: Traceback (most recent call last):
+  File "/var/folders/x4/1v5m360n3jbf6kh_yjjgnf4w0000gn/T/tmpdl_wwo23.py", line 115, in <module>
+    extract_document_structure()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/var/folders/x4/1v5m360n3jbf6kh_yjjgnf4w0000gn/T/tmpdl_wwo23.py", line 56, in extract_document_structure
+    current_section['subsections'].append(current_subsection)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+TypeError: 'NoneType' object is not subscriptable
+[2026-01-18 15:26:56,995] [INFO] [src.service.document_processor] [document_processor.py:148] [_execute_script_with_retry] Attempting to correct script...
+[2026-01-18 15:27:16,383] [INFO] [src.service.request_llm] [request_llm.py:61] [correct_script] Corrected script explanation: エラーの原因は、サブセクショ ン(###)が見つかった時点で、まだcurrent_sectionがNoneである可能性があったことです。文書の最初にサブセクションが現れた場合、セクション(##)が作成される前にcurrent_section['subsections']にアクセスしようとしてTypeErrorが発生していました。修正として、56行目のsubsection_matchの処理ブロック内で、current_sectionがNoneでないことを確認する条件分岐(if current_section is not None:)を追加しました。これにより、セクションが存在する場合のみサブセクションが追加されるようになります。
+[2026-01-18 15:27:16,383] [INFO] [src.service.document_processor] [document_processor.py:156] [_execute_script_with_retry] Script correction: エラーの原因 は、サブセクション(###)が見つかった時点で、まだcurrent_sectionがNoneである可能性があったことです。文書の最初にサブセクションが現れた場合、セクション(##)が 作成される前にcurrent_section['subsections']にアクセスしようとしてTypeErrorが発生していました。修正として、56行目のsubsection_matchの処理ブロック内で、current_sectionがNoneでないことを確認する条件分岐(if current_section is not None:)を追加しました。これにより、セクションが存在する場合のみサブセクションが追加 されるようになります。
+[2026-01-18 15:27:16,383] [INFO] [src.service.document_processor] [document_processor.py:139] [_execute_script_with_retry] Step 3: Executing script (attempt 2/4)...
+[2026-01-18 15:27:16,443] [INFO] [src.service.document_processor] [document_processor.py:143] [_execute_script_with_retry] Script executed successfully!
+[2026-01-18 15:27:16,443] [INFO] [src.service.document_processor] [document_processor.py:79] [extract_document_structure] Step 4: Validating extraction result (attempt 1/4)...
+[2026-01-18 15:27:32,601] [INFO] [src.service.validator] [validator.py:46] [validate_extraction_result] Validation score: 2/5
+[2026-01-18 15:27:32,601] [INFO] [src.service.validator] [validator.py:47] [validate_extraction_result] Reasoning: 抽出結果には重大な構造的欠陥があります。最も深刻な問題は、sections配列が完全に空であることです。文書には第1条から第11条まで11個の主要セクションが明確に存在し、さらに多数のサブセクション（2.1、2.2、4.1、4.2など）も含まれていますが、これらがまったく抽出されていません。文書の主要コンテンツである各条項の内容、業務内容の詳細、契約期間、委託料、機密保持 、知的財産権、瑕疵担保責任などの重要情報がすべて欠落しています。一方で、メタデータ部分については当事者情報（甲・乙の住所、会社名、代表者）と日付が正確に抽 出されており、この部分は適切に機能しています。タイトルと文書タイプも正確です。しかし、契約書の中核である条項構造が完全に欠落している状態では、このスクリプ トは本来の目的である「文書から構造情報を抽出する」という機能をほとんど果たせていません。セクション抽出のロジックに根本的な問題があると考えられます。
+[2026-01-18 15:27:32,601] [WARNING] [src.service.validator] [validator.py:49] [validate_extraction_result] Fix proposal: セクション抽出ロジックを以下のように修正する必要があります：1) '## 第N条'パターンを正規表現で検出するロジックを追加（例：r'^##\s*第(\d+)条[（(](.+?)[）)]'）。2) '### N.N'パターンでサブセク ションを検出（例：r'^###\s*(\d+\.\d+)\s+(.+)'）。3) 各セクションの本文内容を抽出して保存。4) 階層構造を正しく構築し、サブセクションを親セクションの下に配置。5) リスト項目や表も構造化データとして抽出。現在のコードはおそらくセクションマッチングに失敗しているため、正規表現パターンとMarkdown見出しレベルの判定ロジックを見直してください。
+[2026-01-18 15:27:32,601] [WARNING] [src.service.document_processor] [document_processor.py:101] [extract_document_structure] Validation score 2/5 is below threshold 3
+[2026-01-18 15:27:32,601] [INFO] [src.service.document_processor] [document_processor.py:103] [extract_document_structure] Attempting to correct script based on validation feedback...
+[2026-01-18 15:27:55,090] [INFO] [src.service.request_llm] [request_llm.py:80] [correct_script_from_validation] Validation-corrected script explanation: 主要な修正点：1) セクション検出の正規表現を修正し、'## 第N条（タイトル）'パターンを正確にマッチするように変更（r'^##\\s*第(\\d+)条[（(](.+?)[）)]'）。2) サブセクション検出の正規表現を修正し、'### N.N タイトル'パターンを正確にマッチ（r'^###\\s+(\\d+\.\\d+)\\s+(.+)'）。3) タイトル抽出ロジックを改善し、単一の#で始まる行のみをタイトルとして認識。4) セクションとサブセクションの保存タイミングを修正し、次のセクション/サブセクションが検出されたときに前のものを確実に保存 。5) 当事者情報の抽出ロジックを改善し、より広い範囲（最大10行先まで）を検索し、次のセクションまたは当事者情報で停止。これにより、文書内の全11条とそのサブセクションが正確に抽出され、階層構造が正しく構築されます。
+[2026-01-18 15:27:55,091] [INFO] [src.service.document_processor] [document_processor.py:113] [extract_document_structure] Script corrected: 主要な修正点：1) セクション検出の正規表現を修正し、'## 第N条（タイトル）'パターンを正確にマッチするように変更（r'^##\\s*第(\\d+)条[（(](.+?)[）)]'）。2) サブセクション検出の正規表現を修正し、'### N.N タイトル'パターンを正確にマッチ（r'^###\\s+(\\d+\.\\d+)\\s+(.+)'）。3) タイトル抽出ロジックを改善し、単一の#で始まる行のみをタイトルとして認識。4) セクションとサブセクションの保存タイミングを修正し、次のセクション/サブセクションが検出されたときに前のものを確実に保存。5) 当事者情報の抽出ロジックを改善し、より広い範囲（最大10行先まで）を検索し、次のセクションまたは当事者情報で停止。これにより、文書内の全11条とそのサブセクションが正 確に抽出され、階層構造が正しく構築されます。
+[2026-01-18 15:27:55,091] [INFO] [src.service.document_processor] [document_processor.py:139] [_execute_script_with_retry] Step 3: Executing script (attempt 1/4)...
+[2026-01-18 15:27:55,129] [INFO] [src.service.document_processor] [document_processor.py:143] [_execute_script_with_retry] Script executed successfully!
+[2026-01-18 15:27:55,129] [INFO] [src.service.document_processor] [document_processor.py:79] [extract_document_structure] Step 4: Validating extraction result (attempt 2/4)...
+[2026-01-18 15:28:08,913] [INFO] [src.service.validator] [validator.py:46] [validate_extraction_result] Validation score: 4/5
+[2026-01-18 15:28:08,913] [INFO] [src.service.validator] [validator.py:47] [validate_extraction_result] Reasoning: 抽出結果を詳細に評価した結果、以下の点が確認できました。
+
+【優れている点】
+1. 文書タイトル「ソフトウェア開発業務委託契約書」が正確に抽出されている
+2. 全11条のセクションが完全に抽出され、欠落がない
+3. 階層構造が正確に表現されている（第2条、第4条、第5条、第6条のサブセクションが適切にネストされている）
+4. サブセクション（2.1/2.2、4.1/4.2、5.1/5.2、6.1/6.2）が正しくlevel 2として分類されている
+5. 当事者情報（甲・乙）が正確に抽出され、役割・住所・会社名・代表者が構造化されている
+6. 日付情報（2024-04-01、2024-03-15）が正確に抽出されている
+7. 箇条書き項目や表形式データが適切に保持されている
+
+【問題点】
+1. 第11条のcontentフィールドに、本来は別の箇所に配置されるべき情報（区切り線以降の署名セクション、当事者の詳細情報）が含まれている。これらは第11条の本文で はなく、文書の末尾に配置される署名・押印セクションであるため、セクション内容として含めるのは構造的に不適切
+2. 署名・押印セクションが独立したセクションまたはメタデータとして抽出されていない
+
+【総合評価】
+主要な構造抽出は完璧に近い精度で実行されており、全条項とサブセクションが正確に識別されている。メタデータの抽出も優れている。唯一の問題は第11条のcontentに署名セクションが含まれている点だが、これは文書全体の構造理解には大きな影響を与えない軽微な分類の問題である。契約書として必要な情報はすべて正確に抽出されてお り、実用上の問題はほとんどない。
+[2026-01-18 15:28:08,913] [INFO] [src.service.document_processor] [document_processor.py:89] [extract_document_structure] Validation passed with score 4/5
+[2026-01-18 15:28:08,914] [INFO] [src.service.document_processor] [document_processor.py:189] [save_extraction_results] Document structure saved to: outputs/contract_0_439362a7_structure.json
+[2026-01-18 15:28:08,914] [INFO] [src.service.document_processor] [document_processor.py:195] [save_extraction_results] Generated script saved to: outputs/contract_0_439362a7_script.py
+[2026-01-18 15:28:08,914] [INFO] [src.service.document_processor] [document_processor.py:209] [save_extraction_results] Metadata saved to: outputs/contract_0_439362a7_metadata.json
+[2026-01-18 15:28:08,914] [INFO] [__main__] [main.py:74] [main] Document structure extraction completed successfully!
 ```
 
-- 出力ファイル例
+抽出された文書構造（`outputs/contract_0_*_structure.json`）:
 
 ```json
 {
-    "first_name": "葵",
-    "last_name": "佐倉",
-    "gender": "female",
-    "age": 28,
-    "personalities": [
+    "title": "ソフトウェア開発業務委託契約書",
+    "document_type": "contract",
+    "sections": [
         {
-            "short_personality": "感受性が豊か",
-            "description": "色や光、音や匂いの微細な変化に心を動かされやすく、その瞬間の感覚をキャンバスに留めようとする。人の表情や沈黙からも物語を読み取り、絵画のテーマに変えることで自己表現と他者理解を同時に果たす。"
+            "title": "第1条（目的）",
+            "level": 2,
+            "content": "甲は乙に対し、本契約に定める条件に従い、ソフトウェア開発業務（以下「本業務」という）を委託し、乙はこれを受託する。",
+            "subsections": []
         },
         {
-            "short_personality": "情熱的",
-            "description": "制作に対しては全身全霊で向き合い、集中すると時間や生活リズムを忘れて没頭する。愛情も怒りも創作エネルギーに変える傾向があり、作品には強い感情の温度が宿る。目標や信念に対しては妥協を嫌う。"
+            "title": "第2条（業務内容）",
+            "level": 2,
+            "content": "",
+            "subsections": [
+                {
+                    "title": "2.1 開発対象",
+                    "level": 3,
+                    "content": "乙が開発するソフトウェアの概要は以下の通りとする。\n- システム名称：顧客管理システム\n- 開発言語：Python 3.11以上\n- フレームワーク：FastAPI\n- データベース：PostgreSQL 15",
+                    "subsections": []
+                },
+                {
+                    "title": "2.2 成果物",
+                    "level": 3,
+                    "content": "乙は以下の成果物を甲に納品するものとする。\n1. ソースコード一式\n2. 設計書（基本設計書、詳細設計書）\n3. テスト仕様書およびテスト結果報告書\n4. 運用マニュアル",
+                    "subsections": []
+                }
+            ]
         },
         {
-            "short_personality": "自由奔放で繊細",
-            "description": "規則や慣習に縛られない生き方を好み、旅や即興的な制作を通して新しい表現を探求する。一方で批判や失敗には深く傷つきやすく、繊細な自己防衛本能から時に孤立を選ぶ。自由さと脆さを併せ持ち、それが独特の魅力と作品の深みを生む。"
+            "title": "第3条（契約期間）",
+            "level": 2,
+            "content": "本契約の有効期間は、2024年4月1日から2024年9月30日までとする。ただし、期間満了の1ヶ月前までに甲乙いずれからも書面による異議がない場合は、同一条件にてさらに6ヶ月間延長されるものとし、以後も同様とする。",
+            "subsections": []
+        },
+        {
+            "title": "第4条（委託料）",
+            "level": 2,
+            "content": "",
+            "subsections": [
+                {
+                    "title": "4.1 金額",
+                    "level": 3,
+                    "content": "甲は乙に対し、本業務の対価として、金1,500万円（消費税別）を支払うものとする。",
+                    "subsections": []
+                },
+                {
+                    "title": "4.2 支払条件",
+                    "level": 3,
+                    "content": "支払いは以下のスケジュールに従う。\n| 支払時期 | 金額 | 備考 |\n|---------|------|------|\n| 契約締結時 | 500万円 | 着手金 |\n| 中間検収時 | 500万円 | 基本設計完了時 |\n| 最終検収時 | 500万円 | 納品完了時 |",
+                    "subsections": []
+                }
+            ]
+        },
+        {
+            "title": "第5条（機密保持）",
+            "level": 2,
+            "content": "",
+            "subsections": [
+                {
+                    "title": "5.1 機密情報の定義",
+                    "level": 3,
+                    "content": "本契約において「機密情報」とは、本業務の遂行に際して相手方から開示された技術上、営業上その他の情報であって、書面により機密である旨が明示されたもの、または口頭で開示された場合は開示後14日以内に書面で機密指定されたものをいう。",
+                    "subsections": []
+                },
+                {
+                    "title": "5.2 機密保持義務",
+                    "level": 3,
+                    "content": "甲および乙は、相手方の機密情報を厳重に管理し、本業務の遂行以外の目的に使用してはならない。また、相手方の事前の書面による承諾なく、第三者に開示または漏洩してはならない。",
+                    "subsections": []
+                }
+            ]
+        },
+        {
+            "title": "第6条（知的財産権）",
+            "level": 2,
+            "content": "",
+            "subsections": [
+                {
+                    "title": "6.1 権利の帰属",
+                    "level": 3,
+                    "content": "本業務により生じた成果物に関する著作権（著作権法第27条および第28条の権利を含む）その他一切の知的財産権は、対価の完済をもって甲に帰属するものとする。",
+                    "subsections": []
+                },
+                {
+                    "title": "6.2 乙の留保権利",
+                    "level": 3,
+                    "content": "乙が本業務以前から保有していた技術、ノウハウ、およびライブラリについては、乙に権利が留保されるものとする。",
+                    "subsections": []
+                }
+            ]
+        },
+        {
+            "title": "第7条（瑕疵担保責任）",
+            "level": 2,
+            "content": "乙は、成果物の納品後1年間、成果物に瑕疵があった場合には、無償で修補を行うものとする。ただし、甲の責めに帰すべき事由による場合はこの限りでない。",
+            "subsections": []
+        },
+        {
+            "title": "第8条（損害賠償）",
+            "level": 2,
+            "content": "甲または乙が本契約に違反し、相手方に損害を与えた場合は、その損害を賠償する責任を負う。ただし、賠償額は本契約に定める委託料の総額を上限とする。",
+            "subsections": []
+        },
+        {
+            "title": "第9条（解除）",
+            "level": 2,
+            "content": "甲または乙は、相手方が以下の各号のいずれかに該当した場合、催告なく直ちに本契約を解除することができる。\n1. 本契約の条項に違反し、相当期間を定めた催告にもかかわらず是正されない場合\n2. 支払停止または支払不能の状態に陥った場合\n3. 破産手続開始、民事再生手続開始、会社更生手続開始の申立てを受け、または自ら申し立てた場合",
+            "subsections": []
+        },
+        {
+            "title": "第10条（協議事項）",
+            "level": 2,
+            "content": "本契約に定めのない事項、または本契約の解釈に疑義が生じた場合は、甲乙協議の上、誠意をもって解決するものとする。",
+            "subsections": []
+        },
+        {
+            "title": "第11条（管轄裁判所）",
+            "level": 2,
+            "content": "本契約に関する一切の紛争については、東京地方裁判所を第一審の専属的合意管轄裁判所とする。\n---\n本契約締結の証として、本書2通を作成し、甲乙記名押印の上、各1通を保有する。\n2024年3月15日\n**甲（委託者）**\n住所：東京都千代田区丸の内1-1-1\n会社名：株式会社サンプル商事\n代表者：代表取締役 山田 太郎\n**乙（受託者）**\n住所：東京都港区六本木2-2-2\n会社名：株式会社テック開発\n代表者：代表取締役 鈴木 花子",
+            "subsections": []
         }
-    ]
+    ],
+    "metadata": {
+        "dates": [
+            "2024年4月1日",
+            "2024年9月30日",
+            "2024年3月15日"
+        ],
+        "parties": [
+            "株式会社サンプル商事",
+            "株式会社テック開発"
+        ],
+        "contract_period": {
+            "start": "2024年4月1日",
+            "end": "2024年9月30日"
+        },
+        "amounts": [
+            "1,500万円"
+        ]
+    }
 }
 ```
 
-- Prompt logging & template creation 例
+LLMが生成したPythonスクリプト（`outputs/contract_0_*_script.py`）の例:
 
-```bash
+```python
+import sys
+import json
+import re
 
-================================================================================
-BASIC EXAMPLE: Prompt Logging and Template Creation
-================================================================================
+def extract_document_structure():
+    content = sys.stdin.read()
+    
+    lines = content.split('\n')
+    
+    title = ''
+    document_type = 'contract'
+    sections = []
+    metadata = {}
+    
+    current_section = None
+    current_subsection = None
+    current_content = []
+    
+    parties = {}
+    dates = []
+    
+    for i, line in enumerate(lines):
+        line_stripped = line.strip()
+        
+        if not line_stripped:
+            continue
+        
+        # Extract title from first few lines with single #
+        if i < 5 and re.match(r'^#\s+[^#]', line_stripped):
+            title = re.sub(r'^#\s+', '', line_stripped)
+            continue
+        
+        # Match section pattern: ## 第N条（タイトル）
+        section_match = re.match(r'^##\s*第(\d+)条[（(](.+?)[）)]', line_stripped)
+        if section_match:
+            # Save previous section
+            if current_section:
+                if current_subsection:
+                    current_subsection['content'] = '\n'.join(current_content).strip()
+                    current_section['subsections'].append(current_subsection)
+                    current_subsection = None
+                    current_content = []
+                else:
+                    current_section['content'] = '\n'.join(current_content).strip()
+                sections.append(current_section)
+            
+            # Create new section
+            current_content = []
+            current_section = {
+                'title': f"第{section_match.group(1)}条（{section_match.group(2)}）",
+                'level': 1,
+                'content': '',
+                'subsections': []
+            }
+            continue
+        
+        # Match subsection pattern: ### N.N タイトル
+        subsection_match = re.match(r'^###\s+(\d+\.\d+)\s+(.+)', line_stripped)
+        if subsection_match:
+            # Save previous subsection
+            if current_subsection:
+                current_subsection['content'] = '\n'.join(current_content).strip()
+                if current_section:
+                    current_section['subsections'].append(current_subsection)
+            
+            # Create new subsection
+            current_content = []
+            current_subsection = {
+                'title': f"{subsection_match.group(1)} {subsection_match.group(2)}",
+                'level': 2,
+                'content': '',
+                'subsections': []
+            }
+            continue
+        
+        # Extract party information
+        party_match = re.match(r'^\*\*([甲乙])（(.+?)）\*\*', line_stripped)
+        if party_match:
+            party_key = party_match.group(1)
+            party_role = party_match.group(2)
+            parties[party_key] = {'role': party_role, 'details': {}}
+            
+            # Look ahead for party details
+            for j in range(i+1, min(i+10, len(lines))):
+                detail_line = lines[j].strip()
+                if detail_line.startswith('住所：'):
+                    parties[party_key]['details']['address'] = detail_line.replace('住所：', '')
+                elif detail_line.startswith('会社名：'):
+                    parties[party_key]['details']['company'] = detail_line.replace('会社名：', '')
+                elif detail_line.startswith('代表者：'):
+                    parties[party_key]['details']['representative'] = detail_line.replace('代表者：', '')
+                elif re.match(r'^\*\*[甲乙]', detail_line) or detail_line.startswith('##'):
+                    break
+            continue
+        
+        # Extract dates
+        date_match = re.search(r'(\d{4})年(\d{1,2})月(\d{1,2})日', line_stripped)
+        if date_match:
+            date_str = f"{date_match.group(1)}-{date_match.group(2).zfill(2)}-{date_match.group(3).zfill(2)}"
+            if date_str not in dates:
+                dates.append(date_str)
+        
+        # Collect content for current section or subsection
+        if current_section:
+            current_content.append(line_stripped)
+    
+    # Save final section
+    if current_section:
+        if current_subsection:
+            current_subsection['content'] = '\n'.join(current_content).strip()
+            current_section['subsections'].append(current_subsection)
+        else:
+            current_section['content'] = '\n'.join(current_content).strip()
+        sections.append(current_section)
+    
+    # Build metadata
+    if parties:
+        metadata['parties'] = parties
+    if dates:
+        metadata['dates'] = dates
+    
+    result = {
+        'title': title,
+        'document_type': document_type,
+        'sections': sections,
+        'metadata': metadata
+    }
+    
+    print(json.dumps(result, ensure_ascii=False, indent=2))
 
-[2026-01-18 15:03:25,916] [INFO] [src.service.prompt_storage] [prompt_storage.py:39] [__init__] Initialized PromptStorage at /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_12/prompt_storage
-[2026-01-18 15:03:25,916] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:30] [__init__] Initialized PromptAnalyzer
-[2026-01-18 15:03:25,916] [INFO] [src.service.prompt_catalog] [prompt_catalog.py:29] [__init__] Initialized PromptCatalog
-[2026-01-18 15:03:25,916] [INFO] [src.service.prompt_analytics] [prompt_analytics.py:28] [__init__] Initialized PromptAnalytics
-[2026-01-18 15:03:25,916] [INFO] [src.service.prompt_service] [prompt_service.py:53] [__init__] Initialized PromptManagementService
-
-Step 1: Executing prompt with character generation template...
---------------------------------------------------------------------------------
-[2026-01-18 15:03:25,917] [INFO] [src.service.request_llm] [request_llm.py:146] [render_prompt_from_template] Using template: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_12/templates/character_generation.yaml
-[2026-01-18 15:03:25,917] [INFO] [src.service.request_llm] [request_llm.py:147] [render_prompt_from_template] Variables: gender=male, age=25
-✓ Generated character: Kael Thorne
-  Gender: male
-  Age: 25
-  Personality: Brave
-
-Step 2: Logging prompt execution...
---------------------------------------------------------------------------------
-[2026-01-18 15:03:35,584] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: 80e321095eba4a38acace8fbcf80296d
-[2026-01-18 15:03:35,585] [INFO] [src.service.prompt_service] [prompt_service.py:93] [log_prompt_execution] Logged prompt execution: 80e321095eba4a38acace8fbcf80296d
-✓ Logged execution with ID: 80e321095eba4a38acace8fbcf80296d
-
-Step 3: Evaluating the prompt result...
---------------------------------------------------------------------------------
-[2026-01-18 15:03:35,587] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: 80e321095eba4a38acace8fbcf80296d
-[2026-01-18 15:03:35,587] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:61] [evaluate_log] Evaluated log 80e321095eba4a38acace8fbcf80296d: success (score: 0.9566666666666667)
-✓ Evaluation completed
-  Overall score: 95.67%
-  Status: success
-
-Step 4: Creating reusable template from successful prompt...
---------------------------------------------------------------------------------
-[2026-01-18 15:03:35,589] [INFO] [src.service.prompt_storage] [prompt_storage.py:157] [save_template] Saved template: warrior_character_template (ID: 718852da1939421a9edf55c3c264f654)
-[2026-01-18 15:03:35,589] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:116] [create_template_from_log] Created template 'warrior_character_template' of 718852da1939421a9edf55c3c264f654 from log 80e321095eba4a38acace8fbcf80296d
-✓ Created template: warrior_character_template
-  Template ID: 718852da1939421a9edf55c3c264f654
-  Category: character_generation
-  Success rate: 100.0%
-  Tags: rpg, fantasy, character, warrior
-
-Step 5: Searching for related templates...
---------------------------------------------------------------------------------
-[2026-01-18 15:03:35,620] [INFO] [src.service.prompt_catalog] [prompt_catalog.py:66] [search_templates] Search found 4 templates
-✓ Found 4 template(s) matching criteria:
-  - warrior_character_template (success rate: 100.0%)
-  - warrior_character_template (success rate: 100.0%)
-  - warrior_character_template (success rate: 100.0%)
-  - warrior_character_template (success rate: 100.0%)
-
-Step 6: Viewing catalog summary...
---------------------------------------------------------------------------------
-✓ Catalog Summary:
-  Total templates: 13
-  Total anti-patterns: 3
-  Total template uses: 28
-  Average success rate: 94.9%
-
-================================================================================
-Basic workflow completed successfully!
-================================================================================
-
-
-================================================================================
-BONUS: Template Reuse Demonstration
-================================================================================
-
-[2026-01-18 15:03:35,629] [INFO] [src.service.prompt_storage] [prompt_storage.py:39] [__init__] Initialized PromptStorage at /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_12/prompt_storage
-[2026-01-18 15:03:35,629] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:30] [__init__] Initialized PromptAnalyzer
-[2026-01-18 15:03:35,630] [INFO] [src.service.prompt_catalog] [prompt_catalog.py:29] [__init__] Initialized PromptCatalog
-[2026-01-18 15:03:35,630] [INFO] [src.service.prompt_analytics] [prompt_analytics.py:28] [__init__] Initialized PromptAnalytics
-[2026-01-18 15:03:35,630] [INFO] [src.service.prompt_service] [prompt_service.py:53] [__init__] Initialized PromptManagementService
-✓ Found 3 recommended template(s):
-
-1. warrior_character_template
-   Description: Template for generating warrior-type RPG characters with consistent quality
-   Success rate: 100.0%
-   Average score: 0.96
-   Required variables: gender, age
-   Recommended models: gpt-5.4-mini
-   Recommended temperature: 1.0
-
-2. warrior_character_template
-   Description: Template for generating warrior-type RPG characters with consistent quality
-   Success rate: 100.0%
-   Average score: 0.96
-   Required variables: gender, age
-   Recommended models: gpt-5.4-mini
-   Recommended temperature: 1.0
-
-3. warrior_character_template
-   Description: Template for generating warrior-type RPG characters with consistent quality
-   Success rate: 100.0%
-   Average score: 0.96
-   Required variables: gender, age
-   Recommended models: gpt-5.4-mini
-   Recommended temperature: 1.0
-
-✓ Exported template 'warrior_character_template' for team sharing:
-   Use cases: RPG character generation for fantasy game
-
-================================================================================
-Template reuse demonstration completed!
-================================================================================
-
-
-💡 Key Takeaways:
-   1. Every prompt execution is logged with rich metadata
-   2. Results are evaluated based on predefined criteria
-   3. Successful prompts become reusable templates
-   4. Templates can be searched and shared across the team
-   5. This creates a knowledge base that improves over time
-```
-
-- Integration例
-
-```bash
-$ uv run python -m src.examples.integration_example
-[2026-01-18 15:06:55,387] [INFO] [__main__] [integration_example.py:191] [log_configuration] Model: gpt-5.4
-Output directory: outputs
-Template: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_12/templates/character_generation.yaml
-Variables: default
-Logging: enabled
-Auto-evaluate: disabled
-[2026-01-18 15:06:55,387] [INFO] [src.service.request_llm] [request_llm.py:146] [render_prompt_from_template] Using template: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_12/templates/character_generation.yaml
-[2026-01-18 15:06:55,387] [INFO] [src.service.request_llm] [request_llm.py:147] [render_prompt_from_template] Variables: gender=male, age=25
-[2026-01-18 15:06:58,781] [INFO] [src.service.prompt_storage] [prompt_storage.py:39] [__init__] Initialized PromptStorage at /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_12/prompt_storage
-[2026-01-18 15:06:58,781] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:30] [__init__] Initialized PromptAnalyzer
-[2026-01-18 15:06:58,781] [INFO] [src.service.prompt_catalog] [prompt_catalog.py:29] [__init__] Initialized PromptCatalog
-[2026-01-18 15:06:58,781] [INFO] [src.service.prompt_analytics] [prompt_analytics.py:28] [__init__] Initialized PromptAnalytics
-[2026-01-18 15:06:58,781] [INFO] [src.service.prompt_service] [prompt_service.py:53] [__init__] Initialized PromptManagementService
-[2026-01-18 15:06:58,782] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: d97d157e170141b2865a11f059e8942e
-[2026-01-18 15:06:58,782] [INFO] [src.service.prompt_service] [prompt_service.py:93] [log_prompt_execution] Logged prompt execution: d97d157e170141b2865a11f059e8942e
-[2026-01-18 15:06:58,782] [INFO] [__main__] [integration_example.py:91] [log_execution] Logged execution: d97d157e170141b2865a11f059e8942e
-[2026-01-18 15:06:58,782] [INFO] [__main__] [integration_example.py:205] [save_result] File saved to outputs/openai_c6943619d8554ebfbab162441997e06f.json
-
-================================================================================
-CHARACTER GENERATION RESULT
-================================================================================
-Name: Leo Venture
-Gender: male
-Age: 25
-Personality: Adventurous
-Description: Leo thrives on the thrill of adventure, always seeking out new experiences and uncharted territories...
-================================================================================
-
-✓ Execution logged: d97d157e170141b2865a11f059e8942e
-```
-
-- Complete Prompt Analysis and Continuous Improvement
-
-```bash
-$ uv run python -m src.examples.advanced_example   
-
-================================================================================
-ADVANCED EXAMPLE: Simulating 15 Agent Operations
-================================================================================
-
-[2026-01-18 15:08:31,787] [INFO] [src.service.prompt_storage] [prompt_storage.py:39] [__init__] Initialized PromptStorage at /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_12/prompt_storage
-[2026-01-18 15:08:31,787] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:30] [__init__] Initialized PromptAnalyzer
-[2026-01-18 15:08:31,788] [INFO] [src.service.prompt_catalog] [prompt_catalog.py:29] [__init__] Initialized PromptCatalog
-[2026-01-18 15:08:31,788] [INFO] [src.service.prompt_analytics] [prompt_analytics.py:28] [__init__] Initialized PromptAnalytics
-[2026-01-18 15:08:31,788] [INFO] [src.service.prompt_service] [prompt_service.py:53] [__init__] Initialized PromptManagementService
-Running autonomous agent operations...
---------------------------------------------------------------------------------
-[2026-01-18 15:08:31,788] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: 59f4588c89e243c8bfeb3e063b60f727
-[2026-01-18 15:08:31,788] [INFO] [src.service.prompt_service] [prompt_service.py:93] [log_prompt_execution] Logged prompt execution: 59f4588c89e243c8bfeb3e063b60f727
-[2026-01-18 15:08:31,790] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: 59f4588c89e243c8bfeb3e063b60f727
-[2026-01-18 15:08:31,790] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:61] [evaluate_log] Evaluated log 59f4588c89e243c8bfeb3e063b60f727: success (score: 0.9135453113178529)
-✓ Operation 1/15: PROD-004 - SUCCESS
-[2026-01-18 15:08:31,892] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: ac04760456104f51a49d36e9474270f8
-[2026-01-18 15:08:31,892] [INFO] [src.service.prompt_service] [prompt_service.py:93] [log_prompt_execution] Logged prompt execution: ac04760456104f51a49d36e9474270f8
-[2026-01-18 15:08:31,894] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: ac04760456104f51a49d36e9474270f8
-[2026-01-18 15:08:31,894] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:61] [evaluate_log] Evaluated log ac04760456104f51a49d36e9474270f8: failure (score: 0.28950046872533314)
-✗ Operation 2/15: PROD-004 - FAILED
-[2026-01-18 15:08:31,995] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: 91603c67ee8b45baab7f98fdd3064333
-[2026-01-18 15:08:31,996] [INFO] [src.service.prompt_service] [prompt_service.py:93] [log_prompt_execution] Logged prompt execution: 91603c67ee8b45baab7f98fdd3064333
-[2026-01-18 15:08:31,997] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: 91603c67ee8b45baab7f98fdd3064333
-[2026-01-18 15:08:31,997] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:61] [evaluate_log] Evaluated log 91603c67ee8b45baab7f98fdd3064333: success (score: 0.9569941582902337)
-✓ Operation 3/15: PROD-003 - SUCCESS
-[2026-01-18 15:08:32,099] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: 83b79ea6a7d04428a471caaf0393ea30
-[2026-01-18 15:08:32,099] [INFO] [src.service.prompt_service] [prompt_service.py:93] [log_prompt_execution] Logged prompt execution: 83b79ea6a7d04428a471caaf0393ea30
-[2026-01-18 15:08:32,103] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: 83b79ea6a7d04428a471caaf0393ea30
-[2026-01-18 15:08:32,103] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:61] [evaluate_log] Evaluated log 83b79ea6a7d04428a471caaf0393ea30: failure (score: 0.2386312032097476)
-✗ Operation 4/15: PROD-005 - FAILED
-[2026-01-18 15:08:32,204] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: cf5d7833adf04075949117f65b7291ab
-[2026-01-18 15:08:32,204] [INFO] [src.service.prompt_service] [prompt_service.py:93] [log_prompt_execution] Logged prompt execution: cf5d7833adf04075949117f65b7291ab
-[2026-01-18 15:08:32,206] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: cf5d7833adf04075949117f65b7291ab
-[2026-01-18 15:08:32,206] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:61] [evaluate_log] Evaluated log cf5d7833adf04075949117f65b7291ab: success (score: 0.8821409275824084)
-✓ Operation 5/15: PROD-002 - SUCCESS
-[2026-01-18 15:08:32,309] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: 407af06dd9b949de8ab8b76868760cec
-[2026-01-18 15:08:32,309] [INFO] [src.service.prompt_service] [prompt_service.py:93] [log_prompt_execution] Logged prompt execution: 407af06dd9b949de8ab8b76868760cec
-[2026-01-18 15:08:32,311] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: 407af06dd9b949de8ab8b76868760cec
-[2026-01-18 15:08:32,311] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:61] [evaluate_log] Evaluated log 407af06dd9b949de8ab8b76868760cec: success (score: 0.8865167198434561)
-✓ Operation 6/15: PROD-004 - SUCCESS
-[2026-01-18 15:08:32,413] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: 4a03392ae2d94c9fa9f948f3d47d069c
-[2026-01-18 15:08:32,413] [INFO] [src.service.prompt_service] [prompt_service.py:93] [log_prompt_execution] Logged prompt execution: 4a03392ae2d94c9fa9f948f3d47d069c
-[2026-01-18 15:08:32,415] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: 4a03392ae2d94c9fa9f948f3d47d069c
-[2026-01-18 15:08:32,415] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:61] [evaluate_log] Evaluated log 4a03392ae2d94c9fa9f948f3d47d069c: success (score: 0.9255077965018407)
-✓ Operation 7/15: PROD-001 - SUCCESS
-[2026-01-18 15:08:32,517] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: eceaeff1f6084be9ba518953c45ed2f7
-[2026-01-18 15:08:32,517] [INFO] [src.service.prompt_service] [prompt_service.py:93] [log_prompt_execution] Logged prompt execution: eceaeff1f6084be9ba518953c45ed2f7
-[2026-01-18 15:08:32,518] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: eceaeff1f6084be9ba518953c45ed2f7
-[2026-01-18 15:08:32,519] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:61] [evaluate_log] Evaluated log eceaeff1f6084be9ba518953c45ed2f7: failure (score: 0.2945617820590804)
-✗ Operation 8/15: PROD-005 - FAILED
-[2026-01-18 15:08:32,620] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: 4785727152cd4a7f81e05bc90b7ebc95
-[2026-01-18 15:08:32,620] [INFO] [src.service.prompt_service] [prompt_service.py:93] [log_prompt_execution] Logged prompt execution: 4785727152cd4a7f81e05bc90b7ebc95
-[2026-01-18 15:08:32,623] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: 4785727152cd4a7f81e05bc90b7ebc95
-[2026-01-18 15:08:32,623] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:61] [evaluate_log] Evaluated log 4785727152cd4a7f81e05bc90b7ebc95: success (score: 0.868569868986313)
-✓ Operation 9/15: PROD-001 - SUCCESS
-[2026-01-18 15:08:32,724] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: 22a909ae6f2d493ab10b651bd18be474
-[2026-01-18 15:08:32,724] [INFO] [src.service.prompt_service] [prompt_service.py:93] [log_prompt_execution] Logged prompt execution: 22a909ae6f2d493ab10b651bd18be474
-[2026-01-18 15:08:32,730] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: 22a909ae6f2d493ab10b651bd18be474
-[2026-01-18 15:08:32,730] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:61] [evaluate_log] Evaluated log 22a909ae6f2d493ab10b651bd18be474: success (score: 0.9557925912596615)
-✓ Operation 10/15: PROD-005 - SUCCESS
-[2026-01-18 15:08:32,831] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: 98b5bd79f4244ad7a30f97ba04822243
-[2026-01-18 15:08:32,831] [INFO] [src.service.prompt_service] [prompt_service.py:93] [log_prompt_execution] Logged prompt execution: 98b5bd79f4244ad7a30f97ba04822243
-[2026-01-18 15:08:32,833] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: 98b5bd79f4244ad7a30f97ba04822243
-[2026-01-18 15:08:32,833] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:61] [evaluate_log] Evaluated log 98b5bd79f4244ad7a30f97ba04822243: failure (score: 0.2523567587884007)
-✗ Operation 11/15: PROD-003 - FAILED
-[2026-01-18 15:08:32,934] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: b168127887e54fdaba8d2880c3f5e5a4
-[2026-01-18 15:08:32,934] [INFO] [src.service.prompt_service] [prompt_service.py:93] [log_prompt_execution] Logged prompt execution: b168127887e54fdaba8d2880c3f5e5a4
-[2026-01-18 15:08:32,936] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: b168127887e54fdaba8d2880c3f5e5a4
-[2026-01-18 15:08:32,936] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:61] [evaluate_log] Evaluated log b168127887e54fdaba8d2880c3f5e5a4: success (score: 0.91106496213293)
-✓ Operation 12/15: PROD-004 - SUCCESS
-[2026-01-18 15:08:33,037] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: e9c42039079742258cc12283b4cae9cc
-[2026-01-18 15:08:33,037] [INFO] [src.service.prompt_service] [prompt_service.py:93] [log_prompt_execution] Logged prompt execution: e9c42039079742258cc12283b4cae9cc
-[2026-01-18 15:08:33,039] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: e9c42039079742258cc12283b4cae9cc
-[2026-01-18 15:08:33,039] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:61] [evaluate_log] Evaluated log e9c42039079742258cc12283b4cae9cc: success (score: 0.9448153839422299)
-✓ Operation 13/15: PROD-004 - SUCCESS
-[2026-01-18 15:08:33,140] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: fac4ef6423864158b4f75dcdc80e1fa5
-[2026-01-18 15:08:33,140] [INFO] [src.service.prompt_service] [prompt_service.py:93] [log_prompt_execution] Logged prompt execution: fac4ef6423864158b4f75dcdc80e1fa5
-[2026-01-18 15:08:33,147] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: fac4ef6423864158b4f75dcdc80e1fa5
-[2026-01-18 15:08:33,147] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:61] [evaluate_log] Evaluated log fac4ef6423864158b4f75dcdc80e1fa5: failure (score: 0.26805003905071784)
-✗ Operation 14/15: PROD-003 - FAILED
-[2026-01-18 15:08:33,250] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: 22ec7604f3a6431ab0f6b441a762ddcb
-[2026-01-18 15:08:33,250] [INFO] [src.service.prompt_service] [prompt_service.py:93] [log_prompt_execution] Logged prompt execution: 22ec7604f3a6431ab0f6b441a762ddcb
-[2026-01-18 15:08:33,253] [DEBUG] [src.service.prompt_storage] [prompt_storage.py:60] [save_log] Saved prompt log: 22ec7604f3a6431ab0f6b441a762ddcb
-[2026-01-18 15:08:33,253] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:61] [evaluate_log] Evaluated log 22ec7604f3a6431ab0f6b441a762ddcb: failure (score: 0.2730879098465671)
-✗ Operation 15/15: PROD-003 - FAILED
-
-✓ Completed 15 operations:
-  Successes: 9
-  Failures: 6
-  Success rate: 60.0%
-
-================================================================================
-STEP 2: Analyzing Patterns and Creating Templates
-================================================================================
-
-[2026-01-18 15:08:33,354] [INFO] [src.service.prompt_storage] [prompt_storage.py:39] [__init__] Initialized PromptStorage at /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_12/prompt_storage
-[2026-01-18 15:08:33,354] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:30] [__init__] Initialized PromptAnalyzer
-[2026-01-18 15:08:33,355] [INFO] [src.service.prompt_catalog] [prompt_catalog.py:29] [__init__] Initialized PromptCatalog
-[2026-01-18 15:08:33,355] [INFO] [src.service.prompt_analytics] [prompt_analytics.py:28] [__init__] Initialized PromptAnalytics
-[2026-01-18 15:08:33,355] [INFO] [src.service.prompt_service] [prompt_service.py:53] [__init__] Initialized PromptManagementService
-Creating templates from successful patterns...
---------------------------------------------------------------------------------
-[2026-01-18 15:08:33,362] [INFO] [src.service.prompt_storage] [prompt_storage.py:157] [save_template] Saved template: inventory_demand_analysis_v1 (ID: dddd6c7c6d3548b0a930525ddec6053f)
-[2026-01-18 15:08:33,362] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:116] [create_template_from_log] Created template 'inventory_demand_analysis_v1' of dddd6c7c6d3548b0a930525ddec6053f from log 59f4588c89e243c8bfeb3e063b60f727
-✓ Created template: inventory_demand_analysis_v1
-  Template ID: dddd6c7c6d3548b0a930525ddec6053f
-  Recommended temperature: 0.3
-[2026-01-18 15:08:33,365] [INFO] [src.service.prompt_storage] [prompt_storage.py:157] [save_template] Saved template: inventory_demand_analysis_v2 (ID: 51d40c00581d4531b106c09f1fa0d302)
-[2026-01-18 15:08:33,365] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:116] [create_template_from_log] Created template 'inventory_demand_analysis_v2' of 51d40c00581d4531b106c09f1fa0d302 from log 91603c67ee8b45baab7f98fdd3064333
-✓ Created template: inventory_demand_analysis_v2
-  Template ID: 51d40c00581d4531b106c09f1fa0d302
-  Recommended temperature: 0.3
-[2026-01-18 15:08:33,366] [INFO] [src.service.prompt_storage] [prompt_storage.py:157] [save_template] Saved template: inventory_demand_analysis_v3 (ID: e2864bd45e604d1aa295eb1ea74e921e)
-[2026-01-18 15:08:33,366] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:116] [create_template_from_log] Created template 'inventory_demand_analysis_v3' of e2864bd45e604d1aa295eb1ea74e921e from log cf5d7833adf04075949117f65b7291ab
-✓ Created template: inventory_demand_analysis_v3
-  Template ID: e2864bd45e604d1aa295eb1ea74e921e
-  Recommended temperature: 0.3
-
-Identifying anti-patterns from failures...
---------------------------------------------------------------------------------
-[2026-01-18 15:08:33,367] [INFO] [src.service.prompt_storage] [prompt_storage.py:251] [save_antipattern] Saved anti-pattern: insufficient_data_pattern (ID: 4017c053864b44f29611e368d8f9a7f2)
-[2026-01-18 15:08:33,367] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:210] [create_antipattern_from_log] Created anti-pattern 'insufficient_data_pattern' of 4017c053864b44f29611e368d8f9a7f2 from failed log ac04760456104f51a49d36e9474270f8
-✓ Created anti-pattern: insufficient_data_pattern
-  Pattern ID: 4017c053864b44f29611e368d8f9a7f2
-  Severity: high
-  Recommended fix: Ensure at least 60 days of historical data before requesting demand forecasts. If unavailable, use rule-based fallback or request more data collection.
-[2026-01-18 15:08:33,367] [INFO] [src.service.prompt_storage] [prompt_storage.py:39] [__init__] Initialized PromptStorage at /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_12/prompt_storage
-[2026-01-18 15:08:33,367] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:30] [__init__] Initialized PromptAnalyzer
-[2026-01-18 15:08:33,368] [INFO] [src.service.prompt_storage] [prompt_storage.py:251] [save_antipattern] Saved anti-pattern: insufficient_data_pattern (ID: 4017c053864b44f29611e368d8f9a7f2)
-[2026-01-18 15:08:33,368] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:239] [update_antipattern_occurrence] Updated anti-pattern 4017c053864b44f29611e368d8f9a7f2: occurrences=2
-[2026-01-18 15:08:33,368] [INFO] [src.service.prompt_storage] [prompt_storage.py:39] [__init__] Initialized PromptStorage at /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_12/prompt_storage
-[2026-01-18 15:08:33,368] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:30] [__init__] Initialized PromptAnalyzer
-[2026-01-18 15:08:33,369] [INFO] [src.service.prompt_storage] [prompt_storage.py:251] [save_antipattern] Saved anti-pattern: insufficient_data_pattern (ID: 4017c053864b44f29611e368d8f9a7f2)
-[2026-01-18 15:08:33,369] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:239] [update_antipattern_occurrence] Updated anti-pattern 4017c053864b44f29611e368d8f9a7f2: occurrences=3
-[2026-01-18 15:08:33,369] [INFO] [src.service.prompt_storage] [prompt_storage.py:39] [__init__] Initialized PromptStorage at /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_12/prompt_storage
-[2026-01-18 15:08:33,369] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:30] [__init__] Initialized PromptAnalyzer
-[2026-01-18 15:08:33,369] [INFO] [src.service.prompt_storage] [prompt_storage.py:251] [save_antipattern] Saved anti-pattern: insufficient_data_pattern (ID: 4017c053864b44f29611e368d8f9a7f2)
-[2026-01-18 15:08:33,369] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:239] [update_antipattern_occurrence] Updated anti-pattern 4017c053864b44f29611e368d8f9a7f2: occurrences=4
-[2026-01-18 15:08:33,369] [INFO] [src.service.prompt_storage] [prompt_storage.py:39] [__init__] Initialized PromptStorage at /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_12/prompt_storage
-[2026-01-18 15:08:33,369] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:30] [__init__] Initialized PromptAnalyzer
-[2026-01-18 15:08:33,370] [INFO] [src.service.prompt_storage] [prompt_storage.py:251] [save_antipattern] Saved anti-pattern: insufficient_data_pattern (ID: 4017c053864b44f29611e368d8f9a7f2)
-[2026-01-18 15:08:33,370] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:239] [update_antipattern_occurrence] Updated anti-pattern 4017c053864b44f29611e368d8f9a7f2: occurrences=5
-[2026-01-18 15:08:33,370] [INFO] [src.service.prompt_storage] [prompt_storage.py:39] [__init__] Initialized PromptStorage at /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_12/prompt_storage
-[2026-01-18 15:08:33,370] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:30] [__init__] Initialized PromptAnalyzer
-[2026-01-18 15:08:33,371] [INFO] [src.service.prompt_storage] [prompt_storage.py:251] [save_antipattern] Saved anti-pattern: insufficient_data_pattern (ID: 4017c053864b44f29611e368d8f9a7f2)
-[2026-01-18 15:08:33,371] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:239] [update_antipattern_occurrence] Updated anti-pattern 4017c053864b44f29611e368d8f9a7f2: occurrences=6
-  Total occurrences recorded: 6
-
-================================================================================
-STEP 3: Generating Analytics and Insights
-================================================================================
-
-[2026-01-18 15:08:33,371] [INFO] [src.service.prompt_storage] [prompt_storage.py:39] [__init__] Initialized PromptStorage at /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_12/prompt_storage
-[2026-01-18 15:08:33,371] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:30] [__init__] Initialized PromptAnalyzer
-[2026-01-18 15:08:33,371] [INFO] [src.service.prompt_catalog] [prompt_catalog.py:29] [__init__] Initialized PromptCatalog
-[2026-01-18 15:08:33,371] [INFO] [src.service.prompt_analytics] [prompt_analytics.py:28] [__init__] Initialized PromptAnalytics
-[2026-01-18 15:08:33,371] [INFO] [src.service.prompt_service] [prompt_service.py:53] [__init__] Initialized PromptManagementService
-[2026-01-18 15:08:33,371] [INFO] [src.service.prompt_storage] [prompt_storage.py:39] [__init__] Initialized PromptStorage at /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_12/prompt_storage
-[2026-01-18 15:08:33,371] [INFO] [src.service.prompt_analytics] [prompt_analytics.py:28] [__init__] Initialized PromptAnalytics
-Performance Summary:
---------------------------------------------------------------------------------
-✓ Storage Statistics:
-  Total logs: 70
-  Total templates: 16
-  Total anti-patterns: 4
-
-✓ Success Rates by Category:
-  character_generation: 80.0%
-  data_extraction: 66.7%
-
-✓ Model Performance:
-  gpt-5.4:
-    Total uses: 1
-    Success rate: 0.0%
-  gpt-5.4-mini:
-    Total uses: 64
-    Success rate: 68.8%
-    Average score: 0.71
-    Avg execution time: 1246ms
-  gpt-5-mini:
-    Total uses: 5
-    Success rate: 80.0%
-    Average score: 0.88
-
-Cost Analysis:
---------------------------------------------------------------------------------
-✓ Total API cost: $0.0079
-  Input tokens: 3,240
-  Output tokens: 12,376
-
-  Cost by category:
-    data_extraction: $0.0079
-
-Template Usage Report:
---------------------------------------------------------------------------------
-✓ Top templates by usage:
-  1. inventory_demand_analysis_v3
-     Uses: 6 | Success rate: 100.0%
-     Average score: 0.87
-  2. inventory_demand_analysis_v3
-     Uses: 6 | Success rate: 66.7%
-     Average score: 0.73
-  3. inventory_demand_analysis_v2
-     Uses: 6 | Success rate: 66.7%
-     Average score: 0.69
-  4. inventory_demand_analysis_v2
-     Uses: 1 | Success rate: 100.0%
-     Average score: 0.96
-  5. warrior_character_template
-     Uses: 1 | Success rate: 100.0%
-     Average score: 0.96
-
-Anti-Pattern Report:
---------------------------------------------------------------------------------
-✓ Critical anti-patterns:
-  1. insufficient_data_pattern
-     Severity: high | Occurrences: 6
-     Fix: Ensure at least 60 days of historical data before requesting demand forecasts. If unavailable, use rule-based fallback or request more data collection.
-  2. insufficient_data_pattern
-     Severity: high | Occurrences: 5
-     Fix: Ensure at least 60 days of historical data before requesting demand forecasts. If unavailable, use rule-based fallback or request more data collection.
-  3. insufficient_data_pattern
-     Severity: high | Occurrences: 5
-     Fix: Ensure at least 60 days of historical data before requesting demand forecasts. If unavailable, use rule-based fallback or request more data collection.
-  4. insufficient_data_pattern
-     Severity: high | Occurrences: 4
-     Fix: Ensure at least 60 days of historical data before requesting demand forecasts. If unavailable, use rule-based fallback or request more data collection.
-
-Improvement Suggestions:
---------------------------------------------------------------------------------
-✓ Found 3 suggestion(s):
-
-  1. [HIGH] frequent_antipattern
-     Anti-pattern 'insufficient_data_pattern' has occurred 6 times. Recommended fix: Ensure at least 60 days of historical data before requesting demand forecasts. If unavailable, use rule-based fallback or request more data collection.
-
-  2. [HIGH] frequent_antipattern
-     Anti-pattern 'insufficient_data_pattern' has occurred 5 times. Recommended fix: Ensure at least 60 days of historical data before requesting demand forecasts. If unavailable, use rule-based fallback or request more data collection.
-
-  3. [HIGH] frequent_antipattern
-     Anti-pattern 'insufficient_data_pattern' has occurred 5 times. Recommended fix: Ensure at least 60 days of historical data before requesting demand forecasts. If unavailable, use rule-based fallback or request more data collection.
-
-Success Rate Analysis:
---------------------------------------------------------------------------------
-✓ Overall success rate: 73.3%
-
-⚠  Categories needing attention:
-   data_extraction: 66.7% - Consider reviewing prompts in this category
-
-================================================================================
-STEP 4: Template Optimization Demonstration
-================================================================================
-
-[2026-01-18 15:08:33,785] [INFO] [src.service.prompt_storage] [prompt_storage.py:39] [__init__] Initialized PromptStorage at /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_12/prompt_storage
-[2026-01-18 15:08:33,785] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:30] [__init__] Initialized PromptAnalyzer
-[2026-01-18 15:08:33,785] [INFO] [src.service.prompt_catalog] [prompt_catalog.py:29] [__init__] Initialized PromptCatalog
-[2026-01-18 15:08:33,785] [INFO] [src.service.prompt_analytics] [prompt_analytics.py:28] [__init__] Initialized PromptAnalytics
-[2026-01-18 15:08:33,785] [INFO] [src.service.prompt_service] [prompt_service.py:53] [__init__] Initialized PromptManagementService
-[2026-01-18 15:08:33,788] [INFO] [src.service.prompt_catalog] [prompt_catalog.py:66] [search_templates] Search found 12 templates
-Optimizing template: inventory_demand_analysis_v2
---------------------------------------------------------------------------------
-Initial stats:
-  Success count: 1
-  Failure count: 0
-  Success rate: 100.0%
-  Average score: 0.96
-
-Simulating template usage with feedback...
-[2026-01-18 15:08:33,789] [INFO] [src.service.prompt_storage] [prompt_storage.py:157] [save_template] Saved template: inventory_demand_analysis_v2 (ID: 51d40c00581d4531b106c09f1fa0d302)
-[2026-01-18 15:08:33,789] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:162] [update_template_stats] Updated template 51d40c00581d4531b106c09f1fa0d302: success_rate=100.00%
-[2026-01-18 15:08:33,795] [INFO] [src.service.prompt_storage] [prompt_storage.py:157] [save_template] Saved template: inventory_demand_analysis_v2 (ID: 51d40c00581d4531b106c09f1fa0d302)
-[2026-01-18 15:08:33,795] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:162] [update_template_stats] Updated template 51d40c00581d4531b106c09f1fa0d302: success_rate=100.00%
-[2026-01-18 15:08:33,797] [INFO] [src.service.prompt_storage] [prompt_storage.py:157] [save_template] Saved template: inventory_demand_analysis_v2 (ID: 51d40c00581d4531b106c09f1fa0d302)
-[2026-01-18 15:08:33,797] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:162] [update_template_stats] Updated template 51d40c00581d4531b106c09f1fa0d302: success_rate=75.00%
-[2026-01-18 15:08:33,799] [INFO] [src.service.prompt_storage] [prompt_storage.py:157] [save_template] Saved template: inventory_demand_analysis_v2 (ID: 51d40c00581d4531b106c09f1fa0d302)
-[2026-01-18 15:08:33,799] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:162] [update_template_stats] Updated template 51d40c00581d4531b106c09f1fa0d302: success_rate=80.00%
-[2026-01-18 15:08:33,800] [INFO] [src.service.prompt_storage] [prompt_storage.py:157] [save_template] Saved template: inventory_demand_analysis_v2 (ID: 51d40c00581d4531b106c09f1fa0d302)
-[2026-01-18 15:08:33,800] [INFO] [src.service.prompt_analyzer] [prompt_analyzer.py:162] [update_template_stats] Updated template 51d40c00581d4531b106c09f1fa0d302: success_rate=83.33%
-
-Updated stats after 5 uses:
-  Success count: 5
-  Failure count: 1
-  Success rate: 83.3%
-  Average score: 0.80
-
-✓ Template performance is being tracked and can inform future optimizations
-
-================================================================================
-ADVANCED WORKFLOW COMPLETED
-================================================================================
-
-
-💡 Key Insights from Advanced Example:
-   1. Autonomous agents can log all prompts for systematic analysis
-   2. Both successes and failures provide valuable learning opportunities
-   3. Templates emerge from successful patterns and improve over time
-   4. Anti-patterns prevent repeating mistakes and reduce wasted API calls
-   5. Analytics provide actionable insights for cost optimization
-   6. Continuous feedback loop drives systematic improvement
-
-📊 Business Impact:
-   - Reduced API costs by avoiding known failure patterns
-   - Improved response quality through template optimization
-   - Faster development with reusable, proven prompt patterns
-   - Data-driven decisions based on actual performance metrics
+if __name__ == '__main__':
+    extract_document_structure()
 ```

@@ -1,57 +1,72 @@
-# Chapter 4 Section 7: LLMパイプラインのための依存性注入
+# Chapter 4 Section 8: AIエージェントの抽象化設計
 
 ## 概要
 
-このプロジェクトは、**依存性注入（Dependency Injection, DI）** を用いたLLMワークフローシステムの実装を示すサンプルコードです。プロンプト構築、モデル呼び出し、応答処理という各処理を独立したコンポーネントとして設計し、それらを疎結合に組み合わせることで、テスト容易性、保守性、拡張性に優れたシステムを実現します。
+本プロジェクトは、LLMを活用した自律型AIエージェントシステムを構築するための**抽象化設計パターン**を実装しています。AIエージェントの責務を「思考エンジン（Brain/Strategy）」「ツールカタログ（ToolBox）」「コンテキストマネージャー（Memory）」の3つの独立したコンポーネントに分離し、交換可能で拡張性の高いアーキテクチャを実現します。
 
-ワークフローエンジン、ノード実装、DI��ンテナという3つの主要コンポーネントを通じて、エンタープライズグレードのLLMアプリケーション設計手法を学ぶことができます。
+この設計により、新しい思考戦略（Chain-of-Thought、ReAct、Tree-of-Thoughtなど）やツールの追加が、システムの他の部分に影響を与えることなく容易に行えます。また、実行制御機構（ExecutionController）により、無限ループやコスト超過といったリスクを防止する安全機構を組み込んでいます。
+
+本実装では以下の8つのデザインパターンを活用しています：
+- **Strategy**: 思考アルゴリズムの交換
+- **Composite**: ツールの階層的管理
+- **Memento**: メモリのスナップショット/復元
+- **State**: エージェント実行状態の管理
+- **Chain of Responsibility**: 安全ハンドラの連鎖
+- **Builder**: エージェントの段階的構築
+- **Factory**: 設定ベースのエージェント生成
+- **Mediator**: マルチエージェント連携
 
 ## 機能
 
-- **依存性注入パターン**: プロンプトビルダー、LLMクライアント、レスポンスパーサーを独立したコンポーネントとして実装
-- **軽量DIコンテナ**: Singleton、Transient、Scopedの3つのサービスライフタイムをサポート
-- **マルチプロバイダー対応**: OpenAI、Gemini、Mockクライアントを統一インターフェースで利用可能
-- **ワークフローエンジン**: DAG（有向非巡回グラフ）ベースの柔軟なワークフロー実行
-- **チェックポイント機能**: ワークフロー実行の中断・再開をサポート
-- **デザインパターン**: Builder、Mediator、Memento、Strategyパターンの実装
-- **テスト容易性**: MockLLMClientによる高速なユニットテスト
+- **思考戦略の交換**: Chain-of-Thought、ReAct、Tree-of-Thoughtを実行時に切り替え可能
+- **ツール管理**: Compositeパターンによる階層的なツール管理とカテゴリ分類
+- **メモリ管理**: 会話履歴の管理とスナップショット/ロールバック機能
+- **実行制御**: 最大ステップ数、コスト上限、ループ検出などの安全機構
+- **マルチエージェント**: グラフベースのエージェント連携と並列実行
+- **設定ベース構築**: JSON/辞書形式の設定からエージェントを動的生成
 
 ## プロジェクト構成
 
 ### アーキテクチャ
 
-このプロジェクトは、以下の階層型アーキテクチャで構成されています：
+```
++---------------------------------------------------------------+
+|                         BaseAgent                              |
+|  +----------+  +----------+  +----------+  +---------------+  |
+|  | Brain    |  | ToolBox  |  | Memory   |  | Controller    |  |
+|  |(Strategy)|  |(Composite)|  |(Memento) |  |(Chain of Resp)|  |
+|  +----------+  +----------+  +----------+  +---------------+  |
++---------------------------------------------------------------+
+        |                                           |
+   +----v--------+                         +--------v-------+
+   | AgentState  |                         |    Mediator    |
+   | (State      |                         | (Multi-Agent   |
+   |  Pattern)   |                         |  Coordination) |
+   +-------------+                         +----------------+
+```
+
+### 実行フロー
 
 ```
-┌─────────────────────────────────────────────────────┐
-│         Application Layer (main.py, examples.py)    │
-│     - CLIインターフェース                            │
-│     - ワークフロー定義と実行                         │
-└─────────────────────┬───────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────┐
-│         Workflow Orchestration Layer                │
-│  - WorkflowEngine: ワークフロー実行エンジン          │
-│  - WorkflowBuilder: ワークフロー構築                 │
-│  - Nodes: 各種ノード実装（Prompt、IfElse、Loop等）  │
-└─────────────────────┬───────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────┐
-│      Dependency Injection Layer (di.py)             │
-│  - DIContainer: サービスコンテナ                     │
-│  - IPromptBuilder: プロンプト構築インターフェース     │
-│  - ILLMClient: LLMクライアントインターフェース        │
-│  - IResponseParser: レスポンス解析インターフェース    │
-│  - 具体実装: OpenAI、Gemini、Mock各クライアント      │
-└─────────────────────┬───────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────┐
-│         Infrastructure Layer                        │
-│  - State管理: WorkflowState、ExecutionState         │
-│  - Mediator: ノード間通信                            │
-│  - Memento: チェックポイント管理                     │
-│  - Logger: ログ出力                                  │
-└─────────────────────────────────────────────────────┘
+1. User -> Agent.execute(goal)
+              |
+              v
+2. State: Idle -> Thinking
+              |
+              v
+3. Loop until complete:
+   +-- Memory.get_context()
+   +-- Strategy.think(goal, context, tools)
+   +-- Controller.check_execution(action)
+   +-- Execute Action:
+   |   +-- TOOL_CALL: State -> Acting -> Execute -> Thinking
+   |   +-- FINAL_ANSWER: State -> Completed
+   |   +-- THINK: Continue reasoning
+   +-- Memory.add_action(action)
+   +-- Memory.add_observation(result)
+              |
+              v
+4. Return result -> State: Idle
 ```
 
 ## 使い方
@@ -60,250 +75,191 @@
 
 - **Python**: 3.13.2以上
 - **依存ライブラリ**:
-  - google-genai>=1.45.0
-  - openai>=2.4.0
-  - pydantic>=2.12.2
-  - click>=8.3.0
-  - python-dotenv>=1.1.1
+
+| パッケージ | バージョン | 用途 |
+|-----------|-----------|------|
+| google-genai | >=1.45.0 | Gemini APIクライアント |
+| openai | >=2.4.0 | OpenAI APIクライアント（オプション） |
+| pydantic | >=2.12.2 | 設定とデータバリデーション |
+| click | >=8.3.0 | CLIインターフェース |
+| python-dotenv | >=1.1.1 | 環境変数読み込み |
 
 ### セットアップ
 
-1. **環境変数ファイルの作成**
-
 ```bash
-# .envrc.exampleをコピーして.envrcを作成
-cp .envrc.example .envrc
+cd chapter_4/section_7
 
-# エディタで.envrcを開き、APIキーを設定
-# .envrc
-OPENAI_API_KEY=<your_openai_api_key_here>
+# 環境変数設定
+cp .envrc.example .envrc
+# .envrcを編集してAPIキーを設定:
 GEMINI_API_KEY=<your_gemini_api_key_here>
+
+# 依存関係インストール
+uv sync  # または: pip install -e .
 ```
 
-2. **依存関係のインストール**
+### 実行方法
 
 ```bash
-# uvを使用
-uv sync
-``
+# 全サンプルを実行
+uv run python -m src.main -a all
 
-### 使用方法、実行方法
+# 特定のサンプルを実行
+uv run python -m src.main -a example_1_basic_agent
+uv run python -m src.main -a example_2_react_agent
+uv run python -m src.main -a example_3_multi_strategy_agent
+uv run python -m src.main -a example_4_config_based_agent
+uv run python -m src.main -a example_5_graph_mediator
+uv run python -m src.main -a example_6_parallel_execution
+uv run python -m src.main -a example_7_memory_snapshots
+uv run python -m src.main -a example_8_execution_control
+
+# ヘルプ表示
+uv run python -m src.main --help
+```
+
+### CLIオプション
 
 ```shell
 $ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
-  Run Dependency Injection workflow examples.
-
-  This command allows you to run different workflow examples that demonstrate
-  the LLM workflow orchestration engine with Dependency Injection patterns.
-
-  Examples:     # Run example 1 (manual DI)     python -m src.main --workflow
-  example_1_manual_di
-
-      # Run example 4 (multi-stage pipeline)     python -m src.main --workflow
-      example_4_multi_stage_pipeline
-
-      # Run all workflows     python -m src.main --workflow all
-
 Options:
-  -lp, --llm-provider [OPENAI|GEMINI]
-                                  The LLM provider to use.
-  -w, --workflow [example_1_manual_di|example_2_di_container_singleton|example_3_swapping_providers|example_4_multi_stage_pipeline|example_5_structured_output|example_6_testing_pattern|all]
-                                  The workflow example to run. Use 'all' to
-                                  run all workflows.
+  -a, --agent [example_1_basic_agent|example_2_react_agent|example_3_multi_strategy_agent|example_4_config_based_agent|example_5_graph_mediator|example_6_parallel_execution|example_7_memory_snapshots|example_8_execution_control|all]
+                                  The agent workflow to run.  [required]
   --help                          Show this message and exit.
 ```
 
-#### 基本的な使い方
+| オプション | 短縮形 | 説明 |
+|-----------|--------|------|
+| `--agent` | `-a` | 実行するエージェントワークフロー（必須） |
+| `--help` | | ヘルプメッセージを表示 |
 
-```bash
-# すべてのサンプルを実行
-uv run python -m src.main --workflow all
+**利用可能なエージェント:**
 
-# 特定のサンプルを実行
-uv run python -m src.main --workflow example_1_manual_di
-
-# 直接実行
-uv run python -m src.examples
-```
-
-#### Example 1: 手動依存性注入
-
-最もシンプルなDIの例：
-
-```bash
-uv run python -m src.main --workflow example_1_manual_di
-```
-
-**実装コード**:
-```python
-# 依存関係を手動で作成
-prompt_builder = TemplatePromptBuilder(template="Translate '{text}' to {target_language}")
-llm_client = MockLLMClient(mock_response="Bonjour le monde")
-response_parser = TextResponseParser()
-
-# ワークフローにインジェクト
-workflow = (
-    WorkflowBuilder("translation-workflow", "Translation Example")
-    .add_start_node(initial_data={"text": "Hello world", "target_language": "French"})
-    .add_prompt_node(
-        "translate",
-        injected_prompt_builder=prompt_builder,
-        injected_llm_client=llm_client,
-        injected_response_parser=response_parser,
-    )
-    .add_end_node()
-    .add_edge("start", "translate").add_edge("translate", "end")
-    .build()
-)
-```
-
-#### Example 2: DIコンテナの使用
-
-サービスコンテナによる依存関係管理：
-
-```bash
-uv run python -m src.main --workflow example_2_di_container_singleton
-```
-
-**実装コード**:
-```python
-# DIコンテナを作成
-container = DIContainer()
-
-# サービスを登録
-container.register_singleton(ILLMClient, lambda: MockLLMClient(mock_response="Analyzed content"))
-container.register_singleton(IResponseParser, TextResponseParser)
-container.register_transient(IPromptBuilder, lambda: TemplatePromptBuilder(template="Analyze: {content}"))
-
-# サービスを解決
-llm_client = container.resolve(ILLMClient)
-response_parser = container.resolve(IResponseParser)
-prompt_builder = container.resolve(IPromptBuilder)
-
-# ワークフローで使用
-workflow = build_workflow(llm_client, response_parser, prompt_builder)
-```
-
-#### Example 3: プロバイダー切り替え（A/Bテスト）
-
-異なるLLMプロバイダーを簡単に切り替え：
-
-```bash
-uv run python -m src.main --workflow example_3_swapping_providers
-```
-
-**実装コード**:
-```python
-# 同じワークフロー定義で異なるクライアントを使用
-providers = [
-    ("Provider A", MockLLMClient(mock_response="Summary from provider A")),
-    ("Provider B", MockLLMClient(mock_response="Summary from provider B")),
-]
-
-for provider_name, llm_client in providers:
-    workflow = build_workflow(llm_client)
-    result = await engine.execute(workflow)
-    # 結果を比較...
-```
+| エージェント名 | 説明 |
+|---------------|------|
+| `example_1_basic_agent` | Chain-of-Thought戦略の基本エージェント |
+| `example_2_react_agent` | ReAct戦略によるエージェント |
+| `example_3_multi_strategy_agent` | 動的な戦略切り替え |
+| `example_4_config_based_agent` | Factoryパターンでの生成 |
+| `example_5_graph_mediator` | マルチエージェント連携 |
+| `example_6_parallel_execution` | 並列エージェント実行 |
+| `example_7_memory_snapshots` | Mementoパターンのデモ |
+| `example_8_execution_control` | 安全ハンドラチェーン |
+| `all` | 全サンプルを実行 |
 
 ### 出力例
 
-#### Example 1: 手動DI
+```bash
+$ uv run python -m src.main -a example_1_basic_agent
 
-```
-$ uv run python -m src.main --workflow example_1_manual_di 
+[2026-02-07 08:54:06,213] [INFO] [__main__] [main.py:84] [main] Running agent: example_1_basic_agent
 
-[2026-02-07 08:49:38,563] [INFO] [__main__] [main.py:111] [main] Running workflow: example_1_manual_di
+[2026-02-07 08:54:06,213] [INFO] [src.examples] [examples.py:33] [example_1_basic_agent] 
+=== Example 1: Basic Agent with Chain-of-Thought ===
 
-[2026-02-07 08:49:38,563] [INFO] [src.examples] [examples.py:50] [example_1_manual_di] ============================================================
-[2026-02-07 08:49:38,563] [INFO] [src.examples] [examples.py:51] [example_1_manual_di] Example 1: Manual Dependency Injection
-[2026-02-07 08:49:38,563] [INFO] [src.examples] [examples.py:52] [example_1_manual_di] ============================================================
-[2026-02-07 08:49:38,563] [INFO] [src.workflow.workflow] [workflow.py:83] [validate] Workflow translation-workflow validated successfully
-[2026-02-07 08:49:38,563] [INFO] [src.workflow.engine] [engine.py:33] [__init__] Engine initialized (checkpointing: False, DI: False)
-[2026-02-07 08:49:38,563] [INFO] [src.workflow.engine] [engine.py:39] [execute] Starting workflow: translation-workflow
-[2026-02-07 08:49:38,563] [INFO] [src.workflow.workflow] [workflow.py:83] [validate] Workflow translation-workflow validated successfully
-[2026-02-07 08:49:38,563] [DEBUG] [src.workflow.engine] [engine.py:147] [_setup_mediator] Mediator setup complete
-[2026-02-07 08:49:38,563] [DEBUG] [src.workflow.engine] [engine.py:148] [_setup_mediator] end -> translate
-translate -> start
-[2026-02-07 08:49:38,563] [INFO] [src.workflow.engine] [engine.py:87] [_run] Executing: start (Start)
-[2026-02-07 08:49:38,563] [INFO] [src.workflow.nodes] [nodes.py:20] [execute] Starting workflow: translation-workflow
-[2026-02-07 08:49:38,564] [INFO] [src.workflow.engine] [engine.py:87] [_run] Executing: translate (Translate Text)
-[2026-02-07 08:49:38,564] [INFO] [src.workflow.nodes] [nodes.py:65] [execute] Executing prompt node: Translate Text
-[2026-02-07 08:49:38,564] [INFO] [src.workflow.nodes] [nodes.py:77] [execute] Prompt: Translate 'Hello world' to French...
-[2026-02-07 08:49:38,564] [INFO] [src.workflow.engine] [engine.py:87] [_run] Executing: end (End)
-[2026-02-07 08:49:38,564] [INFO] [src.workflow.nodes] [nodes.py:36] [execute] Ending workflow: translation-workflow
-[2026-02-07 08:49:38,564] [INFO] [src.workflow.engine] [engine.py:57] [execute] Workflow translation-workflow completed
-[2026-02-07 08:49:38,564] [INFO] [src.examples] [examples.py:80] [example_1_manual_di] Translation result: Bonjour le monde
-[2026-02-07 08:49:38,564] [INFO] [__main__] [main.py:116] [main] 
-✓ Workflow completed successfully
-[2026-02-07 08:49:38,564] [INFO] [__main__] [main.py:117] [main]   Status: completed
-[2026-02-07 08:49:38,564] [INFO] [__main__] [main.py:118] [main]   Nodes executed: 3
-[2026-02-07 08:49:38,564] [INFO] [__main__] [main.py:121] [main] 
-  Final outputs:
-[2026-02-07 08:49:38,564] [INFO] [__main__] [main.py:123] [main]     start: {'status': 'started', 'initial_data': {'text': 'Hello world', 'target_language': 'French'}}...
-[2026-02-07 08:49:38,564] [INFO] [__main__] [main.py:123] [main]     translate: Bonjour le monde...
-[2026-02-07 08:49:38,564] [INFO] [__main__] [main.py:123] [main]     end: {'status': 'completed', 'workflow_id': 'translation-workflow'}...
+[2026-02-07 08:54:07,769] [INFO] [src.agent.agent] [agent.py:172] [_log_execution] 
+=== Agent Execution Trace ===
+[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:173] [_log_execution] Iterations: 1
+[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:174] [_log_execution] Final State: idle
+
+[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:175] [_log_execution] State History:
+[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   idle -> thinking at 2026-02-07 08:54:06.213214
+[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   thinking -> completed at 2026-02-07 08:54:07.769916
+[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   completed -> idle at 2026-02-07 08:54:07.769933
+[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:181] [_log_execution] 
+Events:
+[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [thinking] Agent is thinking
+[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [completed] Agent is completed
+[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [idle] Agent is idle
+[2026-02-07 08:54:07,770] [INFO] [src.examples] [examples.py:58] [example_1_basic_agent] Goal: Write a haiku about the changing seasons
+[2026-02-07 08:54:07,770] [INFO] [src.examples] [examples.py:59] [example_1_basic_agent] Result:
+Green fades to gold now,
+Winter's breath will chill the air,
+Life turns, new cycle.
+[2026-02-07 08:54:07,770] [INFO] [__main__] [main.py:89] [main] 
+✓ Agent 'example_1_basic_agent' completed successfully
+[2026-02-07 08:54:07,770] [INFO] [__main__] [main.py:93] [main]   Output: Green fades to gold now,
+Winter's breath will chill the air,
+Life turns, new cycle.
 ```
 
-#### Example 4: 多段階パイプライン
+```bash
+$ uv run python -m src.main -a example_2_react_agent      
+[2026-02-07 08:55:18,581] [INFO] [__main__] [main.py:84] [main] Running agent: example_2_react_agent
+
+[2026-02-07 08:55:18,581] [INFO] [src.examples] [examples.py:66] [example_2_react_agent] 
+=== Example 2: Agent with ReAct Strategy ===
+
+[2026-02-07 08:55:28,847] [INFO] [src.agent.agent] [agent.py:172] [_log_execution] 
+=== Agent Execution Trace ===
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:173] [_log_execution] Iterations: 4
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:174] [_log_execution] Final State: idle
+
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:175] [_log_execution] State History:
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   idle -> thinking at 2026-02-07 08:55:18.581284
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   thinking -> acting at 2026-02-07 08:55:19.614846
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   acting -> thinking at 2026-02-07 08:55:19.614895
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   thinking -> acting at 2026-02-07 08:55:23.555026
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   acting -> thinking at 2026-02-07 08:55:23.555046
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   thinking -> completed at 2026-02-07 08:55:28.847894
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   completed -> idle at 2026-02-07 08:55:28.847913
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:181] [_log_execution] 
+Events:
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [thinking] Agent is thinking
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [acting] Agent is acting
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [thinking] Agent is thinking
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [acting] Agent is acting
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [thinking] Agent is thinking
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [completed] Agent is completed
+[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [idle] Agent is idle
+[2026-02-07 08:55:28,848] [INFO] [src.examples] [examples.py:107] [example_2_react_agent] Goal: Search for information about the Eiffel Tower, then write a short poem inspired by what you learned
+[2026-02-07 08:55:28,848] [INFO] [src.examples] [examples.py:108] [example_2_react_agent] Result:
+A structure of iron, a skyward climb,
+Parisian sentinel, defying time.
+From latticework forged, a towering might,
+An iconic beacon, bathed in city light.
+A metallic marvel, a symbol grand and bold,
+A Parisian story, in steel forever told.
+[2026-02-07 08:55:28,848] [INFO] [__main__] [main.py:89] [main] 
+✓ Agent 'example_2_react_agent' completed successfully
+[2026-02-07 08:55:28,848] [INFO] [__main__] [main.py:93] [main]   Output: A structure of iron, a skyward climb,
+Parisian sentinel, defying time.
+From latticework forged, a towering might,
+An iconic beacon, bathed in city light.
+A metallic marvel, a symbol grand and bold,
+A Parisian story, in steel forever told.
+```
+
+
+## 主要コンポーネント
+
+### 思考戦略（Strategy）
+
+| 戦略 | 説明 | 用途 |
+|------|------|------|
+| `ChainOfThoughtStrategy` | 逐次的なステップバイステップ推論 | 数学、論理問題 |
+| `ReActStrategy` | 思考-行動-観察のインターリーブ | 調査、情報収集 |
+| `TreeOfThoughtStrategy` | 複数パスの探索とスコアリング | 創造的問題解決 |
+
+### 安全ハンドラ
+
+| ハンドラ | 説明 | デフォルト値 |
+|---------|------|-------------|
+| `MaxStepsHandler` | 実行ステップ数の上限 | 50ステップ |
+| `CostLimitHandler` | APIコストの上限 | $10.0 |
+| `ToolRateLimitHandler` | ツールごとの呼び出し回数制限 | 10回/ツール |
+| `DangerousActionHandler` | 危険な操作のブロック | delete, destroy, remove_all |
+| `LoopDetectionHandler` | 無限ループの検出 | 5アクション中3回の繰り返し |
+
+### 状態遷移
 
 ```
-$ uv run python -m src.main --workflow example_4_multi_stage_pipeline
-
-[2026-02-07 08:50:14,665] [INFO] [__main__] [main.py:111] [main] Running workflow: example_4_multi_stage_pipeline
-
-[2026-02-07 08:50:14,665] [INFO] [src.examples] [examples.py:191] [example_4_multi_stage_pipeline] ============================================================
-[2026-02-07 08:50:14,665] [INFO] [src.examples] [examples.py:192] [example_4_multi_stage_pipeline] Example 4: Multi-Stage Pipeline with DI
-[2026-02-07 08:50:14,665] [INFO] [src.examples] [examples.py:193] [example_4_multi_stage_pipeline] ============================================================
-[2026-02-07 08:50:14,666] [INFO] [src.workflow.workflow] [workflow.py:83] [validate] Workflow multi-stage-workflow validated successfully
-[2026-02-07 08:50:14,666] [INFO] [src.workflow.engine] [engine.py:33] [__init__] Engine initialized (checkpointing: False, DI: False)
-[2026-02-07 08:50:14,666] [INFO] [src.workflow.engine] [engine.py:39] [execute] Starting workflow: multi-stage-workflow
-[2026-02-07 08:50:14,666] [INFO] [src.workflow.workflow] [workflow.py:83] [validate] Workflow multi-stage-workflow validated successfully
-[2026-02-07 08:50:14,666] [DEBUG] [src.workflow.engine] [engine.py:147] [_setup_mediator] Mediator setup complete
-[2026-02-07 08:50:14,666] [DEBUG] [src.workflow.engine] [engine.py:148] [_setup_mediator] end -> format
-extract -> start
-format -> summarize
-summarize -> extract
-[2026-02-07 08:50:14,666] [INFO] [src.workflow.engine] [engine.py:87] [_run] Executing: start (Start)
-[2026-02-07 08:50:14,666] [INFO] [src.workflow.nodes] [nodes.py:20] [execute] Starting workflow: multi-stage-workflow
-[2026-02-07 08:50:14,666] [INFO] [src.workflow.engine] [engine.py:87] [_run] Executing: extract (Extract Key Points)
-[2026-02-07 08:50:14,666] [INFO] [src.workflow.nodes] [nodes.py:65] [execute] Executing prompt node: Extract Key Points
-[2026-02-07 08:50:14,666] [INFO] [src.workflow.nodes] [nodes.py:77] [execute] Prompt: Extract key points from: Long technical document......
-[2026-02-07 08:50:14,666] [INFO] [src.workflow.engine] [engine.py:87] [_run] Executing: summarize (Generate Summary)
-[2026-02-07 08:50:14,666] [INFO] [src.workflow.nodes] [nodes.py:65] [execute] Executing prompt node: Generate Summary
-[2026-02-07 08:50:14,666] [INFO] [src.workflow.nodes] [nodes.py:77] [execute] Prompt: 2 messages...
-[2026-02-07 08:50:14,666] [INFO] [src.workflow.engine] [engine.py:87] [_run] Executing: format (Format Output)
-[2026-02-07 08:50:14,666] [INFO] [src.workflow.nodes] [nodes.py:211] [execute] Executing script: Format Output
-[2026-02-07 08:50:14,666] [INFO] [src.workflow.nodes] [nodes.py:226] [execute] Script result: ## Key Points
-Key points: A, B, C
-
-## Summary
-Professional summary of key points
-[2026-02-07 08:50:14,666] [INFO] [src.workflow.engine] [engine.py:87] [_run] Executing: end (End)
-[2026-02-07 08:50:14,666] [INFO] [src.workflow.nodes] [nodes.py:36] [execute] Ending workflow: multi-stage-workflow
-[2026-02-07 08:50:14,666] [INFO] [src.workflow.engine] [engine.py:57] [execute] Workflow multi-stage-workflow completed
-[2026-02-07 08:50:14,666] [INFO] [src.examples] [examples.py:243] [example_4_multi_stage_pipeline] 
-Final formatted output:
-[2026-02-07 08:50:14,666] [INFO] [src.examples] [examples.py:244] [example_4_multi_stage_pipeline] ## Key Points
-Key points: A, B, C
-
-## Summary
-Professional summary of key points
-[2026-02-07 08:50:14,666] [INFO] [__main__] [main.py:116] [main] 
-✓ Workflow completed successfully
-[2026-02-07 08:50:14,666] [INFO] [__main__] [main.py:117] [main]   Status: completed
-[2026-02-07 08:50:14,666] [INFO] [__main__] [main.py:118] [main]   Nodes executed: 5
-[2026-02-07 08:50:14,666] [INFO] [__main__] [main.py:121] [main] 
-  Final outputs:
-[2026-02-07 08:50:14,666] [INFO] [__main__] [main.py:123] [main]     start: {'status': 'started', 'initial_data': {'document': 'Long technical document...', 'prompt': 'temp'}}...
-[2026-02-07 08:50:14,666] [INFO] [__main__] [main.py:123] [main]     extract: Key points: A, B, C...
-[2026-02-07 08:50:14,666] [INFO] [__main__] [main.py:123] [main]     summarize: Professional summary of key points...
-[2026-02-07 08:50:14,666] [INFO] [__main__] [main.py:123] [main]     format: ## Key Points
-Key points: A, B, C
-
-## Summary
-Professional summary of key points...
-[2026-02-07 08:50:14,666] [INFO] [__main__] [main.py:123] [main]     end: {'status': 'completed', 'workflow_id': 'multi-stage-workflow'}...
+有効な遷移:
+  Idle -> Thinking
+  Thinking -> Acting, Completed, Error
+  Acting -> Thinking, Completed, Error
+  Completed -> Idle
+  Error -> Idle
 ```

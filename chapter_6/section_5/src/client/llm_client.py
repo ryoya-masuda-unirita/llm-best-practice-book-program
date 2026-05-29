@@ -5,8 +5,6 @@ from src.config import config
 
 
 class LLMProvider(StrEnum):
-    """Enum for LLM providers."""
-
     GEMINI = "gemini"
 
 
@@ -19,7 +17,7 @@ class GeminiModel(StrEnum):
 
     @staticmethod
     def list_str() -> list[str]:
-        return [model.value for model in GeminiModel]
+        return [model for model in GeminiModel]
 
 
 google_genai_client = genai.Client(api_key=config.gemini_api_key)

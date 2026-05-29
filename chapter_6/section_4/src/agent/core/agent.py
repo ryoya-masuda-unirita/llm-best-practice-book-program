@@ -1,9 +1,4 @@
-"""Base Agent implementation with Strategy pattern.
-
-This module provides the core agent orchestration logic that combines
-Strategy, ToolBox, Memory, and Controller components. Specialized agent
-implementations should be placed in the extensions layer.
-"""
+"""Base Agent implementation with Strategy pattern."""
 
 from typing import NoReturn
 
@@ -31,12 +26,7 @@ def _create_default_controller() -> ExecutionController:
 
 
 class BaseAgent:
-    """Base agent that combines Brain (Strategy), ToolBox, and Memory.
-
-    This is the core agent implementation that orchestrates the interaction
-    between strategies, tools, and memory. Specialized agents should extend
-    this class in the extensions layer.
-    """
+    """Base agent that combines Brain (Strategy), ToolBox, and Memory."""
 
     def __init__(
         self,

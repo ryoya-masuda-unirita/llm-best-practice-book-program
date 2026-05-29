@@ -2,11 +2,41 @@
 Prompt definitions for the data analysis LLM application.
 
 This module defines the system prompt and tool declarations for Gemini function calling.
+Uses the Tool Chain pattern where LLM MUST always define a tool chain first.
 """
 
 from google.genai import types
+from src.service.tools.tool_metadata import TOOL_METADATA
 
-SYSTEM_PROMPT = """You are an intelligent data analysis assistant for a school management system.
+
+def _build_tools_documentation() -> str:
+    """Build documentation of available tools for the system prompt."""
+    docs = []
+    for name, metadata in TOOL_METADATA.items():
+        args_doc = []
+        for field_name, field_info in metadata.input_model.model_fields.items():
+            required = "required" if field_info.is_required() else "optional"
+            args_doc.append(f"    - {field_name}: {field_info.description or 'No description'} ({required})")
+
+        args_str = "\n".join(args_doc) if args_doc else "    (no arguments)"
+
+        connectable = ", ".join(metadata.connectable_to) if metadata.connectable_to else "none"
+        terminal = " [Terminal]" if metadata.is_chain_terminal else ""
+
+        docs.append(f"""### {name}{terminal}
+{metadata.description}
+**Arguments:**
+{args_str}
+**Can connect to:** {connectable}
+**Output keys:** {", ".join(metadata.output_keys)}""")
+
+    return "\n\n".join(docs)
+
+
+TOOLS_DOCUMENTATION = _build_tools_documentation()
+
+
+SYSTEM_PROMPT = f"""You are an intelligent data analysis assistant for a school management system.
 You have access to student records, test scores, grade reports, and curriculum data.
 
 ## CRITICAL: Language Requirement
@@ -21,27 +51,80 @@ You MUST respond in the SAME LANGUAGE as the user's request:
 - Grade reports with letter grades (A, B, C, D, F) and teacher advice
 - Curriculum plans and actual progress for each quarter
 
-## Your Capabilities
-You can analyze this data using the provided tools to:
-1. List available data files
-2. Retrieve student information
-3. Get test scores and grade reports by quarter
-4. Get curriculum information
-5. Perform comprehensive student performance analysis
-6. Analyze class-wide performance
-7. Compare two students
-8. Retrieve detailed data using result IDs
+## CRITICAL: Tool Chain Required for ALL Data Access
+You MUST use the `plan_tool_chain` tool for ALL data operations.
+You cannot call individual tools directly - you must define a tool chain first.
+
+The system will:
+1. Validate your chain definition
+2. Run a dry run with test data to verify the chain works
+3. Execute the chain with actual data
+4. Return only the final result (intermediate results are hidden from context)
+
+This approach:
+- Saves context tokens by hiding intermediate results
+- Ensures reliability through dry-run validation
+- Provides consistent error handling
+
+## Available Tools for Chaining
+
+{TOOLS_DOCUMENTATION}
+
+## How to Define a Tool Chain
+
+Always call `plan_tool_chain` with:
+1. **chain_name**: A descriptive name (e.g., "student_performance_analysis")
+2. **objective**: Clear description of what you want to achieve
+3. **steps**: Array of tool steps, each with:
+   - tool_name: Name of the tool
+   - args: Static arguments (e.g., student_id, quarter)
+   - input_mapping: (optional) Map output keys from previous step to input keys
+4. **initial_input**: (optional) Initial arguments for the first tool
+
+### Example Tool Chains
+
+**Single tool (still requires chain):**
+```json
+{{
+  "chain_name": "list_data",
+  "objective": "List all available data files",
+  "steps": [{{"tool_name": "list_available_data"}}]
+}}
+```
+
+**Multi-step analysis:**
+```json
+{{
+  "chain_name": "student_analysis",
+  "objective": "Analyze a specific student's performance",
+  "steps": [
+    {{"tool_name": "get_students"}},
+    {{"tool_name": "analyze_student_performance", "args": {{"student_id": "<uuid>"}}}}
+  ]
+}}
+```
+
+**Complex chain with filters:**
+```json
+{{
+  "chain_name": "math_class_analysis",
+  "objective": "Analyze math class performance across all quarters",
+  "steps": [
+    {{"tool_name": "filter_scores", "args": {{"classes": ["math"]}}}},
+    {{"tool_name": "analyze_class_performance", "args": {{"class_name": "math"}}}}
+  ]
+}}
+```
 
 ## Important Guidelines
-- Tool calls return summaries with result IDs. Use get_result_details to retrieve full data when needed.
-- The result_id in each response can be used to fetch detailed information later.
-- When analyzing data, explain your findings clearly and provide actionable insights.
-- Always cite which data you used (by result_id) when making conclusions.
-- If you need more detailed information, use get_result_details with the appropriate result_id.
+- ALWAYS use plan_tool_chain, even for single operations
+- Tool chains return summaries with result IDs
+- Use get_result_details in a chain to retrieve full data when needed
+- The result_id in each response can be used to fetch detailed information
 
 ## CRITICAL: Final Report Requirement
 You MUST ALWAYS produce a comprehensive, well-structured analysis report as your final output.
-After gathering all necessary data through tool calls, you MUST write a complete report.
+After gathering all necessary data through tool chains, you MUST write a complete report.
 Never end with just tool call results - always synthesize the data into a final report.
 
 ### Report Structure (use headings in the user's language)
@@ -70,197 +153,62 @@ For English requests, use these headings:
 - Always cite data sources with result_ids
 """
 
-# Tool declarations for Gemini function calling
+
+# Only expose plan_tool_chain - LLM must always define a chain first
 TOOL_DECLARATIONS = [
     {
-        "name": "list_available_data",
-        "description": "List all available data files in the data directory. Returns a summary of available data categories including test scores, grade reports, curriculum, and student records.",
-        "parameters": {
-            "type": "object",
-            "properties": {},
-            "required": [],
-        },
-    },
-    {
-        "name": "get_students",
-        "description": "Get the list of all students in the system. Returns student count and their UUIDs.",
-        "parameters": {
-            "type": "object",
-            "properties": {},
-            "required": [],
-        },
-    },
-    {
-        "name": "get_test_scores",
-        "description": "Get test scores for a specific quarter. Returns statistics including averages for each subject.",
+        "name": "plan_tool_chain",
+        "description": """Define and execute a tool chain for data analysis.
+You MUST use this tool for ALL data operations - individual tools cannot be called directly.
+
+The system will:
+1. Validate your chain definition
+2. Run a dry run with test data to verify the chain works
+3. Execute the chain with actual data
+4. Return only the final result summary
+
+Even for single operations, wrap them in a chain.""",
         "parameters": {
             "type": "object",
             "properties": {
-                "quarter": {
-                    "type": "integer",
-                    "description": "Quarter number. Must be 1, 2, 3, or 4.",
-                },
-            },
-            "required": ["quarter"],
-        },
-    },
-    {
-        "name": "get_grade_report",
-        "description": "Get grade reports for a specific quarter. Returns grade distribution (A, B, C, D, F) and includes teacher advice for each student.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "quarter": {
-                    "type": "integer",
-                    "description": "Quarter number. Must be 1, 2, 3, or 4.",
-                },
-            },
-            "required": ["quarter"],
-        },
-    },
-    {
-        "name": "get_curriculum",
-        "description": "Get curriculum information for a specific quarter. Returns planned topics, actual progress, and completion rates for each subject.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "quarter": {
-                    "type": "integer",
-                    "description": "Quarter number. Must be 1, 2, 3, or 4.",
-                },
-            },
-            "required": ["quarter"],
-        },
-    },
-    {
-        "name": "analyze_student_performance",
-        "description": "Comprehensive analysis of a student's performance across all quarters. This composite function loads all quarterly test scores, calculates trends, identifies strengths and weaknesses, and compiles grade history with teacher feedback.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "student_id": {
+                "chain_name": {
                     "type": "string",
-                    "description": "The UUID of the student to analyze",
+                    "description": "A descriptive name for this chain (e.g., 'student_performance_analysis')",
                 },
-            },
-            "required": ["student_id"],
-        },
-    },
-    {
-        "name": "analyze_class_performance",
-        "description": "Comprehensive analysis of a class's performance across all students and quarters. Identifies top performers, calculates class averages, and correlates with curriculum completion rates.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "class_name": {
+                "objective": {
                     "type": "string",
-                    "description": "Name of the class to analyze",
-                    "enum": ["japanese", "math", "physics", "history", "pe"],
+                    "description": "Clear description of what this chain aims to accomplish",
+                },
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "tool_name": {
+                                "type": "string",
+                                "description": "Name of the tool to execute",
+                                "enum": list(TOOL_METADATA.keys()),
+                            },
+                            "args": {
+                                "type": "object",
+                                "description": "Static arguments for this step (e.g., student_id, quarter, class_name)",
+                            },
+                            "input_mapping": {
+                                "type": "object",
+                                "description": "Map output keys from previous step to input keys for this step",
+                            },
+                        },
+                        "required": ["tool_name"],
+                    },
+                    "description": "Ordered list of tools to execute. Data flows between compatible tools.",
+                    "minItems": 1,
+                },
+                "initial_input": {
+                    "type": "object",
+                    "description": "Initial input arguments for the first tool in the chain",
                 },
             },
-            "required": ["class_name"],
-        },
-    },
-    {
-        "name": "get_result_details",
-        "description": "Retrieve detailed data for a previously computed result using its result_id. Use this to get full data when the summary is not sufficient for analysis.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "result_id": {
-                    "type": "string",
-                    "description": "The result ID from a previous tool call",
-                },
-            },
-            "required": ["result_id"],
-        },
-    },
-    {
-        "name": "compare_students",
-        "description": "Compare performance between two students across all quarters. Provides subject-by-subject comparison and identifies which student performs better in each area.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "student_id_1": {
-                    "type": "string",
-                    "description": "UUID of the first student",
-                },
-                "student_id_2": {
-                    "type": "string",
-                    "description": "UUID of the second student",
-                },
-            },
-            "required": ["student_id_1", "student_id_2"],
-        },
-    },
-    {
-        "name": "filter_scores",
-        "description": "Filter and retrieve test scores with flexible filtering. Supports filtering by multiple classes (e.g., only math and physics for STEM analysis), multiple students, and multiple quarters. All filters are optional and combined with AND logic. Returns filtered data with statistics.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "classes": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of class names to include: japanese, math, physics, history, pe. Example: ['math', 'physics'] for STEM subjects. If not specified, all classes are included.",
-                },
-                "student_ids": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of student UUIDs to include. If not specified, all students are included.",
-                },
-                "quarters": {
-                    "type": "array",
-                    "items": {"type": "integer"},
-                    "description": "List of quarter numbers (1-4) to include. Example: [1, 2] for first half of year. If not specified, all quarters are included.",
-                },
-            },
-            "required": [],
-        },
-    },
-    {
-        "name": "filter_grades",
-        "description": "Filter and retrieve grade reports with flexible filtering. Supports filtering by multiple classes, multiple students, and multiple quarters. Returns filtered grades with distribution statistics.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "classes": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of class names to include: japanese, math, physics, history, pe. If not specified, all classes are included.",
-                },
-                "student_ids": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of student UUIDs to include. If not specified, all students are included.",
-                },
-                "quarters": {
-                    "type": "array",
-                    "items": {"type": "integer"},
-                    "description": "List of quarter numbers (1-4) to include. If not specified, all quarters are included.",
-                },
-            },
-            "required": [],
-        },
-    },
-    {
-        "name": "filter_curriculum",
-        "description": "Filter and retrieve curriculum data with flexible filtering. Supports filtering by multiple classes and multiple quarters. Returns filtered curriculum with completion rates.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "classes": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of class names to include: japanese, math, physics, history, pe. If not specified, all classes are included.",
-                },
-                "quarters": {
-                    "type": "array",
-                    "items": {"type": "integer"},
-                    "description": "List of quarter numbers (1-4) to include. If not specified, all quarters are included.",
-                },
-            },
-            "required": [],
+            "required": ["chain_name", "objective", "steps"],
         },
     },
 ]
@@ -271,6 +219,211 @@ def get_tools() -> types.Tool:
     return types.Tool(function_declarations=TOOL_DECLARATIONS)
 
 
-def get_system_prompt() -> str:
-    """Get the system prompt for the data analysis assistant."""
-    return SYSTEM_PROMPT
+def get_system_prompt(
+    iteration_context: list[dict] | None = None,
+    current_iteration: int = 1,
+    max_iterations: int = 10,
+) -> str:
+    """
+    Get the system prompt for the data analysis assistant.
+
+    Args:
+        iteration_context: List of previous iteration results, each containing:
+            - iteration: Iteration number
+            - chain_name: Name of the executed chain
+            - objective: What the chain aimed to accomplish
+            - success: Whether execution succeeded
+            - result: The chain result summary
+        current_iteration: Current iteration number (1-based)
+        max_iterations: Maximum allowed iterations
+
+    Returns:
+        System prompt with optional iteration context
+    """
+    if not iteration_context:
+        return SYSTEM_PROMPT
+
+    # Build context section for previous iterations
+    context_lines = [
+        "\n## Previous Data Collection Progress",
+        f"\nYou are currently on iteration {current_iteration} of {max_iterations}.",
+        "\n### Data Collected in Previous Iterations:\n",
+    ]
+
+    for ctx in iteration_context:
+        iteration_num = ctx.get("iteration", "?")
+        chain_name = ctx.get("chain_name", "unnamed")
+        objective = ctx.get("objective", "")
+        success = ctx.get("success", False)
+        result = ctx.get("result", {})
+
+        status = "SUCCESS" if success else "FAILED"
+        context_lines.append(f"**Iteration {iteration_num}** - Chain: `{chain_name}` [{status}]")
+        context_lines.append(f"- Objective: {objective}")
+
+        if success:
+            final_summary = result.get("final_summary", result.get("result_summary", ""))
+            if final_summary:
+                context_lines.append(f"- Result: {final_summary}")
+            result_id = result.get("final_result_id", "")
+            if result_id:
+                context_lines.append(f"- Result ID: `{result_id}`")
+        else:
+            error = result.get("error", result.get("result_summary", "Unknown error"))
+            context_lines.append(f"- Error: {error}")
+        context_lines.append("")
+
+    context_lines.extend(
+        [
+            "### Instructions for Next Step:",
+            "- Review the data collected above",
+            "- Decide if you need MORE data or have ENOUGH to generate the final report",
+            "- If you need more data, plan a NEW tool chain to collect missing information",
+            "- If you have enough data, set `is_final_iteration` to `true`",
+            "- Keep each chain simple and focused on ONE specific data retrieval task",
+            "- Do NOT repeat chains that already succeeded - use existing data",
+        ]
+    )
+
+    iteration_context_text = "\n".join(context_lines)
+
+    return SYSTEM_PROMPT + iteration_context_text
+
+
+def get_tool_chain_info() -> dict[str, dict]:
+    """
+    Get tool chain information for each tool.
+
+    Returns dict mapping tool name to its chain metadata:
+    - connectable_to: list of tools that can follow this one
+    - output_keys: keys available for passing to next tool
+    - is_terminal: whether this tool typically ends a chain
+    """
+    chain_info = {}
+    for name, metadata in TOOL_METADATA.items():
+        chain_info[name] = {
+            "connectable_to": metadata.connectable_to,
+            "output_keys": metadata.output_keys,
+            "is_terminal": metadata.is_chain_terminal,
+            "category": metadata.category.value,
+        }
+    return chain_info
+
+
+def get_user_message_with_tool_metadata(tool_metadata_json: str, user_message: str) -> str:
+    """
+    Build the user message with tool metadata context for structured output.
+
+    Args:
+        tool_metadata_json: JSON string of tool metadata
+        user_message: Original user message
+
+    Returns:
+        Formatted user message with tool metadata
+    """
+    return f"""## Available Tools for Chaining
+
+The following tools are available for building a tool chain. Use this metadata to plan your chain:
+
+```json
+{tool_metadata_json}
+```
+
+## User Request
+
+{user_message}
+"""
+
+
+def get_chain_validation_error_message(chain_name: str, errors_json: str) -> str:
+    """
+    Build the error message when tool chain validation fails.
+
+    Args:
+        chain_name: Name of the failed chain
+        errors_json: JSON string of validation errors
+
+    Returns:
+        Formatted error message asking LLM to correct the chain
+    """
+    return f"""## Tool Chain Validation Failed
+
+Your proposed tool chain "{chain_name}" failed validation with the following errors:
+
+{errors_json}
+
+Please design a CORRECTED tool chain that:
+1. Only connects tools that are in each other's 'connectable_to' list
+2. Uses correct output_keys for input_mapping (e.g., use 'result_id' not tool-specific names)
+3. For independent data gathering, use a single appropriate tool (e.g., just 'analyze_class_performance' for class analysis)
+
+IMPORTANT: Keep the chain simple. For analyzing math class performance, a single 'analyze_class_performance' tool with class_name='math' is sufficient.
+"""
+
+
+def get_chain_result_message(chain_name: str, result_json: str) -> str:
+    """
+    Build the message with tool chain execution results for final report generation.
+
+    Args:
+        chain_name: Name of the executed chain
+        result_json: JSON string of execution results
+
+    Returns:
+        Formatted result message asking LLM to generate final report
+    """
+    return f"""## Tool Chain Execution Result
+
+The tool chain "{chain_name}" has been executed.
+
+### Result:
+```json
+{result_json}
+```
+
+Please analyze these results and provide a comprehensive report based on the original user request.
+"""
+
+
+def get_iteration_prompt(
+    iteration: int,
+    collected_results_json: str,
+    original_user_message: str,
+) -> str:
+    """
+    Build the prompt for asking LLM to plan the next tool chain or finalize.
+
+    Args:
+        iteration: Current iteration number (1-based)
+        collected_results_json: JSON string of all results collected so far
+        original_user_message: The original user request
+
+    Returns:
+        Formatted prompt asking LLM to plan next chain or indicate completion
+    """
+    return f"""## Data Collection Progress (Iteration {iteration})
+
+### Original User Request:
+{original_user_message}
+
+### Data Collected So Far:
+```json
+{collected_results_json}
+```
+
+### Instructions:
+Based on the original user request and data collected so far, decide your next action:
+
+1. **If you need MORE data**: Define a new tool chain to gather additional data.
+   - Set `is_final_iteration` to `false`
+   - Define the tool chain steps to collect the missing data
+
+2. **If you have ENOUGH data**: Indicate you're ready to generate the final report.
+   - Set `is_final_iteration` to `true`
+   - You can leave steps empty or define a minimal chain
+
+Consider:
+- What data do you already have?
+- What additional data is needed to fully answer the user's request?
+- Keep each chain simple and focused on one task
+"""

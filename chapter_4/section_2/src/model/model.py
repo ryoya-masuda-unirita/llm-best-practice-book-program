@@ -4,14 +4,13 @@ from enum import StrEnum
 from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
-from src.client.llm_client import LLMProvider
 
-# Shared configuration for all models
-_BASE_MODEL_CONFIG = ConfigDict(
-    validate_assignment=True,
-    frozen=True,
-    extra="ignore",
-)
+
+class UserPlan(StrEnum):
+    """User subscription plan types."""
+
+    FREE = "free"
+    STANDARD = "standard"
 
 
 class Gender(StrEnum):
@@ -20,22 +19,39 @@ class Gender(StrEnum):
 
 
 class CharacterRequest(BaseModel):
-    model_config = _BASE_MODEL_CONFIG
+    model_config = ConfigDict(
+        validate_assignment=True,
+        frozen=True,
+        extra="ignore",
+        arbitrary_types_allowed=True,
+    )
 
     gender: Gender = Field(..., description="The gender of the character.")
     age: int = Field(..., description="The age of the character.", ge=0, le=100)
-    additional_instructions: Optional[str] = Field(..., description="Additional instructions for character generation.")
+    additional_instructions: Optional[str] = Field(
+        None, description="Additional instructions for character generation."
+    )
 
 
 class CharacterPersonality(BaseModel):
-    model_config = _BASE_MODEL_CONFIG
+    model_config = ConfigDict(
+        validate_assignment=True,
+        frozen=True,
+        extra="ignore",
+        arbitrary_types_allowed=True,
+    )
 
     short_personality: str = Field(..., description="A short description of the character's personality.")
     description: str = Field(..., description="A description of the character's personality traits and behaviors.")
 
 
 class CharacterResponse(BaseModel):
-    model_config = _BASE_MODEL_CONFIG
+    model_config = ConfigDict(
+        validate_assignment=True,
+        frozen=True,
+        extra="ignore",
+        arbitrary_types_allowed=True,
+    )
 
     first_name: str = Field(..., description="The first name of the character.")
     last_name: str = Field(..., description="The last name of the character.")
@@ -56,36 +72,33 @@ class CharacterResponse(BaseModel):
             elif k == "age":
                 params[k] = f"number; {v.description}; 0-100"
             elif k == "personalities":
-                params[k] = []
-                for i in range(3):
-                    params[k].append(
-                        {
-                            "short_personality": f"string; {v.description} (personality {i + 1})",
-                            "description": f"string; {v.description} (detailed description for personality {i + 1})",
-                        }
-                    )
+                params[k] = [
+                    {
+                        "short_personality": f"string; {v.description} (personality {i + 1})",
+                        "description": f"string; {v.description} (detailed description for personality {i + 1})",
+                    }
+                    for i in range(3)
+                ]
         return params
 
     def save_as_json(self, file_path: str) -> None:
         """Save the character response as a JSON file."""
-
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(self.model_dump(), f, indent=4, ensure_ascii=False)
 
 
 class LLMRequest(BaseModel):
-    """Request model for LLM API."""
+    """Request model for character generation API."""
 
-    provider: LLMProvider = Field(..., description="The LLM provider to use (openai)")
     model: str = Field(..., description="The model name to use for generation")
     character_request: CharacterRequest = Field(..., description="Character generation request parameters")
+    user_plan: UserPlan = Field(default=UserPlan.FREE, description="User's subscription plan")
 
 
 class LLMResponse(BaseModel):
-    """Response model for LLM API."""
+    """Response model for character generation API."""
 
     character: CharacterResponse = Field(..., description="Generated character information")
-    provider: str = Field(..., description="LLM provider used")
     model: str = Field(..., description="Model used")
     processing_time_ms: float = Field(..., description="Processing time in milliseconds")
 
@@ -95,3 +108,43 @@ class HealthResponse(BaseModel):
 
     status: Literal["healthy"] = "healthy"
     timestamp: float = Field(default_factory=time.time)
+
+
+class TextClassificationRequest(BaseModel):
+    """Request model for text classification."""
+
+    model_config = ConfigDict(
+        validate_assignment=True,
+        frozen=True,
+        extra="ignore",
+        arbitrary_types_allowed=True,
+    )
+
+    text: str = Field(..., description="The text to classify")
+    categories: list[str] = Field(..., description="List of possible categories", min_length=2)
+    model: str = Field(..., description="The model to use for classification")
+    user_plan: UserPlan = Field(default=UserPlan.FREE, description="User's subscription plan")
+
+
+class ClassificationResult(BaseModel):
+    """Classification result from LLM - structured output model."""
+
+    model_config = ConfigDict(
+        validate_assignment=True,
+        frozen=True,
+        extra="ignore",
+        arbitrary_types_allowed=True,
+    )
+
+    reasoning: str = Field(None, description="Brief explanation for the classification")
+    category: str = Field(..., description="The predicted category from the provided list")
+    confidence: Optional[str] = Field(None, description="Optional confidence level: high, medium, or low")
+
+
+class TextClassificationResponse(BaseModel):
+    """Response model for text classification API."""
+
+    category: str = Field(..., description="The predicted category")
+    model: str = Field(..., description="Model used")
+    processing_time_ms: float = Field(..., description="Processing time in milliseconds")
+    classification_result: ClassificationResult = Field(..., description="Detailed classification result")

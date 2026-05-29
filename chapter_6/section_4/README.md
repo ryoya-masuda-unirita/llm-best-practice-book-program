@@ -1,70 +1,67 @@
-# Chapter 6 Section 4: 不要な過去を忘れる - 状態ベースロールバックパターン
+# Chapter 6 Section 9: 不要な過去を忘れ、やり直し、未来を作る
 
 ## 概要
 
-本プロジェクトは、LLMアプリケーションにおける**「不要な過去を忘れる」パターン**を、状態ベースのロールバック機構を通じて実証します。ユーザーはマルチステップパイプラインの任意の過去フェーズにロールバックでき、汚染されたコンテキストを効果的に「忘却」して、フレッシュな状態からコンテンツを再生成できます。
+本プロジェクトは、LLMアプリケーションにおける対話履歴管理の3つの課題を解決する**「忘れる（Forget）・やり直す（Replay）・未来を作る（Speculate）」**の3段階アプローチを、記事生成パイプラインを通じて実証するサンプル実装です。
 
-このパターンは、LLMの文脈汚染問題に対処します。一度生成された低品質なコンテンツがコンテキストに残ると、その後の生成品質に悪影響を与える可能性があります。状態変数を削除することで「忘却」を実現し、過去の失敗した試行の影響を受けずに再生成を行えます。
+Section 4の状態ベースロールバック（Forget）をベースに、2つの機構を新たに追加しています。
 
-実装は記事生成パイプラインで、以下の特徴を持ちます：
-
-- **段階的コンテンツ生成**：アウトライン → 前半 → 後半の順に生成
-- **LLM-as-a-Judge**：LLMによる自動品質評価（1-5段階の評価スケール）
-- **Human-in-the-Loop**：人間による承認/却下とロールバック機能
-- **Mementoパターン**：状態スナップショット管理による確実なロールバック
+| 段階 | 名称 | 解決する課題 | 着想元 |
+|------|------|-------------|--------|
+| 1 | **忘れる（Forget）** | コンテキスト汚染による品質劣化 | Mementoパターン |
+| 2 | **やり直す（Replay）** | ロールバック時の有効入力の消失 | データベースのWALリプレイ |
+| 3 | **未来を作る（Speculate）** | 単一の未来しか見えない意思決定 | CPUの投機的実行（分岐予測） |
 
 ## 機能
 
-- **状態ベースロールバック**: 任意のフェーズにロールバックし、以降のフェーズを再生成
-- **自動品質評価**: LLM-as-a-Judgeによる5段階評価と詳細なフィードバック
-- **フィードバックループ**: 却下時は前回のフィードバックを基に改善された再生成
-- **インタラクティブモード**: 各決定ポイントでユーザー入力を受け付け
-- **自動選択モード**: 評価4以上で自動承認する非対話型実行
-- **構造化出力**: Pydanticモデルによる型安全なJSON出力
+- **チェックポイントとロールバック（Forget）**: 任意のフェーズに巻き戻し、以降の状態を破棄して再生成
+- **ユーザー要件の収集とWAL記録（Replay）**: アウトライン確認後にユーザーが追加指示を入力でき、WAL（Write-Ahead Log）に記録される。ロールバック時に有効な指示を自動的に再適用し、手動再入力を不要にする
+- **投機的並列世界実行（Speculate）**: N個のアウトライン候補から記事を並列に完成させ、最終結果のレビュー評価まで比較して選択できる
+- **LLM-as-a-Judge**: 5段階の自動品質評価と詳細なフィードバック
+- **フィードバックループ**: 記事却下時に過去のフィードバックを活用した後半の再生成（最大5回）
+- **インタラクティブモード**: ロールバック、要件追加、記事承認の各決定ポイントで対話的に操作
+- **自動選択モード**: 評価4以上で自動承認、投機的世界の最高評価を自動選択する非対話型実行
 
-## プロジェクト構成
+## アーキテクチャ
 
-### アーキテクチャ
+### パイプラインフロー
 
-#### パイプラインフロー
-
-```
-+-------------+     +-------------+     +-------------+     +-------------+
-|  Phase 1    |     |  Phase 2    |     |  Phase 3    |     |  Phase 4    |
-|  アウトライン |---->|  前半生成    |---->|  後半生成    |---->|  レビュー    |
-|  生成       |     |             |     |             |     | (LLM Judge) |
-+-------------+     +------+------+     +-------------+     +------+------+
-                           |                                       |
-                           v                                       v
-                    +-----------+                           +-------------+
-                    | Rollback  |                           |  Phase 5    |
-                    | Point #1  |                           |  承認判定    |
-                    +-----------+                           +------+------+
-                                                                   |
-                                                            +-----------+
-                                                            | Rollback  |
-                                                            | Point #2  |
-                                                            +-----------+
-                                                                   |
-                                                                   v (却下時)
-                                                            +-------------+
-                                                            | フィードバック |
-                                                            | 基づく再生成  |
-                                                            +-------------+
-```
-
-#### エージェントアーキテクチャ
+本パイプラインは5つのフェーズで構成され、各フェーズの区切りでチェックポイントを保存します。ロールバックポイントではForget + Replayが連動し、Phase 1では投機的実行（Speculate）が発動します。
 
 ```
-+----------------------+
-|      Mediator        |  パイプライン統制
-| (ArticlePipeline     |
-|      Mediator)       |
-+----------+-----------+
-           |
-    +------+------+------+------+------+
-    |      |      |      |      |      |
-    v      v      v      v      v      v
+Phase 1                Phase 2         Phase 3         Phase 4
+アウトライン生成  ─────> 前半生成 ─────> 後半生成 ─────> レビュー
+   │                     │                              │
+   │ num_outlines>1      │                              v
+   v                     v                          Phase 5
+ Speculate            Rollback                      承認判定
+ N個のアウトライン      + Replay                        │
+ → 並列に記事完成      Point #1                        v
+ → 結果比較で選択                                   Rollback
+                                                    + Replay
+                                                    Point #2
+                                                        │
+                                                        v (却下時)
+                                                    フィードバック
+                                                    基づく再生成
+```
+
+### 3段階の統合
+
+```
++-------------------------------+
+|       PipelineMediator        |  3段階統合オーケストレーション
+| (Forget + Replay + Speculate) |
++------+--------+--------+-----+
+       |        |        |
+       v        v        v
+  +--------+ +-------+ +----------------+
+  |Pipeline| |Replay | |  World         |
+  |Memory  | |Engine | |  Manager       |
+  |(Forget)| |(WAL)  | | (Speculative)  |
+  +--------+ +-------+ +----------------+
+       |        |        |
+       v        v        v
 +------+ +------+ +------+ +------+ +------+
 | Node | | Node | | Node | | Node | | Node |
 |Outln | |First | |Second| |Review| |Regen |
@@ -75,10 +72,6 @@
 +--------------------------------------------------+
 |              GenerationToolBox                   |
 +--------------------------------------------------+
-| OutlineGenerator    | FirstHalfGenerator         |
-| SecondHalfGenerator | ArticleReviewer            |
-| SecondHalfRegenerator                            |
-+--------------------------------------------------+
                       |
                       v
               +---------------+
@@ -86,7 +79,7 @@
               +---------------+
 ```
 
-#### Mementoパターンによる状態管理
+### 状態管理: Memento + WAL
 
 ```
 +-------------------+        +--------------------+
@@ -98,11 +91,25 @@
      +---------+                 +-----------+
      |  State  |                 | Snapshots |
      +---------+                 +-----------+
-          |                      | Phase 0   |
-          |                      | Phase 1   |
-     状態変数の                   | Phase 2   |
-     有無が完了を示す              | ...       |
-                                 +-----------+
+          |
+          v
+   +-------------+
+   | Prompt WAL  |  ← ユーザー要件のログ
+   +-------------+    ロールバック後のリプレイに使用
+   | Entry 1     |
+   | Entry 2     |
+   +-------------+
+
++-------------------+
+|  World Manager    |  投機的並列世界の管理
++-------------------+
+| World A (outline1)|---> Phase 2-4 を並列実行
+| World B (outline2)|---> Phase 2-4 を並列実行
+| World C (outline3)|---> Phase 2-4 を並列実行
++-------------------+
+         |
+    ユーザーが1つ選択
+    残りは破棄
 ```
 
 ## 使い方
@@ -110,16 +117,15 @@
 ### 環境構成
 
 - **Python**: 3.13.2以上
-- **依存ライブラリ**:
-  - `click>=8.3.0`: CLIフレームワーク
-  - `google-genai>=1.45.0`: Google Gemini統合
-  - `pydantic>=2.12.2`: データバリデーションと構造化出力
-  - `python-dotenv>=1.1.1`: 環境設定
-
+- **主要な依存ライブラリ**:
+  - `click>=8.3.0` : CLIフレームワーク
+  - `google-genai>=1.45.0` : Google Gemini API統合
+  - `pydantic>=2.12.2` : データバリデーションと構造化出力
+  - `python-dotenv>=1.1.1` : 環境設定の読み込み
 - **開発用依存ライブラリ**:
-  - `pytest>=8.4.2`: テストフレームワーク
-  - `pytest-asyncio>=1.2.0`: 非同期テストサポート
-  - `pytest-mock>=3.15.1`: モックユーティリティ
+  - `ruff>=0.12.4` : リンター/フォーマッター
+  - `mypy>=1.17.0` : 型チェック
+  - `isort>=6.0.1` : インポート整理
 
 ### セットアップ
 
@@ -139,12 +145,14 @@ GEMINI_API_KEY=<your_gemini_api_key_here>
 3. 依存関係をインストール:
 
 ```bash
-uv sync
+uv sync --all-packages
 ```
 
-### 使用方法
+### 実行方法
 
-**インタラクティブモード** (ロールバックオプション付き):
+#### インタラクティブモード（基本）
+
+ロールバック＋リプレイ機能付きで、対話しながら記事を生成します。アウトライン確認後に追加の指示（例：「具体的な事例を多く含めて」）を入力でき、ロールバック時にはその指示が自動的に再適用されます。
 
 ```bash
 uv run python -m src.main \
@@ -153,7 +161,9 @@ uv run python -m src.main \
   --model gemini-2.5-flash
 ```
 
-**自動選択モード** (ユーザー操作なし):
+#### 自動選択モード
+
+ユーザー操作なし。LLM-as-a-Judgeの評価が4以上なら自動承認します。
 
 ```bash
 uv run python -m src.main \
@@ -163,13 +173,25 @@ uv run python -m src.main \
   --auto-select
 ```
 
-### CLIオプション
+#### 投機的実行モード
+
+複数のアウトラインから記事を並列に完成させ、レビュー評価付きで比較して選べます。
 
 ```bash
+uv run python -m src.main \
+  --theme "気候変動の解決策" \
+  --language ja \
+  --model gemini-2.5-flash \
+  --num-outlines 3
+```
+
+### CLIオプション
+
+```
 $ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
-  Generate an article using state-based rollback pattern (forget the past).
+  Generate an article using the Forget, Replay, Speculate pattern.
 
 Options:
   -t, --theme TEXT                Article theme/topic.  [required]
@@ -181,6 +203,10 @@ Options:
   -od, --output-directory PATH    The directory to save output files.
   -a, --auto-select               Automatically select best options without
                                   human interaction.
+  -n, --num-outlines INTEGER RANGE
+                                  Number of outline candidates for speculative
+                                  execution (1=no speculation, max 5).
+                                  [1<=x<=5]
   --help                          Show this message and exit.
 ```
 
@@ -190,22 +216,94 @@ Options:
 | `--language` | `-l` | Yes | - | 言語（`en`または`ja`） |
 | `--model` | `-m` | Yes | - | Geminiモデル名 |
 | `--output-directory` | `-od` | No | `outputs` | 出力ディレクトリ |
-| `--auto-select` | `-a` | No | `False` | 自動選択モードフラグ |
+| `--auto-select` | `-a` | No | `False` | 自動選択モード |
+| `--num-outlines` | `-n` | No | `1` | アウトライン候補数（1=投機なし、最大5） |
 
+## 3段階パターンの詳細
 
-### 出力例
+### Stage 1: 忘れる（Forget）
 
-実行が完了すると、以下のような出力が得られます：
+対話の重要な区切りでチェックポイント（状態スナップショット）を保存し、コンテキスト汚染の発生時やユーザーの明示的な指示により、指定フェーズまでロールバックします。
 
-```bash
+**動作原理**: `PipelineState`の各フェーズに対応する状態変数（`outline`, `first_half`, `second_half`等）の有無でフェーズ完了を判定します。ロールバック時は対象フェーズ以降の状態変数を`None`に設定することで「忘却」を実現します。
+
+```python
+# PipelineMemory.forget_phases_after()
+def forget_phases_after(self, target_phase: int) -> None:
+    if target_phase < 5:
+        self._state.human_approved = None
+        self._state.review_loop_iteration = 0
+        self._state.previous_feedback = None
+    if target_phase < 4:
+        self._state.review = None
+    if target_phase < 3:
+        self._state.second_half = None
+    if target_phase < 2:
+        self._state.first_half = None
+    if target_phase < 1:
+        self._state.outline = None
+    self._state.error = None
+```
+
+**ロールバックポイント**: Phase 2（前半生成後）と Phase 5（承認判定後）の2箇所。
+
+### Stage 2: やり直す（Replay）
+
+ロールバック後、ユーザーが過去に入力した有効な指示を自動的に再適用します。
+
+**ユーザー要件の収集**: Phase 1（アウトライン生成）完了後、ユーザーは任意で追加指示を入力できます（例：「具体的な事例を多く含めて」「倫理面にも触れて」）。この指示は`PipelineState.user_requirements`に保存され、以降の前半・後半生成時にプロンプトの追加コンテキストとしてLLMに渡されます。
+
+**WAL（Write-Ahead Log）**: すべてのユーザー入力は`PromptLog`に記録されます。ロールバック時に`ReplayFilter`が以下のルールで各入力を分類し、有効な指示のみを自動再適用します。
+
+| 分類 | リプレイ判定 | 例 |
+|------|------------|-----|
+| `REQUIREMENT` | 再適用する | 「具体的な事例を多く含めて」 |
+| `FEEDBACK` | スキップ | 「はい」「いいえ」 |
+| `CONFIRMATION` | スキップ | 「承認」「却下」 |
+| `CONTEXT_DEPENDENT` | ユーザーに確認 | 「それについてもう少し詳しく」 |
+
+**リプレイの流れ**:
+
+1. ロールバック地点を決定（Forget）
+2. WALからリプレイ対象のエントリーを特定
+3. WALをクリアして重複を防止
+4. 有効なREQUIREMENT入力を`user_requirements`に再適用
+5. リプレイ差分（Before/After）をユーザーに表示
+
+**文脈依存の検出**: 「それ」「これ」「上記」「もう少し詳しく」などの指示語パターンを単語境界を考慮した正規表現で検出し、前のLLM応答に依存するプロンプトを識別します。
+
+### Stage 3: 未来を作る（Speculate）
+
+分岐点（Phase 1）で複数のアウトライン候補を生成し、各候補の「その先の未来」（完成記事とレビュー評価）を並列に推論します。
+
+**動作フロー**:
+
+1. `--num-outlines N`（2以上）を指定するとPhase 1でN個のアウトライン候補を生成
+2. ユーザーが追加指示を入力（`user_requirements`として各世界に反映）
+3. 各アウトラインについて独立した「世界（World）」を作成し、Phase 2〜4を`asyncio.gather`で並列実行
+4. 各世界の最終結果（記事本文・レビュー評価）をサマリーとして一覧表示
+5. ユーザーが最も良い世界を選択（自動モードでは最高評価の世界を自動選択）
+6. 選択された世界の状態（outline, first_half, second_half, review）をメインパイプラインに反映し、Phase 5（承認判定）へ進行
+7. 選択されなかった世界は破棄
+
+**コスト制御**:
+- 並列世界数の上限: `max_parallel_worlds=3`（デフォルト）
+- CLI側の上限: `--num-outlines` は1〜5の範囲に制限
+- 投機的実行のコストはN倍。選ばれなかった世界の推論コストは無駄になるため、2〜3程度が実用的
+
+## 出力例
+
+### インタラクティブ実行（1アウトライン + ユーザー要件入力）
+
+```
 $ uv run python -m src.main \
   --theme "AIの未来" \
   --language ja \
   --model gemini-2.5-flash
 
-╔════════════════════════════════════════════════════════════════════════════╗
-║       Article Generation with State-Based Rollback (Forget the Past)      ║
-╚════════════════════════════════════════════════════════════════════════════╝
++============================================================================+
+|    Article Generation with Forget, Replay, Speculate                       |
++============================================================================+
 
 Configuration:
   Theme: AIの未来
@@ -213,165 +311,140 @@ Configuration:
   LLM Provider: gemini
   Model: gemini-2.5-flash
   Mode: Interactive
+  Speculation: Disabled (1 outline(s))
 
-
-📍 Current phase: 0 - Initial State
+  Current phase: 0 - Initial State
 
 ================================================================================
 
-📝 PHASE 1: Generating Article Outline
-[2026-02-08 09:41:26,527] [INFO] [src.agent.extensions.nodes.pipeline] [pipeline.py:84] [execute_async] Generating outline for theme: AIの未来
-[2026-02-08 09:41:32,162] [INFO] [src.agent.extensions.nodes.pipeline] [pipeline.py:103] [execute_async] Successfully generated outline: AIの未来 を読み解く：技術革新の波が社会と私たちの生活をどう変えるか
-✅ Generated outline: AIの未来を読み解く：技術革新の波が社会と私たちの生活をどう変えるか
+  PHASE 1: Generating Article Outline
+  Generated outline: AIの未来を読み解く：技術革新の波が社会と私たちの生活をどう変えるか
 
-Summary: この記事では、急速に進化するAI技術の最前線を概観し、それが産業構造、労働市場、そして私たちの日常生活にどのような変革をもたらすかを深く掘 り下げます。AIがもたらす機会と同時に、倫理的課題や社会的な影響にも焦点を当て、人間とAIが共存する未来のあるべき姿について考察します。
+Summary: この記事では、急速に進化するAI技術の最前線を概観し、...
 
 Structure:
   1. はじめに：AIが拓く新たな時代と私たちの問い
-  2. AI技術の最前線：進化を続ける主要トレンド（生成AI、特化型AI、自律型AIなど）
+  2. AI技術の最前線：進化を続ける主要トレンド
   3. 産業への影響：ビジネスモデルと労働市場の変革
-  4. 社会と生活への浸透：私たちの日常はどう変わるか（医療、教育、交通、エンターテインメントなど）
-  5. AIがもたらす倫理的・法的課題：公平性、プライバシー、責任の所在
-  6. AIとの共存：人類の役割と新しいスキルの必要性
-  7. 未来を形作るための提言：個人、企業、政府が果たすべき役割
-  8. おわりに：AIと共創する持続可能な未来への展望
+  ...
+
+  Additional Instructions (Optional)
+  You can provide extra requirements to guide the next generation steps.
+  These will be saved and automatically replayed if you rollback later.
+  Press Enter to skip.
+
+  Your instruction (or Enter to skip): 具体的な事例やデータを多く含めてください
+  Requirement recorded: "具体的な事例やデータを多く含めてください"
 
 ================================================================================
 
-📝 PHASE 2: Generating First Half of Article
-[2026-02-08 09:41:32,162] [INFO] [src.agent.extensions.nodes.pipeline] [pipeline.py:126] [execute_async] Generating first half of article...
-[2026-02-08 09:41:44,965] [INFO] [src.agent.extensions.nodes.pipeline] [pipeline.py:154] [execute_async] Successfully generated first half (2417 characters)
-✅ Generated first half (2417 characters)
+  PHASE 2: Generating First Half of Article
+  Generated first half (2500 characters)
 
 Preview:
 # AIの未来を読み解く：技術革新の波が社会と私たちの生活をどう変えるか
+...
 
-## 1. はじめに：AIが拓く新たな時代と私たちの問い
-
-現代は、人工知能（AI）技術がかつてないスピードで進化し、社会のあらゆる側面に深く浸透しつつある時代です。私たちの働き方、学び方、コミュニケーションの取り方、さらには私たちの存在そのものまでが、AIの登場によって再定義されようとしています。生成AIによる文章や画像の自動生成から、複雑なデータ分析、自律的な意思決定まで、AIの能力は日々拡張されており、その可能性は無限大に広がっているように見えます。
-
-この技術革新の波は、私たちに多くの希望と同時に、漠然とした不安ももたらします。AIは人類にどのような機会をもたらし、どのような課題を突きつけるのでしょうか？私たちの社会や経済、そして個人の生活は、具体的にどう変わっていくのでしょうか？この記事では、AIが拓く新たな時代の本質を深く掘り下げ、技術の最前線から、それがもたらす産業構造や労働市場の変革、さらには私たちの日常生活への影響までを考察します。
-
-## 2. AI技術の最前線：進化を続ける主要トレンド
-
-AI技術は単一の分野ではなく、多様なアプローチと応用領域を持つ広範な学際的分野です。現在、特に注目されている主要なトレンドをいくつか見てみましょう。
-
-### 生成AIの台頭
-「生成AI」は、人間が作成したかのようなテキスト、画像、音声、さらにはコードや動画までを自ら生み出す能力を持つAIを指します。OpenAIのChatGPTやDALL-E 、GoogleのGeminiなどがその代表例であり、これらの技術はコンテンツ制作、デザイン、ソフトウェア開発といった分野に革命をもたらし、これまで人間のみが可能とされてきた創造的なタスクの自動化・支援を可能にしています。
-
-### 特化型AIの進化
-特定のタスクやドメインに特化したAIは、「特化型AI」と呼ばれ、以前からその実用性が証明されてきました。例えば、医療分野における病気の診断支援、金融分野での不正取引検知、製造業における品質管理などが挙げられます。これらのAIは、大量の専門データを学習することで、人間を凌駕する精度と速度で特定の問題を解決し、各産業の効率性と信頼性を劇的に向上させています。
-
-### 自律型AIの進展
-「自律型AI」は、環境を認識し、状況判断を行い、自身の行動を決定・実行する能力を持つAIです。自動運転車やドローン、ロボットなどがその典型であり、物理的な世界で自律的に活動することで、物流、探査、介護、危険作業など、多岐にわたる分野での応用が期待されています。これらのAIは、安全性と倫理的側面において特に厳格な議論が求められますが、その潜在的な社会貢献度は計り知れません。
-
-これらのAI技術はそれぞれが進化するだけでなく、互いに連携し合うことで、より高度で複雑な問題解決能力を持つAIシステムの開発を加速させています。この止まることのない技術革新が、私たちの社会全体に波及していくのです。
-
-## 3. 産業への影響：ビジネスモデルと労働市場の変革
-
-AIの進化は、既存の産業構造を根底から揺るがし、新たなビジネスモデルの創出と労働市場の変革を促しています。
-
-### ビジネスモデルの再構築
-AIは、企業が製品やサービスを提供する方法、顧客との関係を構築する方法を劇的に変えています。データ駆動型マーケティング、パーソナライズされた顧客体験、予測分析によるサプライチェーン最適化、そして全く新しいAI駆動型サービスの登場などがその例です。例えば、金融業界ではAIによる高速取引やリスク管理が常態化し、製造業ではスマートファクトリーが生産効率を飛躍的に高めています。AIを活用することで、企業はこれまで不可能だったレベルでの効率化とイノベーションを実現し、競争優位性を確立しようとしています。
-
-### 労働市場への影響とスキルの再定義
-AIによる自動化は、これまで人間が行っていた定型的なタスクの多くを代替し始めています。事務作業、データ入力、カスタマーサポートの一部などは、AIによって効率的に処理されるようになるでしょう。これにより、一部の職種では仕事の性質が変化したり、あるいは需要が減少したりする可能性があります。
-
-しかし、これは必ずしも「仕事がなくなる」ことを意味するものではありません。むしろ、AIは新たな職種を生み出し、既存の職種においては人間がより創造的で、戦略的、かつ人間らしいタスクに集中できる機会を提供します。AIシステムの開発、保守、倫理的運用に関わる専門家はもちろん、AIでは代替しにくいクリティカルシンキング、複雑な問題解決能力、共感、リーダーシップといった「人間ならではのスキル」の重要性が一層高まるでしょう。労働市場は、AIとの協働を前提としたリスキリング（学び直し）やアップスキリング（スキルの向上）が常に求められる時代へと突入しています。
-
-## 4. 社会と生活への浸透：私たちの日常はどう変わるか
-
-AIは、産業の舞台裏だけでなく、私たちの日常生活にも知らず知らずのうちに深く浸透しつつあります。スマートフォンを介したパーソナルアシスタントから、スマートホームデバイス、推薦システム、あるいは医療診断や交通管制の裏側で働くAIまで、その存在はますます身近なものとなっています。私たちは、AIがもたらす日々の利便性を享受する一方で、それが私たちの生活の質、プライバシー、そして社会的なつながりにどのような影響を与えるのかを理解する必要があります。
-
-次章では、医療、教育、交通、エンターテインメントといった具体的な分野におけるAIの導入が、私たちの日常をどのように変えていくのか、さらに詳しく見ていきます。
-
-
-🔄 Rollback Option Available
+  Rollback Option Available
 You can go back to a previous phase if you want to try different choices.
 This will 'forget' all subsequent phases and regenerate them.
+Valid user prompts will be automatically replayed (Replay).
 
 Available phases:
   0. Continue without rollback (keep current progress)
   1. Rollback to Phase 0: Initial State
   2. Rollback to Phase 1: Outline Generation Complete
 
-Select phase to rollback to (0-2, 0=continue) [0]: 0
+Select phase to rollback to (0-2, 0=continue) [0]: 2
+
+  Rolling back to Phase 1: Outline Generation Complete
+   Forgetting all subsequent phases...
+
+  Replay: Re-applying 1 valid prompt(s)...
+    + Replayed: "具体的な事例やデータを多く含めてください"
+
+  Replay Diff:
+    Before rollback: 1 requirement(s)
+      "具体的な事例やデータを多く含めてください"
+    After replay: 1 requirement(s) restored
+      "具体的な事例やデータを多く含めてください"
 
 ================================================================================
 
-📝 PHASE 3: Generating Second Half of Article
-[2026-02-08 09:42:49,710] [INFO] [src.agent.extensions.nodes.pipeline] [pipeline.py:177] [execute_async] Generating second half of article...
-[2026-02-08 09:43:02,835] [INFO] [src.agent.extensions.nodes.pipeline] [pipeline.py:206] [execute_async] Successfully generated second half (3014 characters)
-✅ Generated second half (3014 characters)
+  PHASE 2: Generating First Half of Article
+  Generated first half (2800 characters)
+  ...
+```
+
+### 投機的実行モード（3アウトライン）
+
+```
+$ uv run python -m src.main \
+  --theme "AIの未来" \
+  --language ja \
+  --model gemini-2.5-flash \
+  --num-outlines 3
+
+  PHASE 1 (Speculate): Generating 3 Outline Candidates
+
+  Generated 3 outline candidates:
+    1. AIの未来を読み解く：技術革新の波が社会を変える
+    2. 人工知能と人間の共創：2030年への展望
+    3. AI革命の光と影：私たちは何に備えるべきか
+
+  Additional Instructions (Optional)
+  ...
+  Your instruction (or Enter to skip): 倫理的な観点を重視してください
 
 ================================================================================
 
-⚖️  PHASE 4: Reviewing Article with LLM-as-a-Judge
-[2026-02-08 09:43:02,836] [INFO] [src.agent.extensions.nodes.pipeline] [pipeline.py:229] [execute_async] Reviewing article...
-[2026-02-08 09:43:12,173] [INFO] [src.agent.extensions.nodes.pipeline] [pipeline.py:259] [execute_async] Successfully reviewed article: Grade 4/5
-✅ Review completed: Grade 4/5
+  SPECULATIVE EXECUTION: Running parallel worlds...
 
-Reasoning: この論文は、提供されたアウトラインに非常によく従っており、AIの未来というテーマを包括的にカバーしています。内容は正確で情報量が多く、AI の機会と課題の両方についてバランスの取れた視点を提供しています。文章は明瞭で魅力的であり、プロフェッショナルなトーンが維持されています。唯一の顕著な欠点は、セクション4のタイトルが重複しているという軽微な構成上の問題です。全体的に非常に質の高い記事です。
+  Launching 3 parallel worlds for speculative execution...
+  Speculative execution complete: 3 succeeded, 0 failed
 
-Strengths:
-  ✓ 提供されたアウトラインに優れた準拠性を示し、論理的かつ明確な記事構成を実現している点
-  ✓ AIの社会、産業、倫理的側面への影響を網羅的に深く掘り下げた、質の高い情報提供
-  ✓ 生成AI、特化型AI、自律型AIといった複雑な概念を明瞭かつ簡潔に説明している点
-  ✓ AIがもたらす機会と課題の両方について、バランスの取れた客観的な視点を提供している点
+  Speculative Execution Results:
+  ======================================================================
 
-Weaknesses:
-  ✗ セクション4「社会と生活への浸透」の見出しが本文中で重複している構造上の軽微な欠陥
-  ✗ 「責任の所在」などの特定のサブセクションは、より具体的な事例や議論を深めることで、さらに内容を充実させることが可能
+  ✅ World 1: AIの未来を読み解く：技術革新の波が社会を変える
+     Status: completed
+     Grade: 4/5
+     Review: 内容は正確で情報量が多く、バランスの取れた視点を提供...
 
-================================================================================
+  ✅ World 2: 人工知能と人間の共創：2030年への展望
+     Status: completed
+     Grade: 5/5
+     Review: 非常に質の高い記事で、倫理面の考察が特に充実...
 
-✅ PHASE 5: Human-in-the-Loop - Approve or Reject Article (Iteration 1)
+  ✅ World 3: AI革命の光と影：私たちは何に備えるべきか
+     Status: completed
+     Grade: 3/5
+     Review: 基本的なカバレッジはあるが、深掘りが不足...
 
-📝 Article Preview:
-Title: AIの未来を読み解く：技術革新の波が社会と私たちの生活をどう変えるか
-Grade: 4/5
-Review: この論文は、提供されたアウトラインに非常によく従っており、AIの未来というテーマを包括的にカバーしています。内容は正確で情報量が多く、AIの機会と課題の両方についてバランスの取れた視点を提供しています。文章は明瞭で魅力的であり、プロフェッショナルなトーンが維持されています。唯一の顕著な欠点は、セクション4のタイトルが重複しているという軽微な構成上の問題です。全体的に非常に質の高い記事です。
+  ======================================================================
 
-✅ Do you approve this article? (yes/no): yes
+  Select the world you want to continue with:
+    1. AIの未来を読み解く：技術革新の波が社会を変える (Grade: 4/5)
+    2. 人工知能と人間の共創：2030年への展望 (Grade: 5/5)
+    3. AI革命の光と影：私たちは何に備えるべきか (Grade: 3/5)
 
-✅ Article approved! Proceeding to save...
+  Enter your choice (1-3): 2
 
-🔄 Rollback Option Available
-You can go back to a previous phase if you want to try different choices.
-This will 'forget' all subsequent phases and regenerate them.
-
-Available phases:
-  0. Continue without rollback (keep current progress)
-  1. Rollback to Phase 0: Initial State
-  2. Rollback to Phase 1: Outline Generation Complete
-  3. Rollback to Phase 2: First Half Complete
-  4. Rollback to Phase 3: Second Half Complete
-  5. Rollback to Phase 4: Article Reviewed
-
-Select phase to rollback to (0-5, 0=continue) [0]: 0
+  Selected: 人工知能と人間の共創：2030年への展望
 
 ================================================================================
 
-💾 Saving Final Article
+  PHASE 5: Human-in-the-Loop - Approve or Reject Article (Iteration 1)
+  ...
+```
 
-✅ Article Generation Complete!
+### 出力ファイル
 
-Article Details:
-  Title: AIの未来を読み解く：技術革新の波が社会と私たちの生活をどう変えるか
-  Grade: 4/5
-  Total Length: 5433 characters
-  Review Loop Iterations: 0
+実行完了時に、以下の2ファイルが `outputs/` ディレクトリに保存されます。
 
-Files saved:
-  📄 JSON: outputs/article_0061f7cf25a74e618559e0288f92093d/article_0061f7cf25a74e618559e0288f92093d.json
-  📝 Markdown: outputs/article_0061f7cf25a74e618559e0288f92093d/article_0061f7cf25a74e618559e0288f92093d.md
-
-Session Metadata:
-  Session ID: 80eecd0738f04486ab052f62d6857dd2
-  Created: 2026-02-08T09:43:19.035544
-
-
-================================================================================
-
-🎉 Article Generation Complete!
+```
+outputs/
++-- article_{session_id}/
+    +-- article_{session_id}.json     # 構造化データ（全フィールド）
+    +-- article_{session_id}.md       # Markdown形式の記事
 ```

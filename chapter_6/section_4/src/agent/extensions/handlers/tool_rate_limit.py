@@ -1,12 +1,10 @@
-"""Handler to rate limit tool calls."""
+"""Tool rate limit handler."""
 
 from src.agent.core.base import ActionType
 from src.agent.core.controller import ExecutionHandler, ExecutionRequest, ExecutionResponse
 
 
 class ToolRateLimitHandler(ExecutionHandler):
-    """Handler to rate limit tool calls."""
-
     def __init__(self, max_calls_per_tool: int = 10):
         super().__init__()
         self.max_calls_per_tool = max_calls_per_tool
@@ -17,13 +15,13 @@ class ToolRateLimitHandler(ExecutionHandler):
             return ExecutionResponse(allowed=True)
 
         tool_name = request.action.tool_name
-        calls = self.tool_calls.get(tool_name, 0)
-        if calls >= self.max_calls_per_tool:
-            return ExecutionResponse(
-                allowed=False, reason=f"Tool '{tool_name}' rate limit ({self.max_calls_per_tool}) exceeded"
-            )
+        self.tool_calls[tool_name] = self.tool_calls.get(tool_name, 0) + 1
 
-        self.tool_calls[tool_name] = calls + 1
+        if self.tool_calls[tool_name] > self.max_calls_per_tool:
+            return ExecutionResponse(
+                allowed=False,
+                reason=f"Rate limit for tool '{tool_name}' ({self.max_calls_per_tool}) exceeded",
+            )
         return ExecutionResponse(allowed=True)
 
     def reset(self) -> None:

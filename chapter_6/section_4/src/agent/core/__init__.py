@@ -1,12 +1,4 @@
-"""Core layer - Stable abstractions and base classes for the AI Agent system.
-
-This layer contains the fundamental building blocks that rarely change:
-- Abstract base classes (ABCs) defining interfaces
-- Core data structures and type definitions
-- Base agent orchestration logic
-- State machine framework
-- Execution control abstractions
-"""
+"""Core layer - Stable abstractions and base classes for the AI Agent system."""
 
 from src.agent.core.agent import BaseAgent
 from src.agent.core.base import (

@@ -1,3 +1,3 @@
-from src.service.service import run_personalized_learning
+from src.service.service import run_contract_compliance_pipeline
 
-__all__ = ["run_personalized_learning"]
+__all__ = ["run_contract_compliance_pipeline"]

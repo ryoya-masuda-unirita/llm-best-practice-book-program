@@ -1,37 +1,32 @@
 """
-Hierarchical AI Agent Layer Package.
+Pipeline AI Agent Layer Package.
 
-This package implements the 4-layer hierarchical AI agent architecture:
+This package implements the pipeline AI agent architecture for contract
+risk compliance evaluation:
 
-1. Strategy Layer (戦略・プランニング層):
-   - Interprets user goals and defines high-level learning roadmaps
-   - Creates blueprints for lower layers without involving implementation details
+1. Extraction Stage (抽出ステージ):
+   - Parses contract text into structured data
+   - Extracts chapters, sections, and party information
 
-2. Tactics Layer (戦術・マネジメント層):
-   - Transforms strategy into actionable sub-tasks (weekly/daily plans)
-   - Manages task assignment and progress aggregation
+2. Risk Scoring Stage (リスク評価ステージ):
+   - Evaluates each section for legal and commercial risks
+   - Provides findings with severity levels and recommendations
 
-3. Execution Layer (実行層):
-   - Performs concrete tasks (content generation, quiz creation)
-   - Operates external tools and generates learning materials
-
-4. Reflection Layer (自己評価・省察層):
-   - Monitors execution outputs and evaluates quality
-   - Requests plan corrections or retries when alignment with goals is off
+3. Report Generation Stage (レポート生成ステージ):
+   - Aggregates all risk assessments
+   - Generates comprehensive compliance report with executive summary
 """
 
 from src.layer.base import BaseAgent
-from src.layer.execution import ContentAgent, ExecutionCoordinator, QuizAgent
-from src.layer.reflection import ReflectionAgent
-from src.layer.strategy import StrategyAgent
-from src.layer.tactics import TacticsAgent
+from src.layer.contract_pipeline import (
+    extraction_stage_node,
+    report_stage_node,
+    risk_scoring_stage_node,
+)
 
 __all__ = [
     "BaseAgent",
-    "StrategyAgent",
-    "TacticsAgent",
-    "ContentAgent",
-    "QuizAgent",
-    "ExecutionCoordinator",
-    "ReflectionAgent",
+    "extraction_stage_node",
+    "risk_scoring_stage_node",
+    "report_stage_node",
 ]

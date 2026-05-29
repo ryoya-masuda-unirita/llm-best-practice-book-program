@@ -6,7 +6,7 @@ from uuid import uuid4
 import click
 from src.client.llm_client import GeminiModel
 from src.logger import make_logger
-from src.service.service import run_novel_writer
+from src.service.multi_agent_service import run_contract_review
 
 logger = make_logger(__name__)
 
@@ -25,8 +25,8 @@ def async_cmd(func):
     "-m",
     type=click.Choice(GeminiModel.list_str()),
     required=False,
-    default=GeminiModel.GEMINI_2_5_FLASH,
-    help="The Gemini model to use for deep thinking.",
+    default=GeminiModel.GEMINI_2_5_PRO,
+    help="The Google Gemini model to use for the review.",
 )
 @click.option(
     "--output-directory",
@@ -37,58 +37,75 @@ def async_cmd(func):
     help="The directory to save output files.",
 )
 @click.option(
-    "--request",
-    "-r",
-    type=str,
+    "--contract-file",
+    "-c",
+    type=click.Path(exists=True),
     required=True,
-    help="Your novel request in natural language.",
+    help="Path to the contract file to review (markdown format).",
+)
+@click.option(
+    "--template-file",
+    "-t",
+    type=click.Path(exists=True),
+    required=True,
+    help="Path to the standard contract template file (markdown format).",
 )
 @async_cmd
 async def main(
     model: str,
     output_directory: str,
-    request: str,
+    contract_file: str,
+    template_file: str,
 ):
     """
-    Deep Think Novel Writer - An AI Agent for Creative Writing
+    Contract Review Multi-Agent System
 
-    This agent generates short novels based on your request using deep thinking.
-    It uses Gemini's extended thinking capabilities to craft compelling narratives
-    with rich characters, engaging plots, and evocative prose.
+    This system reviews contract documents using multiple specialized AI agents:
 
-    REQUEST: Your novel request in natural language.
+    1. Document Parser Agent - Parses contract into structured clauses
+    2. Clause Classifier Agent - Categorizes each clause
+    3. Risk Assessment Agent - Evaluates risk levels
+    4. Diff Checker Agent - Compares with standard template
+    5. Amendment Proposer Agent - Suggests modifications for high-risk clauses
+    6. Report Generator Agent - Creates comprehensive review report
 
     Examples:
 
-        python -m src.main -r "Write a story about a lonely lighthouse keeper who discovers a message in a bottle"
+        python -m src.main -c example/sample_nda.md -t example/standard_nda_template.md
 
-        python -m src.main -r "A bittersweet tale of childhood friends reuniting after 20 years"
-
-        python -m src.main -r "孤独な宇宙飛行士が地球を見つめながら人生を振り返る物語"
+        python -m src.main -m claude-sonnet-4-6 -c contract.md -t template.md -od reports
     """
-    logger.info(f"""Deep Think Novel Writer
+    logger.info(f"""Contract Review Multi-Agent System
 Model: {model}
-Request: {request}
+Contract file: {contract_file}
+Template file: {template_file}
 Output directory: {output_directory}
 """)
 
+    with open(contract_file, encoding="utf-8") as f:
+        contract_text = f.read()
+
+    with open(template_file, encoding="utf-8") as f:
+        standard_template = f.read()
+
     os.makedirs(output_directory, exist_ok=True)
 
-    result = await run_novel_writer(
-        user_request=request,
+    result = await run_contract_review(
+        contract_text=contract_text,
+        standard_template=standard_template,
         model=model,
     )
 
     if result is None:
-        raise ValueError("Novel writer failed. Check logs for details.")
+        raise ValueError("Contract review failed. Check logs for details.")
 
-    base_name = f"novel_{uuid4().hex}"
+    base_name = f"contract_review_{uuid4().hex}"
     md_file_path = os.path.join(output_directory, f"{base_name}.md")
 
     with open(md_file_path, "w", encoding="utf-8") as f:
         f.write(result)
 
-    logger.info(f"Novel saved: {md_file_path}")
+    logger.info(f"Review report saved: {md_file_path}")
 
 
 if __name__ == "__main__":

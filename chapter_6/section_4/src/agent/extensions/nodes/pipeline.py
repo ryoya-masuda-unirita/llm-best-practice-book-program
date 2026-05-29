@@ -20,7 +20,7 @@ logger = make_logger(__name__)
 class PipelineState:
     """State passed through pipeline nodes.
 
-    This is a simplified single-session state for the "forget the past" pattern.
+    This is a single-session state for the Forget/Replay/Speculate pattern.
     Each phase stores a single value, and rollback clears phases after the target.
     """
 
@@ -44,6 +44,9 @@ class PipelineState:
     # Phase 5: Human approval
     human_approved: bool | None = None
 
+    # User requirements collected during the pipeline (for Replay)
+    user_requirements: list[str] | None = None
+
     # Regeneration tracking
     review_loop_iteration: int = 0
     previous_feedback: list[tuple[str, ArticleReview]] | None = None
@@ -62,12 +65,20 @@ class PipelineState:
             "second_half": self.second_half,
             "review": self.review.model_dump() if self.review else None,
             "human_approved": self.human_approved,
+            "user_requirements": self.user_requirements,
             "review_loop_iteration": self.review_loop_iteration,
+            "previous_feedback": (
+                [(text, review.model_dump()) for text, review in self.previous_feedback]
+                if self.previous_feedback
+                else None
+            ),
             "error": self.error,
         }
 
 
 class OutlineGenerationNode(Node):
+    """Generates one or more article outlines."""
+
     def __init__(self, node_id: str, toolbox: GenerationToolBox):
         super().__init__(node_id, NodeType.AGENT)
         self.toolbox = toolbox
@@ -108,6 +119,29 @@ class OutlineGenerationNode(Node):
             output=state,
         )
 
+    async def execute_multiple_async(
+        self,
+        state: PipelineState,
+        num_outlines: int,
+    ) -> list[ArticleOutline]:
+        """Generate multiple outline candidates for speculative execution."""
+        logger.info(f"Generating {num_outlines} outline candidates for theme: {state.theme}")
+
+        outlines: list[ArticleOutline] = []
+        for i in range(num_outlines):
+            logger.info(f"Generating outline candidate {i + 1}/{num_outlines}")
+            outline = await self.toolbox.outline_generator.execute_async(
+                state.theme,
+                state.language,
+                state.model,
+                state.llm_provider,
+            )
+            if outline:
+                outlines.append(outline)
+
+        logger.info(f"Successfully generated {len(outlines)} outline candidates")
+        return outlines
+
 
 class FirstHalfGenerationNode(Node):
     def __init__(self, node_id: str, toolbox: GenerationToolBox):
@@ -139,6 +173,7 @@ class FirstHalfGenerationNode(Node):
             state.language,
             state.model,
             state.llm_provider,
+            user_requirements=state.user_requirements,
         )
 
         if not first_half_result:
@@ -191,6 +226,7 @@ class SecondHalfGenerationNode(Node):
             state.language,
             state.model,
             state.llm_provider,
+            user_requirements=state.user_requirements,
         )
 
         if not second_half:
@@ -290,7 +326,6 @@ class SecondHalfRegenerationNode(Node):
                 error=state.error,
             )
 
-        # Use previous feedback if available
         previous_attempts = state.previous_feedback or []
         logger.info(f"Using feedback from {len(previous_attempts)} previous attempt(s)")
 

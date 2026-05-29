@@ -1,3 +1,7 @@
-from src.client.llm_client import AnthropicModel, anthropic_client
+from src.client.llm_client import (
+    GeminiEmbeddingModel,
+    GeminiModel,
+    google_genai_client,
+)
 
-__all__ = ["AnthropicModel", "anthropic_client"]
+__all__ = ["google_genai_client", "GeminiModel", "GeminiEmbeddingModel"]

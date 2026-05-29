@@ -1,247 +1,275 @@
-# Chapter 3 Section 5: 優先的リクエストと制御
+# Chapter 3 Section 6: LLM APIゲートウェイ
 
 ## 概要
 
-本プロジェクトは、LLMアプリケーションにおける**優先的リクエストと制御**の本番レベル実装を示しています。Redisを使用した3層のプライオリティキューシステムにより、異なるビジネス重要度を持つリクエストを管理し、プレミアムユーザーへのサービス品質を維持しながら、低優先度リクエストの「飢餓状態」を防ぎます。
+このプロジェクトは、**LLM APIゲートウェイ**の実装例を示すサンプルコードです。OpenAI GPT-5.4-miniとGoogle Gemini 2.5 Flashへのアクセスを一元管理するゲートウェイサーバーを構築し、複数のアプリケーションサービスが安全かつ効率的にLLMを利用できる環境を提供します。
 
-実世界のLLMアプリケーションでは、すべてのリクエストが同等ではありません。高額を支払うエンタープライズ顧客は、無料ユーザーよりも速いレスポンスタイムを期待します。本実装は、**重み付きランダム選択アルゴリズム**を使用して、公平性と優先度のバランスを実現しています。
-
-Producer-Consumerパターンを採用し、FastAPI APIサーバーがリクエストを受け付けてRedisキューに投入し、バックグラウンドワーカーがタスクを処理します。
+ゲートウェイパターンを採用することで、APIキーの一元管理、構造化ログによる監視、統一されたエラーハンドリング、そしてLLMプロバイダの変更に対する柔軟性を実現します。マイクロサービスアーキテクチャや複数チームでLLMを活用する環境において、セキュリティとガバナンスを強化するベストプラクティスを学ぶことができます。
 
 ## 機能
 
-- **3層優先度システム**: ユーザーティア（ENTERPRISE/PREMIUM/FREE）から優先度（HIGH/MEDIUM/LOW）への自動マッピング
-- **重み付きスケジューリング**: 設定可能な処理比率（デフォルト: HIGH 70%, MEDIUM 20%, LOW 10%）
-- **非同期タスク処理**: タスクIDによるステータス追跡と結果取得
-- **リトライ機構**: 設定可能な最大リトライ回数（デフォルト: 3回）
-- **キュー統計**: リアルタイムのキューサイズと処理中タスク数の監視
-- **同期/非同期API**: キューをバイパスする同期処理と非同期キュー処理の両方をサポート
-- **型安全性**: Pydanticによる厳密な型検証とバリデーション
+- **一元的なAPIキー管理**: APIキーをゲートウェイサーバーに集約し、クライアントアプリケーションから完全に隠蔽
+- **マルチプロバイダー対応**: OpenAIとGoogle Gemini APIの両方を統一インターフェースで利用可能
+- **構造化ログと監視**: 全てのLLM APIリクエスト・レスポンスを詳細にログ記録
+- **一意なリクエストID**: UUIDベースのリクエストIDによる追跡可能性の確保
+- **統一的なエラーハンドリング**: プロバイダ固有のエラーを抽象化し、一貫したエラーレスポンスを提供
+- **FastAPI実装**: 高パフォーマンスな非同期APIサーバー
+- **Docker対応**: Gateway・Backendサーバーをコンテナ化し、容易なデプロイを実現
+- **ヘルスチェックエンドポイント**: サービスの死活監視をサポート
+- **型安全性**: Pydanticによる厳密なリクエスト・レスポンスのバリデーション
+- **JSON Schema変換**: クライアントから送信されたJSON SchemaをPydanticモデルに動的変換
 
 ## プロジェクト構成
 
 ### アーキテクチャ
 
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   クライアント   │────▶│  FastAPI Server │────▶│     Redis       │
-│                 │     │  (Producer)     │     │  Priority Queue │
-└─────────────────┘     └─────────────────┘     └────────┬────────┘
-                                                         │
-                              ┌──────────────────────────┘
-                              ▼
-                        ┌─────────────────┐     ┌─────────────────┐
-                        │     Worker      │────▶│   OpenAI API    │
-                        │   (Consumer)    │     │                 │
-                        └─────────────────┘     └─────────────────┘
+このプロジェクトは、**ゲートウェイパターン**を採用した3層アーキテクチャで構成されています：
 
-Redis データ構造:
-┌─────────────────────────────────────────────────────────────────┐
-│  Sorted Set: llm:queue:high   (score=timestamp, member=task_id) │
-│  Sorted Set: llm:queue:medium (score=timestamp, member=task_id) │
-│  Sorted Set: llm:queue:low    (score=timestamp, member=task_id) │
-│  Key-Value:  llm:task:{id}    (JSON serialized QueuedTask)      │
-│  Set:        llm:processing   (task_ids currently processing)   │
-└─────────────────────────────────────────────────────────────────┘
 ```
+┌───────────────────────────────────────────────────────────┐
+│                  Client Applications                       │
+│         (Frontend, Microservices, etc.)                    │
+└─────────────────────┬─────────────────────────────────────┘
+                      │ HTTP Requests
+                      │ (No API Keys Required)
+                      ▼
+┌───────────────────────────────────────────────────────────┐
+│              LLM Backend Server (Port 8000)                │
+│  - Character generation API                                │
+│  - Business logic layer                                    │
+│  - Uses Gateway Client to request LLM                      │
+└─────────────────────┬─────────────────────────────────────┘
+                      │ Internal HTTP Requests
+                      │ (via Gateway Client)
+                      ▼
+┌───────────────────────────────────────────────────────────┐
+│              LLM API Gateway (Port 8080)                   │
+│  ┌─────────────────────────────────────────────────────┐  │
+│  │  Gateway Server (gateway_server.py)                 │  │
+│  │  - FastAPI endpoints (/health, /v1/generate)        │  │
+│  │  - Request validation                               │  │
+│  │  - JSON Schema → Pydantic conversion                │  │
+│  └───────────────────┬─────────────────────────────────┘  │
+│                      │                                     │
+│  ┌───────────────────▼─────────────────────────────────┐  │
+│  │  Gateway Service (gateway_service.py)               │  │
+│  │  - Request routing by provider                      │  │
+│  │  - LLM API calls (OpenAI, Gemini)                   │  │
+│  │  - Response parsing                                 │  │
+│  └───────────────────┬─────────────────────────────────┘  │
+│                      │                                     │
+│  ┌───────────────────▼─────────────────────────────────┐  │
+│  │  API Key Manager (api_key_manager.py)               │  │
+│  │  - Centralized API key storage                      │  │
+│  │  - Provider validation                              │  │
+│  │  - Secure key retrieval                             │  │
+│  └───────────────────┬─────────────────────────────────┘  │
+│                      │                                     │
+│  ┌───────────────────▼─────────────────────────────────┐  │
+│  │  Gateway Monitor (monitoring.py)                    │  │
+│  │  - Request/response logging                         │  │
+│  │  - Performance metrics                              │  │
+│  │  - Error tracking                                   │  │
+│  └─────────────────────────────────────────────────────┘  │
+└─────────────────────┬─────────────────────────────────────┘
+                      │ External API Calls
+                      │ (with API Keys)
+                      ▼
+┌───────────────────────────────────────────────────────────┐
+│              External LLM Providers                        │
+│         OpenAI API         │         Gemini API            │
+└───────────────────────────────────────────────────────────┘
+```
+
+**主要な設計原則**:
+1. **関心の分離**: APIキー管理、監視、ビジネスロジックを明確に分離
+2. **セキュリティバイデザイン**: APIキーは常にゲートウェイ内部に隠蔽
+3. **拡張性**: 新しいLLMプロバイダの追加が容易
+4. **監視可能性**: 全てのリクエストが構造化ログで追跡可能
 
 ## 使い方
 
 ### 環境構成
 
-- Python: 3.13.2以上
-- 依存ライブラリ:
-  - fastapi >= 0.119.0
-  - redis >= 7.0.0
-  - openai >= 2.4.0
-  - pydantic >= 2.12.2
-  - uvicorn >= 0.37.0
-  - httpx >= 0.28.1
+- **Python**: 3.13.2以上
+- **Docker**: 20.10以上（Docker Composeを使用する場合）
+- **依存ライブラリ**:
+  - fastapi>=0.119.0
+  - uvicorn>=0.37.0
+  - pydantic>=2.12.2
+  - httpx>=0.28.1
+  - openai>=2.4.0
+  - google-genai>=1.45.0
+  - click>=8.3.0
+  - python-dotenv>=1.1.1
 
 ### セットアップ
 
-1. 環境変数の設定
+1. **環境変数ファイルの作成**
 
 ```bash
 cp .env.example .env
 cp .envrc.example .envrc
-# .envファイルを編集してAPIキーを設定
+```
 
-# 必須の環境変数
+`.env`ファイルを編集してAPIキーを設定:
+
+```bash
+# .env
 OPENAI_API_KEY=<your_openai_api_key_here>
-
-# Redis設定（デフォルト値あり）
-export REDIS_HOST="localhost"
-export REDIS_PORT="6379"
-export REDIS_DB="0"
-
-# キュー処理設定（合計1.0）
-export HIGH_PRIORITY_RATIO="0.7"
-export MEDIUM_PRIORITY_RATIO="0.2"
-export LOW_PRIORITY_RATIO="0.1"
-
-# タスク設定
-export MAX_RETRY_ATTEMPTS="3"
-export TASK_TIMEOUT_SECONDS="300"
+GEMINI_API_KEY=<your_gemini_api_key_here>
+GATEWAY_URL=http://localhost:8080
+BACKEND_URL=http://localhost:8000
+GATEWAY_TIMEOUT=30.0
 ```
 
-2. 依存関係のインストール
+> **注意**: Docker Composeは`.env`ファイルから環境変数を読み込みます。`.envrc`はdirenv用（ローカル開発の便利ツール）で、中身は`dotenv`コマンドのみです。`.env`ファイルにAPIキーを設定すれば、ローカル実行・Docker実行の両方で動作します。
+
+2. **依存関係のインストール**
 
 ```bash
+# uvを使用
 uv sync
-```
-
-3. Redisの起動
-
-```bash
-docker run -d --name redis -p 6379:6379 redis:8-alpine
 ```
 
 ### 使用方法、実行方法
 
-1. APIサーバーの起動
-
 ```bash
-uv run uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000
+# Dockerイメージをビルド
+make docker-build
+
+# サービスを起動
+make docker-up
+
+# ログを確認
+make docker-logs
+
+# サービスを停止
+make docker-down
 ```
 
-2. ワーカーの起動（別ターミナル）
+#### API利用例
+
+**1. ヘルスチェック**
 
 ```bash
-uv run python -m src.service.worker
+# ゲートウェイのヘルスチェック
+$ curl http://localhost:8080/health
+{"status":"healthy","timestamp":1769323495.0489843,"providers_available":{"openai":true,"gemini":true}}
+
+# バックエンドのヘルスチェック
+$ curl http://localhost:8000/health
+{"status":"healthy","timestamp":1769323492.3572245}
 ```
 
-3. APIへのリクエスト
+**2. キャラクター生成（バックエンドAPI経由）**
 
 ```bash
-# 非同期キュー処理（ENTERPRISEユーザー = 高優先度）
-curl -X POST http://localhost:8000/generate/queue \
-  -H "Content-Type: application/json" \
-  -d '{
-    "provider": "openai",
-    "model": "gpt-5.4-mini",
-    "user_tier": "enterprise",
-    "character_request": {
-      "gender": "female",
-      "age": 25,
-      "additional_instructions": "科学者のキャラクター"
-    }
-  }'
-
-# タスクステータス確認
-curl http://localhost:8000/task/{task_id}
-
-# キュー統計
-curl http://localhost:8000/queue/stats
-
-# 同期処理（キューをバイパス）
 curl -X POST http://localhost:8000/generate \
   -H "Content-Type: application/json" \
   -d '{
-    "provider": "openai",
-    "model": "gpt-5.4-mini",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
     "character_request": {
       "gender": "male",
-      "age": 30,
-      "additional_instructions": null
+      "age": 28,
+      "additional_instructions": "Create a mysterious character"
     }
+  }'
+```
+
+**3. 直接ゲートウェイAPI経由でLLMを呼び出す**
+
+```bash
+curl -X POST http://localhost:8080/v1/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "openai",
+    "model": "gpt-5.4-mini",
+    "prompt": [
+      {"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "Write a haiku about programming."}
+    ],
+    "response_format": {
+      "type": "object",
+      "properties": {
+        "haiku": {"type": "string"}
+      },
+      "required": ["haiku"]
+    },
+    "client_id": "my-app"
   }'
 ```
 
 ### 出力例
 
-タスク投入レスポンス:
+#### 1. ゲートウェイのヘルスチェック
 
+**リクエスト**:
 ```bash
-$ curl -X POST http://localhost:8000/generate/queue \
+$ curl http://localhost:8080/health | jq .
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100   102  100   102    0     0  20719      0 --:--:-- --:--:-- --:--:-- 25500
+{
+  "status": "healthy",
+  "timestamp": 1769323559.985998,
+  "providers_available": {
+    "openai": true,
+    "gemini": true
+  }
+}
+```
+
+#### 2. キャラクター生成のレスポンス
+
+**リクエスト**:
+```bash
+$ curl -X POST http://localhost:8000/generate \
   -H "Content-Type: application/json" \
   -d '{
-    "provider": "openai",
-    "model": "gpt-5.4-mini",
-    "user_tier": "premium",
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
     "character_request": {
-      "gender": "female",
-      "age": 25,
-      "additional_instructions": "科学者のキャラクター"
+      "gender": "male",
+      "age": 28,
+      "additional_instructions": null
     }
   }' | jq .
   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
                                  Dload  Upload   Total   Spent    Left  Speed
-100   435  100   206  100   229  31373  34876 --:--:-- --:--:-- --:--:-- 72500
+100  1029  100   853  100   176    324     66  0:00:02  0:00:02 --:--:--   391
 {
-  "task_id": "e0480150-d87f-437c-a6a5-c3fa65a950a7",
-  "priority": "medium",
-  "status": "pending",
-  "estimated_wait_time_seconds": 0.0,
-  "message": "Task queued with medium priority. Use /task/{task_id} to check status."
-}
-```
-
-タスク完了レスポンス:
-
-```bash
-$ curl http://localhost:8000/task/e0480150-d87f-437c-a6a5-c3fa65a950a7 | jq .
-  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-                                 Dload  Upload   Total   Spent    Left  Speed
-100  1247  100  1247    0     0   228k      0 --:--:-- --:--:-- --:--:--  243k
-{
-  "task_id": "e0480150-d87f-437c-a6a5-c3fa65a950a7",
-  "priority": "medium",
-  "status": "completed",
-  "created_at": 1769323127.3165317,
-  "started_at": 1769323130.756634,
-  "completed_at": 1769323136.0602348,
-  "result": {
-    "character": {
-      "first_name": "Luna",
-      "last_name": "Navarro",
-      "gender": "female",
-      "age": 25,
-      "personalities": [
-        {
-          "short_personality": "好奇心旺盛",
-          "description": "Lunaは新しい知識を追求することに情熱を持ち、未知の世界に足を踏み入れることを恐れない。科学の奥深さに惹かれ、多くの実験を自ら進んで行う。"                                                                                                                                 
-        },
-        {
-          "short_personality": "冷静沈着",
-          "description": "困難な状況でも冷静に考え、素早く適切な判断ができる。実験が予期せず失敗しても、感情をコントロールし、次のステップを冷静に計画することができる。"                                                                                                                           
-        },
-        {
-          "short_personality": "協調性がある",
-          "description": "チームワークを大切にし、同僚とのコミュニケーションを重視する。他の研究者と協力してプロジェクトを進めることで、より創造的な解決策を見つけ出す能力に優れている。"                                                                                                           
-        }
-      ]
-    },
-    "provider": "openai",
-    "model": "gpt-5.4-mini",
-    "processing_time_ms": 5303.569555282593
+  "character": {
+    "first_name": "Kaito",
+    "last_name": "Tanaka",
+    "gender": "male",
+    "age": 28,
+    "personalities": [
+      {
+        "short_personality": "Observant",
+        "description": "Kaito possesses a remarkable ability to notice minute details and patterns that often escape others' attention, making him an excellent analyst and problem-solver."                                                                                                        
+      },
+      {
+        "short_personality": "Resourceful",
+        "description": "He is incredibly adept at utilizing available resources, no matter how limited, to achieve his goals or overcome obstacles, demonstrating creativity and adaptability."                                                                                                     
+      },
+      {
+        "short_personality": "Calm Under Pressure",
+        "description": "Even in the most chaotic or high-stakes situations, Kaito maintains a serene demeanor, allowing him to think clearly and make rational decisions without succumbing to panic."                                                                                              
+      }
+    ]
   },
-  "error_message": null,
-  "queue_position": null
+  "provider": "gemini",
+  "model": "gemini-2.5-flash",
+  "processing_time_ms": 2624.802589416504
 }
 ```
 
-キュー統計レスポンス:
-
-```bash
-$ curl http://localhost:8000/queue/stats | jq .
-  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
-                                 Dload  Upload   Total   Spent    Left  Speed
-100   113  100   113    0     0  17028      0 --:--:-- --:--:-- --:--:-- 18833
-{
-  "high_priority_count": 0,
-  "medium_priority_count": 0,
-  "low_priority_count": 0,
-  "total_pending": 0,
-  "processing_count": 0
-}
-```
-
-ワーカーログの例:
+#### 3. ゲートウェイのログ出力例
 
 ```
-[INFO] Worker started with priority ratios - High: 70%, Medium: 20%, Low: 10%
-[INFO] Enqueued task a1b2c3d4-... to high priority queue
-[INFO] Processing task a1b2c3d4-... (priority: high, provider: openai/gpt-5.4-mini)
-[INFO] Completed task a1b2c3d4-... in 3333.45ms (total: 1)
+[2025-10-26 10:30:45] [INFO] [src.api_gateway.monitoring] [REQUEST] id=a1b2c3d4-e5f6-7890-abcd-ef1234567890 | provider=gemini | model=gemini-2.5-flash | client=llm_server
+[2025-10-26 10:30:47] [INFO] [src.api_gateway.gateway_service] Gemini client initialized
+[2025-10-26 10:30:48] [INFO] [src.api_gateway.monitoring] [RESPONSE] id=a1b2c3d4-e5f6-7890-abcd-ef1234567890 | status=SUCCESS | provider=gemini | model=gemini-2.5-flash | time=1234.56ms
 ```

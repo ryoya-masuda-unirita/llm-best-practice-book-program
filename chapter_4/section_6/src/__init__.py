@@ -1,1 +1,1 @@
-"""Chapter 3, Section 12: Workflow Orchestration for LLM Applications."""
+"""Chapter 2, Section 1: Basic LLM Integration."""

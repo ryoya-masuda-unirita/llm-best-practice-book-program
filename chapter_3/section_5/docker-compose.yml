@@ -1,42 +1,49 @@
 version: '3.8'
 
 services:
-  # Redis Cache Server
-  redis:
-    container_name: llm-redis-cache
-    image: redis:8-alpine
-    ports:
-      - "6379:6379"
-    command: redis-server --appendonly yes
-    volumes:
-      - redis-data:/data
-    restart: unless-stopped
-    networks:
-      - llm-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
-
-  # LLM API Server (Backend)
-  llm-server:
-    container_name: llm-api-server
-    image: shibui/llm-best-practice:chapter3_section5_web
+  # LLM API Gateway - Centralized gateway for all LLM requests
+  gateway:
+    container_name: llm-gateway
+    image: shibui/llm-best-practice:chapter3_section5_gateway
     build:
       context: .
-      dockerfile: Dockerfile.web
+      dockerfile: Dockerfile.gateway
+    platform: linux/amd64
+    ports:
+      - "8080:8080"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT:-30.0}
+    env_file:
+      - .env
+    command:
+      - uvicorn
+      - src.api_gateway.gateway_server:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8080"
+    restart: unless-stopped
+
+  # Backend LLM Server - Connects to gateway for LLM requests
+  backend:
+    container_name: llm-backend
+    image: shibui/llm-best-practice:chapter3_section5_backend
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
     platform: linux/amd64
     ports:
       - "8000:8000"
     environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - BACKEND_URL=http://backend:8000
+      - GATEWAY_URL=http://gateway:8080
+      - GATEWAY_TIMEOUT=${GATEWAY_TIMEOUT:-30.0}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     env_file:
-      - .envrc
+      - .env
     command:
       - uvicorn
       - src.api.llm_server:app
@@ -46,41 +53,8 @@ services:
       - "8000"
     restart: unless-stopped
     depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - llm-network
-
-  # Background Worker for Processing Queued Tasks
-  llm-worker:
-    container_name: llm-worker
-    image: shibui/llm-best-practice:chapter3_section5_web
-    build:
-      context: .
-      dockerfile: Dockerfile.web
-    platform: linux/amd64
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-    env_file:
-      - .envrc
-    command:
-      - python
-      - -m
-      - src.service.worker
-    restart: unless-stopped
-    depends_on:
-      redis:
-        condition: service_healthy
-    networks:
-      - llm-network
-
-volumes:
-  redis-data:
-    driver: local
+      - gateway
 
 networks:
-  llm-network:
-    driver: bridge
+  default:
+    name: llm-gateway-network

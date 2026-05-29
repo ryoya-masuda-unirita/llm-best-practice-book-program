@@ -1,4 +1,4 @@
-"""Models for article generation with state-based rollback (forget the past pattern)."""
+"""Models for article generation with Forget, Replay, Speculate pattern."""
 
 import json
 from datetime import datetime

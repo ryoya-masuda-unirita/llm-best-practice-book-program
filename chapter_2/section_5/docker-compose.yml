@@ -1,0 +1,123 @@
+version: '3.8'
+
+services:
+  # Redis - Message Queue
+  redis:
+    container_name: llm-redis
+    image: redis:7-alpine
+    platform: linux/amd64
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - llm-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # LLM API Server (Synchronous)
+  llm-server:
+    container_name: llm-api-server
+    image: shibui/llm-best-practice:chapter2_section5
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+    env_file:
+      - .env
+    command:
+      - uvicorn
+      - src.api.llm_server:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+    restart: unless-stopped
+    networks:
+      - llm-network
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Batch API Server (Asynchronous Job Submission)
+  batch-server:
+    container_name: llm-batch-server
+    image: shibui/llm-best-practice:chapter2_section5
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    ports:
+      - "8001:8001"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+    env_file:
+      - .env
+    command:
+      - uvicorn
+      - src.api.batch_server:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8001"
+    restart: unless-stopped
+    networks:
+      - llm-network
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Batch Worker (Background Processing)
+  batch-worker:
+    container_name: llm-batch-worker
+    image: shibui/llm-best-practice:chapter2_section5
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+    env_file:
+      - .env
+    command:
+      - python
+      - -m
+      - src.worker.batch_worker
+    restart: unless-stopped
+    networks:
+      - llm-network
+    depends_on:
+      redis:
+        condition: service_healthy
+
+volumes:
+  redis-data:
+    driver: local
+
+networks:
+  llm-network:
+    driver: bridge

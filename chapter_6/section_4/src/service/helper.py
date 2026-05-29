@@ -24,13 +24,13 @@ def print_article_preview(article_content: str) -> None:
 def get_human_approval(completed_article: CompletedArticle, auto_select: bool) -> bool:
     if auto_select:
         if completed_article.review and completed_article.review.grade >= 4:
-            click.echo("\n🤖 Auto-approved: Article grade is 4 or higher")
+            click.echo("\n  Auto-approved: Article grade is 4 or higher")
             return True
         else:
-            click.echo("\n🤖 Auto-rejected: Article grade is below 4")
+            click.echo("\n  Auto-rejected: Article grade is below 4")
             return False
 
-    click.echo("\n📝 Article Preview:")
+    click.echo("\n  Article Preview:")
     click.echo(f"Title: {completed_article.outline.title}")
     if completed_article.review:
         click.echo(f"Grade: {completed_article.review.grade}/{ArticleReview.best_grade()}")
@@ -38,7 +38,7 @@ def get_human_approval(completed_article: CompletedArticle, auto_select: bool) -
 
     while True:
         try:
-            response = click.prompt("\n✅ Do you approve this article? (yes/no)", type=str).lower().strip()
+            response = click.prompt("\n  Do you approve this article? (yes/no)", type=str).lower().strip()
 
             if response in ["yes", "y"]:
                 return True
@@ -58,9 +58,10 @@ def get_rollback_choice(available_phases: list[tuple[int, str]], auto_select: bo
     if not available_phases:
         return None
 
-    click.echo("\n🔄 Rollback Option Available")
+    click.echo("\n  Rollback Option Available")
     click.echo("You can go back to a previous phase if you want to try different choices.")
-    click.echo("This will 'forget' all subsequent phases and regenerate them.\n")
+    click.echo("This will 'forget' all subsequent phases and regenerate them.")
+    click.echo("Valid user prompts will be automatically replayed (Replay).\n")
     click.echo("Available phases:")
     click.echo("  0. Continue without rollback (keep current progress)")
 
@@ -85,6 +86,33 @@ def get_rollback_choice(available_phases: list[tuple[int, str]], auto_select: bo
         except (ValueError, click.Abort):
             click.echo("Invalid input. Continuing without rollback.")
             return None
+
+
+def get_user_requirements(phase: int, auto_select: bool) -> str | None:
+    """Prompt the user for additional requirements/instructions.
+
+    Returns the requirement text, or None if the user has no additional input.
+    In auto-select mode, always returns None.
+    """
+    if auto_select:
+        return None
+
+    click.echo("\n  Additional Instructions (Optional)")
+    click.echo("  You can provide extra requirements to guide the next generation steps.")
+    click.echo("  These will be saved and automatically replayed if you rollback later.")
+    click.echo("  Press Enter to skip.\n")
+
+    try:
+        requirement = click.prompt(
+            "  Your instruction (or Enter to skip)",
+            type=str,
+            default="",
+        ).strip()
+        if requirement:
+            return requirement
+    except click.Abort:
+        pass
+    return None
 
 
 def save_article_files(

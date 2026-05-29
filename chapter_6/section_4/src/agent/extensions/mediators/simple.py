@@ -83,7 +83,7 @@ class SimpleGraphMediator(GraphMediator):
         self.message_log.append(message)
         if message.receiver_id and message.receiver_id in self.nodes:
             self.nodes[message.receiver_id].execute(message.content)
-        elif not message.receiver_id:  # Broadcast
+        elif not message.receiver_id:
             for node_id, node in self.nodes.items():
                 if node_id != message.sender_id:
                     node.execute(message.content)

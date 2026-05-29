@@ -1,26 +1,15 @@
-"""AI Agent Framework with comprehensive design patterns.
+"""AI Agent Framework with Forget, Replay, Speculate pattern.
 
-This package is organized into two layers following the "Stable Core and
-Flexible Extensions" architecture pattern:
+This package is organized into two layers:
 
 Core Layer (src.agent.core):
     Contains stable abstractions and base classes that rarely change.
-    - Abstract base classes (ABCs) defining interfaces
-    - Core data structures and type definitions
-    - Base agent orchestration logic
-    - State machine framework
-    - Execution control abstractions
 
 Extension Layer (src.agent.extensions):
-    Contains concrete implementations that can evolve independently.
-    - Specific LLM-based strategies (CoT, ReAct, ToT)
-    - Concrete memory implementations
-    - Execution handlers (rate limiting, cost control)
-    - Tool implementations
-    - Specialized agents
-    - Graph mediators and nodes
-
-For backward compatibility, all public APIs are re-exported from this module.
+    Contains concrete implementations including:
+    - Replay mechanism (WAL-based prompt replay after rollback)
+    - Speculative execution (parallel-world branching)
+    - Article generation pipeline with all three stages integrated
 """
 
 from src.agent.core import (
@@ -70,6 +59,7 @@ from src.agent.extensions import (
     AgentNode,
     AggregatorNode,
     BaseStrategy,
+    BranchDetector,
     CalculatorTool,
     CategorizableToolBox,
     ChainOfThoughtStrategy,
@@ -84,11 +74,23 @@ from src.agent.extensions import (
     MemoryCaretaker,
     MultiStrategyAgent,
     ParallelGraphMediator,
+    PromptLog,
+    PromptLogEntry,
+    PromptType,
     ReActStrategy,
+    ReplayDecision,
+    ReplayDiff,
+    ReplayEngine,
+    ReplayFilter,
+    ReplayResult,
     SimpleGraphMediator,
     ToolRateLimitHandler,
     TreeOfThoughtStrategy,
     WebSearchTool,
+    World,
+    WorldManager,
+    WorldStatus,
+    WorldSummary,
     create_agent_from_config,
     create_default_controller,
 )
@@ -106,6 +108,7 @@ __all__ = [
     "AggregatorNode",
     "BaseAgent",
     "BaseStrategy",
+    "BranchDetector",
     "CalculatorTool",
     "CategorizableToolBox",
     "ChainOfThoughtStrategy",
@@ -142,7 +145,15 @@ __all__ = [
     "ParallelGraphMediator",
     "ParamValue",
     "PausedState",
+    "PromptLog",
+    "PromptLogEntry",
+    "PromptType",
     "ReActStrategy",
+    "ReplayDecision",
+    "ReplayDiff",
+    "ReplayEngine",
+    "ReplayFilter",
+    "ReplayResult",
     "SimpleGraphMediator",
     "StateTransition",
     "StepInfo",
@@ -157,6 +168,10 @@ __all__ = [
     "TreeOfThoughtStrategy",
     "WaitingState",
     "WebSearchTool",
+    "World",
+    "WorldManager",
+    "WorldStatus",
+    "WorldSummary",
     "create_agent_from_config",
     "create_default_controller",
 ]

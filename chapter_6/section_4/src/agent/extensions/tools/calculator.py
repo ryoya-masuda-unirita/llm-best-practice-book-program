@@ -1,52 +1,30 @@
-"""Simple calculator tool implementation."""
+"""Simple calculator tool."""
 
 from src.agent.core.base import Tool, ToolParams, ToolResult
 
 
 class CalculatorTool(Tool):
-    """Example: Simple calculator tool."""
-
     def __init__(self):
-        super().__init__(
-            "calculator",
-            "Performs basic arithmetic operations. "
-            "Parameters: operation (string: 'add', 'subtract', 'multiply', or 'divide'), "
-            'operands (list of numbers). Example: {"operation": "add", "operands": [15, 27]}',
-        )
+        super().__init__("calculator", "Perform basic arithmetic operations")
 
     def execute(self, params: ToolParams) -> ToolResult:
-        try:
-            op = params.get("operation")
-            operands = params.get("operands")
-            if not isinstance(op, str) or not isinstance(operands, list):
-                return ToolResult(success=False, data=None, error="operation and operands required")
+        operation = params.get("operation", "")
+        a = params.get("a")
+        b = params.get("b")
 
-            nums: list[int | float] = [n for n in operands if isinstance(n, (int, float))]
-            if not nums:
-                return ToolResult(success=False, data=None, error="No valid numeric operands")
+        if not isinstance(a, (int, float)) or not isinstance(b, (int, float)):
+            return ToolResult(success=False, data=None, error="Operands must be numeric")
 
-            result: int | float | None = {
-                "add": lambda: sum(nums),
-                "subtract": lambda: nums[0] - sum(nums[1:]),
-                "multiply": lambda: eval("*".join(map(str, nums))),
-                "divide": lambda: nums[0] / nums[1] if len(nums) == 2 and nums[1] != 0 else None,
-            }.get(op, lambda: None)()
+        operations = {
+            "add": a + b,
+            "subtract": a - b,
+            "multiply": a * b,
+            "divide": a / b if b != 0 else None,
+        }
 
-            return ToolResult(
-                success=result is not None,
-                data=result,
-                error=None if result is not None else "Invalid operation or division by zero",
-            )
-        except Exception as e:
-            return ToolResult(success=False, data=None, error=str(e))
+        if operation not in operations:
+            return ToolResult(success=False, data=None, error=f"Unknown operation: {operation}")
+        if operations[operation] is None:
+            return ToolResult(success=False, data=None, error="Division by zero")
 
-    def validate_params(self, params: ToolParams) -> bool:
-        op = params.get("operation")
-        operands = params.get("operands")
-        return (
-            isinstance(op, str)
-            and op in ["add", "subtract", "multiply", "divide"]
-            and isinstance(operands, list)
-            and len(operands) > 0
-            and all(isinstance(x, (int, float)) for x in operands)
-        )
+        return ToolResult(success=True, data=operations[operation])

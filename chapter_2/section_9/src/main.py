@@ -1,21 +1,21 @@
 import asyncio
 import os
 from functools import wraps
-from pathlib import Path
 from uuid import uuid4
 
 import click
-from src.client.llm_client import OpenAIModel
+from src.client.llm_client import (
+    AnthropicModel,
+    GeminiModel,
+    LLMProvider,
+    OpenAIModel,
+    google_genai_client,
+)
 from src.logger import make_logger
-from src.service import request_openai
-from src.service.template_engine import TemplateEngine
+from src.model.model import CharacterRequest, Gender
+from src.service.request_llm import request_with_judge
 
 logger = make_logger(__name__)
-
-PROJECT_ROOT = Path(__file__).parent.parent
-TEMPLATE_DIR = PROJECT_ROOT / "templates"
-VARIABLES_DIR = PROJECT_ROOT / "variables"
-TEMPLATE_ENGINE = TemplateEngine(template_dir=TEMPLATE_DIR)
 
 
 def async_cmd(func):
@@ -28,12 +28,43 @@ def async_cmd(func):
 
 @click.command()
 @click.option(
+    "--gender",
+    "-g",
+    type=click.Choice(Gender),
+    default=Gender.FEMALE,
+    help="The gender of the character to generate.",
+    required=True,
+)
+@click.option(
+    "--age",
+    "-a",
+    type=click.IntRange(0, 100),
+    default=25,
+    help="The age of the character to generate.",
+    required=True,
+)
+@click.option(
+    "--additional-instructions",
+    "-ai",
+    type=str,
+    default="",
+    help="Additional instructions for character generation.",
+    required=False,
+)
+@click.option(
+    "--llm-provider",
+    "-lp",
+    type=click.Choice(LLMProvider),
+    required=True,
+    default=LLMProvider.GEMINI,
+    help="The LLM provider to use.",
+)
+@click.option(
     "--model",
     "-m",
-    type=click.Choice(OpenAIModel.list_str()),
+    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str() + AnthropicModel.list_str()),
     required=True,
-    default=OpenAIModel.GPT_5_4,
-    help="The OpenAI model to use for the request.",
+    help="The model to use for the request.",
 )
 @click.option(
     "--output-directory",
@@ -44,64 +75,93 @@ def async_cmd(func):
     help="The directory to save output files.",
 )
 @click.option(
-    "--template",
-    "-t",
-    type=click.Path(exists=False, path_type=str),
+    "--judge-provider",
+    "-jp",
+    type=click.Choice(LLMProvider),
     required=False,
-    default="templates/character_generation.yaml",
-    help="Template file path (relative to project root or absolute). Default: templates/character_generation.yaml",
+    help="The LLM provider to use for judgment (defaults to same as generation provider).",
 )
 @click.option(
-    "--variables",
-    "-v",
-    type=click.Path(exists=False, path_type=str),
+    "--judge-model",
+    "-jm",
+    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str() + AnthropicModel.list_str()),
     required=False,
-    default=None,
-    help="Variables file path (relative to project root or absolute). If not specified, uses default values.",
+    help="The model to use for judgment (defaults to same as generation model).",
 )
 @async_cmd
 async def main(
+    gender: Gender,
+    age: int,
+    additional_instructions: str,
+    llm_provider: LLMProvider,
     model: str,
     output_directory: str = "outputs",
-    template: str = "templates/character_generation.yaml",
-    variables: str | None = None,
+    judge_provider: LLMProvider | None = None,
+    judge_model: str | None = None,
 ):
-    template_path = Path(template)
-    if not template_path.is_absolute():
-        template_path = PROJECT_ROOT / template_path
+    # Determine judge provider and model
+    effective_judge_provider = judge_provider if judge_provider else llm_provider
+    effective_judge_model = judge_model if judge_model else model
 
-    variables_path = None
-    if variables:
-        variables_path = Path(variables)
-        if not variables_path.is_absolute():
-            variables_path = PROJECT_ROOT / variables_path
+    logger.info(f"""Character Generation Request:
+Gender: {gender.value}
+Age: {age}
+Additional Instructions: {additional_instructions}
 
-    if not template_path.exists():
-        raise FileNotFoundError(f"Template file not found: {template_path}")
+Generation LLM: {llm_provider.value} / {model}
+Judge LLM: {effective_judge_provider.value} / {effective_judge_model}
+Output directory: {output_directory}""")
 
-    if variables_path and not variables_path.exists():
-        raise FileNotFoundError(f"Variables file not found: {variables_path}")
+    # Validate generation model
+    if llm_provider == LLMProvider.OPENAI and model not in OpenAIModel.list_str():
+        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
+    if llm_provider == LLMProvider.GEMINI and model not in GeminiModel.list_str():
+        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
+    if llm_provider == LLMProvider.ANTHROPIC and model not in AnthropicModel.list_str():
+        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
 
-    logger.info(f"Model: {model}, Template: {template_path}, Variables: {variables_path or 'default'}")
-
-    if model not in OpenAIModel.list_str():
-        raise ValueError(f"Invalid model '{model}'. Must be one of {OpenAIModel.list_str()}")
+    # Validate judge model if specified
+    if judge_provider and judge_model:
+        if judge_provider == LLMProvider.OPENAI and judge_model not in OpenAIModel.list_str():
+            raise ValueError(f"Invalid judge model '{judge_model}' for provider '{judge_provider.value}'.")
+        if judge_provider == LLMProvider.GEMINI and judge_model not in GeminiModel.list_str():
+            raise ValueError(f"Invalid judge model '{judge_model}' for provider '{judge_provider.value}'.")
+        if judge_provider == LLMProvider.ANTHROPIC and judge_model not in AnthropicModel.list_str():
+            raise ValueError(f"Invalid judge model '{judge_model}' for provider '{judge_provider.value}'.")
 
     os.makedirs(output_directory, exist_ok=True)
 
-    result = await request_openai(
+    character_request = CharacterRequest(gender=gender, age=age, additional_instructions=additional_instructions)
+
+    # Always use LLM-as-a-Judge workflow
+    character_result, judge_result = await request_with_judge(
+        character_request=character_request,
         model=model,
-        template_path=template_path,
-        variables_path=variables_path,
-        template_dir=TEMPLATE_DIR,
-        variables_dir=VARIABLES_DIR,
-        template_engine=TEMPLATE_ENGINE,
+        provider=llm_provider.value,
+        judge_model=judge_model,
+        judge_provider=judge_provider.value if judge_provider else None,
     )
 
-    file_name = f"openai_{uuid4().hex}.json"
-    file_path = os.path.join(output_directory, file_name)
-    result.save_as_json(file_path)
-    logger.info(f"File saved to {file_path}")
+    # Save character result
+    key = uuid4().hex
+
+    character_file_name = f"{key}_{llm_provider.value}_character.json"
+    character_file_path = os.path.join(output_directory, character_file_name)
+    character_result.save_as_json(character_file_path)
+    logger.info(f"""Character file saved to {character_file_path}""")
+
+    # Save judge result (use judge provider if specified, otherwise generation provider)
+    judge_file_name = f"{key}_{effective_judge_provider.value}_judge.json"
+    judge_file_path = os.path.join(output_directory, judge_file_name)
+    judge_result.save_as_json(judge_file_path)
+    logger.info(f"""Judge evaluation saved to {judge_file_path}""")
+    logger.info(f"""Overall evaluation score: {judge_result.overall_score:.2f}/5.0""")
+
+    if not judge_result.is_passing():
+        logger.warning("The generated character did not meet the quality threshold (3.0/5.0)")
+
+    # Clean up Google Genai client session
+    await google_genai_client.aio.aclose()
 
 
 if __name__ == "__main__":

@@ -1,20 +1,18 @@
 [project]
 name = "chapter-6-section-5"
 version = "0.1.0"
-description = "Parallel World Pattern for Article Generation - Multiple LLM sessions with human-in-the-loop decision making"
+description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13.2"
 dependencies = [
+    "anthropic>=0.74.1",
     "click>=8.3.0",
     "google-genai>=1.45.0",
     "openai>=2.4.0",
+    "polars>=1.36.1",
     "pydantic>=2.12.2",
     "python-dotenv>=1.1.1",
 ]
-
-[project.scripts]
-parallel-world = "src.parallel_world_cli:main"
-analyze-doc = "src.main:main"
 
 [dependency-groups]
 dev = [

@@ -1,24 +1,12 @@
 import asyncio
 import os
 from functools import wraps
-from pathlib import Path
 from uuid import uuid4
 
 import click
-from src.client.llm_client import (
-    AnthropicModel,
-    GeminiModel,
-    LLMProvider,
-    OpenAIModel,
-    google_genai_client,
-)
+from src.client.llm_client import AnthropicModel, GeminiModel, LLMProvider, OpenAIModel, google_genai_client
 from src.logger import make_logger
-from src.model.model import CharacterRequest, Gender
-from src.service.metrics_analyzer import MetricsAnalyzer
-from src.service.profiled_request_llm import profiled_request_with_judge
-from src.service.profiler_reporter import ProfilerReporter
-from src.service.prompt_profiler import get_default_profiler
-from src.service.request_llm import request_with_judge
+from src.service import request_anthropic_outfit, request_gemini_outfit, request_openai_outfit
 
 logger = make_logger(__name__)
 
@@ -32,30 +20,6 @@ def async_cmd(func):
 
 
 @click.command()
-@click.option(
-    "--gender",
-    "-g",
-    type=click.Choice(Gender),
-    default=Gender.FEMALE,
-    help="The gender of the character to generate.",
-    required=True,
-)
-@click.option(
-    "--age",
-    "-a",
-    type=click.IntRange(0, 100),
-    default=25,
-    help="The age of the character to generate.",
-    required=True,
-)
-@click.option(
-    "--additional-instructions",
-    "-ai",
-    type=str,
-    default="",
-    help="Additional instructions for character generation.",
-    required=False,
-)
 @click.option(
     "--llm-provider",
     "-lp",
@@ -72,6 +36,20 @@ def async_cmd(func):
     help="The model to use for the request.",
 )
 @click.option(
+    "--latitude",
+    "-lat",
+    type=float,
+    required=True,
+    help="緯度 (例: 39.7456 for Kansas, USA)",
+)
+@click.option(
+    "--longitude",
+    "-lon",
+    type=float,
+    required=True,
+    help="経度 (例: -97.0892 for Kansas, USA)",
+)
+@click.option(
     "--output-directory",
     "-od",
     type=click.Path(),
@@ -79,57 +57,23 @@ def async_cmd(func):
     default="outputs",
     help="The directory to save output files.",
 )
-@click.option(
-    "--judge-provider",
-    "-jp",
-    type=click.Choice(LLMProvider),
-    required=False,
-    help="The LLM provider to use for judgment (defaults to same as generation provider).",
-)
-@click.option(
-    "--judge-model",
-    "-jm",
-    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str() + AnthropicModel.list_str()),
-    required=False,
-    help="The model to use for judgment (defaults to same as generation model).",
-)
-@click.option(
-    "--enable-profiling",
-    "-p",
-    is_flag=True,
-    default=False,
-    help="Enable performance profiling for the request.",
-)
-@click.option(
-    "--profiler-report-format",
-    "-prf",
-    type=click.Choice(["json", "html", "txt"]),
-    default="json",
-    help="Format for the profiler report.",
-)
 @async_cmd
 async def main(
-    gender: Gender,
-    age: int,
-    additional_instructions: str,
     llm_provider: LLMProvider,
     model: str,
+    latitude: float,
+    longitude: float,
     output_directory: str = "outputs",
-    judge_provider: LLMProvider | None = None,
-    judge_model: str | None = None,
-    enable_profiling: bool = False,
-    profiler_report_format: str = "json",
 ):
-    effective_judge_provider = judge_provider if judge_provider else llm_provider
-    effective_judge_model = judge_model if judge_model else model
+    """天気予報に基づいて服装を提案します
 
-    logger.info(f"""Character Generation Request:
-Gender: {gender.value}
-Age: {age}
-Additional Instructions: {additional_instructions}
-
-Generation LLM: {llm_provider.value} / {model}
-Judge LLM: {effective_judge_provider.value} / {effective_judge_model}
+    Example:
+        python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.7456 -lon -97.0892
+    """
+    logger.info(f"""LLM provider: {llm_provider.value}
+Model: {model}
+Latitude: {latitude}
+Longitude: {longitude}
 Output directory: {output_directory}""")
 
     if llm_provider == LLMProvider.OPENAI and model not in OpenAIModel.list_str():
@@ -139,86 +83,49 @@ Output directory: {output_directory}""")
     if llm_provider == LLMProvider.ANTHROPIC and model not in AnthropicModel.list_str():
         raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
 
-    if judge_provider and judge_model:
-        if judge_provider == LLMProvider.OPENAI and judge_model not in OpenAIModel.list_str():
-            raise ValueError(f"Invalid judge model '{judge_model}' for provider '{judge_provider.value}'.")
-        if judge_provider == LLMProvider.GEMINI and judge_model not in GeminiModel.list_str():
-            raise ValueError(f"Invalid judge model '{judge_model}' for provider '{judge_provider.value}'.")
-        if judge_provider == LLMProvider.ANTHROPIC and judge_model not in AnthropicModel.list_str():
-            raise ValueError(f"Invalid judge model '{judge_model}' for provider '{judge_provider.value}'.")
-
     os.makedirs(output_directory, exist_ok=True)
 
-    character_request = CharacterRequest(gender=gender, age=age, additional_instructions=additional_instructions)
+    try:
+        if llm_provider == LLMProvider.OPENAI:
+            result = await request_openai_outfit(model=model, latitude=latitude, longitude=longitude)
+        elif llm_provider == LLMProvider.GEMINI:
+            result = await request_gemini_outfit(model=model, latitude=latitude, longitude=longitude)
+        elif llm_provider == LLMProvider.ANTHROPIC:
+            result = await request_anthropic_outfit(model=model, latitude=latitude, longitude=longitude)
+        else:
+            raise ValueError(f"Unsupported LLM provider: {llm_provider.value}")
+    except ValueError as e:
+        logger.error(f"\n❌ エラー: {e}")
+        raise click.ClickException(str(e))
 
-    if enable_profiling:
-        logger.info("Performance profiling is enabled.")
-        profiler = get_default_profiler()
+    file_name = f"outfit_{llm_provider.value}_{uuid4().hex}.json"
+    file_path = os.path.join(output_directory, file_name)
+    result.save_as_json(file_path)
+    logger.info(f"""File saved to {file_path}""")
 
-        character_result, judge_result = await profiled_request_with_judge(
-            character_request=character_request,
-            model=model,
-            provider=llm_provider.value,
-            judge_model=judge_model,
-            judge_provider=judge_provider.value if judge_provider else None,
-            profiler=profiler,
-        )
-    else:
-        character_result, judge_result = await request_with_judge(
-            character_request=character_request,
-            model=model,
-            provider=llm_provider.value,
-            judge_model=judge_model,
-            judge_provider=judge_provider.value if judge_provider else None,
-        )
+    logger.info(f"""
+=== 服装提案 ===
+場所: {result.location}
+天気概要: {result.weather_summary}
 
-    key = uuid4().hex
+現在の天気:
+  期間: {result.current_weather.period_name}
+  気温: {result.current_weather.temperature}°{result.current_weather.temperature_unit}
+  風: {result.current_weather.wind_speed} {result.current_weather.wind_direction}
+  予報: {result.current_weather.forecast_summary}
 
-    character_file_name = f"{key}_{llm_provider.value}_character.json"
-    character_file_path = os.path.join(output_directory, character_file_name)
-    character_result.save_as_json(character_file_path)
-    logger.info(f"""Character file saved to {character_file_path}""")
+推奨服装:
+""")
+    for i, rec in enumerate(result.outfit_recommendations, 1):
+        logger.info(f"""  {i}. {rec.clothing_type}: {rec.item_suggestion}
+     理由: {rec.reason}""")
 
-    judge_file_name = f"{key}_{effective_judge_provider.value}_judge.json"
-    judge_file_path = os.path.join(output_directory, judge_file_name)
-    judge_result.save_as_json(judge_file_path)
-    logger.info(f"""Judge evaluation saved to {judge_file_path}""")
-    logger.info(f"""Overall evaluation score: {judge_result.overall_score:.2f}/5.0""")
+    logger.info(f"""
+追加アドバイス: {result.additional_advice}
+""")
 
-    if not judge_result.is_passing():
-        logger.warning("The generated character did not meet the quality threshold (3.0/5.0)")
-
-    if enable_profiling:
-        await asyncio.sleep(0.2)
-
-        metrics = await profiler.get_metrics()
-        if metrics:
-            analyzer = MetricsAnalyzer()
-            reporter = ProfilerReporter(analyzer)
-
-            report_extension = "html" if profiler_report_format == "html" else profiler_report_format
-            report_file_name = f"{key}_profiler_report.{report_extension}"
-            report_file_path = Path(output_directory) / report_file_name
-
-            reporter.save_report(
-                metrics,
-                report_file_path,
-                format=profiler_report_format,
-                title=f"Performance Report - {llm_provider.value}/{model}",
-            )
-            logger.info(f"Profiler report saved to {report_file_path}")
-
-            print("\n" + "=" * 60)
-            print("PERFORMANCE PROFILING SUMMARY")
-            print("=" * 60)
-            reporter.print_summary(metrics)
-
-            for m in metrics:
-                alerts = analyzer.generate_alerts(m)
-                if alerts:
-                    reporter.print_alerts(alerts)
-
-    await google_genai_client.aio.aclose()
+    if llm_provider == LLMProvider.GEMINI:
+        await google_genai_client.aio.aclose()
 
 
 if __name__ == "__main__":

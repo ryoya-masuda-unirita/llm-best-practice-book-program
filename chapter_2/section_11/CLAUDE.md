@@ -1,244 +1,209 @@
-# Prompt Performance Profiling
+# Weather-Based Outfit Recommender with MCP
 
 ## Overview
 
-This project implements a prompt performance profiling system for LLM applications. It provides data-driven measurement and analysis of prompt execution, enabling scientific optimization of quality, cost, and response time.
+A CLI application that provides outfit recommendations based on real-time weather data. Uses the Model Context Protocol (MCP) to connect LLMs (OpenAI, Google Gemini, Anthropic Claude) to the US National Weather Service API.
 
-The system uses a 3-layer architecture (Collection, Analysis, Visualization) to transparently monitor LLM API calls, detect anomalies, and generate comprehensive reports. A character generation task serves as the demonstration use case, with LLM-as-a-Judge integration for automated quality evaluation.
+**Key Features**:
+- Multi-provider LLM support (OpenAI, Gemini, Anthropic)
+- Real-time weather data via MCP tool integration
+- Structured JSON output with Pydantic validation
+- Two MCP patterns: Manual (OpenAI/Anthropic) vs Native (Gemini)
 
 ## Architecture
 
 ```
-+------------------------------------------------------------------+
-|                      CLI Entry Point                              |
-|                       (src/main.py)                               |
-+------------------------------------------------------------------+
-                              |
-            +-----------------+------------------+
-            v                                    v
-+------------------------+          +------------------------+
-|   Standard Request     |          |   Profiled Request     |
-|   (request_llm.py)     |          | (profiled_request_     |
-|                        |          |      llm.py)           |
-+------------------------+          +------------------------+
-            |                                    |
-            |                       +------------+------------+
-            |                       v                         v
-            |           +-------------------+    +-------------------+
-            |           | [Collection Layer]|    |  LLM-as-a-Judge   |
-            |           |  PromptProfiler   |    |                   |
-            |           +-------------------+    +-------------------+
-            |                       |
-            |                       v
-            |           +-------------------+
-            |           | [Analysis Layer]  |
-            |           |  MetricsAnalyzer  |
-            |           +-------------------+
-            |                       |
-            |                       v
-            |           +-------------------+
-            |           | [Visualization]   |
-            |           |  ProfilerReporter |
-            |           +-------------------+
-            |                       |
-            v                       v
-+------------------------------------------------------------------+
-|                         LLM Clients                               |
-|  +-------------+   +-------------+   +------------------------+   |
-|  |   OpenAI    |   |   Gemini    |   |       Anthropic        |   |
-|  +-------------+   +-------------+   +------------------------+   |
-+------------------------------------------------------------------+
+User Input (coordinates)
+        |
+        v
++-------------------+
+|   CLI (main.py)   |
++-------------------+
+        |
+        v
++------------------------+
+| Service (request_llm)  |
++------------------------+
+        |
+        +---> MCP Client Session
+        |           |
+        |           v
+        |    +------------------+
+        |    | MCP Weather Tool |
+        |    | (weather_server) |
+        |    +------------------+
+        |           |
+        |           v
+        |    NWS Weather API
+        |           |
+        v           v
++------------------------+
+|   LLM Provider API     |
+| (OpenAI/Gemini/Claude) |
++------------------------+
+        |
+        v
++------------------------+
+| Structured Output      |
+| (OutfitResponse)       |
++------------------------+
+        |
+        v
+JSON File + Console Output
 ```
 
 ### Directory Structure
 
 ```
-chapter_3/section_8/
-|-- CLAUDE.md                 # This file
-|-- README.md                 # Project documentation (Japanese)
-|-- pyproject.toml            # Dependencies
-|-- .envrc.example            # Environment variables template
-|-- Makefile                  # Development commands
+chapter_3/section_10/
 |-- src/
-|   |-- __init__.py
-|   |-- main.py               # CLI entry point (Click)
-|   |-- config.py             # Configuration management
-|   |-- logger.py             # Logging setup
+|   |-- main.py              # CLI entry point (Click-based)
+|   |-- config.py            # Environment config (API keys)
+|   |-- logger.py            # Logging configuration
 |   |-- client/
-|   |   |-- __init__.py
-|   |   +-- llm_client.py     # LLM client initialization
+|   |   |-- llm_client.py    # LLM provider clients and model enums
 |   |-- model/
-|   |   |-- __init__.py
-|   |   |-- model.py          # Character request/response models
-|   |   |-- llm_as_a_judge_model.py  # Judge evaluation models
-|   |   +-- profiler_metrics.py      # Profiler metrics models
+|   |   |-- model.py         # Pydantic models (OutfitResponse, etc.)
 |   |-- prompt/
-|   |   |-- __init__.py
-|   |   |-- prompt.py         # Character generation prompts
-|   |   +-- llm_as_a_judge_prompt.py  # Judge evaluation prompts
-|   +-- service/
-|       |-- __init__.py
-|       |-- request_llm.py    # Standard LLM request functions
-|       |-- llm_as_a_judge.py # Judge service functions
-|       |-- prompt_profiler.py      # Collection layer
-|       |-- metrics_analyzer.py     # Analysis layer
-|       |-- profiler_reporter.py    # Visualization layer
-|       +-- profiled_request_llm.py # Profiled request functions
-+-- tests/
-    |-- __init__.py
-    |-- conftest.py
-    |-- test_prompt_profiler.py
-    |-- test_metrics_analyzer.py
-    +-- test_profiler_reporter.py
+|   |   |-- prompt.py        # Prompt templates for each provider
+|   |-- service/
+|       |-- request_llm.py   # Business logic for LLM requests
+|-- tool_server/
+|   |-- weather_server.py    # MCP server with weather tools
+|-- outputs/                 # Generated outfit JSON files
+|-- .envrc.example           # Environment variable template
+|-- pyproject.toml           # Project dependencies
+|-- Makefile                 # Development commands
 ```
 
 ## Key Components
 
-### PromptProfiler (Collection Layer)
+### LLM Providers (`src/client/llm_client.py`)
 
-Wraps LLM API calls to transparently collect performance metrics using async context managers.
+| Provider   | Models                                          | MCP Pattern    |
+|------------|------------------------------------------------|----------------|
+| OpenAI     | gpt-5.5, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.1, gpt-5, gpt-5-mini, gpt-5-nano | Manual         |
+| Gemini     | gemini-2.5-pro, gemini-2.5-flash, gemini-3.5-flash, gemini-3.1-flash-lite | Native         |
+| Anthropic  | claude-sonnet-4-6, claude-opus-4-7             | Manual         |
 
-```python
-async with profiler.profile(prompt_id="gen", model="gpt-5.4", provider="openai") as ctx:
-    result = await client.generate(...)
-    ctx["input_tokens"] = result.usage.input_tokens
-    ctx["output_tokens"] = result.usage.output_tokens
-```
+### Data Models (`src/model/model.py`)
 
-Collected metrics:
-- `latency_ms` - Request execution time
-- `input_tokens` / `output_tokens` - Token usage
-- `estimated_cost_usd` - Cost estimation
-- `quality_score` - LLM-as-a-Judge score (1.0-5.0)
+- `WeatherCondition`: Temperature, wind, forecast summary
+- `ClothingRecommendation`: Clothing type, item, reason
+- `OutfitResponse`: Location, weather, 3+ recommendations, advice
 
-### MetricsAnalyzer (Analysis Layer)
+### MCP Server (`tool_server/weather_server.py`)
 
-Multi-dimensional analysis with anomaly detection and alert generation.
-
-- Statistical aggregation (mean, median, P95, P99, std dev)
-- Grouping by prompt/model/provider
-- Time-series bucketing and trend detection
-- Threshold-based alert generation
-
-### ProfilerReporter (Visualization Layer)
-
-Generates reports in multiple formats:
-- Text format for terminal output
-- JSON format for Grafana/Kibana integration
-- HTML format for visual dashboards
-
-### AlertThreshold
-
-Configurable thresholds for monitoring:
-
-| Metric | Warning | Critical |
-|--------|---------|----------|
-| Latency | 5000ms | 10000ms |
-| Tokens | 8000 | 16000 |
-| Quality | 3.0 | 2.0 |
-| Cost | $0.10 | $0.50 |
+Tools exposed via FastMCP:
+- `get_forecast(latitude, longitude)`: Fetch weather forecast from NWS API
+- `get_alerts(state)`: Get weather alerts for US state (available but unused)
 
 ## Dependencies
 
-| Package | Purpose |
-|---------|---------|
-| openai | OpenAI API client |
-| google-genai | Google Gemini API client |
-| anthropic | Anthropic API client |
-| pydantic | Data validation and models |
-| click | CLI framework |
-| python-dotenv | Environment variable management |
+| Package       | Purpose                                |
+|---------------|----------------------------------------|
+| openai        | OpenAI API client (v2.4.0+)            |
+| google-genai  | Google Gemini API client (v1.45.0+)    |
+| anthropic     | Anthropic Claude API client            |
+| mcp[cli]      | Model Context Protocol implementation  |
+| pydantic      | Data validation and structured output  |
+| click         | CLI framework                          |
+| httpx         | Async HTTP client for NWS API          |
 
 ## Usage
 
 ### Setup
 
-1. Copy environment template and set API keys:
-
 ```bash
+# Install dependencies
+uv sync
+
+# Configure environment variables
 cp .envrc.example .envrc
 # Edit .envrc with your API keys:
-# OPENAI_API_KEY=sk-...
-# GEMINI_API_KEY=AIza...
-# ANTHROPIC_API_KEY=sk-ant-...
-```
+# - OPENAI_API_KEY
+# - GEMINI_API_KEY
+# - ANTHROPIC_API_KEY
 
-2. Install dependencies:
-
-```bash
-uv sync
+# Load environment
+direnv allow
 ```
 
 ### Run
 
 ```bash
-# Basic character generation
-python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH
+# Basic usage with Gemini
+uv run python -m src.main -lp GEMINI -m gemini-2.5-flash -lat 39.7456 -lon -97.0892
 
-# With profiling enabled
-python -m src.main -g MALE -a 30 -lp OPENAI -m GPT_5_4_MINI --enable-profiling
+# With OpenAI
+uv run python -m src.main -lp OPENAI -m gpt-5.4-mini -lat 39.7456 -lon -97.0892
 
-# With separate judge provider and HTML report
-python -m src.main -g FEMALE -a 22 -lp GEMINI -m GEMINI_2_5_FLASH \
-  -jp ANTHROPIC -jm CLAUDE_SONNET_4_6 -p -prf html
+# With Anthropic Claude
+uv run python -m src.main -lp ANTHROPIC -m claude-sonnet-4-6 -lat 39.7456 -lon -97.0892
+
+# Custom output directory
+uv run python -m src.main -lp GEMINI -m gemini-2.5-flash -lat 39.7456 -lon -97.0892 -od ./my_outputs
 ```
 
 ### CLI Options
 
-| Option | Short | Description | Required |
-|--------|-------|-------------|----------|
-| --gender | -g | Character gender (FEMALE/MALE) | Yes |
-| --age | -a | Character age (0-100) | Yes |
-| --additional-instructions | -ai | Extra generation instructions | No |
-| --llm-provider | -lp | LLM provider (OPENAI/GEMINI/ANTHROPIC) | Yes |
-| --model | -m | Model to use | Yes |
-| --output-directory | -od | Output directory | No |
-| --judge-provider | -jp | Judge LLM provider | No |
-| --judge-model | -jm | Judge model | No |
-| --enable-profiling | -p | Enable profiling | No |
-| --profiler-report-format | -prf | Report format (json/html/txt) | No |
+| Option              | Short | Required | Description                        |
+|---------------------|-------|----------|------------------------------------|
+| --llm-provider      | -lp   | Yes      | OPENAI, GEMINI, or ANTHROPIC       |
+| --model             | -m    | Yes      | Model name (provider-specific)     |
+| --latitude          | -lat  | Yes      | Latitude (US coordinates only)     |
+| --longitude         | -lon  | Yes      | Longitude (US coordinates only)    |
+| --output-directory  | -od   | No       | Output dir (default: outputs)      |
 
 ## Development Commands
 
 ```bash
-make lint    # Run ruff linter with auto-fix
-make fmt     # Format code with ruff
-make fix     # Run lint + fmt
-make mypy    # Run type checking
-```
+# Lint code
+make lint
 
-## Testing
+# Format code
+make fmt
 
-```bash
-# Run all tests
-python -m pytest tests/ -v
+# Lint + format
+make fix
 
-# Run specific test file
-python -m pytest tests/test_prompt_profiler.py -v
-python -m pytest tests/test_metrics_analyzer.py -v
-python -m pytest tests/test_profiler_reporter.py -v
+# Type check
+make mypy
 ```
 
 ## Implementation Notes
 
-### Profiling Design
+### MCP Integration Patterns
 
-- Async context manager minimizes impact on main processing flow
-- Metrics stored asynchronously to avoid blocking
-- Cost estimation uses per-provider pricing tables
-- In-memory storage with optional file persistence
+**Manual Pattern (OpenAI/Anthropic)**:
+1. Initialize MCP session
+2. Explicitly call `get_forecast` tool
+3. Extract weather data from response
+4. Pass weather data to LLM prompt
+5. Use structured output parsing
 
-### Alert System
+**Native Pattern (Gemini)**:
+1. Initialize MCP session
+2. Pass session as `tools=[session]` to LLM
+3. LLM autonomously decides to call tools
+4. Parse JSON from text response (no structured output with tools)
 
-Two types of threshold checking:
-1. Absolute thresholds (e.g., latency > 10000ms)
-2. Relative thresholds (e.g., latency > 200% of baseline)
+### Geographic Constraints
 
-### Quality Evaluation
+- **US coordinates only**: NWS API serves only US territories
+- Non-US coordinates return clear error with example coordinates
+- Example: Kansas, USA - lat=39.7456, lon=-97.0892
 
-LLM-as-a-Judge evaluates generated content on:
-- Accuracy (request compliance)
-- Comprehensiveness (information completeness)
-- Clarity (readability)
+### Structured Output
 
-Overall score: 1.0-5.0 (passing threshold: 3.0)
+- All providers return `OutfitResponse` Pydantic model
+- Minimum 3 outfit recommendations enforced
+- Frozen models prevent accidental mutation
+- JSON files saved with UUID-based naming
+
+### Error Handling
+
+- Provider/model validation at CLI level
+- Geographic constraint validation with actionable messages
+- JSON parsing errors with detailed logging
+- HTTP timeout handling (30s for NWS API)

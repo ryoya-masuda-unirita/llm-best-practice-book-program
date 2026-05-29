@@ -53,7 +53,7 @@ The tool leverages Gemini API's multimodal input and structured output capabilit
 ### Directory Structure
 
 ```
-chapter_2/section_14/
+chapter_2/section_12/
 |-- CLAUDE.md              # This file - project documentation
 |-- README.md              # User-facing documentation (Japanese)
 |-- Makefile               # Development commands

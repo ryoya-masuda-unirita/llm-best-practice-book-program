@@ -8,6 +8,8 @@ This layer contains implementations that can change independently from the core:
 - Specialized agents
 - Graph mediators and nodes
 - Article generation pipeline components
+- Replay mechanism for WAL-based prompt replay
+- Speculative execution for parallel-world branching
 """
 
 from src.agent.extensions.agents import ConfigurableAgent, MultiStrategyAgent
@@ -50,6 +52,23 @@ from src.agent.extensions.nodes import (
     PipelineState,
     SecondHalfGenerationNode,
     SecondHalfRegenerationNode,
+)
+from src.agent.extensions.replay import (
+    PromptLog,
+    PromptLogEntry,
+    PromptType,
+    ReplayDecision,
+    ReplayDiff,
+    ReplayEngine,
+    ReplayFilter,
+    ReplayResult,
+)
+from src.agent.extensions.speculative import (
+    BranchDetector,
+    World,
+    WorldManager,
+    WorldStatus,
+    WorldSummary,
 )
 from src.agent.extensions.strategies import (
     BaseStrategy,
@@ -109,6 +128,21 @@ __all__ = [
     "PipelineState",
     "SecondHalfGenerationNode",
     "SecondHalfRegenerationNode",
+    # Replay
+    "PromptLog",
+    "PromptLogEntry",
+    "PromptType",
+    "ReplayDecision",
+    "ReplayDiff",
+    "ReplayEngine",
+    "ReplayFilter",
+    "ReplayResult",
+    # Speculative
+    "BranchDetector",
+    "World",
+    "WorldManager",
+    "WorldStatus",
+    "WorldSummary",
     # Strategies
     "BaseStrategy",
     "ChainOfThoughtStrategy",

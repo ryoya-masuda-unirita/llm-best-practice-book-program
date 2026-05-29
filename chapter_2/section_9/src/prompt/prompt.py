@@ -1,29 +1,94 @@
 import json
-from pathlib import Path
 
+from src.client.llm_client import LLMProvider
 from src.model.model import CharacterRequest, CharacterResponse
-from src.service.template_engine import TemplateEngine
-
-_template_dir = Path(__file__).parent.parent.parent / "templates"
-_template_engine = TemplateEngine(template_dir=_template_dir)
 
 
-def make_prompt(
-    character_request: CharacterRequest,
-) -> list:
-    """Generate a structured prompt using template-based approach."""
+def make_openai_prompt(character: CharacterRequest) -> list:
+    data = character.to_str_dict()
     params = CharacterResponse.detailed_model()
-    response_schema = json.dumps(params, indent=2, ensure_ascii=False)
+    param_dump = json.dumps(params, indent=2, ensure_ascii=False)
+    return [
+        {
+            "role": "system",
+            "content": f"""あなたは創造的なキャラクタージェネレーターです。
+あなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。
+以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：
 
-    template_variables = {
-        "response_schema": response_schema,
-        "gender": character_request.gender.value,
-        "age": character_request.age,
-        "additional_instructions": character_request.additional_instructions or "",
-    }
+{param_dump}
 
-    return _template_engine.render_prompt_messages(
-        template_name="character_generation.yaml",
-        variables=template_variables,
-        validate=True,
-    )
+以下を確認してください：
+1. 応答は有効なJSONであること
+2. JSON構造の外に説明や追加のテキストを含めないこと
+
+リクエストパラメータ：
+{data}
+""",
+        },
+        {
+            "role": "user",
+            "content": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。",
+        },
+    ]
+
+
+def make_gemini_prompt(character: CharacterRequest) -> tuple[str, str]:
+    data = character.to_str_dict()
+    params = CharacterResponse.detailed_model()
+    param_dump = json.dumps(params, indent=2, ensure_ascii=False)
+    system_prompt = f"""あなたは創造的なキャラクタージェネレーターです。
+あなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。
+以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：
+
+{param_dump}
+
+以下を確認してください：
+1. 応答は有効なJSONであること
+2. JSON構造の外に説明や追加のテキストを含めないこと
+
+リクエストパラメータ：
+{data}
+"""
+    user_prompt = "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。"
+    return system_prompt, user_prompt
+
+
+def make_anthropic_prompt(character: CharacterRequest) -> list:
+    data = character.to_str_dict()
+    params = CharacterResponse.detailed_model()
+    param_dump = json.dumps(params, indent=2, ensure_ascii=False)
+    return [
+        {
+            "role": "user",
+            "content": f"""あなたは創造的なキャラクタージェネレーターです。
+あなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。
+以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：
+
+{param_dump}
+
+以下を確認してください：
+1. 応答は有効なJSONであること
+2. JSON構造の外に説明や追加のテキストを含めないこと
+
+リクエストパラメータ：
+{data}
+
+ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。
+""",
+        },
+    ]
+
+
+def make_prompt(character: CharacterRequest, provider: LLMProvider | None = None) -> list | tuple[str, str]:
+    """Create a prompt for character generation based on the provider."""
+    if provider is None:
+        provider = LLMProvider.OPENAI
+
+    if provider == LLMProvider.OPENAI:
+        return make_openai_prompt(character)
+    elif provider == LLMProvider.GEMINI:
+        return make_gemini_prompt(character)
+    elif provider == LLMProvider.ANTHROPIC:
+        return make_anthropic_prompt(character)
+    else:
+        raise ValueError(f"Unsupported provider: {provider}")

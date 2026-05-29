@@ -1,8 +1,4 @@
-"""Core memory abstractions with Memento pattern support.
-
-This module defines the abstract interface for agent memory management.
-Concrete memory implementations should be placed in the extensions layer.
-"""
+"""Core memory abstractions with Memento pattern support."""
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -15,11 +11,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class MemorySnapshot:
-    """Memento: Snapshot of memory state for restoration.
-
-    This dataclass captures a point-in-time state of the memory,
-    enabling rollback and recovery operations.
-    """
+    """Memento: Snapshot of memory state for restoration."""
 
     timestamp: datetime
     observations: list["str | ToolResult"]
@@ -28,12 +20,7 @@ class MemorySnapshot:
 
 
 class Memory(ABC):
-    """Abstract base class for context/memory management.
-
-    This interface defines how agents store and retrieve context information.
-    Concrete implementations can provide different storage strategies
-    (e.g., list-based, conversation-based, vector-based).
-    """
+    """Abstract base class for context/memory management."""
 
     @abstractmethod
     def get_context(self) -> dict[str, object]:

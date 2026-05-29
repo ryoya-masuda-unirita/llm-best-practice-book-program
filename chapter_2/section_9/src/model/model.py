@@ -22,6 +22,14 @@ class CharacterRequest(BaseModel):
     age: int = Field(..., description="The age of the character.", ge=0, le=100)
     additional_instructions: Optional[str] = Field(..., description="Additional instructions for character generation.")
 
+    def to_str_dict(self) -> dict[str, str]:
+        """Convert all fields to string representation for prompt formatting."""
+        return {
+            "gender": self.gender,
+            "age": str(self.age),
+            "additional_instructions": self.additional_instructions or "",
+        }
+
 
 class CharacterPersonality(BaseModel):
     model_config = ConfigDict(

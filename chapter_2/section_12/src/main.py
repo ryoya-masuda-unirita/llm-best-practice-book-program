@@ -1,23 +1,13 @@
 import asyncio
-import os
 from functools import wraps
 from pathlib import Path
-from uuid import uuid4
 
 import click
-from src.client.llm_client import OpenAIModel
+from src.client.llm_client import AnthropicModel
 from src.logger import make_logger
-from src.service import request_openai
-from src.service.template_engine import TemplateEngine
+from src.service import extract_document_structure, save_extraction_results
 
 logger = make_logger(__name__)
-
-PROJECT_ROOT = Path(__file__).parent.parent
-
-TEMPLATE_DIR = PROJECT_ROOT / "templates"
-VARIABLES_DIR = PROJECT_ROOT / "variables"
-
-TEMPLATE_ENGINE = TemplateEngine(template_dir=TEMPLATE_DIR)
 
 
 def async_cmd(func):
@@ -32,10 +22,17 @@ def async_cmd(func):
 @click.option(
     "--model",
     "-m",
-    type=click.Choice(OpenAIModel.list_str()),
+    type=click.Choice(AnthropicModel.list_str()),
     required=True,
-    default=OpenAIModel.GPT_5_4,
-    help="The OpenAI model to use for the request.",
+    help="The Anthropic model to use for analysis.",
+)
+@click.option(
+    "--input",
+    "-i",
+    "input_file",
+    type=click.Path(exists=True),
+    required=True,
+    help="Path to the input document (text or markdown).",
 )
 @click.option(
     "--output-directory",
@@ -45,68 +42,41 @@ def async_cmd(func):
     default="outputs",
     help="The directory to save output files.",
 )
-@click.option(
-    "--template",
-    "-t",
-    type=click.Path(exists=False, path_type=str),
-    required=False,
-    default="templates/character_generation.yaml",
-    help="Template file path (relative to project root or absolute). Default: templates/character_generation.yaml",
-)
-@click.option(
-    "--variables",
-    "-v",
-    type=click.Path(exists=False, path_type=str),
-    required=False,
-    default=None,
-    help="Variables file path (relative to project root or absolute). If not specified, uses default values.",
-)
 @async_cmd
 async def main(
     model: str,
+    input_file: str,
     output_directory: str = "outputs",
-    template: str = "templates/character_generation.yaml",
-    variables: str | None = None,
 ):
-    template_path = Path(template)
-    if not template_path.is_absolute():
-        template_path = PROJECT_ROOT / template_path
-
-    variables_path = None
-    if variables:
-        variables_path = Path(variables)
-        if not variables_path.is_absolute():
-            variables_path = PROJECT_ROOT / variables_path
-
-    if not template_path.exists():
-        raise FileNotFoundError(f"Template file not found: {template_path}")
-
-    if variables_path and not variables_path.exists():
-        raise FileNotFoundError(f"Variables file not found: {variables_path}")
-
+    """Analyze and extract document structure using LLM-generated scripts."""
     logger.info(f"""Model: {model}
-Output directory: {output_directory}
-Template: {template_path}
-Variables: {variables_path or "default"}""")
+Input file: {input_file}
+Output directory: {output_directory}""")
 
-    if model not in OpenAIModel.list_str():
-        raise ValueError(f"Invalid model '{model}'. Must be one of {OpenAIModel.list_str()}")
+    if model not in AnthropicModel.list_str():
+        raise ValueError(f"Invalid model '{model}'.")
 
-    os.makedirs(output_directory, exist_ok=True)
+    document_content = Path(input_file).read_text(encoding="utf-8")
+    logger.info(f"Document loaded: {len(document_content)} characters")
 
-    result = await request_openai(
+    extraction_result = await extract_document_structure(
         model=model,
-        template_path=template_path,
-        variables_path=variables_path,
-        template_dir=TEMPLATE_DIR,
-        variables_dir=VARIABLES_DIR,
-        template_engine=TEMPLATE_ENGINE,
+        document_content=document_content,
     )
 
-    file_name = f"openai_{uuid4().hex}.json"
-    file_path = os.path.join(output_directory, file_name)
-    result.save_as_json(file_path)
-    logger.info(f"""File saved to {file_path}""")
+    if extraction_result.success:
+        save_extraction_results(
+            extraction_result=extraction_result,
+            input_file=input_file,
+            output_directory=output_directory,
+            model=model,
+        )
+        logger.info("Document structure extraction completed successfully!")
+    else:
+        logger.error("Failed to extract document structure.")
+        if extraction_result.error:
+            logger.error(f"Last error: {extraction_result.error}")
+        raise click.ClickException("Document structure extraction failed.")
 
 
 if __name__ == "__main__":

@@ -3,6 +3,9 @@ import os
 from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict, Field, Secret
 
+if os.path.exists(".envrc"):
+    load_dotenv(".envrc")
+
 
 class Config(BaseModel):
     model_config = ConfigDict(
@@ -12,10 +15,7 @@ class Config(BaseModel):
         arbitrary_types_allowed=True,
     )
 
-    if os.path.exists(".envrc"):
-        load_dotenv(".envrc")
-
-    gemini_api_key: Secret[str] = Field(default=os.environ["GEMINI_API_KEY"], description="API key for Google Gemini")
+    openai_api_key: Secret[str] = Field(default=os.environ["OPENAI_API_KEY"], description="API key for OpenAI")
 
 
 config = Config()

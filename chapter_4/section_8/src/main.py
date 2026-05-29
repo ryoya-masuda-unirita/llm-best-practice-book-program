@@ -19,7 +19,6 @@ from src.logger import make_logger
 
 logger = make_logger(__name__)
 
-# Mapping of workflow names to their functions
 AGENTS = {
     "example_1_basic_agent": example_1_basic_agent,
     "example_2_react_agent": example_2_react_agent,
@@ -75,7 +74,6 @@ async def main(agent: str):
         logger.info("=" * 60)
 
     else:
-        # Run specific workflow
         if agent not in AGENTS:
             logger.error(f"Unknown agent: {agent}")
             logger.info(f"Available agents: {', '.join(AGENTS.keys())}, all")

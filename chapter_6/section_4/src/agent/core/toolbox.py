@@ -1,18 +1,10 @@
-"""ToolBox implementation with Composite pattern.
-
-This module provides the core tool container that manages a collection
-of tools. Specific tool implementations should be placed in the extensions layer.
-"""
+"""ToolBox implementation with Composite pattern."""
 
 from src.agent.core.base import Tool, ToolParams, ToolResult
 
 
 class ToolBox(Tool):
-    """Composite: Container for multiple tools (Composite pattern).
-
-    This is a core infrastructure component that provides tool management.
-    It can contain individual tools or nested ToolBox instances.
-    """
+    """Composite: Container for multiple tools (Composite pattern)."""
 
     def __init__(self, name: str = "ToolBox", description: str = "Container for tools"):
         super().__init__(name, description)

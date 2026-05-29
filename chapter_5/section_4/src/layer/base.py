@@ -1,5 +1,11 @@
-"""Base Agent Module for the Hierarchical AI Agent Architecture."""
+"""
+Base Agent Module for the Hierarchical AI Agent Architecture.
 
+This module provides the abstract base class for all layer agents,
+establishing common interfaces and utilities for LLM invocation with structured output.
+"""
+
+import asyncio
 import time
 from abc import ABC, abstractmethod
 from typing import TypeVar
@@ -21,7 +27,13 @@ RETRY_DELAY_SECONDS = 2
 
 
 class BaseAgent(ABC):
-    """Abstract base class for all hierarchical layer agents."""
+    """
+    Abstract base class for all hierarchical layer agents.
+
+    Provides common utilities for LLM invocation with structured output,
+    logging, and error handling. Subclasses implement the `execute` method
+    for layer-specific logic.
+    """
 
     def __init__(self, layer_name: str, agent_name: str):
         self.layer_name = layer_name
@@ -52,25 +64,30 @@ class BaseAgent(ABC):
         self.logger.info(f"{self.layer_name} LAYER - {self.agent_name}: {description}")
         self.logger.info("=" * 60)
 
-    def _invoke_with_structured_output(
+    def _invoke_structured[T: BaseModel](
         self,
         config: RunnableConfig,
         system_prompt: str,
         user_prompt: str,
-        output_type: type[T],
+        response_model: type[T],
     ) -> T:
-        """Invoke LLM with structured output and retry logic."""
+        """
+        Invoke LLM with structured output and retry logic.
+
+        Uses OpenAI's structured output mode to ensure the response
+        conforms to the specified Pydantic model schema.
+        """
         model = self._create_chat_model(config)
-        structured_model = model.with_structured_output(output_type, method="function_calling")
+        structured_model = model.with_structured_output(response_model)
         messages = self._build_messages(system_prompt, user_prompt)
 
         last_error = None
         for attempt in range(MAX_RETRIES):
             try:
-                result = structured_model.invoke(messages, config)
-                if result is not None:
+                response = structured_model.invoke(messages, config)
+                if response is not None:
                     self.logger.info("Received structured response from LLM")
-                    return result
+                    return response
                 self.logger.warning(f"Empty response on attempt {attempt + 1}")
             except Exception as e:
                 last_error = e
@@ -82,9 +99,40 @@ class BaseAgent(ABC):
 
         raise ValueError(f"{self.agent_name} failed after {MAX_RETRIES} attempts: {last_error}")
 
-    def _handle_parse_error(self, error: Exception) -> None:
-        """Log parsing errors with context."""
-        self.logger.error(f"Failed to parse response: {error}")
+    async def _ainvoke_structured[T: BaseModel](
+        self,
+        config: RunnableConfig,
+        system_prompt: str,
+        user_prompt: str,
+        response_model: type[T],
+    ) -> T:
+        """
+        Async invoke LLM with structured output and retry logic.
+
+        Uses OpenAI's structured output mode to ensure the response
+        conforms to the specified Pydantic model schema.
+        """
+        model = self._create_chat_model(config)
+        structured_model = model.with_structured_output(response_model)
+        messages = self._build_messages(system_prompt, user_prompt)
+
+        last_error = None
+        for attempt in range(MAX_RETRIES):
+            try:
+                response = await structured_model.ainvoke(messages, config)
+                if response is not None:
+                    self.logger.info("Received structured response from LLM")
+                    return response
+                self.logger.warning(f"Empty response on attempt {attempt + 1}")
+            except Exception as e:
+                last_error = e
+                self.logger.warning(f"Error on attempt {attempt + 1}: {e}")
+
+            if attempt < MAX_RETRIES - 1:
+                self.logger.info(f"Retrying in {RETRY_DELAY_SECONDS} seconds...")
+                await asyncio.sleep(RETRY_DELAY_SECONDS)
+
+        raise ValueError(f"{self.agent_name} failed after {MAX_RETRIES} attempts: {last_error}")
 
     @abstractmethod
     def execute(self, state: dict, config: RunnableConfig) -> dict:

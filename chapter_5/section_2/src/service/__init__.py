@@ -1,3 +1,3 @@
-from src.service.service import run_novel_writer
+from src.service.multi_agent_service import run_contract_review
 
-__all__ = ["run_novel_writer"]
+__all__ = ["run_contract_review"]

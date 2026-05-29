@@ -1,68 +1,59 @@
-# Chapter 2 Section 6: 非同期バッチ処理
+# Chapter 2 Section 7: LLM出力をストリーミングにする
 
 ## 概要
 
-本プロジェクトは、LLMアプリケーションにおける**非同期バッチ処理**の実装例です。Redisをメッセージキューとして使用し、大量のLLMリクエストを効率的に処理するアーキテクチャを示しています。
+このプロジェクトは、**FastAPI**を使用したLLM（大規模言語モデル）の**ストリーミング・非ストリーミングレスポンス**実装を示すサンプルコードです。OpenAI GPT-5.4-miniに対応し、以下の2つのモードでテキスト生成結果をクライアントに配信します：
 
-リアルタイム応答が不要な大規模タスク（ドキュメント要約、データ分析、コンテンツ生成など）において、リクエストの受付と処理を分離することで、システムのスケーラビリティと耐障害性を向上させます。クライアントはジョブを登録後、ジョブIDを使って非同期に進捗確認と結果取得を行います。
+- **ストリーミングモード**: Server-Sent Events (SSE)形式でリアルタイムにテキストを配信
+- **非ストリーミングモード**: 完全な応答を一度に返す従来型のレスポンス
 
-本実装では、架空のキャラクター生成をユースケースとして採用しています。ユーザーは複数のキャラクター生成リクエスト（性別、年齢、性格特性など）をバッチで投入し、バックグラウンドワーカーが各プロバイダーのBatch APIを呼び出して処理を実行します。
-
-### 対応プロバイダー
-
-| プロバイダー | モデル | Batch API方式 |
-|------------|--------|---------------|
-| OpenAI | gpt-5.5, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.1, gpt-5, gpt-5-mini, gpt-5-nano | JSONLファイルアップロード → バッチ作成 → ポーリング → 結果JSONL取得 |
-| Gemini | gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite, gemini-3.5-flash, gemini-3.1-flash-lite | インラインリクエスト → バッチ作成 → ポーリング → インライン結果取得 |
-| Anthropic | claude-opus-4-7, claude-sonnet-4-6, claude-haiku-4-5 | リクエストリスト → バッチ作成 → ポーリング → 結果ストリーミング取得 |
+ストリーミング機能により、ユーザーは完全な応答を待つことなく、生成されたテキストを逐次的に受け取ることができ、より良いユーザーエクスペリエンスを提供できます。一方、非ストリーミングモードは、完全な応答が必要な場合や、シンプルな実装が求められる場合に適しています。
 
 ## 機能
 
-- **マルチプロバイダー対応**: OpenAI、Gemini、Anthropicの3つのBatch APIに対応
-- **バッチジョブ登録API**: 複数のキャラクター生成リクエストを一括登録し、即座にジョブIDを返却
-- **ジョブステータス追跡**: リアルタイムで処理進捗（完了数、失敗数、保留数）を確認
-- **結果取得API**: 完了したジョブの結果を取得
-- **バックグラウンドワーカー**: Redisキューを監視し、各プロバイダーのBatch APIでジョブを並行処理
-- **水平スケーリング**: ワーカーを複数起動することでスループットを向上
-- **自動クリーンアップ**: TTL（24時間）によりジョブデータを自動削除
+- **ストリーミングレスポンス**: Server-Sent Events (SSE)形式でリアルタイムにテキストを配信
+- **非ストリーミングレスポンス**: 完全な応答を一度に返すJSONレスポンス
+- **FastAPI統合**: 高性能な非同期WebフレームワークによるAPI実装
+- **OpenAI API対応**: GPT-5.4-mini, GPT-5.4などのOpenAIモデルをサポート
+- **複数のエンドポイント**: ストリーミング (`/stream`) と非ストリーミング (`/completions`) を提供
+- **非同期処理**: async/awaitパターンによる効率的な処理
+- **CORS対応**: クロスオリジンリクエストのサポート
+- **エラーハンドリング**: 堅牢なエラー処理とロギング
+- **統合テストクライアント**: ストリーミング・非ストリーミング両方をサポートするCLIツール
+- **包括的なテスト**: pytestによるユニットテスト・統合テスト
 
 ## プロジェクト構成
 
 ### アーキテクチャ
 
+このプロジェクトは、以下の4層アーキテクチャで構成されています：
+
 ```
-+------------------+
-|     Clients      |
-+--------+---------+
-         |
-         +------------------+----------------------+
-         |                  |                      |
-+--------v--------+  +------v-------+  +-----------v----------+
-|   LLM Server    |  | Batch Server |  |    Batch Worker      |
-|   (Port 8000)   |  | (Port 8001)  |  |    (Background)      |
-|                 |  |              |  |                      |
-| POST /generate  |  | POST /submit |  | - ジョブ取得ループ     |
-|                 |  | GET /status  |  | - ポーリングループ     |
-|                 |  | GET /result  |  | - プロバイダー別送信   |
-+--------+--------+  +------+-------+  +-----------+----------+
-         |                  |                      |
-         +------------------+----------+-----------+
-                            |          |
-                     +------v------+   |
-                     |    Redis    |   |
-                     | (Port 6379) |   |
-                     |             |   |
-                     | - ジョブキュー |   |
-                     | - ステータス  |   |
-                     | - 結果       |   |
-                     +-------------+   |
-                                       |
-              +------------------------+------------------------+
-              |                        |                        |
-      +-------v-------+       +-------v-------+       +--------v------+
-      |  OpenAI API   |       |  Gemini API   |       | Anthropic API |
-      | Batch API     |       | Batch API     |       | Batch API     |
-      +---------------+       +---------------+       +---------------+
+┌─────────────────────────────────────────┐
+│         API Layer (api/)                │
+│  - FastAPI アプリケーション              │
+│  - エンドポイント定義                    │
+│  - リクエスト/レスポンスハンドリング     │
+└─────────────────┬───────────────────────┘
+                  │
+┌─────────────────▼───────────────────────┐
+│      Service Layer (service/)           │
+│  - ストリーミングロジック                │
+│  - 非同期ジェネレータ実装                │
+└─────────────────┬───────────────────────┘
+                  │
+┌─────────────────▼───────────────────────┐
+│      Business Logic Layer               │
+│  - LLMクライアント管理 (client/)        │
+│  - データモデル (model/)                │
+└─────────────────┬───────────────────────┘
+                  │
+┌─────────────────▼───────────────────────┐
+│      Infrastructure Layer               │
+│  - 設定管理 (config.py)                 │
+│  - ログ管理 (logger.py)                 │
+│  - 外部API (OpenAI, Gemini)             │
+└─────────────────────────────────────────┘
 ```
 
 ## 使い方
@@ -70,187 +61,211 @@
 ### 環境構成
 
 - **Python**: 3.13.2以上
-- **Redis**: 7.0以上
 - **依存ライブラリ**:
-  - `redis>=7.0.0`
-  - `fastapi>=0.115.0`
-  - `uvicorn>=0.30.0`
-  - `pydantic>=2.10.0`
-  - `google-genai>=1.0.0`
-  - `openai>=2.4.0`
-  - `anthropic>=0.74.1`
+  - fastapi>=0.119.0
+  - uvicorn>=0.37.0
+  - aiohttp>=3.11.17
+  - google-genai>=1.45.0
+  - openai>=2.4.0
+  - pydantic>=2.12.2
+  - python-dotenv>=1.1.1
+  - click>=8.3.0
 
 ### セットアップ
 
-1. **環境変数の設定**
+1. **環境変数ファイルの作成**
 
 ```bash
-cp .env.example .env
+# .envrc.exampleをコピーして.envrcを作成
 cp .envrc.example .envrc
-# .envファイルを編集してAPIキーを設定
-```
 
-```bash
-# .env
+# エディタで.envrcを開き、APIキーを設定
+# .envrc
 OPENAI_API_KEY=<your_openai_api_key_here>
-GEMINI_API_KEY=<your_gemini_api_key_here>
-ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
 ```
-
-> **注意**: Docker Composeは`.env`ファイルから環境変数を読み込みます。`.envrc`はdirenv用（ローカル開発の便利ツール）で、中身は`dotenv`コマンドのみです。`.env`ファイルにAPIキーを設定すれば、ローカル実行・Docker実行の両方で動作します。
 
 2. **依存関係のインストール**
 
 ```bash
+# uvを使用
 uv sync
 ```
 
-### 実行方法
+### 使用方法、実行方法
 
-#### Docker Composeを使用する場合
+#### 1. サーバーの起動
 
 ```bash
-# サービスを起動
-make docker-up
+# デフォルト設定で起動（127.0.0.1:8000）
+$ uv run python run_server.py
 
-# ログを確認
-make docker-logs
+# カスタムホストとポートを指定
+$ uv run python run_server.py --host 0.0.0.0 --port 8080
 
-# サービスを停止
-make docker-down
+# 開発モード（自動リロード有効）
+$ uv run python run_server.py --reload
 
-# 利用可能なMakeコマンド一覧
-make help
-Docker Commands:
-  make docker-build    - Build Docker image
-  make docker-up       - Start services with docker-compose
-  make docker-down     - Stop services
-  make docker-logs     - View service logs
-  make docker-restart  - Restart services (down + up)
+$ uv run python run_server.py --help
+Usage: run_server.py [OPTIONS]
+
+  FastAPI サーバーを起動します
+
+Options:
+  --host TEXT     ホストアドレス
+  --port INTEGER  ポート番号
+  --reload        自動リロード機能を有効化
+  --help          Show this message and exit.
 ```
 
-### APIエンドポイント
-
-| エンドポイント | メソッド | 説明 |
-|--------------|---------|------|
-| `/health` | GET | ヘルスチェック |
-| `/batch/submit` | POST | バッチジョブを登録 |
-| `/batch/{job_id}/status` | GET | ジョブステータスを取得 |
-| `/batch/{job_id}/result` | GET | ジョブ結果を取得 |
-| `/batch/queue/stats` | GET | キュー統計を取得 |
-| `/batch/jobs` | GET | 全ジョブIDを取得 |
-
-### 使用例
-
-```bash
-# Dockerイメージのビルド
-make docker-build
-
-# サービスを起動
-make docker-up
+**出力例**:
+```
+Starting LLM Streaming API server on 127.0.0.1:8000
+Press CTRL+C to quit
+INFO:     Started server process [12345]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 ```
 
-#### OpenAI Batch API
+#### 2. テストクライアントの使用
+
+別のターミナルでテストクライアントを実行します：
+
+##### ストリーミングモード（デフォルト）
 
 ```bash
-# バッチジョブを登録（OpenAI）
-curl -X POST http://localhost:8001/batch/submit \
+$ uv run python example_client.py --help                                                  
+Usage: example_client.py [OPTIONS]
+
+  LLM APIのサンプルクライアント
+
+Options:
+  --mode [stream|completion]  リクエストモード: stream（ストリーミング）またはcompletion（非ストリーミング）
+  --url TEXT                  APIエンドポイントのURL（未指定の場合はmodeに応じて自動設定）
+  --prompt TEXT               LLMに送信するプロンプト  [required]
+  --model TEXT                使用するモデル名（オプション）
+  --help                      Show this message and exit.
+
+# 基本的な使用方法
+$ uv run python example_client.py --prompt "Pythonの非同期プログラミングについて説明してください"
+
+# モデルを明示的に指定
+$ uv run python example_client.py --model gpt-5-mini --prompt "AIの未来について教えて"
+```
+
+##### 非ストリーミングモード
+
+```bash
+# 非ストリーミングモードを使用
+$ uv run python example_client.py --mode completion --prompt "Pythonについて教えてください"
+
+# カスタムモデルを指定
+$ uv run python example_client.py --mode completion --model gpt-5-mini --prompt "こんにちは"
+```
+
+#### 3. APIの直接利用
+
+##### curlを使用
+
+**ストリーミングエンドポイント**:
+
+```bash
+curl -X POST http://127.0.0.1:8000/stream \
   -H "Content-Type: application/json" \
   -d '{
+    "prompt": "Pythonについて教えてください",
+    "provider": "openai"
+  }'
+
+# カスタムモデルを指定
+curl -X POST http://127.0.0.1:8000/stream \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "こんにちは",
     "provider": "openai",
-    "model": "gpt-5.4-mini",
-    "character_requests": [
-      {"gender": "female", "age": 25, "additional_instructions": "cheerful"},
-      {"gender": "male", "age": 30, "additional_instructions": "intellectual"}
-    ]
+    "model": "gpt-5-mini"
   }'
 ```
 
-#### Gemini Batch API
+**非ストリーミングエンドポイント**:
 
 ```bash
-# バッチジョブを登録（Gemini）
-curl -X POST http://localhost:8001/batch/submit \
+curl -X POST http://127.0.0.1:8000/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "provider": "gemini",
-    "model": "gemini-2.5-flash",
-    "character_requests": [
-      {"gender": "female", "age": 25, "additional_instructions": "cheerful"},
-      {"gender": "male", "age": 30, "additional_instructions": "intellectual"}
-    ]
+    "prompt": "Pythonについて教えてください",
+    "provider": "openai"
   }'
-```
 
-#### Anthropic Batch API
-
-```bash
-# バッチジョブを登録（Anthropic）
-curl -X POST http://localhost:8001/batch/submit \
+# カスタムモデルを指定
+curl -X POST http://127.0.0.1:8000/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "provider": "anthropic",
-    "model": "claude-sonnet-4-6",
-    "character_requests": [
-      {"gender": "female", "age": 22, "additional_instructions": "brave warrior"},
-      {"gender": "male", "age": 35, "additional_instructions": "wise scholar"}
-    ]
+    "prompt": "こんにちは",
+    "provider": "openai",
+    "model": "gpt-5-mini"
   }'
 ```
-
-#### ジョブ管理
-
-```bash
-# ジョブステータスを取得
-curl http://localhost:8001/batch/{job_id}/status
-
-# ジョブ結果を取得
-curl http://localhost:8001/batch/{job_id}/result
-
-# キュー統計を取得
-curl http://localhost:8001/batch/queue/stats
-
-# 全ジョブIDを取得
-curl http://localhost:8001/batch/jobs
-```
-
-#### Swagger UI
-API: `http://localhost:8000/docs`
 
 ### 出力例
 
+#### ストリーミングモードの実行結果
+
 ```bash
-$ curl -X POST http://localhost:8001/batch/submit \
-  -H "Content-Type: application/json" \
-  -d '{
-    "provider": "openai",
-    "model": "gpt-5.4-mini",
-    "character_requests": [
-      {"gender": "male", "age": 30, "additional_instructions": "cheerful"}
-    ]
-  }'
+$ uv run python example_client.py --prompt "日本の未来について" 
 
-{"job_id":"7b3f25d3-b05c-4599-9902-627371352c3d","status":"pending","total_tasks":1,"submitted_at":1775269281.5831172}
+============================================================
+Provider: openai
+Prompt: 日本の未来について
+============================================================
 
-$ curl http://localhost:8001/batch/7b3f25d3-b05c-4599-9902-627371352c3d/status
+Response:
+------------------------------------------------------------
+日本の未来については、さまざまな側面から考えることができます。以下にいくつかの重要なポイントを挙げてみます。
 
-{"job_id":"7b3f25d3-b05c-4599-9902-627371352c3d","status":"completed","total_tasks":1,"completed_tasks":1,"failed_tasks":0,"pending_tasks":0,"submitted_at":1775269281.5831172,"started_at":1775269281.6482563,"completed_at":1775269361.8253925}
+1. **高齢化社会**: 日本は世界でも有数の高齢化が進んでいる国です。これにより、福祉制度や医療制度の見直しが必要となり、労働力不足も懸念されています。高齢者が活躍できる社会を構築するための施策が求められています。
 
-$ curl http://localhost:8001/batch/7b3f25d3-b05c-4599-9902-627371352c3d/result
+2. **経済の変化**: テクノロジーの発展やグローバル化により、日本の産業構造は大きく変化しています。特にAIやロボティクスの導入が進むことで、効率化や新たなビジネスモデルの創出が期待されています。
 
-{"job_id":"7b3f25d3-b05c-4599-9902-627371352c3d","status":"completed","provider":"openai","model":"gpt-5.4-mini","tasks":[{"task_index":0,"status":"completed","character":{"first_name":"Ren","last_name":"Mizuhara","gender":"male","age":30,"personalities":[{"short_personality":"cheerful, resilient, perceptive","description":"Ren maintains a bright, uplifting demeanor even in difficult situations..."},{"short_personality":"kind, improvisational, curious","description":"He is naturally kind and tends to assume the best in people..."},{"short_personality":"optimistic, loyal, quietly determined","description":"Ren believes problems can be solved and people can change..."}]},"error":null,"processing_time_ms":80210.7150554657}],"submitted_at":1775269281.5853896,"completed_at":1775269361.8253925}
+3. **環境問題**: 環境問題への対応は日本にとって重要な課題です。再生可能エネルギーの導入や脱炭素化の取り組みが進められ、持続可能な社会の実現を目指しています。
 
-$ curl http://localhost:8001/batch/queue/stats
+4. **国際関係**: 地政学的な緊張が高まる中、日本の外交政策や安全保障戦略も重要です。周辺国との関係や国際的な協力が、一層重要になるでしょう。
 
-{"queue_name":"llm_batch_jobs","pending_jobs":0}
+5. **文化と社会**: 日本の伝統文化と現代文化の融合が進み、国際的な影響も受けながら新しい文化が生まれています。これにより、国内外からの観光客を惹きつける要素にもなっています。
+
+これらの課題や展望に対処するためには、政府、企業、市民が一体となって取り組むことが不可欠です。未来の日本は、これらの要素をどうバランスさせていくかにかかっ ています。
+------------------------------------------------------------
+Stream completed successfully!
 ```
 
-### Batch APIのジョブ状態
+#### 非ストリーミングモードの実行結果
 
-各プロバイダーのBatch APIは異なる状態遷移を持ちます：
+```bash
+$ uv run python example_client.py --mode completion --prompt "日本の未来について"          
 
-| プロバイダー | 処理中の状態 | 完了状態 | 失敗状態 |
-|------------|------------|---------|---------|
-| OpenAI | `validating`, `in_progress`, `finalizing` | `completed` | `failed`, `expired`, `cancelled` |
-| Gemini | `JOB_STATE_PENDING`, `JOB_STATE_RUNNING` | `JOB_STATE_SUCCEEDED` | `JOB_STATE_FAILED`, `JOB_STATE_CANCELLED`, `JOB_STATE_EXPIRED` |
-| Anthropic | `in_progress` | `ended` | — （結果内の各リクエスト単位で成功/失敗を判定） |
+============================================================
+Provider: openai
+Prompt: 日本の未来について
+============================================================
+
+Response:
+------------------------------------------------------------
+日本の未来について考える際、いくつかの重要な要素が浮かび上がります。以下は、そのいくつかの側面です。
+
+1. **高齢化社会と人口減少**: 日本は急速に高齢化が進んでおり、労働力の減少や社会保障制度への影響が懸念されています。この問題を解決するためには、移民政策の見直しや、AI・ロボット技術の導入が考えられます。
+
+2. **経済の変革**: 世界経済の変化に伴い、日本経済も新しいビジネスモデルや産業の育成が求められています。特にデジタル化やグリーン経済が進展する中で、企業の競争力を高めるための取り組みが重要です。
+
+3. **環境問題**: 環境への配慮がますます重要視される中、日本も脱炭素社会の実現に向けた努力が必要です。再生可能エネルギーの導入や、プラスチック削減などの取り組みが進められています。
+
+4. **国際関係と安全保障**: 地政学的な緊張が高まる中、日本はアジアの中での役割や、アメリカとの同盟関係を再評価する必要があります。また、地域の安全保障のために、協力や対話を重視した外交が求められています。
+
+5. **文化と社会の多様性**: グローバル化が進む中で、日本の文化や社会も多様性を受け入れ、多くの異なる価値観を尊重する姿勢が必要です。これは、国際理解や共生社会の実現につながります。
+
+日本の未来は、これらの課題にどのように取り組むかによって大きく変わるでしょう。政府や企業、そして市民一人ひとりが積極的に関与することで、より良い未来を築い ていくことが可能です。
+
+------------------------------------------------------------
+Completion request successful!
+Model used: gpt-5.4-mini
+Provider: openai
+```

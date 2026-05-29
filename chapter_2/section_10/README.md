@@ -1,185 +1,141 @@
-# Chapter 2 Section 10: プロンプトの単体テスト
+# Chapter 2 Section 11: プロンプトパフォーマンスのプロファイリング
 
 ## 概要
 
-このプロジェクトは、**プロンプトの単体テスト** の実装を示すサンプルコードです。LLM（大規模言語モデル）に与えるプロンプトの振る舞いを体系的に検証し、品質と安定性を継続的に保証するための設計プラクティスを実践します。
+本プロジェクトは、LLMへのプロンプト実行を定量的に計測・分析し、品質、コスト、応答速度の最適化を科学的に実現するプロファイリングシステムの実装例です。
 
-プロンプトの変更がシステム全体の出力に与える影響を自動的に検証する仕組みを導入することで、意図しない品質劣化（リグレッション）を早期に検出し、LLMシステムの信頼性を高めることができます。**LLM-as-a-Judge** パターンを活用し、別のLLMに出力品質を評価させることで、高度な品質検証を実現しています。
+従来の「勘と経験」に頼った感覚的なプロンプト調整から脱却し、データドリブンな改善サイクルを確立することで、プロンプトエンジニアリングを工学的な営みへと昇華させます。各プロンプトの実行に伴うメトリクス（レイテンシ、トークン使用量、コスト、品質スコア）を収集し、時系列分析や比較評価を通じてボトルネックの特定と継続的な最適化を可能にします。
 
-キャラクター生成のユースケースを通じて、プロンプトの構造検証、出力品質評価、リグレッション検出といった実践的なテスト手法を学ぶことができます。
+本実装では、キャラクター生成タスクを題材に、3層アーキテクチャ（収集層・分析層・可視化層）によるプロファイリングシステムを構築しています。生成されたキャラクターはLLM-as-a-Judgeによって品質評価され、その結果もプロファイリングデータとして統合されます。
 
 ## 機能
 
-### コアの機能
-
-- **プロンプトユニットテスト**: pytestベースの体系的なプロンプト品質検証
-- **LLM-as-a-Judge**: 別のLLMを用いた自動品質評価システム
-- **構造化出力**: PydanticモデルによるAPI応答形式の型安全性保証
-- **マルチプロバイダー対応**: OpenAI、Google Gemini、Anthropic APIの3つのプロバイダーをサポート
-- **品質スコアリング**: 5段階評価による定量的な品質測定
-
-### テスト機能
-
-- **構造検証テスト**: プロンプトが必須フィールドを含むことを確認
-- **品質閾値テスト**: 生成結果が最低品質基準を満たすことを保証
-- **リグレッション検出テスト**: プロンプト変更による品質劣化を検出
-- **代表的入力テスト**: 3-5個の重要なユースケースをカバー
-- **カスタム評価基準**: ドメイン固有の要件に対応した評価
-
-### その他の機能
-
-- **非同期処理**: async/awaitパターンによる効率的なAPI呼び出し
-- **CLIインターフェース**: Clickライブラリによる柔軟なコマンドラインツール
-- **環境変数管理**: python-dotenvによる安全なAPIキー管理
-- **詳細なログ出力**: 実行状況の可視化
-- **JSON出力**: 生成結果と評価結果をJSON形式で保存
+- **マルチプロバイダー対応**: OpenAI、Google Gemini、Anthropic の3つのLLMプロバイダーをサポート
+- **パフォーマンスプロファイリング**: リクエストごとのレイテンシ、トークン使用量、推定コストを自動計測
+- **LLM-as-a-Judge統合**: 生成結果の品質を自動評価し、品質スコアをメトリクスに統合
+- **異常検出とアラート**: 設定可能な閾値に基づく警告・クリティカルアラートの自動生成
+- **多角的分析**: プロンプト別、モデル別、プロバイダー別、時系列での集計と比較
+- **複数形式でのレポート出力**: JSON、HTML、テキスト形式でのレポート生成
 
 ## プロジェクト構成
 
 ### アーキテクチャ
 
-このプロジェクトは、以下の3層アーキテクチャ + テスト層で構成されています：
-
 ```
-┌─────────────────────────────────────────────────┐
-│         CLI Layer (main.py)                     │
-│   - コマンドライン引数解析                      │
-│   - 生成・評価ワークフロー制御                  │
-│   - 出力ディレクトリ管理                        │
-└─────────────────┬───────────────────────────────┘
-                  │
-┌─────────────────▼───────────────────────────────┐
-│      Business Logic Layer                       │
-│  - プロンプト生成 (prompt.py)                   │
-│  - Judge評価プロンプト (llm_as_a_judge_prompt) │
-│  - LLMクライアント管理 (llm_client.py)         │
-│  - リクエスト処理 (request_llm.py)             │
-│  - Judge評価サービス (llm_as_a_judge.py)       │
-│  - データモデル (model.py, judge_model.py)     │
-└─────────────────┬───────────────────────────────┘
-                  │
-┌─────────────────▼───────────────────────────────┐
-│      Infrastructure Layer                       │
-│  - 設定管理 (config.py)                         │
-│  - ログ管理 (logger.py)                         │
-│  - 外部API (OpenAI, Gemini, Anthropic)          │
-└─────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────┐
-│      Test Layer (tests/)                        │
-│  - プロンプト構造検証テスト                     │
-│  - 出力品質テスト                               │
-│  - リグレッション検出テスト                     │
-│  - 代表的入力テスト                             │
-│  - Judge機能テスト                              │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              CLIエントリーポイント                           │
+│                              (src/main.py)                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                    ┌─────────────────┴─────────────────┐
+                    ▼                                   ▼
+        ┌─────────────────────┐             ┌─────────────────────┐
+        │   標準リクエスト     │             │  プロファイリング付き │
+        │  (request_llm.py)   │             │ (profiled_request_  │
+        │                     │             │      llm.py)        │
+        └─────────────────────┘             └─────────────────────┘
+                    │                                   │
+                    │                       ┌───────────┴───────────┐
+                    │                       ▼                       ▼
+                    │           ┌─────────────────────┐   ┌─────────────────┐
+                    │           │   【収集層】         │   │                 │
+                    │           │  PromptProfiler     │   │  LLM-as-a-Judge │
+                    │           │ (prompt_profiler.py)│   │                 │
+                    │           └─────────────────────┘   └─────────────────┘
+                    │                       │
+                    │                       ▼
+                    │           ┌─────────────────────┐
+                    │           │   【分析層】         │
+                    │           │  MetricsAnalyzer    │
+                    │           │(metrics_analyzer.py)│
+                    │           └─────────────────────┘
+                    │                       │
+                    │                       ▼
+                    │           ┌─────────────────────┐
+                    │           │   【可視化層】       │
+                    │           │  ProfilerReporter   │
+                    │           │(profiler_reporter.py)│
+                    │           └─────────────────────┘
+                    │                       │
+                    ▼                       ▼
+        ┌─────────────────────────────────────────────────────────────────────┐
+        │                         LLMクライアント                              │
+        │                      (llm_client.py)                                │
+        │  ┌─────────────┐   ┌─────────────┐   ┌─────────────────────────┐   │
+        │  │   OpenAI    │   │   Gemini    │   │       Anthropic         │   │
+        │  └─────────────┘   └─────────────┘   └─────────────────────────┘   │
+        └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ## 使い方
 
 ### 環境構成
 
-- **Python**: 3.13.2以上
-- **依存ライブラリ**:
-  - click>=8.3.0
-  - google-genai>=1.45.0
-  - openai>=2.4.0
-  - pydantic>=2.12.2
-  - python-dotenv>=1.1.1
-- **開発依存ライブラリ**:
-  - pytest>=8.4.2
-  - pytest-asyncio>=1.2.0
-  - pytest-mock>=3.15.1
+- Python: 3.13.2以上
+- 依存ライブラリ:
+  - `anthropic>=0.74.1`
+  - `click>=8.3.0`
+  - `google-genai>=1.45.0`
+  - `openai>=2.4.0`
+  - `pydantic>=2.12.2`
+  - `python-dotenv>=1.1.1`
 
 ### セットアップ
 
-1. **環境変数ファイルの作成**
+1. 環境変数を設定:
 
 ```bash
-# .envrc.exampleをコピーして.envrcを作成
 cp .envrc.example .envrc
+```
 
-# エディタで.envrcを開き、APIキーを設定
-# .envrc
+`.envrc` を編集し、各LLMプロバイダーのAPIキーを設定:
+
+```bash
 OPENAI_API_KEY=<your_openai_api_key_here>
 GEMINI_API_KEY=<your_gemini_api_key_here>
 ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
 ```
 
-2. **依存関係のインストール**
+2. 依存関係のインストール:
 
 ```bash
-# uvを使用する
-uv sync --all-packages
+# uvを使用
+uv sync
 ```
 
 ### 使用方法、実行方法
 
-#### メインプログラムの実行
-
-キャラクター生成とLLM-as-a-Judge評価を実行します。
-
-##### 基本的な使い方
+#### 基本的な使い方
 
 ```bash
-# Gemini APIを使用
+# Gemini でキャラクター生成（プロファイリングなし）
 uv run python -m src.main \
-    --llm-provider GEMINI \
-    --model GEMINI_2_5_FLASH \
-    --gender FEMALE \
-    --age 25
+  --gender FEMALE \
+  --age 25 \
+  --llm-provider GEMINI \
+  --model GEMINI_2_5_FLASH
 
-# OpenAI APIを使用
+# OpenAI でキャラクター生成（プロファイリング有効）
 uv run python -m src.main \
-    --llm-provider OPENAI \
-    --model GPT_5_MINI \
-    --gender MALE \
-    --age 30
+  --gender MALE \
+  --age 30 \
+  --llm-provider OPENAI \
+  --model GPT_5_4_MINI \
+  --enable-profiling
 
-# Anthropic APIを使用
+# 異なるプロバイダーで生成と評価を分離
 uv run python -m src.main \
-    --llm-provider ANTHROPIC \
-    --model CLAUDE_SONNET_4_6 \
-    --gender FEMALE \
-    --age 28
+  --gender FEMALE \
+  --age 22 \
+  --llm-provider GEMINI \
+  --model GEMINI_2_5_FLASH \
+  --judge-provider ANTHROPIC \
+  --judge-model CLAUDE_SONNET_4_6 \
+  --enable-profiling \
+  --profiler-report-format html
 ```
 
-##### 追加指示を指定
-
-```bash
-uv run python -m src.main \
-    -lp OPENAI \
-    -m GPT_5_MINI \
-    -g FEMALE \
-    -a 25 \
-    --additional-instructions "Generate a wizard from a fantasy world."
-```
-
-##### 異なるモデルで評価
-
-```bash
-# GPT_5_MINIで生成し、CLAUDE_SONNET_4_6で評価
-uv run python -m src.main \
-    -lp OPENAI \
-    -m GPT_5_MINI \
-    -g FEMALE \
-    -a 25 \
-    --judge-provider ANTHROPIC \
-    --judge-model CLAUDE_SONNET_4_6
-```
-
-##### 出力先の指定
-
-```bash
-uv run python -m src.main \
-    -lp GEMINI \
-    -m GEMINI_2_5_FLASH \
-    -g MALE \
-    -a 40 \
-    --output-directory ./outputs
-```
-
-##### ヘルプの表示
+#### CLIオプション一覧
 
 ```bash
 $ uv run python -m src.main --help
@@ -195,183 +151,71 @@ Options:
                                   generation.
   -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use.  [required]
-  -m, --model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_SONNET_4_6|CLAUDE_OPUS_4_7]
+  -m, --model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_7|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
                                   The model to use for the request.
                                   [required]
   -od, --output-directory PATH    The directory to save output files.
   -jp, --judge-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use for judgment
                                   (defaults to same as generation provider).
-  -jm, --judge-model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_SONNET_4_6|CLAUDE_OPUS_4_7]
+  -jm, --judge-model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_7|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
                                   The model to use for judgment (defaults to
                                   same as generation model).
+  -p, --enable-profiling          Enable performance profiling for the
+                                  request.
+  -prf, --profiler-report-format [json|html|txt]
+                                  Format for the profiler report.
   --help                          Show this message and exit.
-```
-
-#### テストの実行
-
-プロンプトのユニットテストを実行します：
-
-##### すべてのテストを実行
-
-```bash
-# pytestで全テストを実行
-uv run pytest
-
-# より詳細な出力
-uv run pytest -v
-
-# ローカル変数を表示
-uv run pytest -vl
-```
-
-##### 特定のテストクラスを実行
-
-```bash
-# プロンプト構造検証テストのみ
-uv run pytest tests/test_prompt_unit_testing.py::TestCharacterPromptStructure -v
-
-# 品質テストのみ
-uv run pytest tests/test_prompt_unit_testing.py::TestCharacterOutputQuality -v
-
-# リグレッション検出テストのみ
-uv run pytest tests/test_prompt_unit_testing.py::TestRegressionDetection -v
-```
-
-##### 特定のテスト関数を実行
-
-```bash
-# 必須フィールド検証テストのみ
-uv run pytest tests/test_prompt_unit_testing.py::TestCharacterPromptStructure::test_prompt_includes_required_fields -v
-```
-
-##### マーカーでフィルタリング
-
-```bash
-# 非同期テストのみ
-uv run pytest -m asyncio -v
-
-# 統合テスト（スキップされているものも実行）
-uv run pytest -m integration -v
-
-# スモークテストのみ
-uv run pytest -m smoke -v
-```
-
-##### テストをスキップせずに実行
-
-```bash
-# API呼び出しを伴うテストも含めて実行（コストに注意）
-uv run pytest -v -k "not test_full_generation" --tb=short
-```
-
-##### テスト結果のサマリー
-
-```bash
-# すべてのテスト結果のサマリーを表示
-uv run pytest -ra
 ```
 
 ### 出力例
 
-#### キャラクター生成結果
+#### プロファイリングサマリー（ターミナル出力）
 
-実行すると、以下のような構造化されたJSONファイルが生成されます：
-
-**ファイル名**: `outputs/abc123_gemini_character.json`
-
-```json
-{
-    "first_name": "葵",
-    "last_name": "山本",
-    "gender": "female",
-    "age": 25,
-    "personalities": [
-        {
-            "short_personality": "細部にこだわる完璧主義者",
-            "description": "常に物事を最良の形で仕上げようと努力し、妥協を許しません。些細なミスも見逃さず、プロジェクトや日常生活において、並外れた注意力を発揮します。この完璧主義は、時には自己への厳しい要求となり、ストレスを感じることもありますが、その結果として生まれる品質は高く評価されています。"
-        },
-        {
-            "short_personality": "内向的で思慮深い",
-            "description": "人前で目立つことを好まず、深い思考に没頭する時間を大切にします。初対面の人には控えめに映るかもしれませんが、一度心を許した相手には、独自の視点から深い洞察を共有し、真摯な意見を述べます。行動する前によく考え、リスクと可能性を慎重に分析するタイプです。"
-        },
-        {
-            "short_personality": "控えめながらも揺るぎない芯の強さ",
-            "description": "普段は穏やかで協調性がありますが、自身の信念や倫理観に関わることに関しては、決して譲らない強い意志を持っています。不当な扱いや間違いに対しては、言葉を選びながらも毅然とした態度で臨み、正しいと思うことのために行動を起こす勇気を持ち合わせています。"
-        }
-    ]
-}
-```
-
-#### Judge評価結果
-
-**ファイル名**: `outputs/abc123_gemini_judge.json`
-
-```json
-{
-    "evaluations": [
-        {
-            "reasoning": "リクエストパラメータ（性別、年齢）に忠実に従っており、生成されたキャラクターの性格描写も矛盾なく、ユニークで興味深いものとなっているため、非常に正確であると評価できます。",
-            "criterion_name": "accuracy",
-            "score": 5
-        },
-        {
-            "reasoning": "質問で求められている「ユニークで興味深いフィクションのキャラクター」と「詳細な性格」の両方を十分に満たしており、必要な情報がすべて含まれています。",
-            "criterion_name": "comprehensiveness",
-            "score": 5
-        },
-        {
-            "reasoning": "回答はJSON形式で構造化されており、各性格の説明も簡潔かつ明瞭で、非常に理解しやすいです。不必要な専門用語も使われていません。",
-            "criterion_name": "clarity",
-            "score": 5
-        }
-    ],
-    "overall_score": 5.0,
-    "summary": "質問とリクエストパラメータに完全に合致し、ユニークで詳細なキャラクターが明瞭に生成されています。すべての評価軸において完璧な回答です。"
-}
-```
-
-#### 実行ログ例
-
-```
+```bash
 $ uv run python -m src.main \
-    --llm-provider GEMINI \
-    --model GEMINI_2_5_FLASH \
-    --gender FEMALE \
-    --age 25
-[2026-01-18 11:59:20,101] [INFO] [__main__] [main.py:106] [main] Character Generation Request:
+  --gender FEMALE \
+  --age 22 \
+  --llm-provider GEMINI \
+  --model GEMINI_2_5_FLASH \
+  --judge-provider ANTHROPIC \
+  --judge-model CLAUDE_SONNET_4_6 \
+  --enable-profiling \
+  --profiler-report-format html
+[2026-01-18 14:22:21,221] [INFO] [__main__] [main.py:126] [main] Character Generation Request:
 Gender: female
-Age: 25
+Age: 22
 Additional Instructions: 
 
 Generation LLM: gemini / gemini-2.5-flash
-Judge LLM: gemini / gemini-2.5-flash
+Judge LLM: anthropic / claude-sonnet-4-6
 Output directory: outputs
-[2026-01-18 11:59:20,101] [INFO] [src.service.request_llm] [request_llm.py:80] [request_with_judge] Generating prompt...
-[2026-01-18 11:59:20,101] [INFO] [src.service.request_llm] [request_llm.py:83] [request_with_judge] Generating character...
-[2026-01-18 11:59:22,784] [INFO] [src.service.request_llm] [request_llm.py:42] [request_gemini] sdk_http_response=HttpResponse(
+[2026-01-18 14:22:21,221] [INFO] [__main__] [main.py:155] [main] Performance profiling is enabled.
+[2026-01-18 14:22:21,221] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:146] [profiled_request_with_judge] Generating prompt...
+[2026-01-18 14:22:21,221] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:149] [profiled_request_with_judge] Generating character...
+[2026-01-18 14:22:23,881] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:94] [profiled_request_gemini] sdk_http_response=HttpResponse(
   headers=<dict len=11>
 ) candidates=[Candidate(
   content=Content(
     parts=[
       Part(
         text="""{
-  "first_name": "エリカ",
-  "last_name": "佐藤",
+  "first_name": "Akari",
+  "last_name": "Sato",
   "gender": "female",
-  "age": 25,
+  "age": 22,
   "personalities": [
     {
-      "short_personality": "好奇心旺盛",
-      "description": "常に新しい知識や経験を求めている。見慣れない場所を探索したり、読んだことのないジャンルの本を読んだりすることに喜びを感じる。既成概念 にとらわれず、様々な視点から物事を考察しようとする。"
+      "short_personality": "Curious",
+      "description": "Akari possesses an insatiable curiosity, always questioning the 'how' and 'why' of the world around her. This drives her to constantly seek out new information, learn diverse skills, and explore unfamiliar places, often getting lost in research or fascinating documentaries."
     },
     {
-      "short_personality": "直感的",
-      "description": "論理よりも自身の直感や感情に基づいて意思決定を行うことが多い。他人の微細な感情の動きや場の雰囲気を敏感に察知し、それらを判断の材料に する。時として大胆な行動に出るが、それが良い結果をもたらすこともある。"
+      "short_personality": "Resourceful",
+      "description": "When faced with a challenge, Akari rarely gives up. She's incredibly resourceful, capable of improvising solutions with whatever tools are at hand and thinking outside the box. This trait makes her an excellent problem-solver in both mundane and extraordinary situations."
     },
     {
-      "short_personality": "内省的",
-      "description": "物事を深く考えるタイプで、自分の感情や行動、周囲の状況について一人でじっくりと向き合う時間を大切にする。そのため、時には人との交流よ りも、内なる世界との対話を優先する傾向がある。思考の過程で得た洞察は、彼女の芸術的な表現の源となる。"
+      "short_personality": "Reserved",
+      "description": "Despite her adventurous spirit, Akari tends to be reserved and somewhat introspective, especially in new social settings. She prefers to observe and listen before contributing, and while she values deep connections, she's not one to easily open up to just anyone. Her emotional world often runs deeper than she lets on."
     }
   ]
 }"""
@@ -381,15 +225,8 @@ Output directory: outputs
   ),
   finish_reason=<FinishReason.STOP: 'STOP'>,
   index=0
-)] create_time=None model_version='gemini-2.5-flash' prompt_feedback=None response_id='ikxsaf_qKJOk0-kP0YyCkAc' usage_metadata=GenerateContentResponseUsageMetadata(
-  cache_tokens_details=[
-    ModalityTokenCount(
-      modality=<MediaModality.TEXT: 'TEXT'>,
-      token_count=341
-    ),
-  ],
-  cached_content_token_count=341,
-  candidates_token_count=296,
+)] create_time=None model_version='gemini-2.5-flash' prompt_feedback=None response_id='D25saZXnLc6k0-kPj-LVuAg' usage_metadata=GenerateContentResponseUsageMetadata(
+  candidates_token_count=285,
   prompt_token_count=388,
   prompt_tokens_details=[
     ModalityTokenCount(
@@ -397,82 +234,125 @@ Output directory: outputs
       token_count=388
     ),
   ],
-  thoughts_token_count=38,
-  total_token_count=722
-) automatic_function_calling_history=[] parsed=CharacterResponse(first_name='エリカ', last_name='佐藤', gender=<Gender.FEMALE: 'female'>, age=25, personalities=[CharacterPersonality(short_personality='好奇心旺盛', description='常に新しい知識や経験を求めている。見慣れない場所を探索したり、読んだことのないジャ ンルの本を読んだりすることに喜びを感じる。既成概念にとらわれず、様々な視点から物事を考察しようとする。'), CharacterPersonality(short_personality='直感的', description='論理よりも自身の直感や感情に基づいて意思決定を行うことが多い。他人の微細な感情の動きや場の雰囲気を敏感に察知し、それらを判断の材料にする。時として大胆な行動に出るが、それが良い結果をもたらすこともある。'), CharacterPersonality(short_personality='内省的', description='物事を深く考えるタイプで、自 分の感情や行動、周囲の状況について一人でじっくりと向き合う時間を大切にする。そのため、時には人との交流よりも、内なる世界との対話を優先する傾向がある。思考 の過程で得た洞察は、彼女の芸術的な表現の源となる。')])
-[2026-01-18 11:59:22,785] [INFO] [src.service.request_llm] [request_llm.py:93] [request_with_judge] Character generation completed.
-[2026-01-18 11:59:22,785] [INFO] [src.service.request_llm] [request_llm.py:95] [request_with_judge] Evaluating character with LLM-as-a-Judge...
-[2026-01-18 11:59:22,785] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:51] [judge_with_gemini] Requesting judgment from Gemini model: gemini-2.5-flash
-[2026-01-18 11:59:28,394] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:65] [judge_with_gemini] Judgment completed. Overall score: 5.00/5.0
-[2026-01-18 11:59:28,394] [INFO] [src.service.request_llm] [request_llm.py:128] [request_with_judge] Evaluation completed. Overall score: 5.00/5.0
-[2026-01-18 11:59:28,394] [INFO] [__main__] [main.py:151] [main] Character file saved to outputs/432b62990b884887ae8b6c931f4bc7af_gemini_character.json
-[2026-01-18 11:59:28,394] [INFO] [__main__] [main.py:157] [main] Judge evaluation saved to outputs/432b62990b884887ae8b6c931f4bc7af_gemini_judge.json
-[2026-01-18 11:59:28,394] [INFO] [__main__] [main.py:158] [main] Overall evaluation score: 5.00/5.0
+  thoughts_token_count=47,
+  total_token_count=720
+) automatic_function_calling_history=[] parsed=CharacterResponse(first_name='Akari', last_name='Sato', gender=<Gender.FEMALE: 'female'>, age=22, personalities=[CharacterPersonality(short_personality='Curious', description="Akari possesses an insatiable curiosity, always questioning the 'how' and 'why' of the world around her. This drives her to constantly seek out new information, learn diverse skills, and explore unfamiliar places, often getting lost in research or fascinating documentaries."), CharacterPersonality(short_personality='Resourceful', description="When faced with a challenge, Akari rarely gives up. She's incredibly resourceful, capable of improvising solutions with whatever tools are at hand and thinking outside the box. This trait makes her an excellent problem-solver in both mundane and extraordinary situations."), CharacterPersonality(short_personality='Reserved', description="Despite her adventurous spirit, Akari tends to be reserved and somewhat introspective, especially in new social settings. She prefers to observe and listen before contributing, and while she values deep connections, she's not one to easily open up to just anyone. Her emotional world often runs deeper than she lets on.")])
+[2026-01-18 14:22:23,881] [INFO] [src.service.prompt_profiler] [prompt_profiler.py:222] [profile] Profiled request 6291bdc3-fe8f-4b2e-9a78-6f3e72fa56a0: prompt=character_generation_gemini, model=gemini-2.5-flash, latency=2660.23ms, tokens=673 (in=388, out=285), status=success
+[2026-01-18 14:22:23,881] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:176] [profiled_request_with_judge] Character generation completed.
+[2026-01-18 14:22:23,881] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:178] [profiled_request_with_judge] Evaluating character with LLM-as-a-Judge...
+[2026-01-18 14:22:23,882] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:77] [judge_with_anthropic] Requesting judgment from Anthropic model: claude-sonnet-4-6
+[2026-01-18 14:22:38,478] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:88] [judge_with_anthropic] Judgment completed. Overall score: 5.00/5.0
+[2026-01-18 14:22:38,479] [INFO] [src.service.prompt_profiler] [prompt_profiler.py:222] [profile] Profiled request b952c227-24ac-4a4b-b65d-64277f1c3833: prompt=llm_as_a_judge_anthropic, model=claude-sonnet-4-6, latency=14597.65ms, tokens=517 (in=311, out=206), status=success
+[2026-01-18 14:22:38,480] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:230] [profiled_request_with_judge] Evaluation completed. Overall score: 5.00/5.0
+[2026-01-18 14:22:38,480] [INFO] [__main__] [main.py:180] [main] Character file saved to outputs/8779952a32fb430486c8263df4f2baec_gemini_character.json
+[2026-01-18 14:22:38,480] [INFO] [__main__] [main.py:185] [main] Judge evaluation saved to outputs/8779952a32fb430486c8263df4f2baec_anthropic_judge.json
+[2026-01-18 14:22:38,480] [INFO] [__main__] [main.py:186] [main] Overall evaluation score: 5.00/5.0
+[2026-01-18 14:22:38,684] [INFO] [src.service.profiler_reporter] [profiler_reporter.py:515] [save_report] Report saved to: outputs/8779952a32fb430486c8263df4f2baec_profiler_report.html
+[2026-01-18 14:22:38,685] [INFO] [__main__] [main.py:209] [main] Profiler report saved to outputs/8779952a32fb430486c8263df4f2baec_profiler_report.html
+
+============================================================
+PERFORMANCE PROFILING SUMMARY
+============================================================
+Prompt Performance Summary
+==========================
+
+Report Generated: 2026-01-18T05:22:38.685756+00:00
+Sample Count: 3
+Time Range: 2026-01-18T05:22:23.881766+00:00 to 2026-01-18T05:22:38.480099+00:00
+
+LATENCY
+----------------------------------------
+  Mean:    6,639.37 ms
+  Median:  2,660.23 ms
+  P95:     14,597.65 ms
+  P99:     14,597.65 ms
+  Min:     2,660.23 ms
+  Max:     14,597.65 ms
+  Std Dev: 6,892.07 ms
+
+TOKEN USAGE
+----------------------------------------
+  Total Input:   1,087
+  Total Output:  776
+  Total:         1,863
+  Avg Input:     362.3
+  Avg Output:    258.7
+
+SUCCESS RATE
+----------------------------------------
+  Successful:  3
+  Failed:      0
+  Rate:        100.0%
+
+QUALITY SCORES
+----------------------------------------
+  Average: 5.00 / 5.0
+  Min:     5.00 / 5.0
+  Max:     5.00 / 5.0
+
+COST ESTIMATE
+----------------------------------------
+  Total: $0.0043
+  Avg:   $0.0014 per request
+
+Performance Alerts
+==================
+
+Report Generated: 2026-01-18T05:22:38.685903+00:00
+Total Alerts: 1
+
+CRITICAL ALERTS
+----------------------------------------
+  [2026-01-18T05:22:38] Critical latency detected: 14597.65ms exceeds 10000.0ms threshold
 ```
 
-#### テスト実行結果例
+#### 生成されたキャラクター（JSON）
 
-```bash
-$ uv run pytest -ra
-=================================================================== test session starts ===================================================================
-platform darwin -- Python 3.13.2, pytest-8.4.2, pluggy-1.6.0 -- /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/.venv/bin/python3
-cachedir: .pytest_cache
-rootdir: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_10
-configfile: pytest.ini
-testpaths: tests
-plugins: mock-3.15.1, asyncio-1.2.0, anyio-4.11.0, langsmith-0.4.37
-asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
-collected 34 items                                                                                                                                        
+```json
+{
+    "first_name": "エミ",
+    "last_name": "田中",
+    "gender": "female",
+    "age": 25,
+    "personalities": [
+        {
+            "short_personality": "好奇心旺盛",
+            "description": "常に新しい知識や経験を求めています。見知らぬ場所を探索したり、未読の本を読み漁ったり、異文化に触れることに深い喜びを感じます。その探求心は彼女を常に動かし続けます。"
+        },
+        {
+            "short_personality": "共感的",
+            "description": "他人の感情や視点に深く共感し、理解しようと努めます。困っている人を見ると放っておけず、常に思いやりを持って接します。そのため、周囲からは頼れる相談相手として慕われています。"
+        },
+        {
+            "short_personality": "決断力がある",
+            "description": "一度決めた目標に向かって、迷うことなく行動できます。困難な状況に直面しても、冷静に判断し、迅速かつ効果的な解決策を見出すことができます。この特性は、彼女を頼りになるリーダーにしています。"
+        }
+    ]
+}
+```
 
-tests/test_llm_as_a_judge.py::TestJudgeModels::test_judge_request_creation PASSED                                                                   [  2%]
-tests/test_llm_as_a_judge.py::TestJudgeModels::test_judge_request_with_context PASSED                                                               [  5%]
-tests/test_llm_as_a_judge.py::TestJudgeModels::test_judge_response_structure PASSED                                                                 [  8%]
-tests/test_llm_as_a_judge.py::TestJudgeModels::test_evaluation_score_range PASSED                                                                   [ 11%]
-tests/test_llm_as_a_judge.py::TestJudgeModels::test_judge_response_is_passing_above_threshold PASSED                                                [ 14%]
-tests/test_llm_as_a_judge.py::TestJudgeModels::test_judge_response_is_passing_below_threshold PASSED                                                [ 17%]
-tests/test_llm_as_a_judge.py::TestJudgeModels::test_judge_response_save_as_json PASSED                                                              [ 20%]
-tests/test_llm_as_a_judge.py::TestJudgePrompts::test_make_judge_prompt_structure PASSED                                                             [ 23%]
-tests/test_llm_as_a_judge.py::TestJudgePrompts::test_make_judge_prompt_contains_criteria PASSED                                                     [ 26%]
-tests/test_llm_as_a_judge.py::TestJudgePrompts::test_make_judge_prompt_includes_question PASSED                                                     [ 29%]
-tests/test_llm_as_a_judge.py::TestJudgePrompts::test_make_custom_judge_prompt PASSED                                                                [ 32%]
-tests/test_llm_as_a_judge.py::TestJudgeService::test_judge_with_openai PASSED                                                                       [ 35%]
-tests/test_llm_as_a_judge.py::TestJudgeService::test_judge_with_gemini PASSED                                                                       [ 38%]
-tests/test_llm_as_a_judge.py::TestJudgeService::test_judge_evaluation_criteria_count PASSED                                                         [ 41%]
-tests/test_llm_as_a_judge.py::TestJudgeService::test_judge_overall_score_calculation PASSED                                                         [ 44%]
-tests/test_prompt_unit_testing.py::TestCharacterPromptStructure::test_prompt_includes_required_fields PASSED                                        [ 47%]
-tests/test_prompt_unit_testing.py::TestCharacterPromptStructure::test_prompt_specifies_personality_count PASSED                                     [ 50%]
-tests/test_prompt_unit_testing.py::TestCharacterPromptStructure::test_prompt_enforces_json_format PASSED                                            [ 52%]
-tests/test_prompt_unit_testing.py::TestCharacterPromptStructure::test_prompt_includes_request_parameters PASSED                                     [ 55%]
-tests/test_prompt_unit_testing.py::TestCharacterOutputQuality::test_generated_character_meets_quality_threshold PASSED                              [ 58%]
-tests/test_prompt_unit_testing.py::TestCharacterOutputQuality::test_low_quality_output_detected PASSED                                              [ 61%]
-tests/test_prompt_unit_testing.py::TestRepresentativeInputs::test_young_female_fantasy_character PASSED                                             [ 64%]
-tests/test_prompt_unit_testing.py::TestRepresentativeInputs::test_elderly_male_realistic_character PASSED                                           [ 67%]
-tests/test_prompt_unit_testing.py::TestRepresentativeInputs::test_young_adult_no_additional_instructions PASSED                                     [ 70%]
-tests/test_prompt_unit_testing.py::TestCustomJudgeCriteria::test_fantasy_character_creativity PASSED                                                [ 73%]
-tests/test_prompt_unit_testing.py::TestRegressionDetection::test_output_contains_all_required_fields PASSED                                         [ 76%]
-tests/test_prompt_unit_testing.py::TestRegressionDetection::test_personality_traits_have_descriptions PASSED                                        [ 79%]
-tests/test_prompt_unit_testing.py::TestRegressionDetection::test_output_is_valid_json_serializable PASSED                                           [ 82%]
-tests/test_prompt_unit_testing.py::TestRegressionDetection::test_generated_names_are_not_empty PASSED                                               [ 85%]
-tests/test_prompt_unit_testing.py::TestRegressionDetection::test_age_matches_requested_age PASSED                                                   [ 88%]
-tests/test_prompt_unit_testing.py::TestRegressionDetection::test_gender_matches_requested_gender PASSED                                             [ 91%]
-tests/test_prompt_unit_testing.py::TestEndToEndWithJudge::test_full_generation_and_evaluation_workflow PASSED                                       [ 94%]
-tests/test_prompt_unit_testing.py::TestEndToEndWithJudge::test_elderly_male_realistic_character_workflow PASSED                                     [ 97%]
-tests/test_prompt_unit_testing.py::TestEndToEndWithJudge::test_minimal_instructions_workflow PASSED                                                 [100%]
+#### 評価結果（JSON）
 
-=================================================================== 34 passed in 49.96s ===================================================================
-/Users/shibuiyusuke/.pyenv/versions/3.13.2/lib/python3.13/asyncio/selector_events.py:869: ResourceWarning: unclosed transport <_SelectorSocketTransport closing fd=20>
-  _warn(f"unclosed transport {self!r}", ResourceWarning, source=self)
-ResourceWarning: Enable tracemalloc to get the object allocation traceback
-/Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/.venv/lib/python3.13/site-packages/_pytest/unraisableexception.py:33: ResourceWarning: unclosed <socket.socket fd=23, family=2, type=1, proto=6, laddr=('192.168.3.7', 57407)>
-  gc.collect()
-ResourceWarning: Enable tracemalloc to get the object allocation traceback
-/Users/shibuiyusuke/.pyenv/versions/3.13.2/lib/python3.13/asyncio/selector_events.py:869: ResourceWarning: unclosed transport <_SelectorSocketTransport closing fd=23>
-  _warn(f"unclosed transport {self!r}", ResourceWarning, source=self)
-ResourceWarning: Enable tracemalloc to get the object allocation traceback
-/Users/shibuiyusuke/.pyenv/versions/3.13.2/lib/python3.13/asyncio/selector_events.py:869: ResourceWarning: unclosed transport <_SelectorSocketTransport closing fd=21>
-  _warn(f"unclosed transport {self!r}", ResourceWarning, source=self)
-ResourceWarning: Enable tracemalloc to get the object allocation traceback
-/Users/shibuiyusuke/.pyenv/versions/3.13.2/lib/python3.13/asyncio/selector_events.py:869: ResourceWarning: unclosed transport <_SelectorSocketTransport closing fd=22>
-  _warn(f"unclosed transport {self!r}", ResourceWarning, source=self)
-ResourceWarning: Enable tracemalloc to get the object allocation traceback
+```json
+{
+    "evaluations": [
+        {
+            "reasoning": "リクエストパラメータ（Gender: female, Age: 25）に忠実に従っており、質問内容に沿ったキャラクター情報が正確に生成されています。誤った情報やハルシネーションは含まれていません。",
+            "criterion_name": "accuracy",
+            "score": 5
+        },
+        {
+            "reasoning": "質問で求められている「詳細な性格」が3つの異なる特性として具体的に記述されており、ユーザーの要求を完全に満たしています。リクエストパラメータもすべて網羅されています。",
+            "criterion_name": "comprehensiveness",
+            "score": 5
+        },
+        {
+            "reasoning": "JSON形式で構造化されており、非常に読みやすいです。各性格の説明も簡潔かつ明瞭で、専門用語もなく理解しやすい表現が使われています。",
+            "criterion_name": "clarity",
+            "score": 5
+        }
+    ],
+    "overall_score": 5.0,
+    "summary": "質問とリクエストパラメータに完全に合致し、詳細かつ明瞭なキャラクター情報が生成されています。非常に質の高い回答です。"
+}
 ```

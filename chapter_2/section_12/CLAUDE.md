@@ -1,282 +1,222 @@
-# 第10項　プロンプトを再利用するために分析する
+# LLM Script Generation and Execution
 
-## 概要
+## Overview
 
-LLMを活用したシステム開発において、優れたプロンプトは高品質な出力を生み出すための重要な資産です。このプラクティスは、システムで使用されたプロンプトとその結果を体系的に記録・評価し、有効なものを再利用可能な知見として蓄積する設計手法を解説します。成功したプロンプトをテンプレート化するだけでなく、失敗したプロンプトもアンチパターンとして記録し、将来の改善に活かします。このアプローチにより、プロンプトエンジニアリングの属人化を防ぎ、開発プロセス全体の効率と品質を継続的に向上させることが可能になります。
+This project demonstrates a practice where LLM generates Python scripts to handle tasks that LLMs struggle with (numerical calculations, complex data processing) and executes them in a sandboxed environment. Instead of asking the LLM to compute results directly, the system has the LLM generate extraction scripts, executes them safely, and uses the deterministic output.
 
-本プロジェクトでは、キャラクター生成を具体例として、プロンプト管理システムの実装を示します。RPGゲーム開発における架空のシナリオを想定し、キャラクター生成プロンプトのログ記録、評価、テンプレート化、そして再利用までの一連のワークフローを実装しています。
+The application takes documents (contracts, reports, etc.) as input, generates Python scripts to extract document structure, and outputs results in JSON format. If script execution fails, the system uses LLM-based self-correction to automatically fix and retry. Additionally, LLM-as-a-Judge validates extraction quality and triggers re-correction when scores are low.
 
-## 解決したい課題
+## Architecture
 
-LLMアプリケーションの品質はプロンプトに大きく依存しますが、その設計プロセスは試行錯誤に頼ることが多く、非効率になりがちです。一度限りの成功や失敗が、将来に活かされることなく忘れ去られてしまうケースは少なくありません。このような状況は、開発コストの増大やプロジェクトの遅延に直結する深刻な課題です。
-
-例えば、ある開発チームでは、特定のエンジニアが複雑な金融レポートからリスク要因を抽出するタスクにおいて、非常に効果的なプロンプトを発見しました。しかし、その知見は個人のローカル環境に保存されているだけで、チーム全体に共有されませんでした。結果として、他のメンバーは同じ課題に対してゼロから試行錯誤を繰り返し、チーム全体の生産性が著しく低下してしまいました。個人の発見が組織の資産にならないことは、大きな損失です。
-
-また、AIエージェントを活用した在庫最適化システムでは、より深刻な効率性の問題が発生していました。エージェントが需要予測のために自己生成するプロンプトの多くが失敗し、無駄なAPIコールとコンピューティングリソースを消費していました。過去の失敗パターンが記録されていなかったため、エージェントは毎回同じような失敗を繰り返し、月間のAPI利用料が当初予算の3倍に膨れ上がってしまいました。これは、成功体験がシステムにフィードバックされず、学習の機会が失われている典型的な例です。
-
-## 解決策の提案
-
-これらの課題を解決するため、本項ではLLMとの対話履歴を体系的に収集・分析し、プロンプトを再利用する仕組みを提案します。このアプローチは、DevOpsやMLOpsにおける継続的改善の思想をプロンプトエンジニアリングに応用するものです。これにより、プロンプト設計を属人的なスキルから、データに基づいた再現可能なプロセスへと進化させます。
-
-具体的な実践方法は、以下の3つのステップで構成されます。まず、システムがLLMに送信するすべてのプロンプト、それに対するLLMの応答、そしてその結果が成功だったか失敗だったかの判定をメタデータと共にログとして記録します。評価は、ユーザーからのフィードバック、出力の精度、タスク完了率といった事前に定義したメトリクスに基づいて行います。
-
-次に、高い評価を得たプロンプトは、再利用可能なテンプレートとして整理し、専用のデータベースやバージョン管理システムに保存します。その際、どのようなユースケースやドメインで有効だったかをタグ付けして分類し、チームの誰もが容易に検索・参照できるプロンプトカタログを構築します。最後に、期待した結果が得られなかったプロンプトとその文脈を分析し、失敗の原因を特定します。これらの知見は「アンチパターン」として記録し、将来同じ過ちを繰り返さないためのガイドラインとして活用します。
-
-## 適用するユースケース
-
-本プラクティスは、特にプロンプトが繰り返し利用されたり、徐々に最適化されたりするシステムで大きな効果を発揮します。代表的なユースケースは、自律型AIエージェントや`Chain of Thought`のように、LLMが自己回帰的に複数のプロンプトを生成して複雑な推論を行うシステムです。このようなシステムでは、成功した推論パターン、すなわちプロンプトの連鎖を記録・再利用することで、思考プロセスの効率と精度を大幅に向上させることができます。過去の成功例を参考にすることで、エージェントはより早く最適な解にたどり着けるようになります。
-
-また、法務部門の契約書レビューシステムのような、ドメイン特化型のアプリケーションにも適しています。この分野では、専門用語や特有の文脈を正しく扱えるプロンプトの価値が非常に高いです。運用を通じて得られた効果的なプロンプトのパターンを蓄積していくことで、システムの専門性と信頼性が時間と共に向上します。例えば、契約条項の抽出やリスク評価のプロンプトを継続的に分析・改善することで、新人弁護士でもベテランと同等の品質でレビューを行えるようになり、レビューの所要時間を平均40%短縮した事例があります。
-
-## 導入のポイント
-
-このプラクティスを効果的に導入するためには、いくつかの重要な設計上の考慮点があります。第一に、プロンプトを管理するためのメタデータ設計が極めて重要です。プロンプトのテキスト本体だけでなく、使用したLLMのモデル名、バージョン、各種パラメータ（`temperature`）、対象のユースケース、タイムスタンプといった情報を必ずセットで記録してください。これにより、後から「どの条件下で成功したのか」を正確に分析することが可能になります。
-
-第二に、成功と失敗を判断するための評価基準をタスクごとに明確に定義することが不可欠です。例えば、要約タスクであれば「元の文章の要点を網羅しているか」、コード生成タスクであれば「生成されたコードが構文エラーなく実行できるか」といった具体的な基準を設けます。この基準が曖昧だと、誤ったプロンプトを成功と判定してしまい、かえってシステムの品質を劣化させる原因となります。
-
-最後に、蓄積したプロンプト資産をチームで共有するための基盤を整備することも重要です。単純なデータベースだけでなく、各プロンプトの変更履歴を追跡できるバージョン管理システム（Git）を導入します。さらに、優れたプロンプトを議論・評価できるwikiのようなドキュメントツールを用意することで、ナレッジ共有が促進され、チーム全体のスキルアップに繋がります。
-
-## 注意点とトレードオフ
-
-プロンプトの分析と再利用は強力な手法ですが、導入にはいくつかのトレードオフが伴います。最大のトレードオフは、ログ収集・分析基盤の構築と運用にかかるコストです。すべてのプロンプトとレスポンスを保存するためには相応のストレージコストが発生しますし、それらを分析するためのデータパイプラインやダッシュボードの構築にも開発リソースが必要です。特に、ユーザーの入力を含むプロンプトを扱う場合は、個人情報保護の観点からデータの取り扱いに細心の注意を払う必要があり、セキュリティ対策のコストも考慮しなければなりません。
-
-また、成功したプロンプトを再利用することに固執しすぎると、システムの応答が画一的になり、創造性や柔軟性が損なわれるリスクがあります。例えば、マーケティングのキャッチコピーを生成するシステムで常に同じテンプレートを使い回していると、ブランドの独自性が失われ、ユーザーに飽きられてしまうかもしれません。ユースケースによっては、あえて多様な出力を許容するために、定型的なプロンプトから逸脱することも重要です。このため、目的に応じて再利用の度合いを調整する柔軟な設計が求められます。
-
-## まとめ
-
-プロンプトを分析し再利用可能にするプラクティスは、LLMアプリケーション開発における属人性を排し、品質を継続的に改善するためのデータ駆動型アプローチです。プロンプトとその結果を資産として体系的に蓄積・活用することで、開発効率とシステムの性能を同時に高めることができます。導入には評価基準の設計やインフラコストといったトレードオフが伴いますが、長期的な視点で見れば、それは十分に価値のある投資と言えるでしょう。
-
-## 実装の詳細
-
-本プロジェクトでは、上記のベストプラクティスを以下のように実装しています：
-
-### コアコンポーネント
-
-#### 1. プロンプトストレージ層（`src/service/prompt_storage.py`）
-
-ファイルベースのストレージシステムを実装し、以下のデータを永続化します：
-
-- **プロンプトログ**: 日付ごとにディレクトリを分けて管理（`prompt_storage/logs/YYYY-MM-DD/`）
-- **テンプレート**: 成功したプロンプトから生成されたテンプレート（`prompt_storage/templates/`）
-- **アンチパターン**: 失敗パターンの記録（`prompt_storage/antipatterns/`）
-
-各データはJSON形式で保存され、独自のIDで管理されます。
-
-#### 2. プロンプト分析器（`src/service/prompt_analyzer.py`）
-
-プロンプトの評価とパターン抽出を担当します：
-
-- 評価基準に基づく成功/失敗の判定
-- 成功したプロンプトからの変数抽出
-- テンプレート化のためのパターン分析
-- アンチパターンの検出と分類
-
-#### 3. プロンプトカタログ（`src/service/prompt_catalog.py`）
-
-テンプレートとアンチパターンの検索・管理機能を提供：
-
-- カテゴリ、タグ、成功率によるテンプレート検索
-- テンプレートの使用履歴追跡
-- 推奨テンプレートの抽出
-- テンプレートのエクスポート機能（チーム共有用）
-
-#### 4. プロンプト分析（`src/service/prompt_analytics.py`）
-
-データに基づく分析とレポート生成：
-
-- パフォーマンスサマリーの生成
-- カテゴリ別・モデル別の成功率分析
-- コスト分析（トークン使用量と費用）
-- 改善提案の自動生成
-- テンプレート使用レポート
-- アンチパターンレポート
-
-#### 5. 統合サービス（`src/service/prompt_service.py`）
-
-上記のすべてのコンポーネントを統合し、シンプルなAPIを提供：
-
-```python
-from src.service.prompt_service import PromptManagementService
-
-service = PromptManagementService()
-
-# プロンプト実行のログ記録
-log_id = service.log_prompt_execution(
-    prompt_text="...",
-    messages=[...],
-    response_text="...",
-    metadata=metadata,
-)
-
-# 評価
-service.evaluate_prompt(
-    log_id=log_id,
-    evaluation=evaluation,
-    status=EvaluationStatus.SUCCESS,
-)
-
-# テンプレート作成
-template = service.create_template_from_success(
-    log_id=log_id,
-    template_name="...",
-    description="...",
-)
-
-# 分析
-summary = service.get_performance_summary()
-suggestions = service.get_improvement_suggestions()
+```
++-------------------------------------------------------------------------+
+|                           CLI (main.py)                                  |
+|                      Load document file                                  |
++----------------------------------+--------------------------------------+
+                                   |
+                                   v
++-------------------------------------------------------------------------+
+|                  Document Processor (service layer)                      |
+|  +----------------------------------------------------------------+     |
+|  | Step 1: sample_document()                                       |     |
+|  |   - Identify document type (contract, report, manual, etc.)     |     |
+|  |   - Identify key sections                                       |     |
+|  |   - Sample representative sentences                             |     |
+|  +----------------------------------------------------------------+     |
+|                                   |                                      |
+|                                   v                                      |
+|  +----------------------------------------------------------------+     |
+|  | Step 2: generate_extraction_script()                            |     |
+|  |   - Generate Python script suited for document structure        |     |
+|  |   - Specify security requirements in prompt                     |     |
+|  +----------------------------------------------------------------+     |
+|                                   |                                      |
+|                                   v                                      |
+|  +----------------------------------------------------------------+     |
+|  | Step 3: execute_script_with_retry()                             |     |
+|  |   - Validate script (forbidden patterns/module check)           |     |
+|  |   - Sandbox execution (empty PATH/PYTHONPATH, timeout)          |     |
+|  |   - On error: correct_script() and retry (up to 3 times)        |     |
+|  +----------------------------------------------------------------+     |
+|                                   |                                      |
+|                                   v                                      |
+|  +----------------------------------------------------------------+     |
+|  | Step 4: validate_extraction_result()                            |     |
+|  |   - LLM-as-a-Judge evaluates extraction quality (score 1-5)     |     |
+|  |   - Low score triggers fix_proposal and script re-correction    |     |
+|  +----------------------------------------------------------------+     |
++----------------------------------+--------------------------------------+
+                                   |
+                                   v
++-------------------------------------------------------------------------+
+|                          Output Files                                    |
+|  - {filename}_{run_id}_structure.json  # Extracted document structure    |
+|  - {filename}_{run_id}_script.py       # Generated Python script         |
+|  - {filename}_{run_id}_metadata.json   # Processing metadata             |
++-------------------------------------------------------------------------+
 ```
 
-### データモデル
+### Directory Structure
 
-#### PromptLog（`src/model/prompt_log.py`）
-
-プロンプト実行の完全な記録：
-
-- `log_id`: 一意の識別子
-- `prompt_text`: プロンプトの全文
-- `messages`: システムプロンプトとユーザープロンプト
-- `response_text`: LLMからの応答
-- `metadata`: 実行に関するメタデータ
-  - モデル名、パラメータ（temperature等）
-  - 実行時間、トークン数、コスト
-  - ユースケース、カテゴリ、タグ
-  - ユーザーID、セッションID
-- `evaluation`: 評価結果
-  - accuracy, completeness, relevance
-  - task_completed, user_feedback
-  - error_count
-- `evaluation_status`: SUCCESS/PARTIAL/FAILURE
-
-#### PromptTemplate（`src/model/prompt_template.py`）
-
-再利用可能なテンプレート：
-
-- `template_id`: 一意の識別子
-- `name`: テンプレート名
-- `description`: 説明
-- `category`: カテゴリ（分類）
-- `tags`: タグリスト
-- `prompt_template`: プロンプトのテンプレート文字列
-- `required_variables`: 必須変数のリスト
-- `optional_variables`: オプション変数のリスト
-- `recommended_models`: 推奨モデル
-- `recommended_temperature`: 推奨temperature値
-- `success_count`: 成功回数
-- `failure_count`: 失敗回数
-- `average_score`: 平均スコア
-- `use_case_examples`: ユースケース例
-
-#### AntiPattern（`src/model/prompt_template.py`）
-
-失敗パターンの記録：
-
-- `pattern_id`: 一意の識別子
-- `name`: パターン名
-- `description`: 説明
-- `category`: カテゴリ
-- `tags`: タグリスト
-- `failure_reason`: 失敗の原因
-- `recommended_fix`: 推奨される修正方法
-- `severity`: 深刻度（low/medium/high）
-- `occurrence_count`: 発生回数
-- `example_prompts`: 失敗例
-
-### 実装例
-
-プロジェクトには3つの実装例が含まれています：
-
-#### 1. 基本例（`src/examples/basic_example.py`）
-
-基本的なワークフローを実演：
-
-```python
-# 1. キャラクター生成の実行
-result = await request_openai(...)
-
-# 2. ログ記録
-log_id = prompt_service.log_prompt_execution(...)
-
-# 3. 評価
-prompt_service.evaluate_prompt(log_id, evaluation, status)
-
-# 4. テンプレート作成
-template = prompt_service.create_template_from_success(log_id, ...)
-
-# 5. 検索と再利用
-templates = prompt_service.search_templates(category, tags)
+```
+section_16/
+|-- src/
+|   |-- __init__.py
+|   |-- main.py              # CLI entry point
+|   |-- config.py            # Configuration management
+|   |-- logger.py            # Logging setup
+|   |-- client/
+|   |   |-- __init__.py
+|   |   +-- llm_client.py    # Anthropic API client
+|   |-- model/
+|   |   |-- __init__.py
+|   |   +-- model.py         # Pydantic data models
+|   |-- prompt/
+|   |   |-- __init__.py
+|   |   +-- prompt.py        # LLM prompt definitions
+|   +-- service/
+|       |-- __init__.py
+|       |-- document_processor.py  # Document processing orchestration
+|       |-- request_llm.py         # LLM request handling
+|       |-- script_executor.py     # Script execution and validation
+|       +-- validator.py           # LLM-as-a-Judge quality evaluation
+|-- data/                     # Sample input documents
+|   |-- contract_0.md
+|   |-- report_0.md
+|   +-- python_blog_0.md
+|-- outputs/                  # Output files
+|-- pyproject.toml
+|-- .envrc.example
++-- README.md
 ```
 
-#### 2. 統合例（`src/examples/integration_example.py`）
+## Key Components
 
-既存のCLIアプリケーションへの非侵襲的な統合：
+### document_processor.py
+- `extract_document_structure()`: Main orchestration function for the 4-step pipeline
+- `_execute_script_with_retry()`: Handles retry loop with self-correction
+- `save_extraction_results()`: Saves structure, script, and metadata files
+- `ExtractionResult`: Dataclass containing extraction results
 
-- オプションフラグによるロギングの有効/無効切り替え
-- 自動評価機能
-- 統計情報の表示
-- 後方互換性の維持
+### script_executor.py
+- `validate_script()`: Checks for forbidden patterns and imports
+- `execute_script()`: Runs script in sandboxed subprocess
+- `FORBIDDEN_PATTERNS`: Regex patterns for dangerous operations (open, os, subprocess, etc.)
+- `ALLOWED_IMPORTS`: Whitelist of safe modules (sys, json, re)
 
-#### 3. 高度な例（`src/examples/advanced_example.py`）
+### request_llm.py
+- `sample_document()`: Extracts document type and key sections using LLM
+- `generate_extraction_script()`: Generates Python extraction script
+- `correct_script()`: Fixes failed scripts based on error messages
+- `correct_script_from_validation()`: Fixes scripts based on validation feedback
 
-自律型AIエージェントのシミュレーション：
+### validator.py
+- `validate_extraction_result()`: LLM-as-a-Judge evaluates extraction quality (score 1-5)
+- Returns `ValidationResult` with score, reasoning, and fix_proposal
 
-- 在庫最適化エージェントの実装
-- 複数の需要予測プロンプトの実行（成功と失敗）
-- パターン分析とテンプレート/アンチパターンの生成
-- 詳細な分析レポートとコスト最適化提案
+### model.py
+- `SampledSentences`: Document sampling results
+- `GeneratedScript`: Script and explanation from LLM
+- `DocumentStructure`: Hierarchical document structure
+- `DocumentSection`: Individual section with title, level, content, subsections
+- `ScriptExecutionResult`: Execution status and output
+- `ValidationResult`: Quality evaluation with score, reasoning, fix_proposal
 
-### テンプレートエンジン
+## Dependencies
 
-Jinja2を使用したテンプレートシステム（`src/service/template_engine.py`）：
+| Package | Purpose |
+|---------|---------|
+| anthropic>=0.74.1 | Anthropic API client for Claude models |
+| click>=8.3.0 | CLI framework |
+| pydantic>=2.12.2 | Data validation and models |
+| python-dotenv>=1.1.1 | Environment variable management |
 
-```yaml
-# templates/character_generation.yaml
-system_prompt: >-
-  あなたは創造的なキャラクタージェネレーターです。
-  {{ response_schema | indent(2) }}
+## Usage
 
-user_prompt: >-
-  性別は「{{ gender }}」、年齢は「{{ age }}」歳です。
-  {% if additional_instructions %}
-  {{ additional_instructions }}
-  {% endif %}
-```
-
-変数ファイル（`variables/warrior.yaml`）：
-
-```yaml
-gender: "male"
-age: 25
-additional_instructions: "This character is a brave warrior..."
-```
-
-この設計により、プロンプトの構造（テンプレート）と具体的な値（変数）を分離し、再利用性とテスト容易性を向上させています。
-
-### 継続的改善サイクル
-
-実装は以下のサイクルをサポートします：
-
-1. **実行**: LLMへのプロンプト送信
-2. **記録**: 全データの永続化
-3. **評価**: 多面的な評価基準による判定
-4. **分析**: パターン抽出と分類
-5. **学習**: テンプレート化またはアンチパターン記録
-6. **再利用**: カタログからの検索と適用
-7. **最適化**: データ駆動の改善
-
-このサイクルにより、システムは使用するほど賢くなり、コストと品質の両面で継続的に改善されます。
-
-### 使用方法
-
-詳細な使用方法とコマンド例については、README.mdを参照してください。
+### Setup
 
 ```bash
-# 基本的なワークフローの実行
-uv run python -m src.examples.basic_example
+# Install dependencies
+uv sync
 
-# 既存システムとの統合例
-uv run python -m src.examples.integration_example -m gpt-5.4-mini --show-stats
+# Configure environment
+cp .envrc.example .envrc
+# Edit .envrc and set ANTHROPIC_API_KEY
+```
 
-# 高度な分析例
-uv run python -m src.examples.advanced_example
+### Run
+
+```bash
+# Basic usage
+python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md
+
+# With custom output directory
+python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md -od outputs
+
+# Show help
+python -m src.main --help
+```
+
+### CLI Options
+
+| Option | Short | Required | Default | Description |
+|--------|-------|----------|---------|-------------|
+| --model | -m | Yes | - | Model to use (claude-sonnet-4-6 or claude-opus-4-7) |
+| --input | -i | Yes | - | Path to input document file |
+| --output-directory | -od | No | outputs | Directory to save output files |
+
+## Development Commands
+
+```bash
+# Lint code
+make lint
+
+# Format code
+make fmt
+
+# Run both lint and format
+make fix
+
+# Type checking
+make mypy
+```
+
+## Implementation Notes
+
+### Security Mechanisms
+
+The script executor implements multiple layers of security:
+
+1. **Pattern-based validation**: Blocks dangerous patterns like `open()`, `os.*`, `subprocess`, `eval()`, `exec()`
+2. **Import whitelist**: Only allows `sys`, `json`, `re` modules
+3. **Environment isolation**: Runs with empty PATH, HOME, PYTHONPATH
+4. **Timeout**: Default 30-second execution limit
+5. **Temporary file cleanup**: Script files are deleted after execution
+
+### Self-Correction Loop
+
+When script execution fails:
+1. Error message is captured
+2. LLM receives original script + error message + document context
+3. LLM generates corrected script
+4. Process retries up to 3 times (configurable via DEFAULT_MAX_CORRECTION_ATTEMPTS)
+
+### LLM-as-a-Judge Quality Evaluation
+
+After successful script execution:
+1. Extraction result is evaluated by LLM with a 1-5 score
+2. If score <= 3 (VALIDATION_THRESHOLD), fix_proposal is generated
+3. Script is re-corrected based on validation feedback
+4. Process retries up to 3 times (configurable via DEFAULT_MAX_VALIDATION_ATTEMPTS)
+
+### Structured Outputs
+
+Uses Anthropic's beta Structured Outputs feature:
+```python
+result = await anthropic_client.beta.messages.parse(
+    model=model,
+    betas=["structured-outputs-2025-11-13"],
+    messages=prompt,
+    output_format=PydanticModel,  # Type-safe response
+)
 ```

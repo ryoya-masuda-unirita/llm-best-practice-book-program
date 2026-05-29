@@ -9,7 +9,7 @@ class ConversationalMemory(ContextMemory):
     """Memory organized by conversation turns (inherits from ContextMemory)."""
 
     def __init__(self, max_turns: int = 50):
-        super().__init__(max_history=max_turns * 2)  # 2 items per turn (action + observation)
+        super().__init__(max_history=max_turns * 2)
         self.max_turns = max_turns
         self._turn_count = 0
 

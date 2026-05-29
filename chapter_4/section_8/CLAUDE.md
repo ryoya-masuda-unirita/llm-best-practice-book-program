@@ -1,293 +1,199 @@
-# Chapter 4, Section 8: AI Agent Abstraction Design
+# AI Agent Framework with GoF Design Patterns
 
 ## Overview
 
-This project implements the **AI Agent Abstraction Design** pattern for building autonomous LLM-based systems. The pattern separates agent responsibilities into three independent components:
-
-- **Brain (Strategy)**: Pluggable thinking algorithms (CoT, ReAct, ToT)
-- **ToolBox**: Hierarchical tool management via Composite pattern
-- **Memory**: Context management with snapshot/restore capabilities
-
-Built on 8 design patterns: Strategy, Composite, Memento, State, Chain of Responsibility, Builder, Factory, and Mediator.
+An extensible AI agent framework built with GoF design patterns, implementing a "stable core with flexible extensions" architecture. The framework provides multiple reasoning strategies (Chain-of-Thought, ReAct, Tree-of-Thought), tool management, memory management, execution control, and multi-agent coordination.
 
 ## Architecture
 
 ```
-+---------------------------------------------------------------+
-|                         BaseAgent                              |
-|  +----------+  +----------+  +----------+  +---------------+  |
-|  | Brain    |  | ToolBox  |  | Memory   |  | Controller    |  |
-|  |(Strategy)|  |(Composite|  |(Memento) |  |(Chain of Resp)|  |
-|  +----------+  +----------+  +----------+  +---------------+  |
-+---------------------------------------------------------------+
-        |                                           |
-   +----v--------+                         +--------v-------+
-   | AgentState  |                         |    Mediator    |
-   | (State      |                         | (Multi-Agent   |
-   |  Pattern)   |                         |  Coordination) |
-   +-------------+                         +----------------+
-```
-
-**Execution Flow:**
-
-```
-1. User -> Agent.execute(goal)
-              |
-              v
-2. State: Idle -> Thinking
-              |
-              v
-3. Loop until complete:
-   +-- Memory.get_context()
-   +-- Strategy.think(goal, context, tools)
-   +-- Controller.check_execution(action)
-   +-- Execute Action:
-   |   +-- TOOL_CALL: State -> Acting -> Execute -> Thinking
-   |   +-- FINAL_ANSWER: State -> Completed
-   |   +-- THINK: Continue reasoning
-   +-- Memory.add_action(action)
-   +-- Memory.add_observation(result)
-              |
-              v
-4. Return result -> State: Idle
++-------------------------------------------------------------------------+
+|                          Agent Framework                                 |
++-------------------------------------------------------------------------+
+|                                                                          |
+|  +-------------------------------------------------------------------+  |
+|  |                       Extensions Layer                             |  |
+|  |  +---------------+ +---------------+ +---------------+             |  |
+|  |  |  Strategies   | |   Handlers    | |   Mediators   |             |  |
+|  |  |  - CoT        | |  - MaxSteps   | |  - Simple     |             |  |
+|  |  |  - ReAct      | |  - CostLimit  | |  - Parallel   |             |  |
+|  |  |  - ToT        | |  - RateLimit  | |               |             |  |
+|  |  +---------------+ +---------------+ +---------------+             |  |
+|  |  +---------------+ +---------------+ +---------------+             |  |
+|  |  |    Memory     | |     Tools     | |    Agents     |             |  |
+|  |  | - Conversa.   | | - Calculator  | | - Configurable|             |  |
+|  |  | - Context     | | - WebSearch   | | - MultiStrat. |             |  |
+|  |  | - Caretaker   | | - TextGen     | |               |             |  |
+|  |  +---------------+ +---------------+ +---------------+             |  |
+|  +-------------------------------------------------------------------+  |
+|                                  |                                       |
+|                                  v                                       |
+|  +-------------------------------------------------------------------+  |
+|  |                          Core Layer                                |  |
+|  |  +---------------+ +---------------+ +---------------+             |  |
+|  |  |   Strategy    | |    Memory     | |  Controller   |             |  |
+|  |  |   (Abstract)  | |   (Abstract)  | |   + Handler   |             |  |
+|  |  +---------------+ +---------------+ +---------------+             |  |
+|  |  +---------------+ +---------------+ +---------------+             |  |
+|  |  |   ToolBox     | |   BaseAgent   | | GraphMediator |             |  |
+|  |  |  (Composite)  | |               | |   (Abstract)  |             |  |
+|  |  +---------------+ +---------------+ +---------------+             |  |
+|  |  +---------------+                                                 |  |
+|  |  | AgentContext  | <- State Pattern                                |  |
+|  |  |   (States)    |                                                 |  |
+|  |  +---------------+                                                 |  |
+|  +-------------------------------------------------------------------+  |
+|                                                                          |
++-------------------------------------------------------------------------+
 ```
 
 ### Directory Structure
 
 ```
 src/
-  __init__.py
-  config.py           # Configuration (API key loading via pydantic)
-  logger.py           # Logging setup
-  main.py             # CLI entry point (click-based)
-  examples.py         # 8 comprehensive examples
-  agent/
-    __init__.py       # Package exports (all public classes)
-    base.py           # Core abstractions (Tool, Strategy, Memory, Action)
-    memory.py         # Memory implementations (ContextMemory, ConversationalMemory)
-    toolbox.py        # Tool management (ToolBox, CategorizableToolBox)
-    strategies.py     # Thinking strategies (CoT, ReAct, ToT)
-    states.py         # State management (AgentState, AgentContext)
-    controller.py     # Execution control (safety handlers chain)
-    agent.py          # Agent implementations (Base, Configurable, MultiStrategy)
-    factory.py        # Builder & Factory patterns
-    mediator.py       # Multi-agent coordination (graph-based)
-  client/
-    __init__.py
-    llm_client.py     # LLM client initialization (Gemini)
+|-- main.py                    # CLI entry point with Click
+|-- examples.py                # 8 example implementations
+|-- config.py                  # Environment configuration (Pydantic)
+|-- logger.py                  # Logging setup
+|-- client/
+|   +-- llm_client.py          # Google Gemini API client
++-- agent/
+    |-- core/                  # Core layer (stable abstractions)
+    |   |-- base.py            # Base interfaces (Tool, Strategy, Action)
+    |   |-- agent.py           # BaseAgent implementation
+    |   |-- controller.py      # ExecutionController (Chain of Responsibility)
+    |   |-- mediator.py        # GraphMediator (Mediator Pattern)
+    |   |-- memory.py          # Memory abstract class (Memento Pattern)
+    |   |-- states.py          # State management (State Pattern)
+    |   +-- toolbox.py         # ToolBox (Composite Pattern)
+    +-- extensions/            # Extensions layer (concrete implementations)
+        |-- factory.py         # AgentBuilder, create_agent_from_config
+        |-- agents/            # ConfigurableAgent, MultiStrategyAgent
+        |-- strategies/        # ChainOfThought, ReAct, TreeOfThought
+        |-- handlers/          # MaxSteps, CostLimit, ToolRateLimit, etc.
+        |-- mediators/         # SimpleGraphMediator, ParallelGraphMediator
+        |-- memory/            # ConversationalMemory, ContextMemory, MemoryCaretaker
+        |-- nodes/             # AgentNode, DecisionNode, AggregatorNode
+        +-- tools/             # Calculator, WebSearch, TextGenerator
 ```
 
 ## Key Components
 
-### Design Patterns
+### Design Patterns Used
 
-| Pattern | Component | Purpose |
-|---------|-----------|---------|
-| Strategy | `strategies.py` | Swappable thinking algorithms (CoT, ReAct, ToT) |
-| Composite | `toolbox.py` | Hierarchical tool organization |
-| Memento | `memory.py` | State snapshots and rollback |
-| State | `states.py` | Agent execution state management |
-| Chain of Responsibility | `controller.py` | Composable safety handlers |
-| Builder | `factory.py` | Fluent agent construction |
-| Factory | `factory.py` | Configuration-based creation |
-| Mediator | `mediator.py` | Multi-agent graph coordination |
+| Pattern | Location | Purpose |
+|---------|----------|---------|
+| Strategy | `Strategy`, `ChainOfThoughtStrategy`, `ReActStrategy`, `TreeOfThoughtStrategy` | Reasoning algorithm switching |
+| Composite | `ToolBox`, `CategorizableToolBox` | Hierarchical tool management |
+| Memento | `Memory`, `MemorySnapshot`, `MemoryCaretaker` | State save/restore |
+| Chain of Responsibility | `ExecutionHandler`, `ExecutionController` | Execution control chain |
+| State | `AgentState`, `AgentContext`, `IdleState`, `ThinkingState`, etc. | Agent lifecycle management |
+| Mediator | `GraphMediator`, `SimpleGraphMediator`, `ParallelGraphMediator` | Multi-agent coordination |
+| Builder | `AgentBuilder` | Declarative agent construction |
+| Factory Method | `create_agent_from_config` | Agent creation from config |
 
-### Thinking Strategies
+### Core Layer Components
 
-- **ChainOfThoughtStrategy**: Sequential step-by-step reasoning for math/logic
-- **ReActStrategy**: Interleaved thought-action-observation for research tasks
-- **TreeOfThoughtStrategy**: Explores multiple paths with scoring for creative problems
+- **BaseAgent**: Main agent orchestration class
+- **Strategy**: Abstract interface for reasoning strategies
+- **Tool**: Abstract interface for agent tools
+- **ToolBox**: Composite container for tools
+- **ExecutionController**: Manages execution handler chain
+- **GraphMediator**: Coordinates multi-agent graphs
+- **Memory**: Abstract interface for memory management
+- **AgentContext/AgentState**: State machine for agent lifecycle
 
-### Safety Handlers
+### Extension Layer Components
 
-- `MaxStepsHandler`: Limit total execution steps
-- `CostLimitHandler`: Track and limit API costs
-- `ToolRateLimitHandler`: Prevent excessive tool calls
-- `DangerousActionHandler`: Block unsafe operations
-- `LoopDetectionHandler`: Detect infinite loops via action signature tracking
-
-### Agent Types
-
-- `BaseAgent`: Core agent with strategy, toolbox, memory, controller
-- `ConfigurableAgent`: Adds logging and iteration tracking
-- `MultiStrategyAgent`: Dynamic strategy switching at runtime
+- **Strategies**: ChainOfThoughtStrategy, ReActStrategy, TreeOfThoughtStrategy
+- **Handlers**: MaxStepsHandler, CostLimitHandler, ToolRateLimitHandler, DangerousActionHandler, LoopDetectionHandler
+- **Memory**: ConversationalMemory, ContextMemory, MemoryCaretaker
+- **Agents**: ConfigurableAgent, MultiStrategyAgent
+- **Nodes**: AgentNode, DecisionNode, AggregatorNode
+- **Tools**: CalculatorTool, WebSearchTool, TextGeneratorTool, CategorizableToolBox
 
 ## Dependencies
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| google-genai | >=1.45.0 | Gemini API client |
-| openai | >=2.4.0 | OpenAI API client (optional) |
-| pydantic | >=2.12.2 | Configuration and data validation |
-| click | >=8.3.0 | CLI interface |
-| python-dotenv | >=1.1.1 | Environment variable loading |
+- `google-genai`: Google Gemini API client
+- `click`: CLI framework
+- `pydantic`: Configuration management
+- `python-dotenv`: Environment variable loading
 
 ## Usage
 
 ### Setup
 
+1. Copy environment template:
+
 ```bash
-cd chapter_4/section_8
-
-# Environment setup
 cp .envrc.example .envrc
-# Edit .envrc: export GEMINI_API_KEY=your_key
+```
 
-# Install dependencies
-uv sync  # or: pip install -e .
+2. Edit `.envrc` with your API key:
+
+```bash
+export GEMINI_API_KEY="your-gemini-api-key-here"
+```
+
+3. Install dependencies:
+
+```bash
+uv sync
 ```
 
 ### Run
 
+Run a specific example:
+
 ```bash
-# Run all examples
-python -m src.main -a all
+uv run python -m src.main --agent example_1_basic_agent
+```
 
-# Run specific example
-python -m src.main -a example_1_basic_agent
-python -m src.main -a example_2_react_agent
-python -m src.main -a example_3_multi_strategy_agent
-python -m src.main -a example_4_config_based_agent
-python -m src.main -a example_5_graph_mediator
-python -m src.main -a example_6_parallel_execution
-python -m src.main -a example_7_memory_snapshots
-python -m src.main -a example_8_execution_control
+Run all examples:
 
-# Show help
-python -m src.main --help
+```bash
+uv run python -m src.main --agent all
 ```
 
 ### CLI Options
 
 | Option | Short | Description |
 |--------|-------|-------------|
-| `--agent` | `-a` | The agent workflow to run (required) |
-| `--help` | | Show help message |
+| `--agent` | `-a` | Agent example to run (required) |
 
-**Available agents:**
-- `example_1_basic_agent` - Chain-of-Thought strategy
-- `example_2_react_agent` - ReAct strategy
-- `example_3_multi_strategy_agent` - Dynamic strategy switching
-- `example_4_config_based_agent` - Factory pattern creation
-- `example_5_graph_mediator` - Multi-agent coordination
-- `example_6_parallel_execution` - Parallel agent execution
-- `example_7_memory_snapshots` - Memento pattern demo
-- `example_8_execution_control` - Safety handler chain
-- `all` - Run all examples
+Available agent examples:
+
+| Example | Description |
+|---------|-------------|
+| `example_1_basic_agent` | Chain-of-Thought strategy basic agent |
+| `example_2_react_agent` | ReAct strategy agent |
+| `example_3_multi_strategy_agent` | Multi-strategy switching agent |
+| `example_4_config_based_agent` | Config dictionary-based agent creation |
+| `example_5_graph_mediator` | Mediator pattern multi-agent coordination |
+| `example_6_parallel_execution` | Parallel multi-agent execution |
+| `example_7_memory_snapshots` | Memento pattern memory snapshots |
+| `example_8_execution_control` | Chain of Responsibility execution control |
 
 ## Development Commands
 
 ```bash
-# Lint code (ruff)
+# Lint code with ruff
 make lint
 
-# Format code (ruff)
+# Format code with ruff
 make fmt
 
-# Lint and format
+# Run both lint and format
 make fix
 
-# Type check (mypy)
+# Type check with mypy
 make mypy
-```
-
-## Quick Start
-
-### Builder Pattern
-
-```python
-from src.agent import (
-    AgentBuilder, ChainOfThoughtStrategy,
-    CalculatorTool, CategorizableToolBox
-)
-
-# Build agent
-toolbox = CategorizableToolBox()
-toolbox.add_to_category("math", CalculatorTool())
-
-agent = (
-    AgentBuilder()
-    .with_strategy(ChainOfThoughtStrategy(max_steps=5))
-    .with_toolbox(toolbox)
-    .with_agent_type("configurable")
-    .build()
-)
-
-result = agent.execute("Calculate 15 plus 27")
-```
-
-### Factory Pattern (Configuration-Based)
-
-```python
-from src.agent import create_agent_from_config
-
-config = {
-    "type": "configurable",
-    "strategy": {"type": "react", "max_iterations": 10},
-    "toolbox": {"tools": [{"type": "calculator", "category": "math"}]},
-    "controller": {"handlers": {"max_steps": 50, "enable_loop_detection": True}}
-}
-
-agent = create_agent_from_config(config)
-```
-
-### Multi-Strategy Agent
-
-```python
-agent.switch_strategy("cot")   # Use CoT for math
-agent.switch_strategy("react") # Use ReAct for research
-```
-
-### Memory Snapshots
-
-```python
-from src.agent.memory import MemoryCaretaker
-
-caretaker = MemoryCaretaker()
-snapshot_id = caretaker.save(memory)
-# ... execute tasks ...
-caretaker.restore(memory, snapshot_id)  # Rollback
 ```
 
 ## Implementation Notes
 
-### Structured Output Support
-
-The `_call_llm` method in `BaseStrategy` supports structured output via Pydantic models:
-
-```python
-from pydantic import BaseModel
-
-class MathResult(BaseModel):
-    answer: int
-    explanation: str
-
-result = self._call_llm("What is 2+2?", response_schema=MathResult)
-# Returns validated MathResult instance
-```
-
-### Safety Constraints
-
-Default controller configuration:
-- Max steps: 50
-- Max cost: $10.0
-- Max calls per tool: 10
-- Dangerous tools blocked: `delete`, `destroy`, `remove_all`
-- Loop detection: 3 repeats in 5-action window
-
-### State Transitions
-
-```
-Valid transitions:
-  Idle -> Thinking
-  Thinking -> Acting, Completed, Error
-  Acting -> Thinking, Completed, Error
-  Completed -> Idle
-  Error -> Idle
-```
-
-## Code Statistics
-
-- **Total**: ~2,400 lines across 12 modules
-- **Design Patterns**: 8 fully implemented
-- **Examples**: 8 comprehensive demos
+- **Core/Extensions Separation**: Core layer provides stable interfaces; extensions layer contains concrete implementations that can evolve independently
+- **Agent Construction**: Use `AgentBuilder` for fluent API or `create_agent_from_config` for dictionary-based configuration
+- **Execution Control**: Handlers are chained via Chain of Responsibility pattern, allowing flexible addition/removal of control logic
+- **Multi-Agent Coordination**: `SimpleGraphMediator` for sequential execution, `ParallelGraphMediator` for concurrent execution
+- **Memory Snapshots**: Use `MemoryCaretaker` to save and restore agent memory state at checkpoints

@@ -1,6 +1,5 @@
-from src.client.llm_client import (
-    GeminiModel,
-    LLMProvider,
-)
+"""Client module for LLM integrations."""
 
-__all__ = ["LLMProvider", "GeminiModel"]
+from src.client.llm_client import OpenAIModel
+
+__all__ = ["OpenAIModel"]

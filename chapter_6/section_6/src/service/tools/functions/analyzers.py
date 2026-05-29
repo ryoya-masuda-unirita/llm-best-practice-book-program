@@ -74,7 +74,9 @@ def calculate_subject_stats(df: pl.DataFrame, subjects: list[str]) -> dict[str, 
 
 def calculate_overall_mean(df: pl.DataFrame, subjects: list[str]) -> float:
     """Calculate the overall mean across all subjects."""
-    return round(df.select(subjects).mean().to_numpy().mean(), 2)
+    means = df.select(subjects).mean()
+    values = [means[col][0] for col in subjects if means[col][0] is not None]
+    return round(sum(values) / len(values), 2) if values else 0.0
 
 
 def analyze_scores(
@@ -124,7 +126,6 @@ def analyze_student_scores(
     df = pl.DataFrame(scores)
     student_id = scores[0]["student_id"]
 
-    # Calculate subject averages
     subject_averages = {}
     for subject in subjects:
         subject_averages[subject] = round(df[subject].mean(), 2)
@@ -133,7 +134,6 @@ def analyze_student_scores(
     strongest = max(subject_averages, key=subject_averages.get)
     weakest = min(subject_averages, key=subject_averages.get)
 
-    # Calculate trends (first quarter to last quarter)
     scores_sorted = sorted(scores, key=lambda x: x.get("quarter", 0))
     trends = {}
     for subject in subjects:
@@ -158,14 +158,9 @@ def analyze_class_scores(
     """Analyze class-wide performance across all students and quarters."""
     df = pl.DataFrame(scores)
 
-    # Overall class average
     class_avg = round(df["score"].mean(), 2)
-
-    # Student averages
     student_avgs = df.group_by("student_id").agg(pl.col("score").mean().alias("avg_score"))
     top_performer = student_avgs.sort("avg_score", descending=True).row(0)
-
-    # Quarterly averages
     quarterly_avgs = df.group_by("quarter").agg(pl.col("score").mean().alias("avg_score")).sort("quarter")
 
     return ClassPerformance(

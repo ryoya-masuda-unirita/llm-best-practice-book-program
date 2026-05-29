@@ -1,4 +1,4 @@
-"""Runner Service for Article Generation with State-Based Rollback (Forget the Past)."""
+"""Runner Service for Article Generation with Forget, Replay, Speculate."""
 
 from typing import Literal
 
@@ -7,18 +7,20 @@ from src.client.llm_client import LLMProvider
 from src.model.model import CompletedArticle
 
 
-async def run_forget_past_article_generation(
+async def run_forget_replay_speculate_article_generation(
     theme: str,
     language: Literal["en", "ja"],
     llm_provider: LLMProvider,
     model: str,
     output_directory: str,
     auto_select: bool,
+    num_outlines: int = 1,
 ) -> CompletedArticle | None:
-    """Run the complete article generation workflow with state-based rollback.
+    """Run the complete article generation workflow with Forget + Replay + Speculate.
 
-    This implements the "forget the past" pattern where rolling back to a previous
-    phase clears all state after that phase, causing regeneration from scratch.
+    - Forget: Roll back to any previous phase, discarding contaminated context
+    - Replay: Automatically re-send valid user prompts after rollback
+    - Speculate: Fork parallel worlds at branch points (e.g., multiple outlines)
     """
     return await run_article_pipeline(
         theme=theme,
@@ -27,4 +29,5 @@ async def run_forget_past_article_generation(
         model=model,
         output_directory=output_directory,
         auto_select=auto_select,
+        num_outlines=num_outlines,
     )

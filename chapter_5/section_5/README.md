@@ -1,144 +1,110 @@
-# Chapter 5 Section 5: パイプライン型AIエージェント
+# Chapter 5 Section 6: イベント駆動型AIエージェント
 
 ## 概要
 
-このプロジェクトは、**パイプライン型AIエージェント**パターンを実装した契約書リスクコンプライアンス評価システムです。複雑なLLM処理を一連のステージに分割し、各ステージで特定の役割を持つエージェントが順番にデータを処理していく設計パターンを示します。
+本プロジェクトは、イベント駆動アーキテクチャを採用したAIエージェントシステムの実装例です。ディレクトリを監視し、新しい契約書ファイルが保存されると自動的に契約リスクコンプライアンスパイプラインを起動して、リスク評価レポートを生成します。
 
-パイプラインは契約書ドキュメントを読み込み、その構造（章・条）を抽出し、各セクションのリスクを評価し、包括的なコンプライアンスレポートを生成します。各ステージの出力が次のステージの入力となる直線的なフロー構造により、処理の透明性、保守性、スケーラビリティを実現します。
+イベント駆動アーキテクチャにより、システム内の状態変化やアクションを「イベント」として捉え、それらを契機に各機能が非同期に動作します。これにより、エージェントの各機能を疎結合に保ち、拡張性と応答性に優れたシステムを実現しています。
 
 ## 機能
 
-- **抽出ステージ**: 契約書テキストを解析し、章・条・当事者情報を構造化データとして抽出
-- **リスク評価ステージ**: 各条文のリスクレベル（low/medium/high/critical）と10カテゴリのリスク分類を評価
-- **レポート生成ステージ**: 評価結果を統合し、エグゼクティブサマリー・推奨事項を含む包括的レポートを生成
-- **構造化出力**: Pydanticモデルによる型安全なLLMレスポンス
-- **非同期並行処理**: リスク評価ステージでセマフォベースの並行処理（最大20並列）
-- **Markdown出力**: 日本語のコンプライアンスレポートをMarkdown形式で出力
+- **ファイル監視**: `watchdog`ライブラリを使用してディレクトリを監視し、新規ファイルを検知
+- **イベント駆動処理**: Publish/Subscribe パターンによる疎結合なイベント処理
+- **契約書リスク評価**: LangGraphを使用したパイプラインAIエージェントによる自動リスク評価
+- **コンプライアンスレポート生成**: 章・条ごとの詳細なリスク分析レポートを自動生成
+- **相関ID追跡**: すべてのイベントに相関IDを付与し、処理フローのトレーサビリティを確保
 
 ## プロジェクト構成
 
 ### アーキテクチャ
 
+本システムは、ファイル監視とイベント駆動処理を組み合わせた2層構造で設計されています。
+
 ```
-+------------------------------------------------------------------+
-|                    Contract Pipeline                              |
-+------------------------------------------------------------------+
-|                                                                   |
-|  +-------------------+                                            |
-|  |   Input Stage     |  契約書ファイルを読み込み                   |
-|  |   (main.py)       |                                            |
-|  +---------+---------+                                            |
-|            |                                                      |
-|            v                                                      |
-|  +-------------------+                                            |
-|  | Extraction Stage  |  文書構造を解析                             |
-|  | (extraction.py)   |  -> 章・条を抽出                           |
-|  |                   |  -> 当事者を特定                           |
-|  +---------+---------+                                            |
-|            |                                                      |
-|            v                                                      |
-|  +-------------------+                                            |
-|  | Risk Scoring      |  各条文を評価（並列処理）                   |
-|  | Stage             |  -> リスクレベル判定                       |
-|  | (risk_scoring.py) |  -> カテゴリ分類                           |
-|  +---------+---------+                                            |
-|            |                                                      |
-|            v                                                      |
-|  +-------------------+                                            |
-|  | Report Stage      |  最終レポート生成                           |
-|  | (report.py)       |  -> エグゼクティブサマリー                  |
-|  |                   |  -> 推奨事項                               |
-|  +---------+---------+                                            |
-|            |                                                      |
-|            v                                                      |
-|        [Output]         Markdownコンプライアンスレポート            |
-|                                                                   |
-+------------------------------------------------------------------+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                       Event-Driven AI Agent                              │
+│                                                                          │
+│  ┌──────────────┐      ┌──────────────┐      ┌────────────────────┐     │
+│  │   Watchdog   │─────▶│  Event Bus   │─────▶│  Event Handlers    │     │
+│  │ (File Watch) │      │              │      │                    │     │
+│  └──────────────┘      └──────────────┘      └────────────────────┘     │
+│         │                     │                       │                  │
+│         ▼                     ▼                       ▼                  │
+│  FileCreatedEvent     Publish/Subscribe       Contract Pipeline         │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+
+イベントフロー:
+    FileCreatedEvent
+          │
+          ▼
+    ┌─────────────────────┐
+    │ FileCreatedHandler  │  (フィルタリング & 変換)
+    └──────────┬──────────┘
+               │
+               ▼
+    ContractReviewRequestedEvent
+               │
+               ▼
+    ┌─────────────────────────────┐
+    │ ContractReviewHandler       │  (パイプライン実行)
+    └──────────┬──────────────────┘
+               │
+               ▼
+    ContractReviewCompletedEvent / ContractReviewFailedEvent
+
+契約書レビューパイプライン:
+    ┌─────────────────┐
+    │  Input Stage    │  (契約書ファイル読み込み)
+    └────────┬────────┘
+             │
+             ▼
+    ┌─────────────────┐
+    │ Extraction Stage│  (章・条の構造抽出)
+    └────────┬────────┘
+             │
+             ▼
+    ┌─────────────────┐
+    │ Risk Scoring    │  (各条項のリスク評価)
+    │     Stage       │
+    └────────┬────────┘
+             │
+             ▼
+    ┌─────────────────┐
+    │ Report Stage    │  (コンプライアンスレポート生成)
+    └────────┬────────┘
+             │
+             ▼
+           [END]
 ```
-
-### 実装の詳細
-
-#### パイプライン状態管理
-
-LangGraphのStateGraphを使用して、各ステージ間でデータを受け渡します：
-
-```python
-class ContractPipelineState(TypedDict):
-    contract_input: ContractInput           # 入力: 契約書データ
-    extraction_output: ExtractionOutput     # 抽出ステージの出力
-    risk_scoring_output: RiskScoringOutput  # リスク評価ステージの出力
-    compliance_report: ComplianceReport     # 最終レポート
-    current_stage: str                      # 現在のステージ名
-    pending_sections: list[ContractSection] # 処理待ちセクション
-```
-
-#### パイプライングラフ構築
-
-```python
-def create_contract_pipeline_graph() -> StateGraph:
-    graph = StateGraph(ContractPipelineState)
-
-    graph.add_node("extraction", extraction_stage_node)
-    graph.add_node("risk_scoring", risk_scoring_stage_node)
-    graph.add_node("report", report_stage_node)
-
-    graph.set_entry_point("extraction")
-    graph.add_edge("extraction", "risk_scoring")
-    graph.add_edge("risk_scoring", "report")
-    graph.add_edge("report", END)
-
-    return graph.compile()
-```
-
-**ポイント**: 各ステージは独立したノードとして実装され、`add_edge`で直線的に接続されます。これにより、特定のステージだけを修正・テストすることが容易になります。
-
-#### リスク評価カテゴリ
-
-システムは10種類のリスクカテゴリで契約書を評価します：
-
-| カテゴリ | 説明 |
-|---------|------|
-| intellectual_property | 知的財産権に関するリスク |
-| liability | 責任・損害賠償に関するリスク |
-| confidentiality | 秘密保持に関するリスク |
-| termination | 契約解除に関するリスク |
-| payment | 支払条件に関するリスク |
-| compliance | 法令遵守に関するリスク |
-| warranty | 保証に関するリスク |
-| indemnification | 補償に関するリスク |
-| dispute_resolution | 紛争解決に関するリスク |
-| other | その他のリスク |
 
 ## 使い方
 
 ### 環境構成
 
-- **Python**: 3.13.2以上
-- **依存ライブラリ**:
-  - langchain-openai>=1.1.0
-  - langgraph>=1.0.0
-  - pydantic>=2.12.2
-  - click>=8.3.0
-  - python-dotenv>=1.1.1
-  - openai>=2.4.0
+- Python: 3.13.2以上
+- 主要な依存ライブラリ:
+  - `langgraph>=1.0.0` - パイプラインAIエージェント構築
+  - `langchain-openai>=1.1.0` - OpenAI連携
+  - `watchdog>=6.0.0` - ファイルシステム監視
+  - `click>=8.3.0` - CLI構築
+  - `pydantic>=2.12.2` - データモデル
 
 ### セットアップ
 
-1. **環境変数ファイルの作成**
+1. 環境変数を設定:
 
 ```bash
 cp .envrc.example .envrc
+# .envrcを編集してAPIキーを設定
 ```
 
-2. **APIキーの設定**
-
-`.envrc`を編集し、OpenAI APIキーを設定：
-
-```bash
+必要な環境変数:
+```
 OPENAI_API_KEY=<your_openai_api_key_here>
 ```
 
-3. **依存関係のインストール**
+2. 依存関係をインストール:
 
 ```bash
 uv sync
@@ -146,78 +112,195 @@ uv sync
 
 ### 使用方法、実行方法
 
-#### 基本的な使い方
+ディレクトリを監視し、新規ファイルを自動的に処理します:
 
 ```bash
-# 契約書ファイルを指定して実行
-uv run python -m src.main -c data/contract_0.md
+# contract/ ディレクトリを監視（デフォルト）
+uv run python -m src.event_runner
 
-# モデルを指定
-uv run python -m src.main -c data/contract_0.md -m GPT_5_2
+# data/ディレクトリを監視している状態での実行例
+cp data/contract_0.md data/contract_0_1.md
 
-# 出力ディレクトリを指定
-uv run python -m src.main -c data/contract_0.md -od reports
+# カスタムディレクトリを監視
+uv run python -m src.event_runner -w contracts/
+
+# カスタムモデルを使用
+uv run python -m src.event_runner -w contract/ -m GPT_5_2 -od outputs
+
+# カスタム出力ディレクトリを指定
+uv run python -m src.event_runner -w contract/ -od reports/
 ```
 
-#### CLIオプション
+CLIオプション:
 
-| オプション | 短縮形 | 説明 | デフォルト      |
-|-----------|--------|------|------------|
-| --contract-file | -c | 契約書ファイルパス（必須） | -          |
-| --model | -m | 使用するOpenAIモデル | gpt-5-mini |
-| --output-directory | -od | レポート出力ディレクトリ | outputs    |
-| --help | - | ヘルプ表示 | -          |
-
-#### ヘルプの表示
+| オプション | 短縮形 | デフォルト        | 説明 |
+|-----------|--------|--------------|------|
+| `--watch-directory` | `-w` | `data`       | 監視するディレクトリ |
+| `--model` | `-m` | `GPT_5_MINI` | 使用するLLMモデル |
+| `--output-directory` | `-od` | `outputs`    | レポート出力先 |
 
 ```bash
-$ uv run python -m src.main --help
-Usage: python -m src.main [OPTIONS]
+$ uv run python -m src.event_runner --help
+Usage: python -m src.event_runner [OPTIONS]
 
-  Contract Risk Compliance Pipeline - A Pipeline AI Agent System
+  Event-Driven AI Agent Runner
 
-  This system evaluates contract documents for risk compliance using a
-  pipeline AI agent architecture with three stages:
+  This system monitors a directory for new contract files and automatically
+  triggers the contract risk compliance pipeline when new files are detected.
 
-  1. Extraction Stage: Parse contract structure (chapters, sections)
-  2. Risk Scoring Stage: Evaluate risk for each section
-  3. Report Stage: Generate comprehensive compliance report
+  Architecture:
 
-  The pipeline processes each stage sequentially, with each stage's output
-  becoming the input for the next stage.
+  1. File Watcher: Monitors directory using watchdog
+  2. Event Bus: Publishes FileCreatedEvent on new files
+  3. FileCreatedHandler: Transforms to ContractReviewRequestedEvent
+  4. ContractReviewHandler: Runs the compliance pipeline
+  5. Result Events: Publishes completion/failure events
 
   Examples:
 
-      # Evaluate a contract file
-      python -m src.main -c data/contract_0.md
+      # Watch data directory with defaults
+      python -m src.event_runner
 
-      # With custom model     python -m src.main -c data/contract_0.md -m
-      gpt-5.4
+      # Watch custom directory     python -m src.event_runner -w contracts/
 
-      # With custom output directory     python -m src.main -c
-      data/contract_0.md -od reports
+      # With custom model     python -m src.event_runner -w data/ -m gpt-5.4
+
+      # With custom output directory     python -m src.event_runner -w data/
+      -od reports/
 
 Options:
+  -w, --watch-directory PATH      Directory to watch for new contract files.
   -m, --model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO]
-                                  The model to use for the request.
-  -od, --output-directory PATH    The directory to save output files.
-  -c, --contract-file PATH        Path to the contract document file (markdown
-                                  or text).  [required]
+                                  The model to use for contract review.
+  -od, --output-directory PATH    Directory to save compliance reports.
   --help                          Show this message and exit.
 ```
 
 ### 出力例
 
-実行すると、以下のような構造のMarkdownレポートが生成されます：
+#### 実行ログ
 
-**ファイル名**: `outputs/compliance_report_report_xxxxxxxx.md`
+```bash
+$ uv run python -m src.event_runner -w contract/ -m GPT_5_2 -od outputs
+
+[2026-02-07 09:24:16,937] [INFO] [__main__] [event_runner.py:156] [start] ======================================================================
+[2026-02-07 09:24:16,937] [INFO] [__main__] [event_runner.py:157] [start] EVENT-DRIVEN AI AGENT STARTING
+[2026-02-07 09:24:16,937] [INFO] [__main__] [event_runner.py:158] [start] ======================================================================
+[2026-02-07 09:24:16,937] [INFO] [__main__] [event_runner.py:159] [start] Watch directory: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_5/section_5/contract
+[2026-02-07 09:24:16,937] [INFO] [__main__] [event_runner.py:160] [start] Model: gpt-5.2
+[2026-02-07 09:24:16,937] [INFO] [__main__] [event_runner.py:161] [start] Output directory: outputs
+[2026-02-07 09:24:16,937] [INFO] [__main__] [event_runner.py:162] [start] ======================================================================
+[2026-02-07 09:24:16,937] [INFO] [src.service.event_handler] [event_handler.py:190] [register_handler] Registered handler: FileCreatedHandler
+[2026-02-07 09:24:16,937] [INFO] [src.service.event_handler] [event_handler.py:190] [register_handler] Registered handler: ContractReviewHandler
+[2026-02-07 09:24:16,939] [INFO] [__main__] [event_runner.py:187] [start] File watcher started. Waiting for new files...
+[2026-02-07 09:24:16,939] [INFO] [__main__] [event_runner.py:188] [start] Press Ctrl+C to stop.
+[2026-02-07 09:29:02,655] [INFO] [__main__] [event_runner.py:99] [on_created] New file detected: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_5/section_5/contract/contract_1.md
+[2026-02-07 09:29:02,655] [INFO] [src.service.event_handler] [event_handler.py:203] [publish] Event published: file_created [correlation_id=3400b26b...]
+[2026-02-07 09:29:02,655] [INFO] [__main__] [event_runner.py:112] [event_logger_callback] EVENT LOG: {'event_id': '2a7d6968625e437a983202392e244d76', 'correlation_id': '3400b26b546c411291e889294d627afd', 'timestamp': '2026-02-07T09:29:02.655540', 'event_type': 'file_created', 'file_path': '/Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_5/section_5/contract/contract_1.md', 'file_name': 'contract_1.md', 'file_extension': '.md'}
+[2026-02-07 09:29:02,655] [INFO] [src.service.event_handler] [event_handler.py:213] [publish] Handler FileCreatedHandler processing event
+[2026-02-07 09:29:02,655] [INFO] [src.service.event_handler] [event_handler.py:89] [handle] FileCreatedHandler processing: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_5/section_5/contract/contract_1.md
+[2026-02-07 09:29:02,656] [INFO] [src.service.event_handler] [event_handler.py:99] [handle] Creating ContractReviewRequestedEvent for: contract_1.md
+[2026-02-07 09:29:02,656] [INFO] [src.service.event_handler] [event_handler.py:203] [publish] Event published: contract_review_requested [correlation_id=3400b26b...]
+[2026-02-07 09:29:02,656] [INFO] [__main__] [event_runner.py:112] [event_logger_callback] EVENT LOG: {'event_id': 'db4617848b044dcdac92627f65d3a584', 'correlation_id': '3400b26b546c411291e889294d627afd', 'timestamp': '2026-02-07T09:29:02.656082', 'event_type': 'contract_review_requested', 'contract_file_path': '/Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_5/section_5/contract/contract_1.md', 'model': <OpenAIModel.GPT_5_2: 'gpt-5.2'>, 'output_directory': 'outputs'}
+[2026-02-07 09:29:02,656] [INFO] [src.service.event_handler] [event_handler.py:213] [publish] Handler ContractReviewHandler processing event
+[2026-02-07 09:29:02,656] [INFO] [src.service.event_handler] [event_handler.py:128] [handle] ContractReviewHandler processing: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_5/section_5/contract/contract_1.md
+[2026-02-07 09:29:02,656] [INFO] [src.service.event_handler] [event_handler.py:129] [handle] Using model: gpt-5.2
+[2026-02-07 09:29:02,656] [INFO] [src.service.service] [service.py:119] [run_contract_compliance_pipeline] ================================================================================
+[2026-02-07 09:29:02,656] [INFO] [src.service.service] [service.py:120] [run_contract_compliance_pipeline] CONTRACT RISK COMPLIANCE PIPELINE
+[2026-02-07 09:29:02,656] [INFO] [src.service.service] [service.py:121] [run_contract_compliance_pipeline] Pipeline: Input -> Extraction -> Risk Scoring -> Report
+[2026-02-07 09:29:02,656] [INFO] [src.service.service] [service.py:122] [run_contract_compliance_pipeline] ================================================================================
+[2026-02-07 09:29:02,656] [INFO] [src.service.service] [service.py:123] [run_contract_compliance_pipeline] Contract file: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_5/section_5/contract/contract_1.md
+[2026-02-07 09:29:02,656] [INFO] [src.service.service] [service.py:124] [run_contract_compliance_pipeline] Model: gpt-5.2
+[2026-02-07 09:29:02,656] [INFO] [src.service.service] [service.py:60] [create_contract_pipeline_graph] Creating contract compliance pipeline graph...
+[2026-02-07 09:29:02,656] [INFO] [src.service.service] [service.py:73] [create_contract_pipeline_graph] Contract pipeline graph created successfully
+[2026-02-07 09:29:02,664] [INFO] [src.service.service] [service.py:83] [_read_contract_file] Reading contract file: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_5/section_5/contract/contract_1.md
+[2026-02-07 09:29:02,664] [INFO] [src.service.service] [service.py:130] [run_contract_compliance_pipeline] Contract ID: contract_26504683
+[2026-02-07 09:29:02,666] [INFO] [PIPELINE.ExtractionAgent] [base.py:63] [_log_layer_start] ============================================================
+[2026-02-07 09:29:02,666] [INFO] [PIPELINE.ExtractionAgent] [base.py:64] [_log_layer_start] PIPELINE LAYER - ExtractionAgent: Extracting contract structure
+[2026-02-07 09:29:02,666] [INFO] [PIPELINE.ExtractionAgent] [base.py:65] [_log_layer_start] ============================================================
+[2026-02-07 09:29:02,666] [INFO] [PIPELINE.ExtractionAgent] [extraction.py:83] [execute] Processing contract: contract_26504683
+[2026-02-07 09:29:31,663] [INFO] [PIPELINE.ExtractionAgent] [base.py:89] [_invoke_structured] Received structured response from LLM
+[2026-02-07 09:29:31,664] [INFO] [PIPELINE.ExtractionAgent] [extraction.py:95] [execute] Extraction complete: 14 sections
+[2026-02-07 09:29:31,665] [INFO] [PIPELINE.RiskScoringAgent] [base.py:63] [_log_layer_start] ============================================================
+[2026-02-07 09:29:31,665] [INFO] [PIPELINE.RiskScoringAgent] [base.py:64] [_log_layer_start] PIPELINE LAYER - RiskScoringAgent: Risk Scoring
+[2026-02-07 09:29:31,665] [INFO] [PIPELINE.RiskScoringAgent] [base.py:65] [_log_layer_start] ============================================================
+[2026-02-07 09:29:31,665] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:112] [execute_async] Assessing 14 sections concurrently (limit: 20)...
+[2026-02-07 09:29:31,665] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第1条 目的と契約の性 質
+[2026-02-07 09:29:31,666] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第2条 業務内容
+[2026-02-07 09:29:31,667] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第3条 契約期間
+[2026-02-07 09:29:31,668] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第4条 業務遂行責任者 および担当者
+[2026-02-07 09:29:31,669] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第5条 業務の報告
+[2026-02-07 09:29:31,670] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第6条 再委託の禁止
+[2026-02-07 09:29:31,671] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第7条 委託料
+[2026-02-07 09:29:31,671] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第8条 諸費用の負担
+[2026-02-07 09:29:31,672] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第9条 成果物の提出と 確認
+[2026-02-07 09:29:31,673] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第10条 知的財産権の帰属
+[2026-02-07 09:29:31,674] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第11条 秘密保持
+[2026-02-07 09:29:31,675] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第12条 契約の解除
+[2026-02-07 09:29:31,676] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第13条 協議事項
+[2026-02-07 09:29:31,676] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第14条 管轄裁判所
+[2026-02-07 09:29:40,860] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
+[2026-02-07 09:29:40,861] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第14条 - Risk: medium
+[2026-02-07 09:29:41,620] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
+[2026-02-07 09:29:41,620] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第13条 - Risk: medium
+[2026-02-07 09:29:42,746] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
+[2026-02-07 09:29:42,746] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第6条 - Risk: medium
+[2026-02-07 09:29:43,001] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
+[2026-02-07 09:29:43,001] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第1条 - Risk: medium
+[2026-02-07 09:29:44,353] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
+[2026-02-07 09:29:44,353] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第3条 - Risk: medium
+[2026-02-07 09:29:44,798] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
+[2026-02-07 09:29:44,798] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第4条 - Risk: medium
+[2026-02-07 09:29:44,959] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
+[2026-02-07 09:29:44,959] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第5条 - Risk: medium
+[2026-02-07 09:29:45,129] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
+[2026-02-07 09:29:45,129] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第8条 - Risk: medium
+[2026-02-07 09:29:45,176] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
+[2026-02-07 09:29:45,176] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第9条 - Risk: medium
+[2026-02-07 09:29:46,118] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
+[2026-02-07 09:29:46,118] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第11条 - Risk: medium
+[2026-02-07 09:29:47,287] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
+[2026-02-07 09:29:47,287] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第12条 - Risk: high
+[2026-02-07 09:29:50,488] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
+[2026-02-07 09:29:50,488] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第10条 - Risk: medium
+[2026-02-07 09:29:50,645] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
+[2026-02-07 09:29:50,646] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第2条 - Risk: medium
+[2026-02-07 09:29:51,351] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
+[2026-02-07 09:29:51,351] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第7条 - Risk: medium
+[2026-02-07 09:29:51,351] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:131] [execute_async] Risk scoring complete: 43 findings, 2 high/critical
+[2026-02-07 09:29:51,352] [INFO] [PIPELINE.ReportAgent] [base.py:63] [_log_layer_start] ============================================================
+[2026-02-07 09:29:51,352] [INFO] [PIPELINE.ReportAgent] [base.py:64] [_log_layer_start] PIPELINE LAYER - ReportAgent: Report Generation
+[2026-02-07 09:29:51,352] [INFO] [PIPELINE.ReportAgent] [base.py:65] [_log_layer_start] ============================================================
+[2026-02-07 09:29:51,352] [INFO] [PIPELINE.ReportAgent] [report.py:109] [execute] Generating report for: ソフトウェア開発業務準委任契約書
+[2026-02-07 09:30:31,521] [INFO] [PIPELINE.ReportAgent] [base.py:89] [_invoke_structured] Received structured response from LLM
+[2026-02-07 09:30:31,521] [INFO] [PIPELINE.ReportAgent] [report.py:128] [execute] Report generated: report_1d0c12f1 - Status: needs_review
+[2026-02-07 09:30:31,521] [INFO] [src.service.service] [service.py:136] [run_contract_compliance_pipeline] ================================================================================
+[2026-02-07 09:30:31,521] [INFO] [src.service.service] [service.py:137] [run_contract_compliance_pipeline] COMPLIANCE REPORT GENERATED SUCCESSFULLY
+[2026-02-07 09:30:31,521] [INFO] [src.service.service] [service.py:138] [run_contract_compliance_pipeline] Report ID: report_1d0c12f1
+[2026-02-07 09:30:31,521] [INFO] [src.service.service] [service.py:139] [run_contract_compliance_pipeline] Overall Status: needs_review
+[2026-02-07 09:30:31,521] [INFO] [src.service.service] [service.py:140] [run_contract_compliance_pipeline] Risk Score: 68/100
+[2026-02-07 09:30:31,521] [INFO] [src.service.service] [service.py:141] [run_contract_compliance_pipeline] ================================================================================
+[2026-02-07 09:30:31,522] [INFO] [src.service.event_handler] [event_handler.py:148] [handle] Report saved: outputs/compliance_report_report_1d0c12f1.md
+[2026-02-07 09:30:31,522] [INFO] [src.service.event_handler] [event_handler.py:203] [publish] Event published: contract_review_completed [correlation_id=3400b26b...]
+[2026-02-07 09:30:31,522] [INFO] [__main__] [event_runner.py:112] [event_logger_callback] EVENT LOG: {'event_id': 'd3d9ff578e0e457e9bd40b728da4a142', 'correlation_id': '3400b26b546c411291e889294d627afd', 'timestamp': '2026-02-07T09:30:31.522799', 'event_type': 'contract_review_completed', 'contract_file_path': '/Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_5/section_5/contract/contract_1.md', 'report_id': 'report_1d0c12f1', 'report_path': 'outputs/compliance_report_report_1d0c12f1.md', 'overall_status': <ComplianceStatus.NEEDS_REVIEW: 'needs_review'>, 'risk_score': 68}
+[2026-02-07 09:30:31,522] [INFO] [__main__] [event_runner.py:115] [event_logger_callback] ============================================================
+[2026-02-07 09:30:31,522] [INFO] [__main__] [event_runner.py:116] [event_logger_callback] CONTRACT REVIEW COMPLETED
+[2026-02-07 09:30:31,522] [INFO] [__main__] [event_runner.py:117] [event_logger_callback]   File: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_5/section_5/contract/contract_1.md
+[2026-02-07 09:30:31,522] [INFO] [__main__] [event_runner.py:118] [event_logger_callback]   Report ID: report_1d0c12f1
+[2026-02-07 09:30:31,522] [INFO] [__main__] [event_runner.py:119] [event_logger_callback]   Status: needs_review
+[2026-02-07 09:30:31,522] [INFO] [__main__] [event_runner.py:120] [event_logger_callback]   Risk Score: 68/100
+[2026-02-07 09:30:31,522] [INFO] [__main__] [event_runner.py:121] [event_logger_callback]   Report saved to: outputs/compliance_report_report_1d0c12f1.md
+[2026-02-07 09:30:31,523] [INFO] [__main__] [event_runner.py:122] [event_logger_callback] ============================================================
+```
+
+#### 生成されるレポート例
 
 ```markdown
 # 契約書リスクコンプライアンスレポート
 
-**契約書**: ソフトウェア開発業務委託契約書
-**レポートID**: report_dd81e8e2
-**生成日時**: 2026-02-07 09:20:44
+**契約書**: ソフトウェア開発業務準委任契約書
+**レポートID**: report_1d0c12f1
+**生成日時**: 2026-02-07 09:30:31
 
 ---
 
@@ -225,23 +308,22 @@ Options:
 
 ### 総合評価
 - **コンプライアンス状態**: ⚠️ 要確認
-- **リスクスコア**: 72/100
+- **リスクスコア**: 68/100
 
-本契約は基本構造としては一般的な業務委託の体裁を備える一方、プロジェクト型ソフトウェア開発で紛争化しやすい中核（仕様確定・変更、検収、知財、再委託、個人情報、対価精算、損害賠償）の規定が不足・曖昧です。高リスク指摘が7件あり、現状のまま締結するとスコープ・費用・権利帰属・セキュリティ統制を巡る重大な不確実性が残るため、重要条項の修正・補強を前提に『needs_review』と評価します。
+本契約は全体として一般的な準委任型の構成ですが、(1)委託料の確定性（別途覚書依存）、(2)解除の片務性（甲のみ中途解約）、という2点に高いリスクがあり、契約締結前の修正・補完が必要です。加えて、成果物/検収・別文書（作業指示書等）の拘束力・変更管理、秘密保持の定義/例外など運用上の不確実性が多く、紛争時の解釈ブレが想定されます。重要条項の覚書化と条文の明確化を行えば、実務運用可能性と紛争予防効果が大きく改善します。
 
 ### 主要な懸念事項
-- 仕様確定・変更手続が不十分で、スコープ/費用/納期の合意形成が曖昧（スコープクリープや紛争・停止リスク）
-- 検収が「書面異議なしでみなし完了」となり、甲の手続漏れで権利主張・是正要求が制限され得る
-- 知財（著作権移転の停止条件、第三者IP非侵害保証の過不足、使用許諾範囲の曖昧さ）により、運用継続性・責任配分が不安定
-- 再委託が事前承諾不要で、品質/セキュリティ/サプライチェーン統制が弱い（個人情報・機密の取扱いにも波及）
-- 委託料・追加費用・精算（着手金50%の返金/精算含む）や損害賠償（上限・損害範囲）が未整備で、金銭リスクの見通しが低い
+- 委託料（単価・精算方法）が「別途覚書」依存で未確定となり得て、請求・支払の確定性が不足（価格条項の高リスク）
+- 解除条項が甲に片務的（中途解約権が甲のみ）で、乙の投下コスト回収不能等の重大な商業リスク・紛争リスク
+- 準委任性が強調される一方で、成果物・品質基準・検収/受入・瑕疵対応の定義が弱く、期待成果の未達や是正/減額根拠が乏しい
+- 業務内容・作業指示書等の別文書への委任が多いが、文書の優先順位/合意手続/変更管理が不明確でスコープクリープが起きやすい
+- 秘密情報の定義や例外（法令対応・専門家/委託先への開示）が不足し、実務運用で契約違反化・情報管理の過不足が生じ得る
 
 ### 即時対応が必要な事項
-- ⚠️ 個別契約（SOW）を締結しない限り着手できない建付けに修正し、成果物・受入基準・納期・対価・前提条件を確定する
-- ⚠️ 仕様変更（チェンジコントロール）を「影響分析→見積/納期提示期限→書面承認→実施」の手順で規定し、協議不調時の扱い（停止/原仕様継続/解除・費用負担）を明確化する
-- ⚠️ 検収条項の「みなし検収」「書面」要件を緩和し、再修正期限・再検査・重大不適合時の救済（減額/解除/第三者修補等）を追加する
-- ⚠️ 知財条項を再設計（支払未了でも最低限の利用許諾を確保、従前資産の利用範囲を明確化、第三者IPについて補償/手続/救済を規定、人格権不行使の範囲を限定）
-- ⚠️ 再委託を原則事前承諾制に変更し、再委託先管理（再々委託禁止/条件、セキュリティ要件、監査・報告）と個人情報の委託条項（目的外利用禁止、事故時対応、返却消去等）を追加する
+- ⚠️ 単価・精算単価・工数承認フロー（期限/未承認時/端数処理等）を覚書/SOWとして先行確定し、契約との優先順位・変更手続を明記する
+- ⚠️ 解除条項を是正（乙にも中途解約権、予告期間、解約精算の範囲・算定式、重大違反の即時解除等）し、片務性を解消する
+- ⚠️ 成果物定義（成果物一覧）、品質基準、受入/確認手続（期限・合否基準・修正対応範囲）を明文化し、準委任下でも期待水準を固定する
+- ⚠️ 秘密情報の定義・除外、第三者開示例外、秘密保持期間（情報類型に応じた延長/営業秘密は存続等）を整備する
 
 ---
 
@@ -250,265 +332,182 @@ Options:
 ### 支払条件
 - **検出件数**: 8件
 - **主な問題点**:
-  - 委託料・算定方法・支払条件が個別契約依存で、本契約単体では不確定
-  - 追加作業/仕様変更時の対価調整が未規定
-  - 着手金50%の返金・中途解約時の精算が未整備、税区分も不明確
-
-### 知的財産権
-- **検出件数**: 7件
-- **主な問題点**:
-  - 著作権移転が『検収完了＋完済』停止条件で、支払紛争時に甲の利用継続性が不安定
-  - 乙従前資産の使用許諾範囲が抽象的で、運用・保守・委託先変更等に支障の恐れ
-  - 第三者IP非侵害保証の範囲/手続/救済が未規定、著作者人格権不行使が過度に広い
-
-### 法令遵守
-- **検出件数**: 10件
-- **主な問題点**:
-  - 再委託が事前承諾不要で、情報管理・品質管理・サプライチェーン統制が弱い（high）
-  - 個人情報の委託条項が不足（取扱範囲、再委託条件、事故時対応、監査、返却消去等）
-  - 秘密情報の定義・例外・開示要請対応・保護期間が不十分
-
-### その他
-- **検出件数**: 12件
-- **主な問題点**:
-  - 契約類型（請負/準委任）や成果/完成の前提が曖昧で、責任範囲の争点化
-  - 仕様確定文書の作成・承認・版管理・優先順位が不明確
-  - 変更時の納期・費用影響判断が乙裁量に寄り、協議不調時の取扱いが未整備（high）
-
-### 保証
-- **検出件数**: 4件
-- **主な問題点**:
-  - 契約不適合の救済が修補中心で、重大不適合/是正不能時の代替救済が不透明
-  - 不適合責任期間（検収後1年）が短い可能性
-  - 免責（甲起因）の切り分け基準が曖昧
-
-### 責任・賠償
-- **検出件数**: 3件
-- **主な問題点**:
-  - 損害賠償上限が委託料総額で固定され、事故類型によっては不足
-  - 直接/間接損害、逸失利益、第三者請求等の損害範囲が未定義
-  - 重過失・故意時の扱い等、帰責性基準が不明確
+  - 単価・精算単価が別途覚書等に委ねられ、未整備の場合に価格未確定となる
+  - 稼働実績の算定・承認（形式、期限、未承認時、端数処理等）が不明確で請求紛争化しやすい
+  - 実費精算の範囲・承諾手続が不明確で、費用負担の認識齟齬が起きやすい
 
 ### 契約解除
+- **検出件数**: 6件
+- **主な問題点**:
+  - 中途解約権が甲のみで、権利義務が不均衡（乙の商業リスクが高い）
+  - 解約時精算（進行作業、未検収分、立替費用等）の算定基準が不明確
+  - 是正期間としての「相当の期間」が抽象的で運用・紛争時の不確実性がある
+
+### 知的財産権
 - **検出件数**: 4件
 - **主な問題点**:
-  - 一部解除の範囲・効果・精算・存続条項が不明確
-  - 無催告解除と催告解除が条文内で読みにくく、手続が争点化
-  - 解除事由（著しい背信行為等）が抽象的
+  - 権利移転が支払完了時点で、検収前利用や支払遅延時に帰属が不安定
+  - 成果物範囲や第三者IP/OSS混入時の取扱いが不明確
+  - 乙保有IPのライセンス範囲（改変・複製・サブライセンス・期間等）が抽象的
+
+### 秘密保持
+- **検出件数**: 4件
+- **主な問題点**:
+  - 秘密情報の定義欠如により、保護対象・管理範囲が不明確
+  - 法令対応・専門家・委託先等への開示例外がなく実務上の支障/違反リスク
+  - 秘密保持期間が一律3年で、長期価値情報（営業秘密等）の保護が不足し得る
 
 ### 紛争解決
 - **検出件数**: 4件
 - **主な問題点**:
-  - 協議不調時の解決手段（準拠法、仲裁/調停、エスカレーション等）が不足
-  - 専属管轄が東京地裁固定で、当事者によっては負担偏在の可能性
+  - 協議不調時の解決手段（仲裁、準拠法、手続、優先順位等）が不足し紛争長期化の恐れ
+  - 専属管轄が大阪地裁固定で、当事者の実態によって負担偏在の可能性
 
-### 秘密保持
-- **検出件数**: 5件
+### その他
+- **検出件数**: 17件
 - **主な問題点**:
-  - 秘密情報の定義・表示要件・除外事由が曖昧
-  - 法令/当局要請による開示の例外・手続が未規定
-  - 秘密保持期間（終了後3年）が情報類型によって不足
+  - 準委任性が強く、成果物完成義務・品質・瑕疵対応・検収基準が弱い
+  - 別文書（作業指示書・月次計画等）の契約上の位置付け/優先順位/変更管理が不明確でスコープクリープが起きやすい
+  - 契約期間の日付未確定、及び自動更新（通知期限1か月前）による意図しない継続リスク
+  - 報告・定例会の運用要件やタイムシートの取扱いが不明確で工数増・情報管理リスク
+  - 再委託の承諾基準・期限、再委託先管理/責任分担が不足し、履行・品質・漏えい時の統制が弱い
 
 ---
 
 ## セクション別評価詳細
 
-### ⚠️ 目的
-- **リスクレベル**: 🟡 中
-- **コンプライアンス**: 要確認
-
-**検出されたリスク:**
-
-- **「次条に定める本件システム」「開発業務」「完成」「成果物」等の定義・範囲が本条単体では不明確であり、仕様・成果物範囲・受入基準・検収条件の解釈次第で、納入可否や追加費用（スコープ外作業）を巡る紛争につながるリスクがある。**
-  - カテゴリ: その他
-  - レベル: 🟡 中
-  - 推奨対応: 別条または別紙で、(1)本件システムの範囲（機能一覧・非機能要件・対象環境）、(2)成果物の一覧（ソースコード、設計書、手順書等）と納入形式、(3)「完成」の定義（検収合格時点等）、(4)検収手続・受入基準・修補対応、(5)変更管理（追加要望時の見積・納期改定）を明記する。
-
-- **報酬支払義務は記載されているが、金額・算定方法、支払時期（検収後、マイルストーン等）、遅延利息、支払条件（検収条件との連動）等が不明で、キャッシュフロー・未払い・支払拒絶（検収未了を理由）のリスクがある。**
-  - カテゴリ: 支払条件
-  - レベル: 🟡 中
-  - 推奨対応: 報酬額（固定/準委任/出来高等）・見積根拠、支払スケジュール（着手金/中間/検収後）、請求・支払期限、検収との関係、遅延損害金、立替費用・交通費等の取扱いを支払条項で具体化する。
-
-- **「委託し、受託する」「完成させ納入」とのみあり、契約類型（請負/準委任）や適用される義務（完成責任の有無、善管注意義務中心か等）が明確でないため、責任範囲・瑕疵対応・追加作業の扱いで争点化しやすい。**
-  - カテゴリ: 責任・賠償
-  - レベル: 🟡 中
-  - 推奨対応: 契約類型を明示（例：成果完成を目的とする請負／役務提供型の準委任等）し、必要に応じて成果物の瑕疵（契約不適合）対応、再実施・修補の範囲、追加要望の取扱い、責任制限条項との整合を取る。
-
-**備考**: 本条は目的条項として一般的だが、実務上は仕様・成果物・検収・支払・契約類型が不明確なままだと、後続条項や別紙に依存して重大な解釈差が生じ得る。次条・別紙の具体性次第でリスクは低減可能。
-
-### ✅ 定義
+### ✅ 目的と契約の性質
 - **リスクレベル**: 🟡 中
 - **コンプライアンス**: 適合
 
 **検出されたリスク:**
 
-- **「成果物」の範囲が「プログラム、設計書、マニュアル等のドキュメント一式」とされつつ、具体的な明細が「個別契約」または「要件定義書」に委ねられており、現時点で納入物・作成物の範囲が不確定。追加開発・追加ドキュメント作成の認識違い、検収・支払・知財帰属（成果物に含まれるものの範囲）にも波及するおそれがある。**
+- **「準委任契約」「仕事の完成を約束しない」と明記されており、成果物の完成義務・検収基準・瑕疵対応等が契約上弱くなるため、発注者（甲）側は期待した成果が得られない場合でも是正や減額の根拠が乏しくなるリスクがある。**
+  - カテゴリ: 保証
+  - レベル: 🟡 中
+  - 推奨対応: 甲の期待値を契約に反映するため、(1) 業務範囲・成果物（納品物）がある場合の定義、(2) 品質/性能/サービスレベル（SLA）や受入・検収基準、(3) 不具合・再実施（リワーク）・是正措置、(4) 報告義務・マイルストーン、(5) 達成できない場合の料金調整や解除条件、を別条または仕様書で具体化する。成果物が主目的なら請負（または成果完成条項）の採用も検討する。
+
+- **「次条に定める業務」との参照のみで本条自体に目的・業務のアウトカムが記載されていないため、次条や仕様書の記載が抽象的な場合に、委託範囲・期待水準・役割分担の解釈がブレて紛争化するリスクがある。**
   - カテゴリ: その他
   - レベル: 🟡 中
-  - 推奨対応: 要件定義書/個別契約で成果物一覧（成果物名、形式、範囲、数量/ページ数目安、ソースコード有無、第三者ライブラリ/生成AI成果の扱い、納入媒体、バージョン）を明記し、定義条文側でも「成果物は別紙○○に定める一覧に限る（または含む）」等の参照関係を固定する。未確定の場合は、追加作業は変更管理（見積・納期・費用）に従う旨を併記する。
+  - 推奨対応: 次条（業務内容）および仕様書に、業務範囲（含む/含まない）、前提条件、甲乙の役割分担（甲の協力義務・情報提供）、成果物の有無、判断基準（完了条件）を明確化する。定義条項に「本業務」「成果物」「完了」の定義を置くのも有効。
 
-- **「本件システム」が商品名（『StockMaster AI』）で特定される一方、機能範囲・対象環境・連携範囲等の特定が定義条文では不足しているため、要件変更やスコープ解釈の争い（何が「本件システム」に含まれるか）につながる可能性がある。**
-  - カテゴリ: その他
-  - レベル: 🟡 中
-  - 推奨対応: 別紙（要件定義書等）で、本件システムのスコープ（機能一覧、非機能要件、対象拠点/データ、外部連携、運用保守範囲、学習/推論の範囲、受入基準）を明確化し、定義条文からその別紙を明示参照する（版番号・作成年月日を特定）。名称変更や派生機能がある場合の扱いも定める。
+**備考**: 本条は準委任の位置付けを明確にしており条項として直ちに違法・不適合とはいえない一方、発注者側の成果確保・品質担保の観点では契約設計上のリスクが残る。成果型で運用する場合は、検収・SLA・是正・料金調整等の補完条項の有無が重要。
 
-- **「個別契約」および「要件定義書」の優先順位（本契約との抵触時の優先適用）や成立要件（署名/押印、電子署名、変更手続）が本条単体では不明確。後日ドキュメントによるスコープ・成果物の変更が容易になり、責任・費用・納期の前提が変動するリスクがある。**
-  - カテゴリ: 法令遵守
-  - レベル: 🟡 中
-  - 推奨対応: 契約全体（別条）で(1) 本契約と個別契約/要件定義書の優先順位、(2) 要件定義書が契約書として効力を持つ条件（双方の承認方法）、(3) 変更管理（変更要求、見積、合意、反映）を明記する。必要に応じて「要件定義書は個別契約の一部を構成する」等の位置付けを明確化する。
-
-**備考**: 本条は定義条項で致命的な違法性は直ちに見当たらない一方、別途文書（個別契約/要件定義書）への委任が多く、スコープ・成果物の確定不足が後続条項（検収、支払、知財、責任）に影響し得るため、運用面のリスクを考慮してoverallをmediumとした。
-
-### ✅ 個別契約
+### ✅ 業務内容
 - **リスクレベル**: 🟡 中
 - **コンプライアンス**: 適合
 
 **検出されたリスク:**
 
-- **個別契約が本契約に常に優先するため、個別契約で基本契約の重要条項（責任制限、知財帰属、秘密保持、解除、準拠法・管轄等）が意図せず上書きされ、リスク配分が案件ごとに不安定になる可能性がある。**
+- **具体的な作業内容が「作業指示書」「月次作業計画」等の別文書に委ねられており、当該文書の契約上の位置付け（優先順位、合意方法、変更手続、拘束力）が不明確なため、業務範囲・成果物・納期・検収・対価との紐付けが曖昧になりやすい。**
   - カテゴリ: その他
   - レベル: 🟡 中
-  - 推奨対応: 優先関係を限定し、上書き可能な範囲を明確化する（例：個別契約は納期・仕様・価格等の個別条件に限り優先し、責任制限・知財・秘密保持・解除・紛争解決等の基本条項は本契約を優先）。また、個別契約で本契約の基本条項を変更する場合は「明示的に変更する旨を記載」し、両当事者の権限者の署名/記名押印を必須とする。
+  - 推奨対応: 別文書の定義（作成者、承認者、合意成立時点）、契約との優先順位、変更管理（追加・変更時の見積/スケジュール/対価改定手続）、および別文書が未作成の場合の扱い（業務開始可否・責任分界）を明記する。
 
-- **「必要に応じて別途個別契約を締結」とされており、個別契約が未締結のまま業務が開始されると、仕様・検収・納期・委託料等の重要条件が不明確となり、請求・追加費用・遅延・品質責任の紛争に発展しやすい。**
-  - カテゴリ: 支払条件
+- **「その他、甲乙間で合意した関連業務」が包括的で、追加業務の範囲が広がりやすくスコープクリープ（無償対応・工数超過・納期遅延）の原因となる可能性がある。**
+  - カテゴリ: その他
   - レベル: 🟡 中
-  - 推奨対応: 業務開始条件として個別契約（または発注書/注文書＋受注書等）の事前締結を必須化し、最低限の必須記載事項（業務範囲、成果物、納期/マイルストーン、検収、委託料、支払条件、変更管理、再委託可否等）を列挙する。未締結で着手する場合の暫定条件（タイムチャージ単価、上限金額、準委任/請負の性質など）も定める。
+  - 推奨対応: 追加業務は書面（電子含む）での事前合意を必須とし、追加業務の定義、見積・対価・納期・優先度調整の手続（変更要求票等）を条文化する。必要に応じて「合意なき依頼は業務範囲外」と明記する。
 
-**備考**: 条文自体は基本契約＋個別契約の一般的な構成で直ちに違法・不適合とは言いにくい一方、個別契約優先の無限定条項と、個別契約未締結でも運用され得る点が商業上の紛争リスクを高めます。
+- **業務内容が「設計・技術検証・実装・テスト・助言・コードレビュー」まで含む一方、成果物（ソースコード、設計書、検証レポート等）の明確な列挙、品質基準、受入・検収方法、完了条件が本条では定義されていないため、納品/検収を巡る紛争リスクがある。**
+  - カテゴリ: 保証
+  - レベル: 🟡 中
+  - 推奨対応: 成果物一覧（形式・粒度・提出頻度）、品質/完了基準（Definition of Done、テスト範囲、レビュー基準等）、検収手続（検収期間・不合格時の是正・再検収）を作業指示書等に落とし込み、契約本文でそれらが必須項目であることを定める。
 
-### ✅ 善管注意義務
+- **対象システム名が特定されているが、本業務における既存資産・バックグラウンドIPの扱い、開発成果の知的財産権帰属、OSS利用方針等が本条からは読み取れず、後続条項で規定がない場合にIP/ライセンス面の不確実性が残る。**
+  - カテゴリ: 知的財産権
+  - レベル: 🟡 中
+  - 推奨対応: （別条で）成果物の権利帰属（著作権・特許等）、既存ツール/ライブラリの持込み条件、OSSコンプライアンス（ライセンス一覧・開示義務・禁止ライセンス）を明確化する。少なくとも本条に関連して、成果物の定義と権利の基本方針を参照条項として明記する。
+
+**備考**: 本条は業務の大枠は示しているものの、具体内容を別文書に委ねる構造のため、別文書の統制（優先順位・変更手続・必須記載事項）がない場合に商業面（追加工数/費用）および運用面（検収/完了条件）の不確実性が高まりやすい。後続条項で委任/準委任・請負の性質、対価、検収、IP、責任分界が十分に規定されているかの確認が望ましい。
+
+### ✅ 契約期間
 - **リスクレベル**: 🟡 中
 - **コンプライアンス**: 適合
 
 **検出されたリスク:**
 
-- **「システム開発の専門家としての高度な知識と経験に基づき」という文言が付加されており、通常の善管注意義務よりも高い注意義務（高度専門家基準）として解釈される可能性がある。乙（受託者）の債務不履行・過失認定のハードルが下がり、瑕疵や遅延等の局面で責任追及リスクが増大する。**
-  - カテゴリ: 責任・賠償
-  - レベル: 🟡 中
-  - 推奨対応: 乙側のリスク低減として、(1)「善良なる管理者の注意」を基本に据えつつ「高度な知識と経験」等の加重表現を削除・限定（例：「合理的な範囲で」）する、(2) 成果物・品質基準・受入基準を別条項（SOW/仕様書）で具体化し、抽象的な注意義務が過度に拡張されないようにする、(3) 損害賠償の範囲・上限（直接損害に限定、上限額設定等）を責任条項で明確化する。
-
-- **注意義務の内容が抽象的で、品質水準・プロセス（レビュー、テスト、セキュリティ対応等）や成果基準との関係が明示されていないため、紛争時に「どの程度の注意」が必要だったかの解釈が争点化しやすい。甲乙双方にとって予見可能性が低く、運用上のトラブルを招く。**
+- **契約期間が「202X年X月X日から202X年Y月Y日まで」となっており、日付が確定していないため、契約開始・終了時点が不明確となるリスクがあります。開始日や終了日の解釈を巡って、請求・成果物・責任範囲・更新可否などの紛争に発展する可能性があります。**
   - カテゴリ: その他
   - レベル: 🟡 中
-  - 推奨対応: 本条の抽象性を補うため、(1) 仕様書・作業計画・品質基準（テスト範囲、レビュー基準、セキュリティ要件、SLA等）を契約文書として位置付け、優先順位（契約本文＞個別契約＞仕様書等）を定める、(2) 甲の協力義務（情報提供・承認期限等）と前提条件を明記し、乙の注意義務が甲の不作為で無限定に拡大しないようにする。
+  - 推奨対応: 開始日・終了日を実日付で特定してください（例：2026年4月1日〜2027年3月31日）。未確定の場合は「両当事者が記名押印した日」等の客観的確定方法（発効日定義）を設け、期間起算点を明記してください。
 
-**備考**: 善管注意義務自体は一般的で直ちに違法・不適切とは言いにくい一方、「高度な知識と経験」による加重表現が乙に不利に作用し得るため、責任条項（損害範囲・上限）や品質・受入基準の具体化とセットでリスクコントロールするのが望ましい。
-
-### ✅ 仕様の確定と変更
-- **リスクレベル**: 🟡 中
-- **コンプライアンス**: 適合
-
-**検出されたリスク:**
-
-- **仕様確定の根拠文書（要件定義書・基本設計書）の作成主体、承認手続（誰が・いつ・どの形式で承認するか）、版管理（改訂履歴・優先順位）や、両文書間で不整合が生じた場合の優先順位が明確でないため、仕様範囲の争い（追加開発・無償対応の主張）に発展するリスクがある。**
-  - カテゴリ: その他
-  - レベル: 🟡 中
-  - 推奨対応: 要件定義書・基本設計書の(1)作成責任分界（甲/乙）、(2)承認者・承認期限・承認方法（署名/電子承認）、(3)版番号と変更履歴、(4)不整合時の優先順位（例：要件定義書＞基本設計書＞その他）を条文または別紙で明記する。
-
-- **変更手続が「甲が希望する場合」の通知に限定されており、乙側からの変更提案（技術的必要性、法令・セキュリティ要請、第三者仕様変更等）や、軽微変更/重大変更の定義、影響分析・承認のプロセス（チェンジコントロール）が規定されていないため、変更の合意形成が曖昧になり、スコープクリープや紛争につながるリスクがある。**
-  - カテゴリ: その他
-  - レベル: 🟡 中
-  - 推奨対応: 変更要求書（CR）の様式、影響分析（工数・品質・セキュリティ・テスト・運用）、承認フロー（甲の承認を必須）、軽微変更の扱い（定額範囲/時間単価）、乙起因・外部要因による変更提案手続も追加する。
-
-- **納期・委託料への影響が生じるかどうかの判断が「乙が判断した場合」となっており、判断基準や、見積提示までの期限、協議が不調の場合の取り扱い（原仕様で継続/中止/解除、遅延責任の扱い）が定められていない。結果として、見積・合意が長期化しプロジェクトが停止する、または乙の裁量が広く甲に不利となるリスクがある。**
-  - カテゴリ: 支払条件
-  - レベル: 🟠 高
-  - 推奨対応: 影響有無の判断基準（例：工数増減◯人日以上、工程・成果物・非機能要件への影響）と、見積提示期限（例：受領後◯営業日以内）を設定する。協議不調時のルール（合意まで作業停止、原仕様で継続、または変更部分のみ停止）と、合意前に着手する場合の準委任/時間単価等の精算方法、納期再設定と遅延責任の整理を明記する。
-
-**備考**: 本条は一般的な仕様確定・変更条項の骨子は備えている一方、承認・版管理・変更管理（チェンジコントロール）・協議不調時の扱いが未整備で、スコープと費用/納期を巡る紛争リスクが残る。特に見積・協議が不調の場合の停止/継続ルールを補強すると商業リスクを低減できる。
-
-### ⚠️ 再委託
-- **リスクレベル**: 🟡 中
-- **コンプライアンス**: 要確認
-
-**検出されたリスク:**
-
-- **乙が甲の事前承諾なく本業務の全部または一部を再委託できるため、甲にとって品質管理・情報管理・サプライチェーン上の統制が効きにくい。特に、重要業務や個人情報/機密情報を扱う業務が再委託される場合、期待するセキュリティ水準・要員要件・所在（国内外）等が担保されないリスクがある。**
-  - カテゴリ: 法令遵守
-  - レベル: 🟠 高
-  - 推奨対応: 再委託は原則として甲の事前書面承諾制（少なくとも重要業務・個人情報/機密情報取扱い・国外委託は承諾必須）とし、再委託先の事前開示（会社名、所在地、再委託範囲、再々委託の有無）を条件化する。併せて、再委託先に対する秘密保持・情報セキュリティ・個人情報保護・監査協力義務を乙経由で同等以上に課す条項を追加する。
-
-- **乙が再委託先の行為について甲に対して直接責任を負う旨は甲に有利である一方、責任範囲や損害賠償上限との関係が不明確だと、事故時の回収可能性や紛争時の解釈に不確実性が残る（本条単体では、責任上限・間接損害・免責との整合が取れているか判断できない）。**
-  - カテゴリ: 責任・賠償
-  - レベル: 🟡 中
-  - 推奨対応: 契約全体での損害賠償条項（上限、直接/間接損害、特別損害、逸失利益等）と本条の関係を明確化し、「再委託に起因する損害も乙の責任に含まれる」こと、必要に応じて上限の例外（情報漏えい、故意重過失等）を定める。さらに、乙に再委託先からの求償・補償確保（バックトゥバック）を義務付ける。
-
-- **再々委託（再委託先による更なる委託）の可否や条件が規定されていないため、委託先が多段化して管理不能となり、品質・納期・セキュリティ・コンプライアンスのリスクが増大する可能性がある。**
-  - カテゴリ: その他
-  - レベル: 🟡 中
-  - 推奨対応: 再々委託は禁止または甲の事前書面承諾制とし、例外を設ける場合も再々委託先まで同等義務（秘密保持、セキュリティ、監査協力等）を連鎖適用する条項を追加する。
-
-**備考**: 本条は、乙が再委託できる一方で再委託先の行為について乙が直接責任を負う点は甲に一定程度有利。ただし、甲の事前承諾・委託先管理（開示、監査、セキュリティ、国外委託）・再々委託の統制が欠けるため、運用・コンプライアンス面でリスクが残る。
-
-### ✅ プロジェクト管理と報告
-- **リスクレベル**: 🟡 中
-- **コンプライアンス**: 適合
-
-**検出されたリスク:**
-
-- **「定期的（原則として週1回）」の頻度・方法・報告内容（フォーマット、粒度、報告先、承認要否等）が明確でなく、運用上の齟齬や、報告が不十分であるとして契約違反を主張されるリスクがある。**
-  - カテゴリ: その他
-  - レベル: 🟡 中
-  - 推奨対応: 報告の手段（例：メール/Slack/定例会）、報告先、報告フォーマット、記載必須項目（進捗、課題、リスク、次週計画等）、提出期限（例：毎週◯曜日◯時まで）を追記し、例外時（祝日等）の扱いも定義する。
-
-- **「開発に支障をきたす恐れのある事象」「直ちに」の解釈が広く曖昧で、軽微な事象まで即時報告義務が及ぶ可能性や、報告タイミングを巡る争いが生じるリスクがある。**
-  - カテゴリ: その他
-  - レベル: 🟡 中
-  - 推奨対応: 報告対象を「納期/品質/セキュリティ/コストに重大な影響が見込まれる事象」等に限定し、重大度基準（例：遅延見込み日数、障害レベル）を設定する。「直ちに」を「知得後24時間以内」等の具体的時間に置換する。
-
-- **「対策を協議しなければならない」は協議義務に留まり意思決定・指示権限、費用負担、スケジュール変更手続が不明確なため、追加対応が無償扱いとなる/責任分界が不明となるなど商業上のリスクがある。**
-  - カテゴリ: 責任・賠償
-  - レベル: 🟡 中
-  - 推奨対応: 対策決定プロセス（誰が決裁するか）、変更管理（仕様変更・追加作業は別途見積/書面合意、納期・料金の調整）および責任分界（原因が甲/乙/第三者/不可抗力の場合の扱い）を別条または本条に明記する。
-
-**備考**: 本条はプロジェクト運営上一般的な報告義務条項であり、直ちに違法・重大なコンプライアンス問題が生じる内容ではない。一方、頻度・定義・手続の曖昧さが運用トラブルや責任追及に発展し得るため、報告基準と変更管理（追加費用・納期調整）の明確化が望ましい。
-
-### ✅ 第8条（納入）
-- **リスクレベル**: 🟡 中
-- **コンプライアンス**: 適合
-
-**検出されたリスク:**
-
-- **「甲の指定する場所または方法」により納入するとされており、納入場所・納入方法（媒体、フォーマット、環境、手段、セキュア転送要件等）が個別契約で明確化されない場合、追加作業やコスト増、納入遅延、検収トラブルにつながるリスクがある。指定変更の可否・手続・費用負担も不明確。**
-  - カテゴリ: その他
-  - レベル: 🟡 中
-  - 推奨対応: 個別契約または別紙で、(1)納入物の形態（データ/媒体）、(2)フォーマット・バージョン、(3)納入手段（SFTP/クラウド/物理媒体等）とセキュリティ要件、(4)納入先、(5)甲による指定/変更は書面合意を要し、変更に伴う追加費用・納期延長の取扱い、を明記する。
-
-- **納期遵守義務のみが規定され、納入の成立要件（納入完了時点）、検収・受領の手続、再納入や瑕疵対応との関係が本条からは不明で、履行判定や遅延損害等の議論が生じやすい。**
+- **自動更新条項により、期間満了の1ヶ月前までに書面通知がないと3ヶ月単位で同一条件更新され続けるため、解約手続の失念による意図しない契約継続・コスト発生のリスクがあります。また、通知期限が短めで運用負荷が生じる可能性があります。**
   - カテゴリ: 契約解除
   - レベル: 🟡 中
-  - 推奨対応: 納入完了の定義（アップロード完了/受領確認/署名受領書等）、検収期間と合否基準、不合格時の是正・再納入手続、納期延長条件（甲の協力遅延・仕様変更等）を関連条項（検収条項等）で整備し、本条から参照できるようにする。
+  - 推奨対応: 自動更新の有無・更新回数上限（例：最大◯回まで）や、通知期限の延長（例：2〜3ヶ月前）を検討してください。併せて「書面」の定義（電子メール等を含むか）と通知方法（宛先、到達主義/発信主義）を明確化すると運用リスクを低減できます。
 
-**備考**: 本条自体は一般的な納入義務の規定で違法性が直ちに高いものではないが、納入方法・成立要件・変更管理が未特定だと運用上の紛争リスクが上がるため、個別契約/別紙での具体化が望ましい。
+- **「書面による別段の意思表示」の内容が、更新拒絶のみなのか、条件変更の申し入れも含むのかが不明確です。条件変更交渉の開始が更新阻止に当たるか等、満了・更新局面で解釈が分かれる可能性があります。**
+  - カテゴリ: その他
+  - レベル: 🟢 低
+  - 推奨対応: 別段の意思表示の範囲を明確化してください（例：「更新しない旨の通知」または「更新条件変更の申入れは更新拒絶とはならず、合意に至らない場合は満了終了」等）。
 
-### ✅ 検査および検収
+**備考**: 本条は契約期間・更新を定める一般的条項ですが、日付未確定と自動更新運用（通知期限・方法・到達基準）の曖昧さが実務上の主要リスクです。解除条項（中途解約の可否、違約金/精算、通知期間）が別条で定められているか併せて確認すると評価精度が上がります。
+
+### ✅ 業務遂行責任者および担当者
 - **リスクレベル**: 🟡 中
 - **コンプライアンス**: 適合
 
 **検出されたリスク:**
 
-- **検査期間（10営業日）が短めで、成果物の性質（システム/ソフトウェア等）によっては十分な受入試験ができず、甲が不具合や仕様不適合を見逃したまま検収（みなし検収を含む）となるリスクがある。**
+- **担当技術者の配置・変更に甲の「承諾」が必要で、乙側にとって人員配置の柔軟性が低く、プロジェクト継続や要員確保に支障が出るリスクがある（承諾が遅延・不合理に拒否された場合の手当がない）。**
   - カテゴリ: その他
   - レベル: 🟡 中
-  - 推奨対応: 成果物の種類・規模に応じて検査期間を延長（例：20〜30営業日）する、または「合理的に必要な期間」＋上限を設定する。あわせて受入試験項目・環境・手順・判定基準を仕様書等に明記する。
+  - 推奨対応: 承諾を「事前協議の上、合理的理由なく拒否しない」「〇営業日以内に回答、期限内不回答は承諾とみなす」等に修正し、承諾プロセス（評価基準、提出情報）を明確化する。
 
-- **検査期間内に書面異議がない場合に「検収完了」とみなす条項により、甲側の手続漏れ・繁忙等で自動的に検収となり、以後の是正要求や支払・責任関係に影響するリスクがある。特に『書面』要件が厳格だと、メール等が無効と解釈されるおそれがある。**
-  - カテゴリ: 契約解除
-  - レベル: 🟠 高
-  - 推奨対応: みなし検収を削除または緩和し、(i) 通知手段に電子メール等を含める、(ii) 甲が検査結果の通知を行うまで検収未了とする、(iii) 甲の合理的理由（障害再現待ち、第三者検証等）で期間延長できる旨を追加する。
-
-- **不適合時の修正は規定されているが、修正の期限、再検査期間、再納入回数の上限、重大不適合の場合の代替手段（減額、契約解除、第三者による修補、返金等）が定まっておらず、紛争時に解釈が割れやすい。**
-  - カテゴリ: 責任・賠償
+- **「やむを得ない事由」「同等のスキル」が抽象的で、変更可否や同等性の判断を巡り紛争になり得る（甲が主観的に不同意とする余地）。**
+  - カテゴリ: その他
   - レベル: 🟡 中
-  - 推奨対応: 修正対応SLA（例：重要度別の着手/完了期限）、再検査期間の再起算、無償修正回数または是正の合理的回数、是正不能・反復不適合時の救済（解除・減額・再委託修補費用負担等）を追記する。
+  - 推奨対応: 「やむを得ない事由」の例示（退職・長期病欠・配置転換・法令/安全上の制約・下請先都合等）を追加し、「同等のスキル」を資格・経験年数・同種案件実績・役割（リード/メンバー）等の客観指標で定義する。必要に応じて引継期間・引継計画の提出も規定する。
 
-- **検収の定義が「仕様書等への適合」に限定され、潜在不具合・セキュリティ欠陥・法令適合（個人情報、OSSライセンス等）といった観点が検査対象として明確でない場合、検収後に発覚した問題への対応範囲が不明確になりうる。**
+- **業務遂行責任者の「通知」のみで、責任者の権限・役割（意思決定範囲、指揮命令系統、連絡窓口、承認権限）や変更手続が定められておらず、運用上の混乱や責任所在不明確化のリスクがある。**
+  - カテゴリ: その他
+  - レベル: 🟢 低
+  - 推奨対応: 責任者の職務（進捗・品質管理、報告、変更管理、緊急時対応等）、権限（甲への報告・協議権限、担当者への指揮命令権限）および責任者変更時の通知期限・引継義務を条文化する。
+
+**備考**: 本条は主として運用・体制管理に関する条項で、法令違反の直接リスクは低い一方、承諾要件の強さと用語の曖昧さにより、要員変更時にスケジュール遅延・紛争化する商業的リスクが相対的に高い。甲乙いずれの立場でも、承諾の基準・期限と用語定義を明確化するとリスク低減につながる。
+
+### ✅ 業務の報告
+- **リスクレベル**: 🟡 中
+- **コンプライアンス**: 適合
+
+**検出されたリスク:**
+
+- **月次報告書の提出期限が「毎月末日まで」となっており、対象月の業務を同月末までに確定させて提出する運用が求められるため、実務上の作成・承認プロセスと齟齬が生じやすい（未提出・遅延による契約違反リスク）。**
+  - カテゴリ: その他
+  - レベル: 🟡 中
+  - 推奨対応: 提出期限を「翌月○営業日まで」等に修正し、承認・差戻し手順（提出→レビュー→修正→確定）と、遅延時の取扱い（猶予、重大な債務不履行に当たるか）を明記する。
+
+- **定例ミーティングが「原則として週1回」とされる一方で、開催日時・所要時間・開催方法（オンライン/対面）・欠席時の扱いが未定義で、工数増大やスケジュール調整不全による業務停滞、追加費用の認識違いが発生し得る。**
+  - カテゴリ: その他
+  - レベル: 🟡 中
+  - 推奨対応: 開催頻度の上限（例：週1回・60分まで）、開催方法、議題・アジェンダ事前共有、議事録の作成主体、欠席・延期時のルール、追加ミーティングが発生する場合の費用/工数の取扱い（見積範囲内か別途精算か）を定める。
+
+- **報告内容に「タイムシートを含む」とあるが、記載粒度（作業単位、プロジェクトコード等）、提出形式、保管・閲覧権限、機微情報の取扱いが不明確で、個人情報/営業秘密の過剰共有や目的外利用のリスクがある。**
+  - カテゴリ: 秘密保持
+  - レベル: 🟡 中
+  - 推奨対応: タイムシートの必須記載項目・粒度・提出フォーマットを定義し、個人情報や機微情報を記載しない/マスキングする運用を明記する。必要に応じて秘密保持条項・個人情報取扱条項への参照（目的、管理、第三者提供禁止、保管期間）を追記する。
+
+**備考**: 本条は業務管理上は標準的だが、提出期限と運用、定例会の追加負担、タイムシートに含まれ得る情報の管理が未整備だと紛争の火種になりやすい。重大な違法性は直ちには見当たらないためis_compliantはtrueとした。
+
+### ✅ 再委託の禁止
+- **リスクレベル**: 🟡 中
+- **コンプライアンス**: 適合
+
+**検出されたリスク:**
+
+- **再委託が一律に「甲の書面による事前承諾」に依存しており、承諾基準・回答期限・みなし承諾等がないため、乙側で人員不足や専門業者の活用が必要な場合でも機動的に対応できず、納期遅延や履行不能リスクが高まる可能性がある。**
+  - カテゴリ: その他
+  - レベル: 🟡 中
+  - 推奨対応: 承諾プロセスを明確化（例：甲は申請受領後○営業日以内に書面回答、合理的理由なく承諾を拒まない／期限内不回答は承諾とみなす等）。また、軽微な作業・専門作業（IT保守、配送補助等）や、事前に指定した協力会社は包括承諾とする旨を追加する。
+
+- **再委託を認める場合の管理義務（秘密保持、品質、法令遵守等）や再委託先の行為に関する責任分担が本条だけでは不明確で、情報漏えい・コンプライアンス違反・品質事故等が発生した際の対応が曖昧になり得る。**
   - カテゴリ: 法令遵守
   - レベル: 🟡 中
-  - 推奨対応: 検査観点として、セキュリティ要件、性能要件、法令・規格・OSS遵守、ドキュメント一式、運用引継ぎ等を仕様書/受入基準に明記し、検収後の保証（瑕疵対応）条項とも整合させる。
+  - 推奨対応: 再委託を例外的に認める場合の条件を追記（再委託先への本契約と同等以上の秘密保持・安全管理・法令遵守義務の課し込み、乙による監督義務、甲への事前通知事項、事故発生時の報告義務等）。あわせて、再委託先による履行について乙が責任を負う旨（または責任範囲）を明確化する。
 
-**備考**: 本条は検収プロセスの骨子としては一般的だが、(1)短い検査期間、(2)みなし検収、(3)是正手順の詳細不足により、特に甲側で検収後に不具合が発覚した場合の交渉力低下・紛争化リスクがある。他条（瑕疵担保/保証、責任制限、支払、解除）との整合確認が望ましい。
+**備考**: 再委託の事前承諾を求める条項自体は一般的で、甲の管理・品質確保の観点では標準的です。一方で、承諾手続や例外類型、再委託時の管理条項がない場合、運用面（納期・継続性）および事故対応面で不確実性が残るため、実務運用に合わせた補完が望まれます。
 
 ### ⚠️ 委託料
 - **リスクレベル**: 🟡 中
@@ -516,119 +515,106 @@ Options:
 
 **検出されたリスク:**
 
-- **委託料が「別途個別契約」に委ねられており、本契約単体では金額・算定方法・支払条件が確定しないため、合意未成立や解釈相違により支払を巡る紛争が生じるリスクがある。**
+- **委託料がタイム・アンド・マテリアル方式である一方、成果物・納入物の定義や検収条件、作業範囲（SOW）との紐付けが本条から読み取れず、コスト増大やスコープ拡大（スコープクリープ）時の紛争リスクがある。**
   - カテゴリ: 支払条件
   - レベル: 🟡 中
-  - 推奨対応: 個別契約で最低限定めるべき事項（例：金額または単価・算定方法、支払期日、請求締日、支払方法、消費税の取扱い、振込手数料負担）を本契約に明記するか、個別契約のひな形を添付し「個別契約未締結の場合は本業務を開始しない／開始した場合の暫定単価・上限額」を規定する。
+  - 推奨対応: 別紙/覚書で(1)業務範囲・前提条件・除外範囲、(2)成果物（あれば）と受入基準、(3)変更管理（追加見積・事前承認・上限超過時の停止権）を明記し、T&Mでも支払対象となる作業の範囲を特定する。
 
-- **追加作業・仕様変更・緊急対応等が発生した場合の追加費用の扱いが規定されておらず、委託範囲の増減に応じた対価調整ができない（または無償対応を求められる）リスクがある。**
+- **単価および精算単価が「別途覚書等」で定めるとされ、当該覚書が未整備/未合意の場合に価格未確定となる。支払条件の確定性が弱く、請求・支払の実務や紛争時の解釈が不安定。**
   - カテゴリ: 支払条件
-  - レベル: 🟡 中
-  - 推奨対応: 変更管理（追加/変更の定義、見積・承認プロセス、追加料金の算定、上限、納期への影響）を本契約または個別契約の必須条項として規定する。
-
-**備考**: 委託料を個別契約に委ねる構造自体は一般的だが、本条のみでは支払に関する必須要素が欠落しており、未締結・未確定のまま業務が進行する場合に商業上のリスクが顕在化しやすい。
-
-### ✅ 支払条件
-- **リスクレベル**: 🟡 中
-- **コンプライアンス**: 適合
-
-**検出されたリスク:**
-
-- **着手金が委託料総額の50%と高めに設定されており、成果未達・中途解約・検収不合格の場合の返金や精算ルールが明記されていないため、甲に前払いリスク（未成果の費用負担）が生じる可能性がある。**
-  - カテゴリ: 支払条件
-  - レベル: 🟡 中
-  - 推奨対応: 着手金の性質（返金可否）を明確化し、(a)中途解約時の未実施分の精算方法、(b)乙の債務不履行・履行不能時の返金、(c)検収不合格/是正不能時の取扱い（減額・返金・相殺）を条文化する。可能であればマイルストーン分割（例：要件定義完了、設計完了等）へ変更する。
-
-- **完了金の支払期限が「検収完了月の翌月末日」とされている一方、検収の基準・期間・不合格時の再検収や是正期間等が本条では参照されておらず、検収が長期化した場合に支払時期が不確定になり得る。**
-  - カテゴリ: 支払条件
-  - レベル: 🟡 中
-  - 推奨対応: 他条で定める検収条項を明示的に参照し、検収期間（例：納品後○営業日以内）と、是正・再提出・再検収の回数/期限、みなし検収の要件、部分検収（マイルストーン検収）の可否を明確化して支払時期の予見可能性を確保する。
-
-- **消費税等（税区分）の明記がなく、委託料が税込/税別のいずれか不明確なため、請求額・支払額に齟齬が生じる可能性がある。**
-  - カテゴリ: 支払条件
-  - レベル: 🟡 中
-  - 推奨対応: 委託料総額が税込/税別かを明記し、消費税相当額の取扱い（端数処理含む）を規定する（例：「委託料は税別とし、甲は別途消費税等相当額を加算して支払う」）。
-
-**備考**: 本条は支払期日と支払方法が一定程度明確であり、直ちに違法・不適合と評価する事情は見当たらない。一方で、前払い比率の高さに対する返金/精算、検収プロセス参照、税区分の明確化が不足しており、商業的な紛争・キャッシュフロー上のリスクが残る。
-
-### ⚠️ 知的財産権の帰属
-- **リスクレベル**: 🟠 高
-- **コンプライアンス**: 要確認
-
-**検出されたリスク:**
-
-- **成果物の著作権移転が「検収完了かつ委託料の完済」を停止条件としており、支払遅延・支払争い・一部未払等がある場合に、甲が成果物の権利を取得できず利用継続・改修・保守が不安定になるリスクがある（特に本番稼働後の利用権限の空白が生じ得る）。**
-  - カテゴリ: 知的財産権
   - レベル: 🟠 高
-  - 推奨対応: 甲の利用継続を担保するため、(a) 支払前でも成果物を利用できる暫定ライセンス（非独占・譲渡不可等）を明記、または(b) 検収完了時点で移転し未払時は解除・差止等は別条で規律、(c) 分割検収・マイルストーンごとの部分移転（またはソースコードエスクロー）を規定する。
+  - 推奨対応: 契約締結時点で単価表（役割別・等級別）と精算単価、適用優先順位（本契約＞覚書＞発注書等）を確定させる。未合意時の暫定単価・上限・協議期限も規定する。
 
-- **乙の従前資産（汎用部品・ライブラリ・ノウハウ等）の留保は一般的だが、甲の使用権が「本件システムを利用するために必要な範囲」「非独占的に使用」とのみで、利用態様（複製、改変、第三者運用委託、クラウド環境での利用、バックアップ、災害復旧、グループ会社利用等）が明確でない。解釈次第で甲の運用・保守・移行に制約が生じるリスクがある。**
-  - カテゴリ: 知的財産権
+- **稼働実績に基づく支払とあるが、稼働実績の算定方法（勤怠/工数表の形式、承認フロー、承認期限、未承認時の取扱い、端数処理、休憩控除、リモート時の計測等）が不明確で、請求額の争いが起こり得る。**
+  - カテゴリ: 支払条件
   - レベル: 🟡 中
-  - 推奨対応: 使用許諾の範囲を具体化（複製・翻案/改変の可否、実行環境/拠点/ユーザー数、再委託先へのサブライセンス可否、バックアップ・DR、検証環境、グループ会社利用、保守終了後の利用等）し、制限がある場合は明示する。
+  - 推奨対応: 工数管理のルール（提出頻度、証憑、甲の承認期限、異議申立期間、未応答＝承認/否認の扱い、端数処理）を覚書に明記し、支払根拠を標準化する。
 
-- **乙の「第三者IP非侵害保証」が無限定で、保証範囲（乙の提供物に限るか、甲の指示・素材・第三者要件を含むか）、救済（差止対応、代替提供、ライセンス取得、返金等）、費用負担や手続（防御権限、通知義務）が未規定。乙にとって責任が過大となり得る一方、甲にとっても実効的な救済が担保されないリスクがある。**
-  - カテゴリ: 補償
-  - レベル: 🟠 高
-  - 推奨対応: IP侵害に関する補償・対応条項を追加/明確化（乙の防御・和解権限、甲の通知・協力義務、乙負担での侵害回避措置〔改修/代替/ライセンス取得〕、不能時の解除・返金、例外〔甲の指示・改変・指定素材・第三者ソフト起因〕、責任上限や間接損害除外の整合）を定める。
-
-- **成果物に関する著作権移転は規定されているが、著作者人格権の不行使、第三者（再委託先・従業員等）からの権利取得/譲渡の確保、オープンソースソフトウェア（OSS）混入時の条件・開示義務などが明記されていない。後日、権利処理不備やOSS条件違反により利用制限・公開義務等が発生するリスクがある。**
+- **基準時間140〜180時間の精算調整について、超過/控除の計算式（例：下限割れ控除、上限超過加算）、適用単価（時間単価か人月単価換算か）、月途中参画・離任時の按分、法定労働時間や36協定等への配慮が示されていないため、精算の不一致やコンプライアンス上の懸念が残る。**
   - カテゴリ: 法令遵守
   - レベル: 🟡 中
-  - 推奨対応: 著作者人格権不行使条項、乙が成果物作成に関与する者から必要な権利譲渡を取得する義務、再委託時の同等義務、OSS利用ルール（事前申告、ライセンス一覧提供、コピーレフト回避方針、ソース開示要否、違反時是正）を追加する。
+  - 推奨対応: 精算レンジの計算式（下限/上限の控除・加算方法）、換算方法（人月⇄時間）、端数、月途中の按分、残業・深夜等が発生する場合の取扱い（必要な法令対応・事前承認）を明文化する。
 
-**備考**: 本条は知財の基本構造（成果物は甲へ、既存資産は乙に留保）は一般的である一方、(1) 権利移転の停止条件、(2) 既存資産ライセンス範囲の曖昧さ、(3) 非侵害保証の実務運用（補償・救済）不備が主要リスク。特に甲の事業継続性と乙の責任過大の双方の観点で、追加条項によりバランス調整する余地が大きい。
-
-### ⚠️ 著作者人格権
-- **リスクレベル**: 🟠 高
-- **コンプライアンス**: 要確認
-
-**検出されたリスク:**
-
-- **乙が成果物に関する著作者人格権を甲および甲指定の第三者に対して一切行使しない旨の包括的な不行使条項であり、乙に一方的に不利となり得る。著作者人格権（同一性保持権等）は譲渡できず、実務上は「不行使」の合意で調整することが多いが、本条は範囲・対象行為・例外（乙のクレジット表示、改変の態様、名誉声望の保護等）の限定がなく、過度に広い。**
-  - カテゴリ: 知的財産権
-  - レベル: 🟠 高
-  - 推奨対応: 不行使の範囲を必要最小限に限定し、想定行為を列挙する（例：複製・翻案・改変・公表・表示方法の変更等、利用目的の範囲内）。また、(1)乙の名誉・声望を害する改変は除外、(2)改変時の事前協議/通知、(3)第三者への再許諾・譲渡の範囲（甲の関連会社・委託先等）を限定、(4)成果物の定義・範囲（ソースコード、ドキュメント、デザイン等）を明確化する条文修正を検討する。
-
-- **「甲が指定する第三者」という対象が無限定で、甲の裁量で不特定の第三者まで権利不行使の効果が及ぶ。乙にとって想定外の利用・改変・表示が行われても人格権に基づく是正手段を取りにくくなり、レピュテーションリスクや紛争化リスクが高い。**
-  - カテゴリ: 知的財産権
-  - レベル: 🟠 高
-  - 推奨対応: 第三者の範囲を限定（例：甲の関連会社、再委託先、販売/運用パートナー等）し、目的（本契約の履行・成果物の利用に必要な範囲）と条件（秘密保持義務の付与、再指定・再許諾の可否）を明記する。
-
-- **成果物の「公表」や「氏名表示」に関する取り扱いが定められていないため、甲側の公開・クレジット表記・匿名化の方針と乙の期待が衝突し得る。著作者人格権の不行使が広い場合、乙の意思に反して無記名・別名義で利用されるなどの運用リスクがある。**
-  - カテゴリ: 知的財産権
+- **T&Mにもかかわらず、月額報酬/時間精算の上限（キャップ）や予算超過時の停止・協議条項がなく、甲側の費用コントロールが弱い（予算超過リスク）。乙側も承認プロセス不備だと稼働が未承認となり回収リスクがある。**
+  - カテゴリ: 支払条件
   - レベル: 🟡 中
-  - 推奨対応: 公表の要否、著作者名・会社名の表示方針（表示/非表示/表示方法）、ポートフォリオ利用の可否等を別条または本条に追記し、運用ルールを明確化する。
+  - 推奨対応: 月次の上限時間/上限金額、超過見込み時の事前通知義務、甲の追加承認がない場合の作業停止/優先度調整、請求可能範囲のルールを追加する。
 
-**備考**: 本条は日本法実務で見られる「著作者人格権の不行使」型だが、現状は対象（第三者）と範囲（改変態様・目的・例外）が無限定で、乙（制作側）に過度な負担となり得るためリスクを高めに評価した。あわせて、成果物の著作権の帰属・利用許諾範囲（別条）と整合するように条文全体で確認することが望ましい。
+**備考**: 本条はT&M精算の骨格は示すものの、単価・精算単価が別途覚書依存で確定性が弱く、工数算定/承認/計算式が不明確なため支払・運用面の紛争リスクがある。覚書（単価表・精算条件・工数承認フロー・上限管理）を契約締結時に一体化して整備するのが望ましい。
 
-### ✅ 契約不適合責任
+### ✅ 諸費用の負担
 - **リスクレベル**: 🟡 中
 - **コンプライアンス**: 適合
 
 **検出されたリスク:**
 
-- **契約不適合に対する救済が「修正、修補」に限定されており、再作成・代替提供・減額・解除・損害賠償等の取扱いが不明確。重大な不適合や是正不能の場合に、甲の救済手段が不足/不透明となるリスクがある。**
+- **「事前に甲の承諾を得たものに限り」とあるため、承諾手続（承諾者、方法、期限）が不明確だと、乙が必要費用を立替・負担せざるを得ない状況や、事後に承諾が否認され精算拒否が生じるリスクがある。**
+  - カテゴリ: 支払条件
+  - レベル: 🟡 中
+  - 推奨対応: 承諾プロセスを具体化（例：見積提示→甲担当者がメール/書面で承認、承認期限は提出後◯営業日、期限内に異議なき場合は承認とみなす等）。また、緊急・やむを得ない支出（出張変更等）の事後承認や上限額内での包括承認の扱いを定める。
+
+- **「実費」の範囲が不明確で、対象費目（交通費の種別、グリーン車/タクシー、宿泊の上限単価、日当、キャンセル料、手数料、税、為替差損等）を巡って精算範囲の解釈違いが起こり得る。**
+  - カテゴリ: 支払条件
+  - レベル: 🟡 中
+  - 推奨対応: 精算対象費目と条件を列挙し、単価・上限（例：宿泊1泊◯円まで）、領収書要否、キャンセル料負担基準、消費税の扱い等を明記する。必要に応じて別紙の経費規程を参照させる。
+
+- **特別なソフトウェアライセンス費用を甲が負担する場合、ライセンスの契約主体（甲/乙）、名義、利用範囲、契約終了後の扱い（返却/停止/譲渡）、成果物への組込みの可否が不明確だと、利用継続の可否やライセンス違反（コンプライアンス）・追加費用発生のリスクがある。**
+  - カテゴリ: 知的財産権
+  - レベル: 🟡 中
+  - 推奨対応: ライセンスの購入主体・名義、用途（本業務に限定）、利用期間、契約終了時の措置、サブライセンス可否、監査対応、追加購入時の承認手続を明確化する。可能なら甲が直接契約・管理する形を原則とする。
+
+**備考**: 費用を甲が負担する旨自体は一般的で大きな違法性は見当たりませんが、承認手続と実費範囲が曖昧なため、運用・精算トラブルの商業リスクが残ります。甲乙いずれにとっても、上限・手続・証憑要件を定義することで紛争予防効果が高まります。
+
+### ✅ 成果物の提出と確認
+- **リスクレベル**: 🟡 中
+- **コンプライアンス**: 適合
+
+**検出されたリスク:**
+
+- **成果物の提出義務が「甲の求めに応じて随時、または月次報告時」とされており、提出タイミング・範囲（提出対象物、提出形式、提出期限）が不明確なため、甲からの随時要求が過大になり工数・納期・費用の増加や紛争につながるリスクがある。**
+  - カテゴリ: その他
+  - レベル: 🟡 中
+  - 推奨対応: 提出対象（例：ソースコード／設計書／テスト結果等）、提出形式（例：リポジトリ/ファイル形式）、提出頻度（例：月1回まで等）、提出期限（例：要求後○営業日以内）、追加提出が発生する場合の費用・スケジュール調整（変更管理）を明記する。
+
+- **甲の「確認」が請負の検収ではなく「完成や瑕疵の不在を保証させるものではない」とされているため、成果物の受領・承認基準が曖昧となり、後日「確認済み」か否か、どの時点で指摘可能か、修正対応の要否が争点化するリスクがある（甲側：品質確保が弱い／乙側：無限定な指摘・修正要求の懸念）。**
   - カテゴリ: 保証
   - レベル: 🟡 中
-  - 推奨対応: 是正不能・合理期間内に未是正・同種不具合の再発等の場合の対応（再提供、代替措置、対価減額、解除、損害賠償の可否）と判断基準（「合理的期間」「重大な不適合」等）を明記する。
+  - 推奨対応: 確認の位置づけ（進捗確認/レビュー）と、品質・瑕疵対応を別条で明確化する。例：受領・承認（検収）手続、受領後の指摘期限、重大瑕疵の定義、修補範囲・回数、追加要望は有償変更、責任範囲（契約不適合/瑕疵担保の有無・期間）を規定する。
 
-- **契約不適合責任の期間が「検収完了後1年以内」とされており、成果物の性質（基幹システム、長期運用ソフト等）によっては甲にとって期間が短い可能性がある。一方で乙にとっては期間が明確で予見可能性はあるが、商用運用後に顕在化する不具合をカバーできないリスクが残る。**
-  - カテゴリ: 保証
-  - レベル: 🟡 中
-  - 推奨対応: 成果物の重要度に応じて期間延長（例：2年）や、重大な契約不適合・セキュリティ欠陥等は別枠で長期（または法定の範囲）とする等、リスクに見合う期間設計を検討する。
-
-- **免責要件（甲の資料・指示・利用環境に起因）が広く解釈され得るため、因果関係や切り分けの基準が不明確だと、乙が広範に免責を主張し紛争化するリスクがある。**
-  - カテゴリ: 責任・賠償
-  - レベル: 🟡 中
-  - 推奨対応: 「起因」の判断基準（相当因果関係、乙の確認義務・助言義務がある場合の取扱い、共同原因時の按分）や、切り分け手順（ログ取得、再現条件、協力義務）を明記する。
-
-- **「速やかに」のみで是正期限や対応SLA（初動、暫定回避、恒久対策）が定義されていないため、対応の遅延や期待値不一致が生じるリスクがある。**
+- **甲が「疑義がある場合は乙に説明を求めることができる」とある一方、乙の説明義務の範囲（合理的な範囲/時間上限）や対応期限が定められていないため、説明対応が長期化し、乙の稼働を圧迫する／甲の確認が遅延するリスクがある。**
   - カテゴリ: その他
   - レベル: 🟢 低
-  - 推奨対応: 不具合の重大度区分（重大/通常/軽微）に応じた初動期限・修正期限、回避策提供、進捗報告頻度などを定める。
+  - 推奨対応: 説明要求は「合理的な範囲」に限定し、対応期限（例：要求後○営業日以内に一次回答）や、追加調査が必要な場合の取り扱い（工数見積・スケジュール調整）を定める。
 
-**備考**: 本条は契約不適合の基本構造（期間設定と、甲起因の場合の免責）は一般的で直ちに違法/不適合とまでは言えない一方、救済手段の限定・免責の切り分け基準・対応期限の不明確さが、運用上の紛争や商業的損失につながり得るため総合的にmediumと評価。
+**備考**: 本条は進捗管理としては有用だが、「随時提出」「確認は検収でない」という構造により、提出・レビューの運用が拡大解釈されやすい。品質保証/検収/瑕疵対応、変更管理、知財帰属（別条で規定されることが多い）との整合を確認し、手続と期限を具体化するとリスク低減につながる。
+
+### ✅ 知的財産権の帰属
+- **リスクレベル**: 🟡 中
+- **コンプライアンス**: 適合
+
+**検出されたリスク:**
+
+- **成果物の知的財産権が「委託料の支払い完了時点」で移転するため、検収・受領前に利用を開始した場合や支払遅延・分割払いの場合に、権利帰属が宙に浮き、利用差止め・引渡し停滞・紛争のリスクがある。**
+  - カテゴリ: 知的財産権
+  - レベル: 🟡 中
+  - 推奨対応: 権利移転のトリガーを「検収合格（成果物の引渡し）時」または「引渡し時（支払は対抗要件/解除条件）」に見直す。少なくとも支払完了までの間、甲に対して成果物の利用に必要な暫定ライセンス（無償・取消不能・業務目的範囲）を付与する旨を追記する。分割払いの場合は各マイルストーン成果物ごとに権利移転・利用許諾を明確化する。
+
+- **「成果物」の範囲（ソースコード、設計書、仕様書、データ、ドキュメント、派生物、改変物、学習済みモデル等）や、成果物に第三者IP・オープンソースが含まれる場合の取扱いが明確でなく、想定外に権利が移転しない/利用制限が残るリスクがある。**
+  - カテゴリ: 知的財産権
+  - レベル: 🟡 中
+  - 推奨対応: 成果物の定義を追加し、納品物一覧（成果物目録）を添付する。第三者IP/OSS利用がある場合の事前開示、ライセンス条件、帰属、コンプライアンス（ソース開示義務の有無等）を定める。必要に応じて「成果物に含まれる第三者権利は移転対象外であり、甲には利用に必要なライセンスを付与する」等の整理を行う。
+
+- **乙保有IPの使用許諾が「本システムを利用するために必要な範囲」と抽象的で、利用範囲（社内利用/グループ会社/委託先への再委託・サブライセンス可否、利用場所、バックアップ、改変、複製、災害時復旧、クラウド移行）や期間（永続/契約終了後）を巡り解釈相違が生じやすい。**
+  - カテゴリ: 知的財産権
+  - レベル: 🟡 中
+  - 推奨対応: 使用許諾の条件を具体化する（許諾範囲・目的・期間・地域・再委託/サブライセンス可否・改変/複製可否・保守運用のための利用・契約終了後の取扱い）。甲側が継続運用を要するなら、少なくとも契約終了後も継続利用できる（永続・取消不能）旨や、保守委託先への利用許諾を明記する。
+
+- **著作者人格権の不行使条項がないため、成果物が著作物に該当する場合に、将来的な改変・翻案・表示方法等について乙（著作者）から異議が出るリスクが残る。**
+  - カテゴリ: 知的財産権
+  - レベル: 🟡 中
+  - 推奨対応: 乙および乙の従業員/再委託先が、甲および甲の指定する者に対し、成果物について著作者人格権を行使しない旨（必要に応じて範囲限定）を追加する。再委託がある場合は同等条項の取得義務も明記する。
+
+**備考**: 本条は、成果物の権利移転と乙保有IP留保を分けて規定しており構造は標準的だが、(1)移転時期を支払完了に連動させている点、(2)成果物・第三者IP/OSSの取扱い、(3)乙保有IPライセンス条件、(4)著作者人格権不行使の欠落が、実務上の運用・紛争リスクを高め得る。法的助言ではなくリスク評価としての指摘。
 
 ### ✅ 秘密保持
 - **リスクレベル**: 🟡 中
@@ -636,101 +622,50 @@ Options:
 
 **検出されたリスク:**
 
-- **「秘密情報」の定義が抽象的で、秘密情報の範囲（口頭情報、表示義務（Confidential表示）、媒体、派生情報等）や除外事由（公知情報、受領前保有、第三者から適法入手、独自開発、法令/裁判所命令による開示）を明確にしていないため、解釈の幅が広く紛争化しやすい。**
+- **「秘密情報」の定義がなく、何が秘密情報に該当するか不明確なため、情報管理範囲が過度に広がったり、逆に保護対象の特定ができず争いになり得る。**
   - カテゴリ: 秘密保持
   - レベル: 🟡 中
-  - 推奨対応: 秘密情報の定義に(1)媒体（書面・電磁的・口頭）(2)秘密指定の要否(3)秘密として合理的に扱われる情報(4)複製・要約・派生情報も含む旨を追記し、併せて公知情報等の典型的な除外事由および立証責任（例：受領者が除外事由を証明）を規定する。
+  - 推奨対応: 秘密情報の定義（例：秘密表示のある情報、口頭開示は後日書面化されたもの等）と、秘密情報に該当しない情報（公知情報、受領前から保有、正当な第三者から取得、独自開発等）を明記する。
 
-- **法令、規制当局、裁判所命令等により開示が必要となる場合の例外・手続（事前通知、開示範囲の最小化、秘密保持命令の申立て協力等）が規定されていないため、コンプライアンス対応と契約違反リスクが衝突する可能性がある。**
+- **第三者開示の例外（法令・裁判所/行政機関の命令、監査人・弁護士等の守秘義務者への開示、業務委託先への開示）が規定されていないため、実務上必要な開示が契約違反となるリスクがある。**
   - カテゴリ: 法令遵守
   - レベル: 🟡 中
-  - 推奨対応: 強制開示の例外条項を追加し、(1)可能な限り事前通知(2)開示範囲の限定(3)保護命令等の取得に協力(4)開示先に対する秘密保持措置の要請、を明記する。
+  - 推奨対応: 法令等に基づく開示は事前（困難な場合は事後速やかに）通知の上で許容する条項、及び弁護士・会計士・金融機関・委託先等への必要最小限の開示（同等の秘密保持義務を課すことを条件）を追加する。
 
-- **秘密保持期間が「契約終了後3年間」に限定されており、営業秘密・ソースコード・非公開ノウハウなど長期保護が必要な情報について保護が不足するおそれがある（情報価値の存続期間と不一致）。**
+- **秘密保持期間が契約終了後3年に限定されており、ノウハウ・営業秘密など価値が長期に及ぶ情報について保護が不十分となる可能性がある。**
   - カテゴリ: 秘密保持
   - レベル: 🟡 中
-  - 推奨対応: 情報類型に応じて期間を分ける（例：一般の秘密情報は3年、営業秘密/機微情報は秘密性が失われるまで）または少なくとも5年等に延長する案を検討する。
+  - 推奨対応: 情報の性質に応じて期間を延長（例：5年）する、または営業秘密に該当する情報は非公知である限り存続（無期限）とする等の二段階設計を検討する。
 
-- **秘密情報の管理義務の具体性（善管注意義務、社内アクセス制限、複製制限、再委託先への管理、事故時の通知・是正等）が明記されていないため、漏えい時の義務範囲が不明確になりやすい。**
+- **秘密情報の取扱い（目的外利用禁止、複製制限、管理義務の水準）、返還・消去、漏えい時の通知/是正、損害賠償・差止め等の救済が規定されておらず、漏えい発生時の実効性が弱い。**
   - カテゴリ: 秘密保持
-  - レベル: 🟢 低
-  - 推奨対応: 管理水準（少なくとも自己の同種情報と同等以上の注意、必要最小限のアクセス、複製制限）、再委託/関係会社/従業員への開示条件（need-to-know、同等の秘密保持義務付与）、漏えい等インシデント発生時の通知・協力・再発防止を追記する。
+  - レベル: 🟡 中
+  - 推奨対応: 少なくとも①目的外使用の禁止、②合理的管理措置（アクセス制限等）、③委託先・従業員への同等義務、④終了時の返還/消去（例外：バックアップの取扱い）⑤漏えい等発生時の速やかな通知と協力、⑥差止め等の救済を追加する。
 
-- **契約終了時の秘密情報の返却・消去（バックアップ含む）や、保存が許される例外（法令上の保存義務、監査対応等）が規定されていないため、終了後のデータ残存による漏えいリスクや運用上の不整合が生じ得る。**
-  - カテゴリ: 秘密保持
-  - レベル: 🟢 低
-  - 推奨対応: 契約終了/請求時の返却・廃棄/消去、消去証明、バックアップの扱い（合理的期間で上書き消去等）、および法令保存等の例外を定める。
+**備考**: 秘密保持条項としての骨格（第三者開示禁止・存続期間）はあるものの、定義・例外・運用（管理/返還/漏えい対応）に関する標準要素が不足しており、実務運用と紛争予防の観点で中程度のリスクがある。
 
-**備考**: 条文は秘密保持の基本要件（第三者開示禁止・目的外使用禁止、終了後存続）を満たしており一般的な構成だが、定義・除外事由・強制開示・管理/返却等の実務条項が不足しているため、運用面および紛争予防の観点で中程度のリスクと評価した。
-
-### ⚠️ 個人情報の取り扱い
-- **リスクレベル**: 🟡 中
+### ⚠️ 契約の解除
+- **リスクレベル**: 🟠 高
 - **コンプライアンス**: 要確認
 
 **検出されたリスク:**
 
-- **個人情報の取扱いに関し、法令遵守と善管注意義務のみが規定されており、委託に伴う必須論点（取扱い範囲、目的外利用禁止、再委託条件、事故時対応、監査・報告、返却・消去等）が欠落しているため、漏えい等発生時の運用・責任分界が不明確となるリスクがある。**
-  - カテゴリ: 法令遵守
+- **中途解約権が甲のみに認められており（乙には同等の権利が明記されていない）、解除・解約の権利義務が不均衡。乙にとっては契約継続の予見可能性が低く、投下コスト回収不能等の商業リスクが高い。**
+  - カテゴリ: 契約解除
+  - レベル: 🟠 高
+  - 推奨対応: 乙にも同等の中途解約権（例：1ヶ月前予告）を付与する、または少なくとも乙側の中途解約要件（やむを得ない事由、長期不履行等）を明記する。加えて、業務立上げ費・固定費等の回収のための解約料/最低支払（例：最低1〜2ヶ月分、未償却費用の精算）を設定する。
+
+- **「業務実績に応じた委託料」の算定基準が不明確で、解約時の精算範囲（進行中作業、成果物未検収分、立替費用、キャンセル料、固定報酬の扱い等）を巡り紛争化しやすい。**
+  - カテゴリ: 支払条件
   - レベル: 🟡 中
-  - 推奨対応: 委託先（乙）の具体的義務を追記する：①利用目的・取扱い範囲の特定（目的外利用/複製/持出し禁止）②安全管理措置（技術的・組織的・物理的・人的）③アクセス制御・ログ管理④再委託の事前承諾・再委託先管理⑤教育・誓約⑥監査権/定期報告⑦漏えい等発生時の通知期限・初動対応・再発防止・費用負担⑧契約終了時の返却/消去と証明（消去証明書）⑨国外移転の有無と条件。
+  - 推奨対応: 精算ルールを具体化（例：時間単価×稼働時間、マイルストーン到達基準、月額固定の按分方法、検収前成果物の取り扱い）。併せて、(i) 立替費用・第三者費用・解約に伴うキャンセル料の負担、(ii) 請求締日・支払期日、(iii) 乙の協力義務（引継ぎ）と対価を明記する。
 
-- **個人情報の定義（個人データ/要配慮個人情報/仮名加工情報等）や「甲から預託された」の範囲が明確でなく、乙が業務遂行上生成・取得するデータ（ログ、問い合わせ履歴等）が対象に含まれるか不明で、解釈相違が生じるリスクがある。**
-  - カテゴリ: その他
-  - レベル: 🟡 中
-  - 推奨対応: 対象情報の定義と範囲を明確化する（例：甲が提供する個人データに加え、乙が本業務に関連して取得・生成する個人情報も含む/含まないを明記）。併せて、データ類型ごとの取扱い（要配慮、仮名/匿名、個人関連情報等）を整理して条文化する。
-
-**備考**: 条文自体は法令遵守と善管注意を求める一般条項として一定の水準だが、個人情報の取扱いに関する実務上重要な管理・監督・事故対応の具体条項が不足しているため、単独では委託契約としてのコンプライアンス担保が弱い評価。別条項または個人情報取扱いに関する覚書（DPA）で補完されているかの確認が望ましい。
-
-### ✅ 契約の解除
-- **リスクレベル**: 🟡 中
-- **コンプライアンス**: 適合
-
-**検出されたリスク:**
-
-- **「本契約の全部または一部を解除できる」とあるが、一部解除の範囲・効果（解除対象となる業務/注文/個別契約、既履行部分の精算、解除後の権利義務の存続条項など）が不明確で、運用・紛争時に解釈が分かれるリスクがある。**
+- **第1項の解除要件における「相当の期間」が抽象的で、是正期間の長短を巡って解釈が割れうる。違反の重大性に応じた即時解除（重大違反・信用不安・反社等）も規定されていないため、実務上の機動性/予防が不足する可能性。**
   - カテゴリ: 契約解除
   - レベル: 🟡 中
-  - 推奨対応: 一部解除の定義（例：個別契約/発注単位/業務単位）と効果（既履行分の検収・支払、未履行分の停止、返還/原状回復の要否）を明記し、解除後も存続する条項（秘密保持、知財、損害賠償、準拠法・管轄等）を併せて規定する。
+  - 推奨対応: 是正期間の目安（例：10営業日、又は違反内容に応じ協議）を定める。併せて、重大な契約違反、支払遅延の一定期間継続、差押・倒産申立、反社条項違反、機密侵害等については催告不要の解除（即時解除）を追加する。
 
-- **冒頭で「何らの催告を要せず直ちに解除」としつつ、1号では「相当の期間を定めて催告したにもかかわらず是正されないとき」としており、条文内で手続要件が読みにくい（1号には催告が必要だが他号は不要、という趣旨が明確に読めない）リスクがある。**
-  - カテゴリ: 契約解除
-  - レベル: 🟡 中
-  - 推奨対応: 解除要件を整理し、(i) 催告・是正期間を要する解除事由（例：一般違反）と、(ii) 無催告解除事由（例：倒産、差押等、重大な背信行為）を明確に分けて記載する（例：「第1号の場合を除き、催告を要せず」等）。
-
-- **「著しい背信行為」が抽象的で、どの程度・類型が該当するか当事者間で認識齟齬が生じやすく、解除の濫用・解除有効性を巡る紛争リスクがある。**
-  - カテゴリ: 契約解除
-  - レベル: 🟡 中
-  - 推奨対応: 背信行為の例示（例：重大な法令違反、反社会的勢力関与、重大な情報漏えい、信用毀損行為、重要な表明保証違反等）や「契約目的達成が困難となる程度」など判断基準を補足し、可能なら是正可能性がある場合の扱い（是正期間付与の要否）も定める。
-
-- **倒産・差押等（2号）が「申立てがあったとき」とされており、相手方に帰責性がない第三者申立て等でも直ちに解除可能となる可能性がある。取引継続の合理性がある場面でも一方的に解除でき、商業的に過度に厳しい運用となるリスクがある。**
-  - カテゴリ: 契約解除
-  - レベル: 🟡 中
-  - 推奨対応: 解除トリガーを「開始決定があったとき」「支払停止・手形不渡り」「差押等により重要な財産が処分制限を受け、契約履行に重大な支障がある場合」等に調整する、または一定期間の治癒（取消・解除）や代替担保提供の機会を設ける。
-
-**備考**: 解除条項として一般的な骨格（違反是正後解除、倒産/強制執行、背信行為）は備える一方、「一部解除」の効果や「背信行為」の明確性、無催告解除の整理が不足しており、運用・紛争時の解釈リスクが残るため全体リスクはmediumと評価。
-
-### ⚠️ 損害賠償
-- **リスクレベル**: 🟡 中
-- **コンプライアンス**: 要確認
-
-**検出されたリスク:**
-
-- **損害賠償の上限が「本業務の委託料総額」に限定されており、相手方の過失により実損が大きく発生した場合（障害対応費、第三者対応費、事故対応等）でも回収できない可能性がある。特に受託/委託の内容次第では、上限が実態リスクに対して低すぎるおそれがある。**
-  - カテゴリ: 責任・賠償
-  - レベル: 🟡 中
-  - 推奨対応: 業務内容・想定損害に照らし、上限額を引上げ（例：委託料の一定倍率、直近12か月支払額等）することを検討する。少なくとも、上限額の算定基準（税別/税込、追加費用・再委託費の含否、期間按分の有無）を明確化する。
-
-- **「相手方の責めに帰すべき事由」の範囲が抽象的で、過失の程度（軽過失/重過失）や帰責性の判断基準、因果関係・立証責任が明示されていないため、紛争時に解釈が割れる可能性がある。**
-  - カテゴリ: 紛争解決
-  - レベル: 🟡 中
-  - 推奨対応: 帰責事由の定義（故意・過失、重過失の扱い、第三者要因・不可抗力の整理）や、損害算定・立証に関する取り決め（例：合理的根拠資料、協議手続）を補足条項で明確化する。
-
-- **損害の範囲（直接損害/間接損害、逸失利益、データ消失、第三者からの請求等）について除外・包含が定義されていないため、上限条項があっても「何が損害に含まれるか」を巡って争いになり得る。第三者請求（知財侵害、個人情報漏えい等）を別建てで扱うべき場面でも本条に吸収されるリスクがある。**
-  - カテゴリ: 責任・賠償
-  - レベル: 🟡 中
-  - 推奨対応: 損害区分を明確化（例：特別損害・間接損害・逸失利益の免責、直接損害に限定等）し、第三者請求や特定類型（秘密保持違反、個人情報/セキュリティ事故、知財侵害等）については補償条項・例外条項として上限の適用可否を明記する。
-
-**備考**: 損害賠償上限を定める条項自体は一般的だが、例外（故意・重過失、秘密保持/個人情報、知財侵害、第三者請求等）や損害範囲の定義がないため、当事者のリスク配分が不明確になりやすい。業務の性質（システム/データ取扱い等）に応じて上限・例外・損害類型を調整することが望ましい。
+**備考**: 本条は一般的な「催告後解除」を含む一方、中途解約が甲に片務的である点が最も大きなリスク要因。準委任の趣旨に沿うとしても、精算方法（委託料・費用・未了業務）を明確化しないと解約局面での紛争・未回収リスクが残る。法的助言ではなく条項リスク評価としての所見。
 
 ### ✅ 協議事項
 - **リスクレベル**: 🟡 中
@@ -738,161 +673,54 @@ Options:
 
 **検出されたリスク:**
 
-- **「協議の上解決する」とのみ定めており、協議が不調に終わった場合の解決手段（管轄裁判所、仲裁、準拠法、エスカレーション手順等）が明確でないため、紛争が長期化・膠着するリスクがある。**
+- **「本契約に定めのない事項」や「疑義が生じた事項」を協議で解決するとするのみで、協議不調の場合の解決手段（優先順位、決定方法、準拠法・管轄、仲裁等）が明確でないため、紛争が長期化・解決不能となるリスクがある。**
   - カテゴリ: 紛争解決
   - レベル: 🟡 中
-  - 推奨対応: 協議の期限（例：書面通知後30日以内）と協議不調時の手続（例：エスカレーション→調停/仲裁→専属的合意管轄）を追記する。併せて準拠法・管轄条項が別条にある場合は、本条に「別途定める紛争解決条項に従う」等の参照を入れて整合させる。
+  - 推奨対応: 協議の手続（協議開始の通知方法、協議期限、担当者/決裁権限者、議事録作成）を定め、協議不調時は「別条の紛争解決条項（管轄裁判所/仲裁）」に従う旨、または本条内に調停・仲裁・専属的合意管轄等のエスカレーションを明記する。
 
-- **「本契約に定めのない事項」を協議で解決するとしているため、実質的に契約内容の補充・変更につながり得る。合意形成の方法（書面要件、権限者、変更手続）が明確でないと、口頭合意の主張や範囲拡大解釈により商業条件が不安定化するリスクがある。**
+- **「誠意をもって」「円満に解決」といった抽象的表現は、当事者の義務内容・達成基準が不明確で、履行・不履行の判断や法的拘束力の評価が難しく、解釈の相違を招くリスクがある。**
   - カテゴリ: その他
-  - レベル: 🟡 中
-  - 推奨対応: 協議結果による契約補充・変更は「両当事者の権限ある代表者が記名押印（または電子署名）した書面による」とする変更手続条項（書面合意条項）を明記し、協議はあくまで解釈調整である旨や、重要条件（価格・納期・責任制限等）は別途合意がない限り変更されない旨を明確化する。
+  - レベル: 🟢 低
+  - 推奨対応: 努力義務であることを明確化する（例：「誠実に協議するものとする」）とともに、必要に応じて「協議事項は書面で合意しない限り本契約を変更しない」等の文言を追加して解釈のブレを抑える。
 
-**備考**: 一般的な協議条項として一定の合理性はある一方、協議不調時のフォールバック（紛争解決・手続）と合意形成の方式が欠けると運用面の不確実性が生じやすい。契約全体に紛争解決条項や変更条項が既に存在する場合は、本条との重複・矛盾がないかを確認するとよい。
+**備考**: 一般的な協議条項で直ちに違法・不適合とは言いにくい一方、協議不調時の出口がないため実務上の紛争解決リスクが残ります。他条（準拠法・合意管轄、契約変更手続、通知条項等）の有無と整合させて補強するのが望ましいです。
 
-### ✅ 合意管轄
+### ✅ 管轄裁判所
 - **リスクレベル**: 🟡 中
 - **コンプライアンス**: 適合
 
 **検出されたリスク:**
 
-- **専属的合意管轄を東京地方裁判所に固定しており、当事者の所在地・事業実態によっては一方当事者に移動・対応コスト（出張、代理人選任、証人手配等）が偏在するおそれがある。特に相手方が東京圏外の場合、紛争対応の負担が実質的に不均衡となり得る。**
+- **第一審の専属的合意管轄を大阪地方裁判所に固定しているため、当事者の所在地や業務実態によっては、移動・対応コスト増や訴訟対応の実務負担が一方当事者に偏るリスクがある。**
   - カテゴリ: 紛争解決
   - レベル: 🟡 中
-  - 推奨対応: 当事者の本店所在地・主たる履行地に合わせた管轄（例：『甲の本店所在地を管轄する地方裁判所』等）や、相互に中立な管轄（例：履行地）への変更を検討する。少なくとも、当事者双方が東京地裁管轄による負担を許容する旨の社内確認（稟議）を行う。
+  - 推奨対応: 当事者所在地・履行地との合理的関連性を確認し、偏りがある場合は「被告所在地の管轄裁判所」または「大阪地方裁判所（又は被告所在地を管轄する裁判所）」等の選択肢付き条項に修正する。オンライン期日等の活用可否も含め、訴訟対応体制・費用負担を事前整理する。
 
-- **本条は裁判管轄のみを定めており、訴訟前の協議条項、仲裁・調停の選択、準拠法、管轄以外の紛争解決手続（例：差止め等の保全手続）との関係が明確でないため、紛争対応方針が分散するおそれがある。**
+- **「本契約に関する一切の紛争」との包括表現により、契約外（不法行為等）を含む周辺紛争まで射程に入る可能性があり、想定外の紛争類型でも大阪地裁に固定される解釈リスクがある。**
   - カテゴリ: 紛争解決
   - レベル: 🟢 低
-  - 推奨対応: 必要に応じて、(1) 事前協議（誠実協議）条項、(2) 準拠法（日本法等）、(3) 保全手続・仮処分の申立て先の整理、(4) ADR/仲裁を採用する場合はその優先関係、を別条または本条に追記して紛争解決条項を整合させる。
+  - 推奨対応: 適用範囲を明確化するため、「本契約に起因又は関連して生じる紛争」等に整備し、必要に応じて契約外請求の扱い（含める/除外する）を当事者で合意して文言を調整する。
 
-**備考**: 条項自体は一般的な合意管轄条項であり直ちに違法・無効となる可能性は高くない一方、当事者の地理的条件によっては実務負担が偏るため商業的リスクとしては中程度。契約全体に準拠法や協議条項が未整備の場合は、紛争対応の予見可能性を高める観点で補完を推奨する。
+**備考**: 専属的合意管轄自体は一般的で直ちに違法・不適切とはいえない一方、当事者間の地理的・交渉力のバランス次第で実務負担が偏り得るため、商業上の観点から中程度のリスクと評価した。
 
 ---
 
 ## 総合的な推奨事項
 
-1. 個別契約（SOW）必須化：個別契約未締結の場合は着手不可とし、成果物明細、作業範囲、役割分担、前提条件、納期、受入基準、対価、支払条件、変更手続を最低限の必須項目として列挙する
-2. 仕様確定・変更管理（チェンジコントロール）の明文化：要件定義書/基本設計書の作成主体、承認者、承認形式（電子署名/メール可否）、版管理、文書間の優先順位、影響分析・見積提出期限、協議不調時の扱い（原仕様継続/停止/解除、遅延責任・費用負担）を規定する
-3. 検収条項の是正：みなし検収の要件緩和（例：通知方法を電子メール含む、期間延長オプション、重大欠陥の留保）、不適合時の修正期限・再検査手順・再納入回数、重大不適合時の救済（減額、解除、第三者修補、返金等）を追加する
-4. 知財条項の再設計：支払未了・検収係争時でも甲が業務継続できる暫定利用許諾（エスクローや限定ライセンス等）を確保し、乙従前資産の利用態様（複製/改変/再委託/クラウド/DR/グループ利用）を明確化する。第三者IPは補償（又は責任分担）・防御手続・救済（代替/ライセンス取得/返金等）を規定し、著作者人格権不行使は対象行為・第三者範囲・例外を限定する
-5. 再委託統制の強化：原則事前承諾制、重要業務・個人情報取扱いの再委託禁止/条件、再々委託の制限、再委託先への同等義務（秘密保持・安全管理・監査受入・報告）を義務化する
-6. 個人情報・セキュリティ条項の補強：取扱目的・範囲、目的外利用禁止、安全管理措置、アクセス制御、ログ管理、事故時の通知期限と協力、監査、返却・消去、再委託条件、生成データ/ログの帰属と取扱いを追加する（必要に応じてDPAを別紙化）
-7. 対価・精算の明確化：追加作業の料金体系（単価/見積、上限、事前承認要件）、着手金の充当・返金・中途解約時精算、税区分（税込/税別）、検収長期化時の支払取扱いを整備する
-8. 損害賠償の整合：損害範囲（直接/間接、逸失利益、データ、第三者請求）を定義し、上限の例外（故意/重過失、秘密保持・個人情報・知財侵害等）を検討して、各条（再委託責任、IP、個人情報）との整合を取る
-9. 紛争解決の実務設計：協議→エスカレーション（責任者会議等）→調停/仲裁/訴訟の手順、準拠法、保全手続の扱いを明確化する
+1. 委託料に関する必須事項を締結前に確定：単価/精算単価、請求締め・支払期日、工数（稼働実績）の算定ルール、タイムシート様式、承認者・承認期限、未承認時の扱い、端数処理、上限（キャップ）や事前承認が必要となる追加工数条件をSOW/覚書で明文化する
+2. 解除・解約の均衡化：乙にも中途解約権（合理的予告期間）を付与し、解約精算（完了分・進行中分・未検収分・立替費用・キャンセル料等）の範囲と算定式、成果物/途中成果の引渡し条件を規定する。重大違反・信用不安・反社等の即時解除条項も整備する
+3. 成果物・品質・受入（確認）を定義：成果物一覧（ソースコード/設計書/試験成績等）、品質基準（レビュー/テスト要件）、提出形式、受入期限、指摘可能期間、修正対応の範囲（有償/無償境界）を明確化し、準委任下でも期待水準を固定する
+4. 別文書（作業指示書・月次計画・覚書等）の優先順位と変更管理を整備：契約＞SOW＞作業指示書等の優先順位、追加/変更の合意方法（書面・電子署名・メールの可否）、変更時の費用・納期・体制の調整手続を規定する
+5. 契約期間を確定日付で特定し、自動更新の運用リスクを低減：更新通知期限の延長、更新前協議条項、更新条件変更の手続を追加する
+6. 秘密保持の実務適合：秘密情報の定義（表示/口頭後追い指定等）、除外（公知・受領前保有等）、第三者開示例外（法令・裁判所、弁護士/監査人、再委託先等）、目的外利用禁止、返還/消去、秘密保持期間（情報類型に応じた延長）を整備する
+7. 再委託条項の運用可能化：承諾基準・回答期限・みなし承諾、再委託先への義務（秘密保持/品質/法令遵守）と乙の責任範囲（連帯/管理責任）を明確化する
+8. 報告・会議体・タイムシートのルールを定義：月次報告提出期限の現実化、定例会の頻度/時間/方法/欠席時取扱い、タイムシートの粒度・閲覧権限・保管・目的外利用禁止を定める
+9. 知的財産の帰属・ライセンスを明確化：成果物範囲、移転時期（検収/支払との関係）、第三者IP/OSSの申告・遵守、乙保有IPの利用範囲（グループ会社利用、委託先利用、改変、バックアップ、契約終了後の利用）を明記する
 
 ---
 
 ## 結論
 
-総合判断は『needs_review』です。高リスク（7件）が知財・検収・仕様変更・再委託に集中しており、現状のままではプロジェクト遂行と運用継続性、ならびに事故時の責任・回収可能性に不確実性が残ります。次のステップとして、(1)個別契約（SOW）雛形の確定、(2)仕様変更・検収・知財・再委託/個人情報の優先改定、(3)対価精算・損害賠償・秘密保持の整合調整、の順に条文修正案を作成し、甲乙でリスク配分（誰が何をコントロールし、どこまで負担するか）を合意した上で締結してください。
+総合判定は needs_review（リスクスコア68）です。高リスクの「委託料の未確定（覚書依存）」と「解除の片務性（甲のみ中途解約）」は、締結前に必ず条文修正またはSOW/覚書の同時締結で是正してください。次に、成果物・検収/受入・変更管理（別文書の優先順位）を明確化し、準委任であっても期待成果と費用・納期の紐付けを固定することが重要です。上記の即時対応事項を反映した改訂案（契約条文＋SOW/料金表＋運用ルール）を作成し、甲乙で合意のうえ締結することを次のステップとします。
 
-```
-
-**実行ログ例**:
-```bash
-$ uv run python -m src.main -c data/contract_0.md -m GPT_5_2
-[2026-02-07 09:19:06,203] [INFO] [__main__] [main.py:87] [main] Contract Risk Compliance Pipeline
-Model: gpt-5.2
-Contract file: data/contract_0.md
-Output directory: outputs
-[2026-02-07 09:19:06,203] [INFO] [src.service.service] [service.py:115] [run_contract_compliance_pipeline] ================================================================================
-[2026-02-07 09:19:06,203] [INFO] [src.service.service] [service.py:116] [run_contract_compliance_pipeline] CONTRACT RISK COMPLIANCE PIPELINE
-[2026-02-07 09:19:06,203] [INFO] [src.service.service] [service.py:117] [run_contract_compliance_pipeline] Pipeline: Input -> Extraction -> Risk Scoring -> Report
-[2026-02-07 09:19:06,203] [INFO] [src.service.service] [service.py:118] [run_contract_compliance_pipeline] ================================================================================
-[2026-02-07 09:19:06,203] [INFO] [src.service.service] [service.py:119] [run_contract_compliance_pipeline] Contract file: data/contract_0.md
-[2026-02-07 09:19:06,203] [INFO] [src.service.service] [service.py:120] [run_contract_compliance_pipeline] Model: gpt-5.2
-[2026-02-07 09:19:06,203] [INFO] [src.service.service] [service.py:56] [create_contract_pipeline_graph] Creating contract compliance pipeline graph...
-[2026-02-07 09:19:06,204] [INFO] [src.service.service] [service.py:69] [create_contract_pipeline_graph] Contract pipeline graph created successfully
-[2026-02-07 09:19:06,210] [INFO] [src.service.service] [service.py:79] [_read_contract_file] Reading contract file: data/contract_0.md
-[2026-02-07 09:19:06,211] [INFO] [src.service.service] [service.py:126] [run_contract_compliance_pipeline] Contract ID: contract_923b9c07
-[2026-02-07 09:19:06,212] [INFO] [PIPELINE.ExtractionAgent] [base.py:63] [_log_layer_start] ============================================================
-[2026-02-07 09:19:06,212] [INFO] [PIPELINE.ExtractionAgent] [base.py:64] [_log_layer_start] PIPELINE LAYER - ExtractionAgent: Extracting contract structure
-[2026-02-07 09:19:06,212] [INFO] [PIPELINE.ExtractionAgent] [base.py:65] [_log_layer_start] ============================================================
-[2026-02-07 09:19:06,212] [INFO] [PIPELINE.ExtractionAgent] [extraction.py:83] [execute] Processing contract: contract_923b9c07
-[2026-02-07 09:19:38,526] [INFO] [PIPELINE.ExtractionAgent] [base.py:89] [_invoke_structured] Received structured response from LLM
-[2026-02-07 09:19:38,526] [INFO] [PIPELINE.ExtractionAgent] [extraction.py:95] [execute] Extraction complete: 20 sections
-[2026-02-07 09:19:38,527] [INFO] [PIPELINE.RiskScoringAgent] [base.py:63] [_log_layer_start] ============================================================
-[2026-02-07 09:19:38,528] [INFO] [PIPELINE.RiskScoringAgent] [base.py:64] [_log_layer_start] PIPELINE LAYER - RiskScoringAgent: Risk Scoring
-[2026-02-07 09:19:38,528] [INFO] [PIPELINE.RiskScoringAgent] [base.py:65] [_log_layer_start] ============================================================
-[2026-02-07 09:19:38,528] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:112] [execute_async] Assessing 20 sections concurrently (limit: 20)...
-[2026-02-07 09:19:38,528] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第1条 目的
-[2026-02-07 09:19:38,529] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第2条 定義
-[2026-02-07 09:19:38,531] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第3条 個別契約
-[2026-02-07 09:19:38,533] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第4条 善管注意義務
-[2026-02-07 09:19:38,534] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第5条 仕様の確定と変 更
-[2026-02-07 09:19:38,536] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第6条 再委託
-[2026-02-07 09:19:38,537] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第7条 プロジェクト管 理と報告
-[2026-02-07 09:19:38,537] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第8条 納入
-[2026-02-07 09:19:38,538] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第9条 検査および検収
-[2026-02-07 09:19:38,540] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第10条 委託料
-[2026-02-07 09:19:38,541] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第11条 支払条件
-[2026-02-07 09:19:38,541] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第12条 知的財産権の帰属
-[2026-02-07 09:19:38,542] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第13条 著作者人格権
-[2026-02-07 09:19:38,543] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第14条 契約不適合責任
-[2026-02-07 09:19:38,544] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第15条 秘密保持
-[2026-02-07 09:19:38,545] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第16条 個人情報の取り扱い
-[2026-02-07 09:19:38,546] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第17条 契約の解除
-[2026-02-07 09:19:38,546] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第18条 損害賠償
-[2026-02-07 09:19:38,547] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第19条 協議事項
-[2026-02-07 09:19:38,548] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:78] [_assess_section_async] Assessing section: 第20条 合意管轄
-[2026-02-07 09:19:48,610] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
-[2026-02-07 09:19:48,610] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第10条 - Risk: medium
-[2026-02-07 09:19:48,999] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
-[2026-02-07 09:19:48,999] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第19条 - Risk: medium
-[2026-02-07 09:19:49,201] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
-[2026-02-07 09:19:49,201] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第8条 - Risk: medium
-[2026-02-07 09:19:50,096] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
-[2026-02-07 09:19:50,096] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第3条 - Risk: medium
-[2026-02-07 09:19:50,847] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
-[2026-02-07 09:19:50,847] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第20条 - Risk: medium
-[2026-02-07 09:19:50,946] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
-[2026-02-07 09:19:50,946] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第16条 - Risk: medium
-[2026-02-07 09:19:51,594] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
-[2026-02-07 09:19:51,594] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第7条 - Risk: medium
-[2026-02-07 09:19:52,030] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
-[2026-02-07 09:19:52,030] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第4条 - Risk: medium
-[2026-02-07 09:19:52,992] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
-[2026-02-07 09:19:52,992] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第1条 - Risk: medium
-[2026-02-07 09:19:53,018] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
-[2026-02-07 09:19:53,018] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第18条 - Risk: medium
-[2026-02-07 09:19:53,435] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
-[2026-02-07 09:19:53,435] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第11条 - Risk: medium
-[2026-02-07 09:19:53,940] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
-[2026-02-07 09:19:53,940] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第6条 - Risk: medium
-[2026-02-07 09:19:54,545] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
-[2026-02-07 09:19:54,545] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第14条 - Risk: medium
-[2026-02-07 09:19:55,600] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
-[2026-02-07 09:19:55,600] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第17条 - Risk: medium
-[2026-02-07 09:19:56,524] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
-[2026-02-07 09:19:56,524] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第13条 - Risk: high
-[2026-02-07 09:19:56,537] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
-[2026-02-07 09:19:56,537] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第2条 - Risk: medium
-[2026-02-07 09:19:57,067] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
-[2026-02-07 09:19:57,067] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第15条 - Risk: medium
-[2026-02-07 09:19:57,072] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
-[2026-02-07 09:19:57,072] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第5条 - Risk: medium
-[2026-02-07 09:19:57,442] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
-[2026-02-07 09:19:57,442] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第9条 - Risk: medium
-[2026-02-07 09:19:59,973] [INFO] [PIPELINE.RiskScoringAgent] [base.py:124] [_ainvoke_structured] Received structured response from LLM
-[2026-02-07 09:19:59,973] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:95] [_assess_section_async] Completed: 第12条 - Risk: high
-[2026-02-07 09:19:59,973] [INFO] [PIPELINE.RiskScoringAgent] [risk_scoring.py:131] [execute_async] Risk scoring complete: 59 findings, 7 high/critical
-[2026-02-07 09:19:59,974] [INFO] [PIPELINE.ReportAgent] [base.py:63] [_log_layer_start] ============================================================
-[2026-02-07 09:19:59,974] [INFO] [PIPELINE.ReportAgent] [base.py:64] [_log_layer_start] PIPELINE LAYER - ReportAgent: Report Generation
-[2026-02-07 09:19:59,974] [INFO] [PIPELINE.ReportAgent] [base.py:65] [_log_layer_start] ============================================================
-[2026-02-07 09:19:59,974] [INFO] [PIPELINE.ReportAgent] [report.py:109] [execute] Generating report for: ソフトウェア開発業務委託契約書
-[2026-02-07 09:20:44,431] [INFO] [PIPELINE.ReportAgent] [base.py:89] [_invoke_structured] Received structured response from LLM
-[2026-02-07 09:20:44,431] [INFO] [PIPELINE.ReportAgent] [report.py:128] [execute] Report generated: report_dd81e8e2 - Status: needs_review
-[2026-02-07 09:20:44,431] [INFO] [src.service.service] [service.py:132] [run_contract_compliance_pipeline] ================================================================================
-[2026-02-07 09:20:44,431] [INFO] [src.service.service] [service.py:133] [run_contract_compliance_pipeline] COMPLIANCE REPORT GENERATED SUCCESSFULLY
-[2026-02-07 09:20:44,431] [INFO] [src.service.service] [service.py:134] [run_contract_compliance_pipeline] Report ID: report_dd81e8e2
-[2026-02-07 09:20:44,431] [INFO] [src.service.service] [service.py:135] [run_contract_compliance_pipeline] Overall Status: needs_review
-[2026-02-07 09:20:44,432] [INFO] [src.service.service] [service.py:136] [run_contract_compliance_pipeline] Risk Score: 72/100
-[2026-02-07 09:20:44,432] [INFO] [src.service.service] [service.py:137] [run_contract_compliance_pipeline] ================================================================================
-[2026-02-07 09:20:44,432] [INFO] [__main__] [main.py:106] [main] Report saved: outputs/compliance_report_report_dd81e8e2.md
-[2026-02-07 09:20:44,432] [INFO] [__main__] [main.py:107] [main] 
-Compliance report saved to: outputs/compliance_report_report_dd81e8e2.md
-[2026-02-07 09:20:44,432] [INFO] [__main__] [main.py:108] [main] Overall Status: needs_review
-[2026-02-07 09:20:44,432] [INFO] [__main__] [main.py:109] [main] Risk Score: 72/100
 ```

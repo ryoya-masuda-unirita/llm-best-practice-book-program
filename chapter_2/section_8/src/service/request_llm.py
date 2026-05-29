@@ -1,117 +1,164 @@
-from google.genai.types import GenerateContentConfig
-from src.client.llm_client import (
-    AnthropicModel,
-    GeminiModel,
-    LLMProvider,
-    OpenAIModel,
-    anthropic_client,
-    google_genai_client,
-    openai_client,
-)
+"""LLM request service with template engine integration."""
+
+import json
+from pathlib import Path
+from typing import Any
+
+import yaml
+from src.client.llm_client import OpenAIModel, openai_client
 from src.logger import make_logger
-from src.model.llm_as_a_judge_model import JudgeRequest, JudgeResponse
-from src.model.model import CharacterRequest, CharacterResponse
-from src.prompt.prompt import make_prompt
-from src.service.llm_as_a_judge import judge_with_anthropic, judge_with_gemini, judge_with_openai
+from src.model.model import CharacterResponse
+from src.service.template_engine import TemplateEngine
 
 logger = make_logger(__name__)
 
 
-async def request_openai(prompt: list, model: OpenAIModel) -> CharacterResponse:
-    result = await openai_client.responses.parse(
-        model=model,
-        input=prompt,
-        text_format=CharacterResponse,
-    )
-    logger.info(result)
-    return result.output_parsed
+def resolve_template_path(
+    template_name: str | None = None,
+    template_path: Path | None = None,
+    template_dir: Path | None = None,
+    default_template_engine: TemplateEngine | None = None,
+) -> tuple[Path, str, TemplateEngine]:
+    """Resolve template path and return the path, name, and appropriate engine."""
+    if template_dir is None:
+        raise ValueError("template_dir must be provided")
 
+    if default_template_engine is None:
+        default_template_engine = TemplateEngine(template_dir=template_dir)
 
-async def request_gemini(prompt: tuple[str, str], model: GeminiModel) -> CharacterResponse:
-    system_prompt, user_prompt = prompt
-    result = await google_genai_client.aio.models.generate_content(
-        model=model,
-        contents=user_prompt,
-        config=GenerateContentConfig(
-            system_instruction=system_prompt,
-            response_mime_type="application/json",
-            response_schema=CharacterResponse,
-            temperature=2.0,
-        ),
-    )
-    logger.info(result)
-    return result.parsed
+    if template_path:
+        # Use provided path directly
+        final_template_path = template_path
+        if not final_template_path.is_absolute():
+            # If relative, resolve against templates directory
+            final_template_path = template_dir / final_template_path
+        template_name_for_engine = final_template_path.name
 
+        # Create appropriate template engine
+        if final_template_path.parent != template_dir:
+            temp_engine = TemplateEngine(template_dir=final_template_path.parent)
+        else:
+            temp_engine = default_template_engine
 
-async def request_anthropic(prompt: list, model: AnthropicModel) -> CharacterResponse:
-    result = await anthropic_client.beta.messages.parse(
-        model=model,
-        max_tokens=1024,
-        betas=["structured-outputs-2025-11-13"],
-        messages=prompt,
-        output_format=CharacterResponse,
-    )
+    elif template_name:
+        # Legacy: use template name
+        template_name_for_engine = template_name
+        temp_engine = default_template_engine
+        final_template_path = template_dir / template_name
 
-    logger.info(result)
-    return result.parsed_output
-
-
-async def request_with_judge(
-    character_request: CharacterRequest,
-    model: OpenAIModel | GeminiModel | AnthropicModel,
-    provider: str,
-    judge_model: OpenAIModel | GeminiModel | AnthropicModel | None = None,
-    judge_provider: str | None = None,
-) -> tuple[CharacterResponse, JudgeResponse]:
-    logger.info("Generating prompt...")
-    prompt = make_prompt(character=character_request, provider=LLMProvider(provider))
-
-    logger.info("Generating character...")
-    if provider == LLMProvider.OPENAI:
-        character_response = await request_openai(prompt=prompt, model=model)
-    elif provider == LLMProvider.GEMINI:
-        character_response = await request_gemini(prompt=prompt, model=model)
-    elif provider == LLMProvider.ANTHROPIC:
-        character_response = await request_anthropic(prompt=prompt, model=model)
     else:
-        raise ValueError(f"Unsupported provider: {provider}")
+        # Default
+        template_name_for_engine = "character_generation.yaml"
+        temp_engine = default_template_engine
+        final_template_path = template_dir / template_name_for_engine
 
-    logger.info("Character generation completed.")
+    return final_template_path, template_name_for_engine, temp_engine
 
-    logger.info("Evaluating character with LLM-as-a-Judge...")
 
-    if judge_model is None:
-        judge_model = model
-    if judge_provider is None:
-        judge_provider = provider
+def load_variables(
+    variables_file: str | None = None,
+    variables_path: Path | None = None,
+    variables_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Load variables from file or return default variables."""
+    if variables_path:
+        with open(variables_path, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f)
 
-    if isinstance(prompt, tuple):
-        user_prompt = prompt[1]  # Gemini format: (system, user)
+    elif variables_file:
+        # Legacy: use variables file name
+        if variables_dir is None:
+            raise ValueError("variables_dir must be provided when using variables_file")
+        variables_file_path = variables_dir / variables_file
+        with open(variables_file_path, "r", encoding="utf-8") as f:
+            return yaml.safe_load(f)
+
     else:
-        user_prompt = next(
-            (msg["content"] for msg in prompt if msg["role"] == "user"), "キャラクターを生成してください。"
-        )
+        # Default variables for character generation
+        return {
+            "gender": "male",
+            "age": 25,
+            "additional_instructions": "このキャラクターは冒険好きで、好奇心旺盛です。",
+        }
 
-    request_params_str = f"""Gender: {character_request.gender.value}
-Age: {character_request.age}
-Additional Instructions: {character_request.additional_instructions or "None"}"""
 
-    judge_request = JudgeRequest(
-        question=user_prompt,
-        response=character_response.model_dump_json(indent=2, ensure_ascii=False),
-        context=None,
-        request_parameters=request_params_str,
+def prepare_character_variables(base_variables: dict[str, Any]) -> dict[str, Any]:
+    """Prepare variables for character generation by adding response schema."""
+    variables = base_variables.copy()
+    params = CharacterResponse.detailed_model()
+    variables["response_schema"] = json.dumps(params, indent=2, ensure_ascii=False)
+
+    return variables
+
+
+def render_prompt_from_template(
+    template_path: Path,
+    template_name: str,
+    template_engine: TemplateEngine,
+    variables: dict[str, Any],
+) -> list[dict[str, str]]:
+    """Render prompt messages from template."""
+    logger.info(f"Using template: {template_path}")
+    logger.info(f"Variables: gender={variables.get('gender', 'N/A')}, age={variables.get('age', 'N/A')}")
+
+    return template_engine.render_prompt_messages(
+        template_name=template_name,
+        variables=variables,
+        validate=True,
     )
 
-    if judge_provider == LLMProvider.OPENAI:
-        judge_response = await judge_with_openai(judge_request=judge_request, model=judge_model)
-    elif judge_provider == LLMProvider.GEMINI:
-        judge_response = await judge_with_gemini(judge_request=judge_request, model=judge_model)
-    elif judge_provider == LLMProvider.ANTHROPIC:
-        judge_response = await judge_with_anthropic(judge_request=judge_request, model=judge_model)
-    else:
-        raise ValueError(f"Unsupported judge provider: {judge_provider}")
 
-    logger.info(f"Evaluation completed. Overall score: {judge_response.overall_score:.2f}/5.0")
+async def execute_llm_request(
+    model: OpenAIModel,
+    messages: list[dict[str, str]],
+) -> CharacterResponse:
+    """Execute LLM request and parse response."""
+    result = await openai_client.beta.chat.completions.parse(
+        model=model,
+        messages=messages,
+        response_format=CharacterResponse,
+        temperature=1.0,
+    )
+    return result.choices[0].message.parsed
 
-    return character_response, judge_response
+
+async def request_openai(
+    model: OpenAIModel,
+    template_name: str | None = None,
+    variables_file: str | None = None,
+    template_path: Path | None = None,
+    variables_path: Path | None = None,
+    template_dir: Path | None = None,
+    variables_dir: Path | None = None,
+    template_engine: TemplateEngine | None = None,
+) -> CharacterResponse:
+    """Request OpenAI API using template engine."""
+    if template_dir is None:
+        raise ValueError("template_dir must be provided")
+
+    final_template_path, template_name_for_engine, temp_engine = resolve_template_path(
+        template_name=template_name,
+        template_path=template_path,
+        template_dir=template_dir,
+        default_template_engine=template_engine,
+    )
+
+    base_variables = load_variables(
+        variables_file=variables_file,
+        variables_path=variables_path,
+        variables_dir=variables_dir,
+    )
+
+    variables = prepare_character_variables(base_variables)
+
+    messages = render_prompt_from_template(
+        template_path=final_template_path,
+        template_name=template_name_for_engine,
+        template_engine=temp_engine,
+        variables=variables,
+    )
+
+    return await execute_llm_request(
+        model=model,
+        messages=messages,
+    )

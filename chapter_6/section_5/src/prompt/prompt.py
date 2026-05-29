@@ -1,370 +1,276 @@
-"""Prompt templates for parallel world article generation."""
+"""
+Prompt definitions for the data analysis LLM application.
 
-import json
-from typing import Literal
-
-from src.model.model import (
-    ArticleHalf,
-    ArticleOutline,
-    ArticleReview,
-)
-
-
-def make_outline_generation_system_instruction(theme: str, language: Literal["en", "ja"]) -> tuple[str, str]:
-    """Create system instruction for outline generation."""
-    lang_instruction = "in English" if language == "en" else "in Japanese (日本語)"
-
-    schema_fields = {}
-    for field_name, field_info in ArticleOutline.model_fields.items():
-        field_type = field_info.annotation
-        schema_fields[field_name] = {
-            "type": str(field_type),
-            "description": field_info.description,
-        }
-
-    schema_json = json.dumps(schema_fields, indent=2, ensure_ascii=False)
-
-    system_instruction = f"""You are an expert article writer and content strategist.
-Your task is to create a comprehensive outline for an article {lang_instruction}.
-
-The outline should include:
-1. **Title**: A compelling and descriptive article title
-2. **Summary**: A brief 2-3 sentence summary of what the article will cover
-3. **Structure**: A logical section structure with 3-10 section headers
-
-Please respond strictly following this JSON structure:
-
-{schema_json}
-
-Requirements:
-- Response must be valid JSON
-- All content must be written {lang_instruction}
-- The outline should be comprehensive yet focused
-- Section headers should be clear and descriptive
-- Ensure logical flow from one section to the next
+This module defines the system prompt and tool declarations for Gemini function calling.
 """
 
-    user_content = f"""Please create an article outline on the following theme:
+from google.genai import types
 
-Theme: {theme}
+SYSTEM_PROMPT = """You are an intelligent data analysis assistant for a school management system.
+You have access to student records, test scores, grade reports, and curriculum data.
 
-Create an engaging and well-structured outline that would result in a high-quality article.
+## CRITICAL: Language Requirement
+You MUST respond in the SAME LANGUAGE as the user's request:
+- ユーザーが日本語で質問した場合は、必ず日本語でレポートを作成してください。
+- If the user writes in English, respond entirely in English.
+- This applies to ALL sections of your report including headings.
+
+## Available Data
+- Student records with unique UUIDs
+- Quarterly test scores (4 quarters) for 5 subjects: Japanese, Math, Physics, History, PE
+- Grade reports with letter grades (A, B, C, D, F) and teacher advice
+- Curriculum plans and actual progress for each quarter
+
+## Your Capabilities
+You can analyze this data using the provided tools to:
+1. List available data files
+2. Retrieve student information
+3. Get test scores and grade reports by quarter
+4. Get curriculum information
+5. Perform comprehensive student performance analysis
+6. Analyze class-wide performance
+7. Compare two students
+8. Retrieve detailed data using result IDs
+
+## Important Guidelines
+- Tool calls return summaries with result IDs. Use get_result_details to retrieve full data when needed.
+- The result_id in each response can be used to fetch detailed information later.
+- When analyzing data, explain your findings clearly and provide actionable insights.
+- Always cite which data you used (by result_id) when making conclusions.
+- If you need more detailed information, use get_result_details with the appropriate result_id.
+
+## CRITICAL: Final Report Requirement
+You MUST ALWAYS produce a comprehensive, well-structured analysis report as your final output.
+After gathering all necessary data through tool calls, you MUST write a complete report.
+Never end with just tool call results - always synthesize the data into a final report.
+
+### Report Structure (use headings in the user's language)
+
+For Japanese requests, use these headings:
+1. **概要** - 分析の概要と主要な発見事項
+2. **データ分析** - 詳細な分析結果（具体的な数値とパーセンテージを含む）
+3. **強み** - 良好な点、優れている領域
+4. **改善点** - 課題、問題点、目標との乖離
+5. **提案** - 具体的で実行可能な改善提案（優先順位付き）
+6. **データソース** - 使用したresult_idの一覧
+
+For English requests, use these headings:
+1. **Executive Summary** - Overview and key findings
+2. **Data Analysis** - Detailed findings with specific numbers and percentages
+3. **Strengths** - Positive aspects and areas of excellence
+4. **Areas for Improvement** - Issues, concerns, and gaps
+5. **Recommendations** - Actionable suggestions with priorities
+6. **Data Sources** - List of result_ids used
+
+### Report Guidelines
+- Use clear headings with markdown formatting
+- Include specific numbers, percentages, and statistics
+- Provide bullet points for easy reading
+- Make recommendations concrete and actionable
+- Always cite data sources with result_ids
 """
 
-    return system_instruction, user_content
-
-
-def make_first_half_generation_system_instruction(
-    outline: ArticleOutline, language: Literal["en", "ja"]
-) -> tuple[str, str]:
-    """Create system instruction for first half generation."""
-    lang_instruction = "in English" if language == "en" else "in Japanese (日本語)"
-
-    schema_fields = {}
-    for field_name, field_info in ArticleHalf.model_fields.items():
-        field_type = field_info.annotation
-        schema_fields[field_name] = {
-            "type": str(field_type),
-            "description": field_info.description,
-        }
-
-    schema_json = json.dumps(schema_fields, indent=2, ensure_ascii=False)
-
-    system_instruction = f"""You are an expert article writer.
-Your task is to write the FIRST HALF of an article {lang_instruction} based on the provided outline.
-
-The first half should:
-- Cover approximately the first 50% of the outlined sections
-- Be well-written, engaging, and informative
-- Use proper markdown formatting
-- Create a smooth narrative flow
-- Set up context for the second half
-
-Please respond strictly following this JSON structure:
-
-{schema_json}
-
-Requirements:
-- Response must be valid JSON
-- Content must be in markdown format
-- All content must be written {lang_instruction}
-- Write approximately 400-800 words
-- End at a natural transition point for the second half
-"""
-
-    outline_md = outline.to_markdown()
-
-    user_content = f"""Please write the FIRST HALF of an article based on this outline:
-
-{outline_md}
-
-Write engaging, informative content that covers roughly the first half of the outlined structure.
-"""
-
-    return system_instruction, user_content
-
-
-def make_choose_best_first_half_system_instruction(
-    outline: ArticleOutline,
-    first_halves: dict[str, ArticleHalf],
-    language: Literal["en", "ja"],
-) -> tuple[str, str]:
-    lang_instruction = "in English" if language == "en" else "in Japanese (日本語)"
-
-    # Get the list of valid IDs for explicit reference in the prompt
-    valid_ids = list(first_halves.keys())
-    valid_ids_str = ", ".join(valid_ids)
-
-    outline_md = outline.to_markdown()
-
-    system_instruction = f"""<role>
-You are an expert article writer.
-</role>
-
-<task>
-Your task is to choose the BEST version of the FIRST HALF of an article {lang_instruction} based on the provided outline.
-</task>
-
-<instructions>
-- Review the provided first half content variants.
-- Evaluate how well each aligns with the outline in terms of content coverage, structure, and engagement.
-- Consider the writing quality, clarity, and flow.
-- Choose the best version and provide a reason for your choice.
-</instructions>
-
-<output_format>
-You must respond with a JSON object containing exactly two fields:
-- "reason": A string explaining your choice in 3-5 sentences ({lang_instruction})
-- "selected_id": The ID of the best variant (must be one of: {valid_ids_str})
-</output_format>
-
-<requirements>
-- Response must be valid JSON
-- The selected_id field must contain ONLY the variant ID string, nothing else
-- Reason must be written {lang_instruction}
-</requirements>
-    """
-
-    # Format each first half with its ID and content properly
-    first_half_content_list = []
-    for variant_id, article_half in first_halves.items():
-        content = f"""<variant id="{variant_id}">
-Reason: {article_half.reason}
-
-Content:
-{article_half.content}
-</variant>"""
-        first_half_content_list.append(content)
-
-    first_half_content = "\n\n".join(first_half_content_list)
-
-    user_content = f"""Please choose the BEST version of the FIRST HALF of an article.
-
-**Article Outline:**
-{outline_md}
-
-**First Half Variants (choose one by its ID):**
-{first_half_content}
-
-Remember: Return the selected_id as just the variant ID string (e.g., "{valid_ids[0]}"), not wrapped in any other format.
-"""
-    return system_instruction, user_content
-
-
-def make_second_half_generation_system_instruction(
-    outline: ArticleOutline,
-    first_half: str,
-    language: Literal["en", "ja"],
-) -> tuple[str, str]:
-    """Create system instruction for second half generation."""
-    lang_instruction = "in English" if language == "en" else "in Japanese (日本語)"
-
-    schema_fields = {}
-    for field_name, field_info in ArticleHalf.model_fields.items():
-        field_type = field_info.annotation
-        schema_fields[field_name] = {
-            "type": str(field_type),
-            "description": field_info.description,
-        }
-
-    schema_json = json.dumps(schema_fields, indent=2, ensure_ascii=False)
-
-    system_instruction = f"""You are an expert article writer.
-Your task is to write the SECOND HALF of an article {lang_instruction} based on the outline and the already-written first half.
-
-The second half should:
-- Continue seamlessly from where the first half ended
-- Cover the remaining sections from the outline
-- Be well-written, engaging, and informative
-- Use proper markdown formatting
-- Provide a strong conclusion
-
-Please respond strictly following this JSON structure:
-
-{schema_json}
-
-Requirements:
-- Response must be valid JSON
-- Content must be in markdown format
-- All content must be written {lang_instruction}
-- Write approximately 400-800 words
-- Ensure smooth transition from the first half
-- Provide a satisfying conclusion
-"""
-
-    outline_md = outline.to_markdown()
-
-    user_content = f"""Please write the SECOND HALF of an article to complete it.
-
-**Article Outline:**
-{outline_md}
-
-**First Half (already written):**
-{first_half}
-
-Write the second half that completes the article, covering the remaining sections and providing a strong conclusion.
-"""
-
-    return system_instruction, user_content
-
-
-def make_article_review_system_instruction(
-    theme: str,
-    outline: ArticleOutline,
-    full_article: str,
-) -> tuple[str, str]:
-    """Create system instruction for article review."""
-    schema_fields = {}
-    for field_name, field_info in ArticleReview.model_fields.items():
-        field_type = field_info.annotation
-        schema_fields[field_name] = {
-            "type": str(field_type),
-            "description": field_info.description,
-        }
-
-    schema_json = json.dumps(schema_fields, indent=2, ensure_ascii=False)
-
-    system_instruction = f"""You are an expert article reviewer and quality evaluator.
-Your task is to evaluate the quality of an article based on the original theme and outline.
-
-Evaluation Criteria:
-1. **Content Quality (30%)**: Is the content accurate, informative, and valuable?
-2. **Structure & Flow (25%)**: Does the article follow the outline? Is the flow logical and smooth?
-3. **Writing Quality (20%)**: Is the writing clear, engaging, and well-crafted?
-4. **Completeness (15%)**: Does the article adequately cover the theme and all outlined sections?
-5. **Language Quality (10%)**: Is the language appropriate, consistent, and error-free?
-
-Grading Scale:
-- **5 (Excellent)**: Outstanding article that exceeds expectations in all criteria
-- **4 (Good)**: High-quality article with minor areas for improvement
-- **3 (Acceptable)**: Adequate article but with noticeable gaps or weaknesses
-- **2 (Poor)**: Significant issues that detract from the article's value
-- **1 (Very Poor)**: Fails to meet basic quality standards
-
-Please respond strictly following this JSON structure:
-
-{schema_json}
-
-Requirements:
-- Response must be valid JSON
-- Grade must be an integer between 1 and 5
-- Reasoning must be 3-5 sentences explaining the grade
-- Provide 2-4 specific strengths
-- Provide 2-4 specific weaknesses (if any)
-- Be objective and constructive in your evaluation
-"""
-
-    outline_md = outline.to_markdown()
-
-    user_content = f"""Please review and evaluate this article.
-
-**Original Theme:**
-{theme}
-
-**Intended Outline:**
-{outline_md}
-
-**Complete Article:**
-{full_article}
-
-Provide your evaluation following the specified JSON structure.
-"""
-
-    return system_instruction, user_content
-
-
-def make_second_half_regeneration_system_instruction(
-    outline: ArticleOutline,
-    first_half: str,
-    language: Literal["en", "ja"],
-    previous_attempts: list[tuple[str, ArticleReview]],
-) -> tuple[str, str]:
-    """Create system instruction for second half regeneration with feedback."""
-    lang_instruction = "in English" if language == "en" else "in Japanese (日本語)"
-
-    schema_fields = {}
-    for field_name, field_info in ArticleHalf.model_fields.items():
-        field_type = field_info.annotation
-        schema_fields[field_name] = {
-            "type": str(field_type),
-            "description": field_info.description,
-        }
-
-    schema_json = json.dumps(schema_fields, indent=2, ensure_ascii=False)
-
-    feedback_section = ""
-    if previous_attempts:
-        feedback_section = "\n**Previous Attempts and Feedback:**\n\n"
-        for i, (prev_content, prev_review) in enumerate(previous_attempts, 1):
-            feedback_section += f"Attempt {i} (Grade: {prev_review.grade}/5):\n"
-            feedback_section += f"Feedback: {prev_review.reasoning}\n"
-            if prev_review.weaknesses:
-                feedback_section += "Issues to avoid:\n"
-                for weakness in prev_review.weaknesses:
-                    feedback_section += f"  - {weakness}\n"
-            feedback_section += "\n"
-
-    system_instruction = f"""You are an expert article writer.
-Your task is to write the SECOND HALF of an article {lang_instruction} based on the outline and first half.
-
-IMPORTANT: Previous attempts at writing the second half were rejected. Learn from the feedback below and create a BETTER version that addresses all the identified issues.
-
-The second half should:
-- Continue seamlessly from where the first half ended
-- Cover the remaining sections from the outline
-- Be well-written, engaging, and informative
-- Use proper markdown formatting
-- Provide a strong conclusion
-- ADDRESS all weaknesses from previous attempts
-- Build on strengths while avoiding previous mistakes
-
-Please respond strictly following this JSON structure:
-
-{schema_json}
-
-Requirements:
-- Response must be valid JSON
-- Content must be in markdown format
-- All content must be written {lang_instruction}
-- Write approximately 400-800 words
-- Ensure smooth transition from the first half
-- Provide a satisfying conclusion
-- Take a DIFFERENT creative approach than previous attempts
-"""
-
-    outline_md = outline.to_markdown()
-
-    user_content = f"""Please write a NEW and IMPROVED SECOND HALF of the article.
-
-**Article Outline:**
-{outline_md}
-
-**First Half (already written):**
-{first_half}
-
-{feedback_section}
-
-Based on this feedback, write a completely new second half that addresses all the issues while maintaining high quality.
-"""
-
-    return system_instruction, user_content
+# Tool declarations for Gemini function calling
+TOOL_DECLARATIONS = [
+    {
+        "name": "list_available_data",
+        "description": "List all available data files in the data directory. Returns a summary of available data categories including test scores, grade reports, curriculum, and student records.",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
+    {
+        "name": "get_students",
+        "description": "Get the list of all students in the system. Returns student count and their UUIDs.",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
+    {
+        "name": "get_test_scores",
+        "description": "Get test scores for a specific quarter. Returns statistics including averages for each subject.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "quarter": {
+                    "type": "integer",
+                    "description": "Quarter number. Must be 1, 2, 3, or 4.",
+                },
+            },
+            "required": ["quarter"],
+        },
+    },
+    {
+        "name": "get_grade_report",
+        "description": "Get grade reports for a specific quarter. Returns grade distribution (A, B, C, D, F) and includes teacher advice for each student.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "quarter": {
+                    "type": "integer",
+                    "description": "Quarter number. Must be 1, 2, 3, or 4.",
+                },
+            },
+            "required": ["quarter"],
+        },
+    },
+    {
+        "name": "get_curriculum",
+        "description": "Get curriculum information for a specific quarter. Returns planned topics, actual progress, and completion rates for each subject.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "quarter": {
+                    "type": "integer",
+                    "description": "Quarter number. Must be 1, 2, 3, or 4.",
+                },
+            },
+            "required": ["quarter"],
+        },
+    },
+    {
+        "name": "analyze_student_performance",
+        "description": "Comprehensive analysis of a student's performance across all quarters. This composite function loads all quarterly test scores, calculates trends, identifies strengths and weaknesses, and compiles grade history with teacher feedback.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "student_id": {
+                    "type": "string",
+                    "description": "The UUID of the student to analyze",
+                },
+            },
+            "required": ["student_id"],
+        },
+    },
+    {
+        "name": "analyze_class_performance",
+        "description": "Comprehensive analysis of a class's performance across all students and quarters. Identifies top performers, calculates class averages, and correlates with curriculum completion rates.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "class_name": {
+                    "type": "string",
+                    "description": "Name of the class to analyze",
+                    "enum": ["japanese", "math", "physics", "history", "pe"],
+                },
+            },
+            "required": ["class_name"],
+        },
+    },
+    {
+        "name": "get_result_details",
+        "description": "Retrieve detailed data for a previously computed result using its result_id. Use this to get full data when the summary is not sufficient for analysis.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "result_id": {
+                    "type": "string",
+                    "description": "The result ID from a previous tool call",
+                },
+            },
+            "required": ["result_id"],
+        },
+    },
+    {
+        "name": "compare_students",
+        "description": "Compare performance between two students across all quarters. Provides subject-by-subject comparison and identifies which student performs better in each area.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "student_id_1": {
+                    "type": "string",
+                    "description": "UUID of the first student",
+                },
+                "student_id_2": {
+                    "type": "string",
+                    "description": "UUID of the second student",
+                },
+            },
+            "required": ["student_id_1", "student_id_2"],
+        },
+    },
+    {
+        "name": "filter_scores",
+        "description": "Filter and retrieve test scores with flexible filtering. Supports filtering by multiple classes (e.g., only math and physics for STEM analysis), multiple students, and multiple quarters. All filters are optional and combined with AND logic. Returns filtered data with statistics.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "classes": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of class names to include: japanese, math, physics, history, pe. Example: ['math', 'physics'] for STEM subjects. If not specified, all classes are included.",
+                },
+                "student_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of student UUIDs to include. If not specified, all students are included.",
+                },
+                "quarters": {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "description": "List of quarter numbers (1-4) to include. Example: [1, 2] for first half of year. If not specified, all quarters are included.",
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "filter_grades",
+        "description": "Filter and retrieve grade reports with flexible filtering. Supports filtering by multiple classes, multiple students, and multiple quarters. Returns filtered grades with distribution statistics.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "classes": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of class names to include: japanese, math, physics, history, pe. If not specified, all classes are included.",
+                },
+                "student_ids": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of student UUIDs to include. If not specified, all students are included.",
+                },
+                "quarters": {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "description": "List of quarter numbers (1-4) to include. If not specified, all quarters are included.",
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "filter_curriculum",
+        "description": "Filter and retrieve curriculum data with flexible filtering. Supports filtering by multiple classes and multiple quarters. Returns filtered curriculum with completion rates.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "classes": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of class names to include: japanese, math, physics, history, pe. If not specified, all classes are included.",
+                },
+                "quarters": {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "description": "List of quarter numbers (1-4) to include. If not specified, all quarters are included.",
+                },
+            },
+            "required": [],
+        },
+    },
+]
+
+
+def get_tools() -> types.Tool:
+    """Get the Tool object for Gemini function calling."""
+    return types.Tool(function_declarations=TOOL_DECLARATIONS)
+
+
+def get_system_prompt() -> str:
+    """Get the system prompt for the data analysis assistant."""
+    return SYSTEM_PROMPT

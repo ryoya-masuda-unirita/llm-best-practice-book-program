@@ -1,359 +1,396 @@
+"""Examples demonstrating the AI Agent framework.
+
+This module provides comprehensive examples of using the agent framework with
+various design patterns.
 """
-Example implementations demonstrating Dependency Injection in LLM workflows.
 
-This module provides practical examples showing how to use DI patterns
-to build flexible, testable, and maintainable LLM pipelines.
-"""
-
-from typing import Optional
-
-from pydantic import BaseModel
-from src.client.llm_client import GeminiModel, LLMProvider, OpenAIModel
-from src.logger import make_logger
-from src.workflow import (
-    DIContainer,
-    GeminiLLMClient,
-    ILLMClient,
-    IPromptBuilder,
-    IResponseParser,
-    MessageListPromptBuilder,
-    MockLLMClient,
-    OpenAILLMClient,
-    StructuredResponseParser,
-    TemplatePromptBuilder,
-    TextResponseParser,
-    WorkflowBuilder,
-    WorkflowEngine,
+from src.agent import (
+    AgentBuilder,
+    AgentNode,
+    CategorizableToolBox,
+    ChainOfThoughtStrategy,
+    ConversationalMemory,
+    Edge,
+    EdgeType,
+    ParallelGraphMediator,
+    ReActStrategy,
+    SimpleGraphMediator,
+    TreeOfThoughtStrategy,
+    WebSearchTool,
+    WriteDraftTool,
+    create_agent_from_config,
+    create_default_controller,
 )
-from src.workflow.base import ExecutionContext
+from src.agent.memory import MemoryCaretaker
+from src.client.llm_client import GeminiModel
+from src.logger import make_logger
 
 logger = make_logger(__name__)
 
 
-def create_llm_client(llm_provider: LLMProvider) -> ILLMClient:
-    """Create an LLM client based on the provider."""
-    if llm_provider == LLMProvider.OPENAI:
-        return OpenAILLMClient(model=OpenAIModel.GPT_5_4_MINI)
-    elif llm_provider == LLMProvider.GEMINI:
-        return GeminiLLMClient(model=GeminiModel.GEMINI_2_5_FLASH)
-    else:
-        raise ValueError(f"Unknown LLM provider: {llm_provider}")
+def example_1_basic_agent():
+    """Example 1: Basic agent with Chain-of-Thought strategy."""
+    logger.info("\n=== Example 1: Basic Agent with Chain-of-Thought ===\n")
 
+    # Create components
+    strategy = ChainOfThoughtStrategy(model=GeminiModel.GEMINI_2_5_FLASH, max_steps=5)
 
-async def example_1_manual_di(llm_provider: Optional[LLMProvider] = None):
-    """
-    Example 1: Manual dependency injection without a container.
+    toolbox = CategorizableToolBox()
+    toolbox.add_to_category("writing", WriteDraftTool())
+    toolbox.add_to_category("search", WebSearchTool())
 
-    This demonstrates the basic concept of injecting dependencies
-    directly into nodes.
-    """
-    logger.info("=" * 60)
-    logger.info("Example 1: Manual Dependency Injection")
-    logger.info("=" * 60)
-
-    prompt_builder = TemplatePromptBuilder(template="Translate '{text}' to {target_language}")
-    if llm_provider is None:
-        llm_client: ILLMClient = MockLLMClient(mock_response="Bonjour le monde")
-    else:
-        llm_client = create_llm_client(llm_provider)
-    response_parser = TextResponseParser()
-
-    workflow = (
-        WorkflowBuilder("translation-workflow", "Translation Example")
-        .add_start_node(initial_data={"text": "Hello world", "target_language": "French"})
-        .add_prompt_node(
-            "translate",
-            name="Translate Text",
-            injected_prompt_builder=prompt_builder,
-            injected_llm_client=llm_client,
-            injected_response_parser=response_parser,
-        )
-        .add_end_node()
-        .add_edge("start", "translate")
-        .add_edge("translate", "end")
+    # Build agent using Builder pattern
+    agent = (
+        AgentBuilder()
+        .with_strategy(strategy)
+        .with_toolbox(toolbox)
+        .with_memory(ConversationalMemory(max_turns=20))
+        .with_controller(create_default_controller(max_steps=10, max_cost=5.0))
+        .with_agent_type("configurable")
+        .with_config(enable_logging=True, max_iterations=10)
         .build()
     )
 
-    engine = WorkflowEngine(enable_checkpointing=False)
-    result = await engine.execute(workflow)
+    # Execute agent
+    goal = "Write a haiku about the changing seasons"
+    result = agent.execute(goal)
 
-    logger.info(f"Translation result: {result['outputs']['translate']}")
+    logger.info(f"Goal: {goal}")
+    logger.info(f"Result:\n{result}")
 
     return result
 
 
-async def example_2_di_container_singleton(llm_provider: Optional[LLMProvider] = None):
-    """
-    Example 2: Using DI container with singleton services.
+def example_2_react_agent():
+    """Example 2: Agent with ReAct strategy."""
+    logger.info("\n=== Example 2: Agent with ReAct Strategy ===\n")
 
-    Demonstrates how to register and resolve services from a container,
-    with singleton lifetime for shared LLM clients.
-    """
-    logger.info("=" * 60)
-    logger.info("Example 2: DI Container with Singleton Services")
-    logger.info("=" * 60)
-
-    container = DIContainer()
-
-    if llm_provider is None:
-        container.register_singleton(ILLMClient, lambda: MockLLMClient(mock_response="Analyzed content"))
-    else:
-        container.register_singleton(ILLMClient, lambda: create_llm_client(llm_provider))
-    container.register_singleton(IResponseParser, TextResponseParser)
-    container.register_transient(IPromptBuilder, lambda: TemplatePromptBuilder(template="Analyze: {content}"))
-
-    llm_client = container.resolve(ILLMClient)
-    response_parser = container.resolve(IResponseParser)
-    prompt_builder = container.resolve(IPromptBuilder)
-
-    workflow = (
-        WorkflowBuilder("analysis-workflow", "Content Analysis")
-        .add_start_node(initial_data={"content": "This is a sample document for analysis."})
-        .add_prompt_node(
-            "analyze",
-            name="Analyze Content",
-            injected_prompt_builder=prompt_builder,
-            injected_llm_client=llm_client,
-            injected_response_parser=response_parser,
+    # Build agent using fluent interface
+    agent = (
+        AgentBuilder()
+        .with_strategy(
+            {
+                "type": "react",
+                "model": GeminiModel.GEMINI_2_5_FLASH,
+                "max_iterations": 8,
+            }
         )
-        .add_end_node()
-        .add_edge("start", "analyze")
-        .add_edge("analyze", "end")
+        .with_toolbox(
+            {
+                "categorized": True,
+                "tools": [
+                    {"type": "write_draft", "category": "writing"},
+                    {"type": "web_search", "category": "search"},
+                ],
+            }
+        )
+        .with_memory({"type": "conversational", "max_turns": 30})
+        .with_controller(
+            {
+                "handlers": {
+                    "max_steps": 20,
+                    "max_cost": 8.0,
+                    "max_calls_per_tool": 5,
+                    "enable_dangerous_action_filter": True,
+                    "enable_loop_detection": True,
+                }
+            }
+        )
+        .with_agent_type("configurable")
+        .with_config(enable_logging=True)
         .build()
     )
 
-    engine = WorkflowEngine(enable_checkpointing=False, di_container=container)
-    result = await engine.execute(workflow)
+    goal = "Search for information about the Eiffel Tower, then write a short poem inspired by what you learned"
+    result = agent.execute(goal)
 
-    logger.info(f"Analysis result: {result['outputs']['analyze']}")
+    logger.info(f"Goal: {goal}")
+    logger.info(f"Result:\n{result}")
 
     return result
 
 
-async def example_3_swapping_providers(llm_provider: Optional[LLMProvider] = None):
-    """
-    Example 3: Easy A/B testing by swapping LLM providers.
+def example_3_multi_strategy_agent():
+    """Example 3: Agent that can switch between strategies."""
+    logger.info("\n=== Example 3: Multi-Strategy Agent ===\n")
 
-    Demonstrates how DI enables switching between different LLM providers
-    without changing workflow code.
-    """
-    logger.info("=" * 60)
-    logger.info("Example 3: Swapping LLM Providers for A/B Testing")
-    logger.info("=" * 60)
+    # Create multiple strategies
+    strategies = {
+        "cot": ChainOfThoughtStrategy(model=GeminiModel.GEMINI_2_5_FLASH, max_steps=5),
+        "react": ReActStrategy(model=GeminiModel.GEMINI_2_5_FLASH, max_iterations=8),
+        "tot": TreeOfThoughtStrategy(
+            model=GeminiModel.GEMINI_2_5_FLASH,
+            max_depth=2,
+            branch_factor=2,
+        ),
+    }
 
-    prompt_builder = TemplatePromptBuilder(template="Summarize: {article}")
+    toolbox = CategorizableToolBox()
+    toolbox.add_to_category("writing", WriteDraftTool())
 
-    if llm_provider is None:
-        providers: list[tuple[str, ILLMClient]] = [
-            ("Mock Provider A", MockLLMClient(mock_response="Summary from provider A")),
-            ("Mock Provider B", MockLLMClient(mock_response="Summary from provider B")),
-        ]
-    else:
-        # Use real provider
-        providers = [(f"{llm_provider.value}", create_llm_client(llm_provider))]
-
-    results = []
-    for provider_name, llm_client in providers:
-        logger.info(f"\nTesting with: {provider_name}")
-
-        workflow = (
-            WorkflowBuilder(f"summarization-{provider_name}", "Summarization Workflow")
-            .add_start_node(initial_data={"article": "Long article text goes here..."})
-            .add_prompt_node(
-                "summarize",
-                name="Summarize Article",
-                injected_prompt_builder=prompt_builder,
-                injected_llm_client=llm_client,
-                injected_response_parser=TextResponseParser(),
-            )
-            .add_end_node()
-            .add_edge("start", "summarize")
-            .add_edge("summarize", "end")
-            .build()
-        )
-
-        engine = WorkflowEngine(enable_checkpointing=False)
-        result = await engine.execute(workflow)
-
-        logger.info(f"  Result: {result['outputs']['summarize']}")
-        results.append(result)
-
-    return results[0]
-
-
-async def example_4_multi_stage_pipeline(llm_provider: Optional[LLMProvider] = None):
-    """
-    Example 4: Multi-stage pipeline with different injected components.
-
-    Shows a complex workflow where different stages use different
-    prompt builders and parsers.
-    """
-    logger.info("=" * 60)
-    logger.info("Example 4: Multi-Stage Pipeline with DI")
-    logger.info("=" * 60)
-
-    extract_builder = TemplatePromptBuilder(template="Extract key points from: {document}")
-    if llm_provider is None:
-        extract_client: ILLMClient = MockLLMClient(mock_response="Key points: A, B, C")
-    else:
-        extract_client = create_llm_client(llm_provider)
-    extract_parser = TextResponseParser()
-
-    summary_builder = MessageListPromptBuilder(system_message="You are a summarization expert.")
-    if llm_provider is None:
-        summary_client: ILLMClient = MockLLMClient(mock_response="Professional summary of key points")
-    else:
-        summary_client = create_llm_client(llm_provider)
-    summary_parser = TextResponseParser()
-
-    def format_output(context: ExecutionContext) -> str:
-        key_points = context.get_variable("extract_output", "")
-        summary = context.get_variable("summarize_output", "")
-        return f"## Key Points\n{key_points}\n\n## Summary\n{summary}"
-
-    workflow = (
-        WorkflowBuilder("multi-stage-workflow", "Document Processing Pipeline")
-        .add_start_node(initial_data={"document": "Long technical document...", "prompt": "temp"})
-        .add_prompt_node(
-            "extract",
-            name="Extract Key Points",
-            injected_prompt_builder=extract_builder,
-            injected_llm_client=extract_client,
-            injected_response_parser=extract_parser,
-        )
-        .add_prompt_node(
-            "summarize",
-            name="Generate Summary",
-            injected_prompt_builder=summary_builder,
-            injected_llm_client=summary_client,
-            injected_response_parser=summary_parser,
-        )
-        .add_python_script_node("format", name="Format Output", script_func=format_output)
-        .add_end_node()
-        .add_edge("start", "extract")
-        .add_edge("extract", "summarize")
-        .add_edge("summarize", "format")
-        .add_edge("format", "end")
+    agent = (
+        AgentBuilder()
+        .with_toolbox(toolbox)
+        .with_memory(ConversationalMemory(max_turns=20))
+        .with_agent_type("multi_strategy")
+        .with_config(strategies=strategies, default_strategy="cot")
         .build()
     )
 
-    engine = WorkflowEngine(enable_checkpointing=False)
-    result = await engine.execute(workflow)
+    # Use with default strategy (CoT)
+    result1 = agent.execute("Write a limerick about a programmer")
+    logger.info(f"Strategy: {agent.get_current_strategy()}")
+    logger.info(f"Result:\n{result1}\n")
 
-    logger.info("\nFinal formatted output:")
-    logger.info(result["outputs"]["format"])
+    # Switch to ReAct strategy
+    agent.switch_strategy("react")
+    result2 = agent.execute("Write a motivational quote about learning")
+    logger.info(f"Strategy: {agent.get_current_strategy()}")
+    logger.info(f"Result:\n{result2}")
+
+    return result1, result2
+
+
+def example_4_config_based_agent():
+    """Example 4: Create agent from configuration dictionary."""
+    logger.info("\n=== Example 4: Config-Based Agent Creation ===\n")
+
+    config = {
+        "type": "configurable",
+        "strategy": {
+            "type": "react",
+            "model": GeminiModel.GEMINI_2_5_FLASH,
+            "max_iterations": 10,
+        },
+        "toolbox": {
+            "categorized": True,
+            "tools": [
+                {"type": "write_draft", "category": "writing"},
+                {"type": "web_search", "category": "information"},
+            ],
+        },
+        "memory": {
+            "type": "conversational",
+            "max_turns": 50,
+        },
+        "controller": {
+            "handlers": {
+                "max_steps": 30,
+                "max_cost": 10.0,
+                "max_calls_per_tool": 8,
+                "enable_dangerous_action_filter": True,
+                "enable_loop_detection": True,
+                "loop_window_size": 5,
+                "loop_threshold": 3,
+            }
+        },
+        "enable_logging": True,
+        "max_iterations": 30,
+    }
+
+    # Create agent from config using Factory pattern
+    agent = create_agent_from_config(config)
+
+    goal = "Write a short story opening about a mysterious door"
+    result = agent.execute(goal)
+
+    logger.info(f"Goal: {goal}")
+    logger.info(f"Result:\n{result}")
 
     return result
 
 
-class Character(BaseModel):
-    """Example structured output model."""
+def example_5_graph_mediator():
+    """Example 5: Multi-agent coordination using Mediator pattern."""
+    logger.info("\n=== Example 5: Multi-Agent Graph with Mediator ===\n")
 
-    name: str
-    age: int
-    occupation: str
-
-
-async def example_5_structured_output(llm_provider: Optional[LLMProvider] = None):
-    """
-    Example 5: Using structured output with custom parsers.
-
-    Demonstrates how to work with typed responses using Pydantic models.
-    """
-    logger.info("=" * 60)
-    logger.info("Example 5: Structured Output with DI")
-    logger.info("=" * 60)
-
-    prompt_builder = TemplatePromptBuilder(template="Create a character named {name}")
-
-    if llm_provider is None:
-
-        class MockStructuredClient(MockLLMClient):
-            async def generate(self, prompt, context, **kwargs):
-                response = await super().generate(prompt, context, **kwargs)
-                response["parsed"] = Character(name="Alice", age=30, occupation="Engineer")
-                return response
-
-        llm_client: ILLMClient = MockStructuredClient()
-    elif llm_provider == LLMProvider.OPENAI:
-        llm_client = OpenAILLMClient(model=OpenAIModel.GPT_5_4_MINI, response_format=Character)
-    elif llm_provider == LLMProvider.GEMINI:
-        llm_client = GeminiLLMClient(model=GeminiModel.GEMINI_2_5_FLASH, response_schema=Character)
-    else:
-        raise ValueError(f"Unknown LLM provider: {llm_provider}")
-
-    response_parser = StructuredResponseParser()
-
-    workflow = (
-        WorkflowBuilder("character-generation", "Character Generator")
-        .add_start_node(initial_data={"name": "Alice", "prompt": "temp"})
-        .add_prompt_node(
-            "generate",
-            name="Generate Character",
-            injected_prompt_builder=prompt_builder,
-            injected_llm_client=llm_client,
-            injected_response_parser=response_parser,
+    # Create multiple specialized agents
+    writing_agent = (
+        AgentBuilder()
+        .with_strategy(ChainOfThoughtStrategy(max_steps=10))
+        .with_toolbox(
+            {
+                "tools": [{"type": "write_draft"}],
+            }
         )
-        .add_end_node()
-        .add_edge("start", "generate")
-        .add_edge("generate", "end")
+        .with_memory(ConversationalMemory(max_turns=10))
         .build()
     )
 
-    engine = WorkflowEngine(enable_checkpointing=False)
-    result = await engine.execute(workflow)
+    search_agent = (
+        AgentBuilder()
+        .with_strategy(ReActStrategy(max_iterations=10))
+        .with_toolbox(
+            {
+                "tools": [{"type": "web_search"}],
+            }
+        )
+        .with_memory(ConversationalMemory(max_turns=10))
+        .build()
+    )
 
-    character = result["outputs"]["generate"]
-    logger.info(f"Generated character: {character}")
-    logger.info(f"Type: {type(character)}")
+    # Create mediator
+    mediator = SimpleGraphMediator()
+
+    # Add agent nodes
+    writing_node = AgentNode("writing_agent", writing_agent)
+    search_node = AgentNode("search_agent", search_agent)
+
+    mediator.add_node(writing_node)
+    mediator.add_node(search_node)
+
+    # Add edges (connections)
+    mediator.add_edge(
+        Edge(
+            source_id="writing_agent",
+            target_id="search_agent",
+            edge_type=EdgeType.SEQUENTIAL,
+        )
+    )
+
+    # Execute graph
+    result = mediator.execute_graph(
+        start_node_id="writing_agent",
+        input_data="Write a creative tagline for a coffee shop",
+    )
+
+    logger.info("Graph Execution Results:")
+    logger.info(f"Success: {result.success}")
+    logger.info(f"Final Output:\n{result.final_output}")
+    logger.info("\nExecution Log:")
+    for log_entry in result.execution_log:
+        logger.info(f"  Node: {log_entry.node_id}, Success: {log_entry.success}")
 
     return result
 
 
-async def example_6_testing_pattern(llm_provider: Optional[LLMProvider] = None):
-    """
-    Example 6: Testing pattern showing mock vs real clients.
+def example_6_parallel_execution():
+    """Example 6: Parallel agent execution using ParallelGraphMediator."""
+    logger.info("\n=== Example 6: Parallel Agent Execution ===\n")
 
-    Demonstrates how DI makes testing easy by allowing mock substitution.
-    """
-    logger.info("=" * 60)
-    logger.info("Example 6: Testing Pattern with Mock and Real Clients")
-    logger.info("=" * 60)
+    # Create agents for parallel execution
+    agent1 = (
+        AgentBuilder()
+        .with_strategy(ChainOfThoughtStrategy(max_steps=10))
+        .with_toolbox({"tools": [{"type": "write_draft"}]})
+        .with_memory(ConversationalMemory(max_turns=10))
+        .build()
+    )
 
-    async def run_sentiment_analysis(llm_client: ILLMClient, test_mode: bool = False):
-        """Shared workflow logic that works with any ILLMClient."""
-        mode = "TEST" if test_mode else "PRODUCTION"
-        logger.info(f"\nRunning in {mode} mode")
+    agent2 = (
+        AgentBuilder()
+        .with_strategy(ReActStrategy(max_iterations=10))
+        .with_toolbox({"tools": [{"type": "web_search"}]})
+        .with_memory(ConversationalMemory(max_turns=10))
+        .build()
+    )
 
-        workflow = (
-            WorkflowBuilder(f"sentiment-{mode.lower()}", "Sentiment Analysis")
-            .add_start_node(initial_data={"review": "This product is amazing!", "prompt": "temp"})
-            .add_prompt_node(
-                "analyze",
-                name="Analyze Sentiment",
-                prompt_template="Analyze sentiment: {review}",
-                injected_llm_client=llm_client,
-                injected_response_parser=TextResponseParser(),
-            )
-            .add_end_node()
-            .add_edge("start", "analyze")
-            .add_edge("analyze", "end")
-            .build()
+    # Create parallel mediator
+    mediator = ParallelGraphMediator()
+
+    # Add nodes
+    node1 = AgentNode("agent1", agent1)
+    node2 = AgentNode("agent2", agent2)
+    mediator.add_node(node1)
+    mediator.add_node(node2)
+
+    # Create parallel edges
+    mediator.add_edge(
+        Edge(
+            source_id="agent1",
+            target_id="agent2",
+            edge_type=EdgeType.PARALLEL,
         )
+    )
 
-        engine = WorkflowEngine(enable_checkpointing=False)
-        result = await engine.execute(workflow)
-        return result
+    # Execute in parallel
+    result = mediator.execute_graph(
+        start_node_id="agent1",
+        input_data="Write a short description of a sunset",
+    )
 
-    mock_client = MockLLMClient(mock_response="Positive sentiment (confidence: 0.95)")
-    test_result = await run_sentiment_analysis(mock_client, test_mode=True)
-    logger.info(f"Test result: {test_result['outputs']['analyze']}")
+    logger.info("Parallel Execution Results:")
+    logger.info(f"Success: {result.success}")
+    logger.info("\nExecution Log:")
+    for log_entry in result.execution_log:
+        parallel_flag = "PARALLEL" if log_entry.parallel else "SEQUENTIAL"
+        logger.info(f"  [{parallel_flag}] Node: {log_entry.node_id}")
 
-    if llm_provider is not None:
-        real_client = create_llm_client(llm_provider)
-        prod_result = await run_sentiment_analysis(real_client, test_mode=False)
-        logger.info(f"Production result: {prod_result['outputs']['analyze']}")
+    return result
 
-    logger.info("\nSame workflow code works with both mock and real clients!")
 
-    return test_result
+def example_7_memory_snapshots():
+    """Example 7: Memory snapshots with Memento pattern."""
+    logger.info("\n=== Example 7: Memory Snapshots (Memento Pattern) ===\n")
+    logger.info("This example demonstrates saving and restoring agent memory state.\n")
+
+    # Create agent with memory
+    memory = ConversationalMemory(max_turns=10)
+
+    agent = (
+        AgentBuilder()
+        .with_strategy(ChainOfThoughtStrategy(max_steps=10))
+        .with_toolbox({"tools": [{"type": "write_draft"}]})
+        .with_memory(memory)
+        .build()
+    )
+
+    # Create memory caretaker
+    caretaker = MemoryCaretaker()
+
+    # Execute first task
+    logger.info("Step 1: Execute first task...")
+    result1 = agent.execute("Write a one-line joke about cats")
+    logger.info(f"Task 1 result:\n{result1}")
+    logger.info(f"Memory turns after task 1: {memory.get_context()['num_turns']}")
+
+    # Save snapshot
+    logger.info("\nStep 2: Saving memory snapshot (checkpoint)...")
+    snapshot_id = caretaker.save(memory)
+    logger.info(f"Snapshot saved with ID: {snapshot_id}")
+
+    # Execute more tasks
+    logger.info("\nStep 3: Execute additional tasks...")
+    result2 = agent.execute("Write a pun about programming")
+    logger.info(f"Task 2 result:\n{result2}")
+    logger.info(f"Memory turns after task 2: {memory.get_context()['num_turns']}")
+
+    result3 = agent.execute("Write a riddle about time")
+    logger.info(f"Task 3 result:\n{result3}")
+    logger.info(f"Memory turns after task 3: {memory.get_context()['num_turns']}")
+
+    # Restore from snapshot
+    logger.info("\nStep 4: Restoring memory to checkpoint...")
+    logger.info(f"Memory turns BEFORE restore: {memory.get_context()['num_turns']}")
+    caretaker.restore(memory, snapshot_id)
+    logger.info(f"Memory turns AFTER restore: {memory.get_context()['num_turns']}")
+    logger.info("Memory successfully restored to state after task 1 (tasks 2 and 3 are forgotten)!")
+
+    return {"snapshot_id": snapshot_id, "restored": True}
+
+
+def example_8_execution_control():
+    """Example 8: Execution control with Chain of Responsibility."""
+    logger.info("\n=== Example 8: Execution Control (Chain of Responsibility) ===\n")
+
+    # Create agent with strict limits
+    controller = create_default_controller(
+        max_steps=10,
+        max_cost=0.5,
+        max_calls_per_tool=2,
+    )
+
+    agent = (
+        AgentBuilder()
+        .with_strategy(ChainOfThoughtStrategy(max_steps=10))
+        .with_toolbox({"tools": [{"type": "write_draft"}]})
+        .with_memory(ConversationalMemory(max_turns=10))
+        .with_controller(controller)
+        .with_agent_type("configurable")
+        .with_config(enable_logging=True)
+        .build()
+    )
+
+    result = agent.execute("Write an epic poem with multiple stanzas about the ocean")
+    logger.info(f"Result:\n{result}")
+    return result

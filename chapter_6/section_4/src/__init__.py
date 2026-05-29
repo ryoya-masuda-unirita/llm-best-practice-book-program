@@ -1,1 +1,1 @@
-"""Chapter 2, Section 1: Basic LLM Integration."""
+"""Chapter 6, Section 9: Forget, Replay, Speculate."""

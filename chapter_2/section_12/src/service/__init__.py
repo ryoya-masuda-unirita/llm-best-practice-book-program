@@ -1,48 +1,26 @@
-# Note: Imports are deferred to avoid circular dependencies
-# Import directly from submodules as needed:
-#   from src.service.request_llm import request_openai
-#   from src.service.template_engine import TemplateEngine
-#   from src.service.prompt_service import PromptManagementService
+from src.model.model import ExtractionResult
+from src.service.document_processor import (
+    extract_document_structure,
+    save_extraction_results,
+)
+from src.service.request_llm import (
+    correct_script,
+    correct_script_from_validation,
+    generate_extraction_script,
+    sample_document,
+)
+from src.service.script_executor import execute_script, validate_script
+from src.service.validator import validate_extraction_result
 
 __all__ = [
-    "request_openai",
-    "TemplateEngine",
-    "PromptManagementService",
-    "PromptStorage",
-    "PromptAnalyzer",
-    "PromptCatalog",
-    "PromptAnalytics",
+    "sample_document",
+    "generate_extraction_script",
+    "correct_script",
+    "correct_script_from_validation",
+    "execute_script",
+    "validate_script",
+    "extract_document_structure",
+    "save_extraction_results",
+    "ExtractionResult",
+    "validate_extraction_result",
 ]
-
-
-def __getattr__(name):
-    """Lazy import to avoid circular dependencies."""
-    if name == "request_openai":
-        from src.service.request_llm import request_openai
-
-        return request_openai
-    elif name == "TemplateEngine":
-        from src.service.template_engine import TemplateEngine
-
-        return TemplateEngine
-    elif name == "PromptManagementService":
-        from src.service.prompt_service import PromptManagementService
-
-        return PromptManagementService
-    elif name == "PromptStorage":
-        from src.service.prompt_storage import PromptStorage
-
-        return PromptStorage
-    elif name == "PromptAnalyzer":
-        from src.service.prompt_analyzer import PromptAnalyzer
-
-        return PromptAnalyzer
-    elif name == "PromptCatalog":
-        from src.service.prompt_catalog import PromptCatalog
-
-        return PromptCatalog
-    elif name == "PromptAnalytics":
-        from src.service.prompt_analytics import PromptAnalytics
-
-        return PromptAnalytics
-    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

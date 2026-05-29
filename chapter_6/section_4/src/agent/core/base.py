@@ -68,11 +68,7 @@ class ContextData:
 
 
 class Tool(ABC):
-    """Abstract base class for tools that agents can use.
-
-    This interface defines the contract for all tools in the system.
-    Concrete tool implementations should be placed in the extensions layer.
-    """
+    """Abstract base class for tools that agents can use."""
 
     def __init__(self, name: str, description: str):
         self.name = name
@@ -100,12 +96,7 @@ class StepInfo:
 
 
 class Strategy(ABC):
-    """Abstract base class for thinking strategies.
-
-    This interface defines how agents reason about goals and decide actions.
-    Concrete strategy implementations (e.g., CoT, ReAct) should be placed
-    in the extensions layer.
-    """
+    """Abstract base class for thinking strategies."""
 
     def __init__(self, name: str):
         self.name = name

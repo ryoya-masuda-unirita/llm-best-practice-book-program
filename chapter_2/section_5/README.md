@@ -1,52 +1,68 @@
-# Chapter 2 Section 5: LLMのバッチ処理
+# Chapter 2 Section 6: 非同期バッチ処理
 
 ## 概要
 
-このプロジェクトは、**Batch API（バッチ処理API）** を用いたLLMの大量リクエスト処理の実装を示すサンプルコードです。Google Gemini 2.5のBatch APIを活用し、複数のリクエストを一括で効率的に処理する方法を学ぶことができます。
+本プロジェクトは、LLMアプリケーションにおける**非同期バッチ処理**の実装例です。Redisをメッセージキューとして使用し、大量のLLMリクエストを効率的に処理するアーキテクチャを示しています。
 
-フィクションのキャラクター情報を大量生成するユースケースを通じて、Batch APIの実践的な実装方法、ジョブの状態監視、結果の取得と保存までの一連のフローを習得できます。
+リアルタイム応答が不要な大規模タスク（ドキュメント要約、データ分析、コンテンツ生成など）において、リクエストの受付と処理を分離することで、システムのスケーラビリティと耐障害性を向上させます。クライアントはジョブを登録後、ジョブIDを使って非同期に進捗確認と結果取得を行います。
+
+本実装では、架空のキャラクター生成をユースケースとして採用しています。ユーザーは複数のキャラクター生成リクエスト（性別、年齢、性格特性など）をバッチで投入し、バックグラウンドワーカーが各プロバイダーのBatch APIを呼び出して処理を実行します。
+
+### 対応プロバイダー
+
+| プロバイダー | モデル | Batch API方式 |
+|------------|--------|---------------|
+| OpenAI | gpt-5.5, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.1, gpt-5, gpt-5-mini, gpt-5-nano | JSONLファイルアップロード → バッチ作成 → ポーリング → 結果JSONL取得 |
+| Gemini | gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite, gemini-3.5-flash, gemini-3.1-flash-lite | インラインリクエスト → バッチ作成 → ポーリング → インライン結果取得 |
+| Anthropic | claude-opus-4-7, claude-sonnet-4-6, claude-haiku-4-5 | リクエストリスト → バッチ作成 → ポーリング → 結果ストリーミング取得 |
 
 ## 機能
 
-- **Batch API処理**: Google Gemini Batch APIによる複数リクエストの一括実行
-- **構造化出力**: Pydanticモデルを活用した型安全なLLM応答
-- **ジョブ管理**: バッチジョブの状態監視とポーリング処理
-- **モデル選択**: Gemini 2.5 Pro/Flash/Flash-Liteから選択可能
-- **非同期処理**: 効率的なAPI呼び出しとリソース管理
-- **型安全性**: Pydanticによる厳密な型検証とバリデーション
-- **CLIインターフェース**: Clickライブラリを使用した使いやすいコマンドラインツール
-- **環境変数管理**: python-dotenvによる安全なAPIキー管理
-- **ログ出力**: 詳細なログ機能による実行状況の可視化
-- **JSON出力**: 生成結果を個別のJSONファイルとして保存
+- **マルチプロバイダー対応**: OpenAI、Gemini、Anthropicの3つのBatch APIに対応
+- **バッチジョブ登録API**: 複数のキャラクター生成リクエストを一括登録し、即座にジョブIDを返却
+- **ジョブステータス追跡**: リアルタイムで処理進捗（完了数、失敗数、保留数）を確認
+- **結果取得API**: 完了したジョブの結果を取得
+- **バックグラウンドワーカー**: Redisキューを監視し、各プロバイダーのBatch APIでジョブを並行処理
+- **水平スケーリング**: ワーカーを複数起動することでスループットを向上
+- **自動クリーンアップ**: TTL（24時間）によりジョブデータを自動削除
 
 ## プロジェクト構成
 
 ### アーキテクチャ
 
-このプロジェクトは、以下の3層アーキテクチャで構成されています：
-
 ```
-┌─────────────────────────────────────────┐
-│         CLI Layer (main.py)             │
-│     - コマンドライン引数解析             │
-│     - 出力ディレクトリ管理               │
-│     - モデル選択                         │
-└─────────────────┬───────────────────────┘
-                  │
-┌─────────────────▼───────────────────────┐
-│      Business Logic Layer               │
-│  - プロンプト生成 (prompt.py)           │
-│  - LLMクライアント管理 (llm_client.py)  │
-│  - データモデル (model.py)              │
-│  - Batch API処理 (request_llm.py)       │
-└─────────────────┬───────────────────────┘
-                  │
-┌─────────────────▼───────────────────────┐
-│      Infrastructure Layer               │
-│  - 設定管理 (config.py)                 │
-│  - ログ管理 (logger.py)                 │
-│  - 外部API (Google Gemini Batch API)    │
-└─────────────────────────────────────────┘
++------------------+
+|     Clients      |
++--------+---------+
+         |
+         +------------------+----------------------+
+         |                  |                      |
++--------v--------+  +------v-------+  +-----------v----------+
+|   LLM Server    |  | Batch Server |  |    Batch Worker      |
+|   (Port 8000)   |  | (Port 8001)  |  |    (Background)      |
+|                 |  |              |  |                      |
+| POST /generate  |  | POST /submit |  | - ジョブ取得ループ     |
+|                 |  | GET /status  |  | - ポーリングループ     |
+|                 |  | GET /result  |  | - プロバイダー別送信   |
++--------+--------+  +------+-------+  +-----------+----------+
+         |                  |                      |
+         +------------------+----------+-----------+
+                            |          |
+                     +------v------+   |
+                     |    Redis    |   |
+                     | (Port 6379) |   |
+                     |             |   |
+                     | - ジョブキュー |   |
+                     | - ステータス  |   |
+                     | - 結果       |   |
+                     +-------------+   |
+                                       |
+              +------------------------+------------------------+
+              |                        |                        |
+      +-------v-------+       +-------v-------+       +--------v------+
+      |  OpenAI API   |       |  Gemini API   |       | Anthropic API |
+      | Batch API     |       | Batch API     |       | Batch API     |
+      +---------------+       +---------------+       +---------------+
 ```
 
 ## 使い方
@@ -54,127 +70,187 @@
 ### 環境構成
 
 - **Python**: 3.13.2以上
+- **Redis**: 7.0以上
 - **依存ライブラリ**:
-  - click>=8.3.0
-  - google-genai>=1.45.0
-  - pydantic>=2.12.2
-  - python-dotenv>=1.1.1
+  - `redis>=7.0.0`
+  - `fastapi>=0.115.0`
+  - `uvicorn>=0.30.0`
+  - `pydantic>=2.10.0`
+  - `google-genai>=1.0.0`
+  - `openai>=2.4.0`
+  - `anthropic>=0.74.1`
 
 ### セットアップ
 
-1. **環境変数ファイルの作成**
+1. **環境変数の設定**
 
 ```bash
-# .envrc.exampleをコピーして.envrcを作成
+cp .env.example .env
 cp .envrc.example .envrc
-
-# エディタで.envrcを開き、APIキーを設定
-# .envrc
-GEMINI_API_KEY=<your_gemini_api_key_here>
+# .envファイルを編集してAPIキーを設定
 ```
+
+```bash
+# .env
+OPENAI_API_KEY=<your_openai_api_key_here>
+GEMINI_API_KEY=<your_gemini_api_key_here>
+ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
+```
+
+> **注意**: Docker Composeは`.env`ファイルから環境変数を読み込みます。`.envrc`はdirenv用（ローカル開発の便利ツール）で、中身は`dotenv`コマンドのみです。`.env`ファイルにAPIキーを設定すれば、ローカル実行・Docker実行の両方で動作します。
 
 2. **依存関係のインストール**
 
 ```bash
-# uvを使用する
 uv sync
 ```
 
-### 使用方法、実行方法
+### 実行方法
 
-#### 基本的な使い方
-
-```bash
-# Gemini 2.5 Flashを使用
-uv run python -m src.main --model GEMINI_2_5_FLASH --output-directory outputs/
-
-# Gemini 2.5 Proを使用
-uv run python -m src.main --model GEMINI_2_5_PRO --output-directory outputs/
-
-# Gemini 2.5 Flash-Liteを使用（最も高速・低コスト）
-uv run python -m src.main --model GEMINI_2_5_FLASH_LITE --output-directory outputs/
-
-# 短縮オプション
-uv run python -m src.main -m GEMINI_2_5_FLASH -od outputs/
-```
-
-#### ヘルプの表示
+#### Docker Composeを使用する場合
 
 ```bash
-$ uv run python -m src.main --help
-Usage: python -m src.main [OPTIONS]
+# サービスを起動
+make docker-up
 
-Options:
-  -m, --model [GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
-                                  The model to use for the request.
-                                  [required]
-  -od, --output-directory PATH    The directory to save output files.
-  --help                          Show this message and exit.
+# ログを確認
+make docker-logs
+
+# サービスを停止
+make docker-down
+
+# 利用可能なMakeコマンド一覧
+make help
+Docker Commands:
+  make docker-build    - Build Docker image
+  make docker-up       - Start services with docker-compose
+  make docker-down     - Stop services
+  make docker-logs     - View service logs
+  make docker-restart  - Restart services (down + up)
 ```
+
+### APIエンドポイント
+
+| エンドポイント | メソッド | 説明 |
+|--------------|---------|------|
+| `/health` | GET | ヘルスチェック |
+| `/batch/submit` | POST | バッチジョブを登録 |
+| `/batch/{job_id}/status` | GET | ジョブステータスを取得 |
+| `/batch/{job_id}/result` | GET | ジョブ結果を取得 |
+| `/batch/queue/stats` | GET | キュー統計を取得 |
+| `/batch/jobs` | GET | 全ジョブIDを取得 |
+
+### 使用例
+
+```bash
+# Dockerイメージのビルド
+make docker-build
+
+# サービスを起動
+make docker-up
+```
+
+#### OpenAI Batch API
+
+```bash
+# バッチジョブを登録（OpenAI）
+curl -X POST http://localhost:8001/batch/submit \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "openai",
+    "model": "gpt-5.4-mini",
+    "character_requests": [
+      {"gender": "female", "age": 25, "additional_instructions": "cheerful"},
+      {"gender": "male", "age": 30, "additional_instructions": "intellectual"}
+    ]
+  }'
+```
+
+#### Gemini Batch API
+
+```bash
+# バッチジョブを登録（Gemini）
+curl -X POST http://localhost:8001/batch/submit \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "character_requests": [
+      {"gender": "female", "age": 25, "additional_instructions": "cheerful"},
+      {"gender": "male", "age": 30, "additional_instructions": "intellectual"}
+    ]
+  }'
+```
+
+#### Anthropic Batch API
+
+```bash
+# バッチジョブを登録（Anthropic）
+curl -X POST http://localhost:8001/batch/submit \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-6",
+    "character_requests": [
+      {"gender": "female", "age": 22, "additional_instructions": "brave warrior"},
+      {"gender": "male", "age": 35, "additional_instructions": "wise scholar"}
+    ]
+  }'
+```
+
+#### ジョブ管理
+
+```bash
+# ジョブステータスを取得
+curl http://localhost:8001/batch/{job_id}/status
+
+# ジョブ結果を取得
+curl http://localhost:8001/batch/{job_id}/result
+
+# キュー統計を取得
+curl http://localhost:8001/batch/queue/stats
+
+# 全ジョブIDを取得
+curl http://localhost:8001/batch/jobs
+```
+
+#### Swagger UI
+API: `http://localhost:8000/docs`
 
 ### 出力例
 
-実行すると、以下のような構造化されたJSONファイルが複数生成されます：
-
-**ファイル名**: `outputs/gemini_088221aadc0942c69878423b1d4221a8.json`
-
-```json
-{
-    "first_name": "海斗",
-    "last_name": "田中",
-    "gender": "male",
-    "age": 78,
-    "personalities": [
-        {
-            "short_personality": "細心かつ忍耐強い",
-            "description": "マスター時計職人として、海斗は超人的なレベルの忍耐力を持っています。彼は一つの歯車に何日も費やし、その完璧さを追求します。この細心な性質は、道具の配置からお茶の淹れ方まで、彼の生活のあらゆる側面に及んでいます。彼は、どんなに小さな細部でも、宇宙の壮大なデザインに貢献していると信じています。"
-        },
-        {
-            "short_personality": "風変わりで哲学的",
-            "description": "その精密な性格にもかかわらず、海斗は時間に対して遊び心のある哲学的な見方をしています。彼はしばしば時計や時間に関する謎や比喩で話し、人生を独自のユニークなリズムを持つ複雑な時計と見なしています。彼は仕事を終えるために「明日から数秒借りた」と主張することがあり、周りの人々は彼が詩的なのか文字通りの意味なのか疑問に思います。"
-        },
-        {
-            "short_personality": "内に秘めた憂鬱",
-            "description": "風変わりな外見の下には、深い憂鬱が隠されています。彼は容赦なく進む時間と失われた愛する人々の記憶に苦しんでいます。彼の時計への執着は単なる職業ではなく、彼から多くを奪った唯一の力を理解し、おそらくは制御しようとする必死の試みです。彼はこのことについてめったに話しませんが、止まった時計を見つめるときの彼の物憂げな眼差しにそれが見て取れます。"
-        }
+```bash
+$ curl -X POST http://localhost:8001/batch/submit \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "openai",
+    "model": "gpt-5.4-mini",
+    "character_requests": [
+      {"gender": "male", "age": 30, "additional_instructions": "cheerful"}
     ]
-}
+  }'
+
+{"job_id":"7b3f25d3-b05c-4599-9902-627371352c3d","status":"pending","total_tasks":1,"submitted_at":1775269281.5831172}
+
+$ curl http://localhost:8001/batch/7b3f25d3-b05c-4599-9902-627371352c3d/status
+
+{"job_id":"7b3f25d3-b05c-4599-9902-627371352c3d","status":"completed","total_tasks":1,"completed_tasks":1,"failed_tasks":0,"pending_tasks":0,"submitted_at":1775269281.5831172,"started_at":1775269281.6482563,"completed_at":1775269361.8253925}
+
+$ curl http://localhost:8001/batch/7b3f25d3-b05c-4599-9902-627371352c3d/result
+
+{"job_id":"7b3f25d3-b05c-4599-9902-627371352c3d","status":"completed","provider":"openai","model":"gpt-5.4-mini","tasks":[{"task_index":0,"status":"completed","character":{"first_name":"Ren","last_name":"Mizuhara","gender":"male","age":30,"personalities":[{"short_personality":"cheerful, resilient, perceptive","description":"Ren maintains a bright, uplifting demeanor even in difficult situations..."},{"short_personality":"kind, improvisational, curious","description":"He is naturally kind and tends to assume the best in people..."},{"short_personality":"optimistic, loyal, quietly determined","description":"Ren believes problems can be solved and people can change..."}]},"error":null,"processing_time_ms":80210.7150554657}],"submitted_at":1775269281.5853896,"completed_at":1775269361.8253925}
+
+$ curl http://localhost:8001/batch/queue/stats
+
+{"queue_name":"llm_batch_jobs","pending_jobs":0}
 ```
 
-**実行ログ例**:
-```
-$ uv run python -m src.main --model GEMINI_2_5_FLASH --output-directory outputs/
+### Batch APIのジョブ状態
 
-[2026-01-17 16:29:07,778] [INFO] [__main__] [main.py:43] [main] Model: gemini-2.5-flash
-Output directory: outputs/
-[2026-01-17 16:29:11,510] [INFO] [src.service.request_llm] [request_llm.py:41] [request_gemini] Triggered job name: batches/sf8jw91ll7t6yax3y7gdf8ec4mtpuw7k5v20
-[2026-01-17 16:29:11,678] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
-[2026-01-17 16:29:16,875] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
-[2026-01-17 16:29:22,063] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
-[2026-01-17 16:29:27,262] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
-[2026-01-17 16:29:32,465] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
-[2026-01-17 16:29:37,671] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
-[2026-01-17 16:29:42,885] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
-[2026-01-17 16:29:48,093] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
-[2026-01-17 16:29:53,318] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
-[2026-01-17 16:29:58,503] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
-[2026-01-17 16:30:03,697] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
-[2026-01-17 16:30:08,896] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
-[2026-01-17 16:30:14,079] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
-[2026-01-17 16:30:19,279] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
-[2026-01-17 16:30:24,460] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
-[2026-01-17 16:30:29,646] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
-[2026-01-17 16:30:34,829] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_PENDING. Waiting 5 seconds...
-[2026-01-17 16:30:40,034] [INFO] [src.service.request_llm] [request_llm.py:54] [request_gemini] Job not finished. Current state: JOB_STATE_RUNNING. Waiting 5 seconds...
-[2026-01-17 16:30:45,680] [INFO] [src.service.request_llm] [request_llm.py:46] [request_gemini] Batch job status: JOB_STATE_SUCCEEDED
-[2026-01-17 16:30:45,681] [INFO] [__main__] [main.py:55] [main] File saved to outputs/gemini_45e3731f88a84c4c8c004856b2943255.json
-[2026-01-17 16:30:45,681] [INFO] [__main__] [main.py:55] [main] File saved to outputs/gemini_5eaed9b60b0549038a72f859e80f672f.json
-[2026-01-17 16:30:45,681] [INFO] [__main__] [main.py:55] [main] File saved to outputs/gemini_fd6139bb3d5b4e6a89c3bc8d6d08c840.json
-[2026-01-17 16:30:45,681] [INFO] [__main__] [main.py:55] [main] File saved to outputs/gemini_83e36889436645998c74005f7bbae14c.json
-[2026-01-17 16:30:45,682] [INFO] [__main__] [main.py:55] [main] File saved to outputs/gemini_e574161150df4c23979b98657bc5b97d.json
-[2026-01-17 16:30:45,682] [INFO] [__main__] [main.py:55] [main] File saved to outputs/gemini_fa8b764cb5944641b2543e19c7460248.json
-[2026-01-17 16:30:45,682] [INFO] [__main__] [main.py:55] [main] File saved to outputs/gemini_c4bf50dfebd64a649e459b66d7801b21.json
-[2026-01-17 16:30:45,682] [INFO] [__main__] [main.py:55] [main] File saved to outputs/gemini_12fa722d7db04965bfd6826041a3aedd.json
-[2026-01-17 16:30:45,682] [INFO] [__main__] [main.py:55] [main] File saved to outputs/gemini_73463f0827014d9a9c2ac0fa59847c53.json
-[2026-01-17 16:30:45,682] [INFO] [__main__] [main.py:55] [main] File saved to outputs/gemini_41ce153e594f41abbfa2d19f5bb3ab68.json
-```
+各プロバイダーのBatch APIは異なる状態遷移を持ちます：
+
+| プロバイダー | 処理中の状態 | 完了状態 | 失敗状態 |
+|------------|------------|---------|---------|
+| OpenAI | `validating`, `in_progress`, `finalizing` | `completed` | `failed`, `expired`, `cancelled` |
+| Gemini | `JOB_STATE_PENDING`, `JOB_STATE_RUNNING` | `JOB_STATE_SUCCEEDED` | `JOB_STATE_FAILED`, `JOB_STATE_CANCELLED`, `JOB_STATE_EXPIRED` |
+| Anthropic | `in_progress` | `ended` | — （結果内の各リクエスト単位で成功/失敗を判定） |

@@ -1,196 +1,140 @@
-# Chapter 4 Section 4: Hierarchical AI Agent - Personalized Learning Platform
+# Contract Risk Compliance Pipeline
 
 ## Overview
 
-This project implements a **Hierarchical (Multi-Layer) AI Agent** pattern for a personalized learning platform. The system uses a 4-layer architecture to autonomously create customized learning plans based on learner goals and constraints.
+This project implements a Pipeline AI Agent pattern for contract risk compliance evaluation. It demonstrates how to decompose complex LLM processing into a series of sequential stages, where each stage has a specific responsibility and passes its output to the next stage.
 
-The hierarchical approach separates concerns across different abstraction levels, similar to organizational structures:
-- **Strategy Layer (戦略・プランニング層)**: Defines learning objectives and roadmaps
-- **Tactics Layer (戦術・マネジメント層)**: Designs weekly/daily curricula
-- **Execution Layer (実行層)**: Generates content and quizzes
-- **Reflection Layer (自己評価・省察層)**: Evaluates quality and goal alignment
-
-Reference: See `REFERENCE.md` for architectural principles.
+The pipeline reads a contract document, extracts its structure (chapters and sections), evaluates risk for each section, and generates a comprehensive compliance report.
 
 ## Architecture
 
 ```
-+----------------------------------------------------------+
-|                    CLI Layer (main.py)                    |
-|              - Command-line argument parsing              |
-|              - Profile loading and validation             |
-+---------------------------+------------------------------+
-                            |
-                            v
-+---------------------------+------------------------------+
-|              LangGraph State Machine                      |
-|                 (llm_pipeline_service.py)                 |
-+---------------------------+------------------------------+
-                            |
-                            v
-         ┌─────────────────────────────────┐
-         │    1. STRATEGY LAYER            │
-         │    (戦略・プランニング層)         │
-         │    - Goal interpretation        │
-         │    - Roadmap creation           │
-         │    - Blueprint for lower layers │
-         └──────────────┬──────────────────┘
-                        │
-                        v
-         ┌─────────────────────────────────┐
-         │    2. TACTICS LAYER             │
-         │    (戦術・マネジメント層)         │
-         │    - Task decomposition         │
-         │    - Weekly/Daily planning      │
-         │    - Task assignment            │
-         └──────────────┬──────────────────┘
-                        │
-                        v
-         ┌─────────────────────────────────┐
-         │    3. EXECUTION LAYER           │◄───┐
-         │    (実行層)                      │    │
-         │    - Content generation         │    │ Loop
-         │    - Quiz creation              │    │
-         └──────────────┬──────────────────┘    │
-                        │                       │
-                        ▼                       │
-                 ┌──────┴──────┐                │
-                 │ More tasks? │────────────────┘
-                 └──────┬──────┘
-                        │ No
-                        v
-         ┌─────────────────────────────────┐
-         │    4. REFLECTION LAYER          │
-         │    (自己評価・省察層)            │
-         │    - Quality evaluation         │
-         │    - Goal alignment check       │
-         │    - Improvement recommendations│
-         └──────────────┬──────────────────┘
-                        │
-                        v
-                      [END]
++------------------------------------------------------------------+
+|                    Contract Pipeline                              |
++------------------------------------------------------------------+
+|                                                                   |
+|  +-------------------+                                            |
+|  |   Input Stage     |  Read contract file from disk              |
+|  |   (main.py)       |                                            |
+|  +---------+---------+                                            |
+|            |                                                      |
+|            v                                                      |
+|  +-------------------+                                            |
+|  | Extraction Stage  |  Parse document structure                  |
+|  | (extraction.py)   |  -> Extract chapters and sections          |
+|  |                   |  -> Identify parties                       |
+|  +---------+---------+                                            |
+|            |                                                      |
+|            v                                                      |
+|  +-------------------+                                            |
+|  | Risk Scoring      |  Evaluate each section                     |
+|  | Stage             |  -> Assess risk level (low/med/high/crit)  |
+|  | (risk_scoring.py) |  -> Categorize findings                    |
+|  +---------+---------+                                            |
+|            |                                                      |
+|            v                                                      |
+|  +-------------------+                                            |
+|  | Report Stage      |  Generate final report                     |
+|  | (report.py)       |  -> Executive summary                      |
+|  |                   |  -> Recommendations                        |
+|  +---------+---------+                                            |
+|            |                                                      |
+|            v                                                      |
+|        [Output]         Markdown compliance report                |
+|                                                                   |
++------------------------------------------------------------------+
 ```
 
 ### Directory Structure
 
 ```
-chapter_4/section_4/
-|-- src/
-|   |-- __init__.py              # Package initialization
-|   |-- config.py                # Configuration (API keys)
-|   |-- logger.py                # Logging utilities
-|   |-- main.py                  # CLI entry point
-|   |-- client/
-|   |   |-- __init__.py
-|   |   +-- llm_client.py        # OpenAI client setup
-|   |-- layer/                   # 4-Layer Agent Implementation
-|   |   |-- __init__.py          # Layer package exports
-|   |   |-- base.py              # BaseAgent abstract class
-|   |   |-- strategy.py          # Strategy Layer (戦略・プランニング層)
-|   |   |-- tactics.py           # Tactics Layer (戦術・マネジメント層)
-|   |   |-- execution.py         # Execution Layer (実行層)
-|   |   +-- reflection.py        # Reflection Layer (自己評価・省察層)
-|   |-- model/
-|   |   |-- __init__.py
-|   |   +-- llm_pipeline_model.py  # Pydantic data models
-|   |-- prompt/
-|   |   |-- __init__.py
-|   |   +-- llm_pipeline_prompt.py # Agent prompts per layer
-|   +-- service/
+src/
+|-- __init__.py
+|-- main.py                         # CLI entry point
+|-- config.py                       # Environment configuration
+|-- logger.py                       # Logging utilities
+|-- client/
+|   |-- __init__.py
+|   +-- llm_client.py               # OpenAI model definitions
+|-- model/
+|   |-- __init__.py
+|   +-- model.py                    # Pydantic data models
+|-- prompt/
+|   |-- __init__.py
+|   +-- prompt.py                   # System/user prompt templates
+|-- layer/
+|   |-- __init__.py
+|   |-- base.py                     # Abstract base agent class
+|   +-- contract_pipeline/
 |       |-- __init__.py
-|       +-- llm_pipeline_service.py  # LangGraph orchestration
-|-- outputs/                     # Generated learning plans
-|-- .envrc.example               # Environment variable template
-|-- pyproject.toml               # Project dependencies
-|-- Makefile                     # Development commands
-|-- REFERENCE.md                 # Architectural principles reference
-+-- CLAUDE.md                    # This file
+|       |-- extraction.py           # Extraction stage agent
+|       |-- risk_scoring.py         # Risk scoring stage agent
+|       +-- report.py               # Report generation stage agent
++-- service/
+    |-- __init__.py
+    +-- service.py                  # LangGraph pipeline orchestration
 ```
 
 ## Key Components
 
-### 4-Layer Agent Architecture
+### Data Models (`src/model/model.py`)
 
-| Layer      | Module              | Responsibility                                      |
-|------------|---------------------|-----------------------------------------------------|
-| Strategy   | `layer/strategy.py` | Analyze goals, create learning roadmap (blueprint)  |
-| Tactics    | `layer/tactics.py`  | Design weekly/daily curriculum, assign tasks        |
-| Execution  | `layer/execution.py`| Generate content and quizzes (ContentAgent, QuizAgent) |
-| Reflection | `layer/reflection.py`| Evaluate quality, check goal alignment, recommend adjustments |
+- **ContractPipelineState**: TypedDict for LangGraph state management
+- **RiskLevel**: Enum (low, medium, high, critical)
+- **RiskCategory**: Enum (10 categories: intellectual_property, liability, etc.)
+- **ComplianceStatus**: Enum (compliant, needs_review, non_compliant)
+- **ContractSection/Chapter**: Document structure models
+- **RiskFinding/SectionRiskAssessment**: Risk evaluation results
+- **ComplianceReport**: Final output with `to_markdown()` method
 
-### Layer Responsibilities (REFERENCE.md)
+### Pipeline Stages (`src/layer/contract_pipeline/`)
 
-1. **Strategy Layer (戦略・プランニング層)**
-   - Interprets ambiguous user goals
-   - Sets overall architecture and direction
-   - Creates blueprints for lower layers
-   - Does NOT involve itself in implementation details
+- **ExtractionAgent**: Parses raw contract text into structured chapters/sections
+- **RiskScoringAgent**: Evaluates each section for risks with severity and category
+- **ReportAgent**: Aggregates findings and generates executive summary
 
-2. **Tactics Layer (戦術・マネジメント層)**
-   - Transforms strategy into executable sub-tasks
-   - Creates ToDo lists for execution layer
-   - Manages progress aggregation
-   - Acts as middle-management bridge
+### Base Agent (`src/layer/base.py`)
 
-3. **Execution Layer (実行層)**
-   - Performs concrete tasks faithfully
-   - Operates external tools (LLM for content generation)
-   - Specialists: ContentAgent, QuizAgent
-   - Does NOT make strategic decisions
+Abstract base class providing:
+- LLM invocation with structured output (`with_structured_output`)
+- Retry logic (3 attempts with 2s delay)
+- Error handling and logging
 
-4. **Reflection Layer (自己評価・省察層)**
-   - Independent quality auditor
-   - Monitors execution outputs
-   - Evaluates goal alignment
-   - Requests plan corrections when needed
-   - Prevents runaway execution in wrong directions
+### Pipeline Service (`src/service/service.py`)
 
-### Data Models (llm_pipeline_model.py)
-
-**Strategy Layer Models:**
-- `LearningModule`, `LearningRoadmap`, `StrategyOutput`
-
-**Tactics Layer Models:**
-- `DailyTask`, `WeeklyPlan`, `TacticsOutput`
-
-**Execution Layer Models:**
-- `LearningContent`, `Quiz`, `QuizQuestion`, `LearningSession`
-
-**Reflection Layer Models:**
-- `ProgressMetrics`, `ProgressReport`
-
-**Session & State Models:**
-- `LearnerProfile`, `PersonalizedLearningPlan`, `HierarchicalAgentState`
-
-### State Machine Flow
-
+Uses LangGraph StateGraph to orchestrate the linear pipeline flow:
 ```
-strategy -> tactics -> execution (loop) -> reflection -> END
+extraction -> risk_scoring -> report -> END
 ```
 
 ## Dependencies
 
-| Package           | Purpose                            |
-|-------------------|------------------------------------|
-| langchain-openai  | OpenAI integration for LangChain   |
-| langgraph         | State machine for agent workflows  |
-| openai            | OpenAI API client                  |
-| pydantic          | Data validation and modeling       |
-| click             | CLI framework                      |
-| python-dotenv     | Environment variable management    |
+| Package | Purpose |
+|---------|---------|
+| langchain-openai | OpenAI API client with LangChain integration |
+| langgraph | Pipeline orchestration with StateGraph |
+| pydantic | Data model validation and structured output |
+| click | CLI framework |
+| python-dotenv | Environment variable loading |
+| openai | OpenAI Python SDK |
+| anthropic | Anthropic Claude API (optional) |
+| google-genai | Google Gemini API (optional) |
 
 ## Usage
 
 ### Setup
 
-1. Create environment file:
+1. Copy environment template:
 ```bash
 cp .envrc.example .envrc
-# Edit .envrc and set your API key:
-# OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
 ```
 
-2. Install dependencies:
+2. Set your OpenAI API key in `.envrc`:
+```
+OPENAI_API_KEY=your_api_key_here
+```
+
+3. Install dependencies:
 ```bash
 uv sync
 ```
@@ -198,108 +142,89 @@ uv sync
 ### Run
 
 ```bash
-# Basic usage with learning goal
-uv run python -m src.main -g "3 months to learn Python programming" -h 10 -d 12
+# Basic usage
+python -m src.main -c data/contract_0.md
 
-# Using a profile JSON file
-uv run python -m src.main -p example/learner_profile.json
+# Specify model
+python -m src.main -c data/contract_0.md -m gpt-5.4
 
-# Specify current knowledge
-uv run python -m src.main -g "Learn data analysis" -k "Excel basics,Statistics"
-
-# Use a specific model
-uv run python -m src.main -g "Learn SQL" -m gpt-5.4-mini
+# Custom output directory
+python -m src.main -c data/contract_0.md -od reports
 ```
 
 ### CLI Options
 
-| Option                  | Short | Description                           | Default   |
-|-------------------------|-------|---------------------------------------|-----------|
-| --model                 | -m    | OpenAI model to use                   | gpt-5.4    |
-| --output-directory      | -od   | Directory for output files            | outputs   |
-| --profile-file          | -p    | JSON file with learner profile        | None      |
-| --goal                  | -g    | Learning goal description             | None      |
-| --hours-per-week        | -h    | Available study hours per week        | 10        |
-| --duration-weeks        | -d    | Target duration in weeks              | 12        |
-| --current-knowledge     | -k    | Comma-separated current skills        | ""        |
+| Option | Short | Description | Default |
+|--------|-------|-------------|---------|
+| --contract-file | -c | Path to contract file (required) | - |
+| --model | -m | OpenAI model to use | gpt-5.4-mini |
+| --output-directory | -od | Output directory for reports | outputs |
+| --help | - | Show help message | - |
 
-### Example Profile JSON
+### Available Models
 
-```json
-{
-  "learner_id": "learner_001",
-  "learning_goal": "3 months to become proficient in data analysis",
-  "current_knowledge": ["Excel basics", "Statistics fundamentals"],
-  "available_hours_per_week": 10,
-  "preferred_content_types": ["video", "exercise"],
-  "target_duration_weeks": 12
-}
-```
+- gpt-5.5
+- gpt-5.4, gpt-5.4-mini, gpt-5.4-nano
+- gpt-5.2
+- gpt-5.1
+- gpt-5, gpt-5-mini, gpt-5-nano
 
 ## Development Commands
 
 ```bash
-make lint    # Run ruff linter with auto-fix
-make fmt     # Format code with ruff
-make fix     # Run both lint and format
-make mypy    # Type checking with mypy
+# Lint code
+make lint
+
+# Format code
+make fmt
+
+# Run both lint and format
+make fix
+
+# Type check
+make mypy
 ```
 
 ## Implementation Notes
 
-### 4-Layer Hierarchical Agent Flow
+### Pipeline State Flow
 
-1. **Strategy Layer**: Analyzes learner profile, determines skill levels, creates module-based roadmap as a blueprint
-2. **Tactics Layer**: Transforms roadmap into weekly themes and daily tasks, creates ToDo lists for execution
-3. **Execution Loop**: Iterates through tasks generating content and quizzes (max 5 sessions for first week)
-4. **Reflection Layer**: Evaluates output quality, checks goal alignment, provides recommendations
+Each stage updates the shared `ContractPipelineState`:
+1. **extraction**: Populates `extraction_output` and `pending_sections`
+2. **risk_scoring**: Populates `risk_scoring_output` from all sections
+3. **report**: Populates `compliance_report` with final analysis
 
-### Key Design Principles (from REFERENCE.md)
+### Risk Evaluation Categories
 
-- **Separation of Concerns**: Each layer has a distinct abstraction level and responsibility
-- **Clear Interfaces**: Layers communicate via structured JSON data (not natural language)
-- **Independent Audit**: Reflection layer operates independently to evaluate execution outputs
-- **Bottom-up Development**: Start with execution layer components, add higher layers incrementally
+The system evaluates contracts across 10 risk categories:
+- Intellectual Property
+- Liability
+- Confidentiality
+- Termination
+- Payment
+- Compliance
+- Warranty
+- Indemnification
+- Dispute Resolution
+- Other
 
-### JSON Response Handling
+### Concurrency
 
-The base agent includes robust JSON parsing with:
-- Multiple extraction strategies (raw JSON, markdown code blocks, brace matching)
-- Truncated JSON repair (closing unclosed brackets/braces)
-- Retry logic with configurable attempts (MAX_RETRIES=3)
+- Risk scoring stage uses async processing with semaphore-based concurrency control
+- Default concurrency limit: 20 parallel section assessments
+- Other stages run synchronously
 
-### Skill Levels
+### Error Handling
 
-- beginner: No prior knowledge
-- elementary: Basic concepts understood
-- intermediate: Can work independently on basic tasks
-- upper_intermediate: Can handle complex tasks
-- advanced: Expert level, can teach others
+- LLM calls include retry logic (3 attempts with 2s delay)
+- Uses structured output mode for type-safe responses
+- Failed section assessments log warnings but continue processing
 
-### Content Types
+### Output Format
 
-- video: Video content
-- article: Text-based articles
-- interactive: Interactive tutorials
-- exercise: Practice exercises
-- project: Project-based learning
-
-## Trade-offs and Considerations
-
-As noted in REFERENCE.md:
-
-- **Latency**: Multi-layer processing increases response time
-- **Complexity**: Layer interfaces and state management add design complexity
-- **Rigidity Risk**: Upper layer decisions may override valuable insights from execution
-- **Error Propagation**: Strategy mistakes affect all downstream layers
-
-## Output
-
-The system generates a markdown file containing:
-- Learner profile summary
-- Strategy overview (domain, levels, duration)
-- Learning roadmap with milestones
-- Module descriptions
-- Weekly curriculum details
-- Sample learning sessions with quizzes
-- Progress report with recommendations from reflection layer
+Reports are generated as Markdown with:
+- Executive summary with overall status and risk score
+- Risk breakdown by category
+- Section-by-section assessment details
+- Prioritized recommendations
+- Conclusion with action items

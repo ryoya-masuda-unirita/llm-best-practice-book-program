@@ -1,126 +1,115 @@
-# Chapter 4 Section 8: AIエージェントの抽象化設計
+# Chapter 4 Section 9: AIエージェントフレームワーク（デザインパターン適用）
 
 ## 概要
 
-本プロジェクトは、LLMを活用した自律型AIエージェントシステムを構築するための**抽象化設計パターン**を実装しています。AIエージェントの責務を「思考エンジン（Brain/Strategy）」「ツールカタログ（ToolBox）」「コンテキストマネージャー（Memory）」の3つの独立したコンポーネントに分離し、交換可能で拡張性の高いアーキテクチャを実現します。
+本プロジェクトは、GoFデザインパターンを活用して構築された拡張可能なAIエージェントフレームワークです。「安定したコア層と柔軟な拡張層」というアーキテクチャ設計により、コア部分の安定性を保ちながら、具体的な実装を柔軟に追加・変更できる構造を実現しています。
 
-この設計により、新しい思考戦略（Chain-of-Thought、ReAct、Tree-of-Thoughtなど）やツールの追加が、システムの他の部分に影響を与えることなく容易に行えます。また、実行制御機構（ExecutionController）により、無限ループやコスト超過といったリスクを防止する安全機構を組み込んでいます。
-
-本実装では以下の8つのデザインパターンを活用しています：
-- **Strategy**: 思考アルゴリズムの交換
-- **Composite**: ツールの階層的管理
-- **Memento**: メモリのスナップショット/復元
-- **State**: エージェント実行状態の管理
-- **Chain of Responsibility**: 安全ハンドラの連鎖
-- **Builder**: エージェントの段階的構築
-- **Factory**: 設定ベースのエージェント生成
-- **Mediator**: マルチエージェント連携
+フレームワークは複数の推論戦略（Chain-of-Thought、ReAct、Tree-of-Thought）、ツール管理、メモリ管理、実行制御、マルチエージェント協調などの機能を提供します。各コンポーネントはデザインパターンに基づいて設計されており、単一責任の原則に従った疎結合な構造となっています。
 
 ## 機能
 
-- **思考戦略の交換**: Chain-of-Thought、ReAct、Tree-of-Thoughtを実行時に切り替え可能
-- **ツール管理**: Compositeパターンによる階層的なツール管理とカテゴリ分類
-- **メモリ管理**: 会話履歴の管理とスナップショット/ロールバック機能
-- **実行制御**: 最大ステップ数、コスト上限、ループ検出などの安全機構
-- **マルチエージェント**: グラフベースのエージェント連携と並列実行
-- **設定ベース構築**: JSON/辞書形式の設定からエージェントを動的生成
+- **推論戦略（Strategy Pattern）**: Chain-of-Thought、ReAct、Tree-of-Thoughtなど複数の推論戦略を切り替え可能
+- **ツール管理（Composite Pattern）**: ツールを階層的に管理し、カテゴリ別に整理可能
+- **メモリ管理（Memento Pattern）**: エージェントの状態をスナップショットとして保存・復元可能
+- **実行制御（Chain of Responsibility）**: ステップ数制限、コスト制限、レート制限などのハンドラをチェーン形式で適用
+- **状態管理（State Pattern）**: エージェントのライフサイクルを状態遷移として管理
+- **マルチエージェント協調（Mediator Pattern）**: 複数エージェントをグラフ構造で連携、逐次・並列実行に対応
+- **柔軟な構築（Builder Pattern）**: 設定辞書またはBuilderパターンによる宣言的なエージェント構築
 
 ## プロジェクト構成
 
 ### アーキテクチャ
 
 ```
-+---------------------------------------------------------------+
-|                         BaseAgent                              |
-|  +----------+  +----------+  +----------+  +---------------+  |
-|  | Brain    |  | ToolBox  |  | Memory   |  | Controller    |  |
-|  |(Strategy)|  |(Composite)|  |(Memento) |  |(Chain of Resp)|  |
-|  +----------+  +----------+  +----------+  +---------------+  |
-+---------------------------------------------------------------+
-        |                                           |
-   +----v--------+                         +--------v-------+
-   | AgentState  |                         |    Mediator    |
-   | (State      |                         | (Multi-Agent   |
-   |  Pattern)   |                         |  Coordination) |
-   +-------------+                         +----------------+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           Agent Framework                                │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │                      Extensions Layer                                ││
+│  │  ┌───────────────┐ ┌───────────────┐ ┌───────────────┐              ││
+│  │  │  Strategies   │ │   Handlers    │ │   Mediators   │              ││
+│  │  │  - CoT        │ │  - MaxSteps   │ │  - Simple     │              ││
+│  │  │  - ReAct      │ │  - CostLimit  │ │  - Parallel   │              ││
+│  │  │  - ToT        │ │  - RateLimit  │ │               │              ││
+│  │  └───────────────┘ └───────────────┘ └───────────────┘              ││
+│  │  ┌───────────────┐ ┌───────────────┐ ┌───────────────┐              ││
+│  │  │    Memory     │ │     Tools     │ │    Agents     │              ││
+│  │  │ - Conversa.   │ │ - Calculator  │ │ - Configurable│              ││
+│  │  │ - Context     │ │ - WebSearch   │ │ - MultiStrat. │              ││
+│  │  │ - Caretaker   │ │ - TextGen     │ │               │              ││
+│  │  └───────────────┘ └───────────────┘ └───────────────┘              ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+│                                   │                                      │
+│                                   ▼                                      │
+│  ┌─────────────────────────────────────────────────────────────────────┐│
+│  │                         Core Layer                                   ││
+│  │  ┌───────────────┐ ┌───────────────┐ ┌───────────────┐              ││
+│  │  │   Strategy    │ │    Memory     │ │  Controller   │              ││
+│  │  │   (Abstract)  │ │   (Abstract)  │ │   + Handler   │              ││
+│  │  └───────────────┘ └───────────────┘ └───────────────┘              ││
+│  │  ┌───────────────┐ ┌───────────────┐ ┌───────────────┐              ││
+│  │  │   ToolBox     │ │   BaseAgent   │ │ GraphMediator │              ││
+│  │  │  (Composite)  │ │               │ │   (Abstract)  │              ││
+│  │  └───────────────┘ └───────────────┘ └───────────────┘              ││
+│  │  ┌───────────────┐                                                   ││
+│  │  │ AgentContext  │ ← State Pattern                                   ││
+│  │  │   (States)    │                                                   ││
+│  │  └───────────────┘                                                   ││
+│  └─────────────────────────────────────────────────────────────────────┘│
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 実行フロー
+### デザインパターン一覧
 
-```
-1. User -> Agent.execute(goal)
-              |
-              v
-2. State: Idle -> Thinking
-              |
-              v
-3. Loop until complete:
-   +-- Memory.get_context()
-   +-- Strategy.think(goal, context, tools)
-   +-- Controller.check_execution(action)
-   +-- Execute Action:
-   |   +-- TOOL_CALL: State -> Acting -> Execute -> Thinking
-   |   +-- FINAL_ANSWER: State -> Completed
-   |   +-- THINK: Continue reasoning
-   +-- Memory.add_action(action)
-   +-- Memory.add_observation(result)
-              |
-              v
-4. Return result -> State: Idle
-```
+| パターン | 適用箇所 | 目的 |
+|---------|---------|------|
+| **Strategy** | `Strategy`, `ChainOfThoughtStrategy`, `ReActStrategy`, `TreeOfThoughtStrategy` | 推論アルゴリズムの切り替え |
+| **Composite** | `ToolBox`, `CategorizableToolBox` | ツールの階層的管理 |
+| **Memento** | `Memory`, `MemorySnapshot`, `MemoryCaretaker` | 状態の保存・復元 |
+| **Chain of Responsibility** | `ExecutionHandler`, `ExecutionController` | 実行制御の連鎖的処理 |
+| **State** | `AgentState`, `AgentContext`, `IdleState`, `ThinkingState`等 | エージェントのライフサイクル管理 |
+| **Mediator** | `GraphMediator`, `SimpleGraphMediator`, `ParallelGraphMediator` | マルチエージェント協調 |
+| **Builder** | `AgentBuilder` | 宣言的なエージェント構築 |
+| **Factory Method** | `create_agent_from_config` | 設定からのエージェント生成 |
 
 ## 使い方
 
 ### 環境構成
 
-- **Python**: 3.13.2以上
-- **依存ライブラリ**:
-
-| パッケージ | バージョン | 用途 |
-|-----------|-----------|------|
-| google-genai | >=1.45.0 | Gemini APIクライアント |
-| openai | >=2.4.0 | OpenAI APIクライアント（オプション） |
-| pydantic | >=2.12.2 | 設定とデータバリデーション |
-| click | >=8.3.0 | CLIインターフェース |
-| python-dotenv | >=1.1.1 | 環境変数読み込み |
+- Python: 3.13.2以上
+- 主要依存ライブラリ:
+  - `google-genai`: Google Gemini API クライアント
+  - `click`: CLIフレームワーク
+  - `pydantic`: 設定管理
+  - `python-dotenv`: 環境変数読み込み
 
 ### セットアップ
 
-```bash
-cd chapter_4/section_8
+1. 環境変数の設定
 
-# 環境変数設定
+```bash
 cp .envrc.example .envrc
-# .envrcを編集してAPIキーを設定:
-GEMINI_API_KEY=<your_gemini_api_key_here>
-
-# 依存関係インストール
-uv sync  # または: pip install -e .
 ```
 
-### 実行方法
+`.envrc`を編集してAPIキーを設定:
 
 ```bash
-# 全サンプルを実行
-uv run python -m src.main -a all
-
-# 特定のサンプルを実行
-uv run python -m src.main -a example_1_basic_agent
-uv run python -m src.main -a example_2_react_agent
-uv run python -m src.main -a example_3_multi_strategy_agent
-uv run python -m src.main -a example_4_config_based_agent
-uv run python -m src.main -a example_5_graph_mediator
-uv run python -m src.main -a example_6_parallel_execution
-uv run python -m src.main -a example_7_memory_snapshots
-uv run python -m src.main -a example_8_execution_control
-
-# ヘルプ表示
-uv run python -m src.main --help
+# Google Gemini API Key
+# Get your key from: https://aistudio.google.com/app/apikey
+GEMINI_API_KEY=<your_gemini_api_key_here>
 ```
 
-### CLIオプション
+2. 依存関係のインストール
 
-```shell
+```bash
+uv sync
+```
+
+### 使用方法、実行方法
+
+```bash
 $ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
@@ -130,136 +119,65 @@ Options:
   --help                          Show this message and exit.
 ```
 
-| オプション | 短縮形 | 説明 |
-|-----------|--------|------|
-| `--agent` | `-a` | 実行するエージェントワークフロー（必須） |
-| `--help` | | ヘルプメッセージを表示 |
-
-**利用可能なエージェント:**
-
-| エージェント名 | 説明 |
-|---------------|------|
-| `example_1_basic_agent` | Chain-of-Thought戦略の基本エージェント |
-| `example_2_react_agent` | ReAct戦略によるエージェント |
-| `example_3_multi_strategy_agent` | 動的な戦略切り替え |
-| `example_4_config_based_agent` | Factoryパターンでの生成 |
-| `example_5_graph_mediator` | マルチエージェント連携 |
-| `example_6_parallel_execution` | 並列エージェント実行 |
-| `example_7_memory_snapshots` | Mementoパターンのデモ |
-| `example_8_execution_control` | 安全ハンドラチェーン |
-| `all` | 全サンプルを実行 |
-
-### 出力例
+### CLIから各サンプルを実行:
 
 ```bash
-$ uv run python -m src.main -a example_1_basic_agent
+# 特定のサンプルを実行
+uv run python -m src.main --agent example_1_basic_agent
 
-[2026-02-07 08:54:06,213] [INFO] [__main__] [main.py:84] [main] Running agent: example_1_basic_agent
+# 全サンプルを順次実行
+uv run python -m src.main --agent all
+```
 
-[2026-02-07 08:54:06,213] [INFO] [src.examples] [examples.py:33] [example_1_basic_agent] 
+### 利用可能なサンプル一覧:
+
+| サンプル名 | 説明 |
+|-----------|------|
+| `example_1_basic_agent` | Chain-of-Thought戦略を使用した基本エージェント |
+| `example_2_react_agent` | ReAct戦略を使用したエージェント |
+| `example_3_multi_strategy_agent` | 複数戦略を切り替え可能なエージェント |
+| `example_4_config_based_agent` | 設定辞書からエージェントを生成 |
+| `example_5_graph_mediator` | Mediatorパターンによるマルチエージェント協調 |
+| `example_6_parallel_execution` | 並列実行によるマルチエージェント処理 |
+| `example_7_memory_snapshots` | Mementoパターンによるメモリスナップショット |
+| `example_8_execution_control` | Chain of Responsibilityによる実行制御 |
+
+### 実行結果例
+
+```bash
+$ uv run python -m src.main --agent example_1_basic_agent
+
+[2026-02-07 08:57:04,228] [INFO] [__main__] [main.py:83] [main] Running agent: example_1_basic_agent
+
+[2026-02-07 08:57:04,228] [INFO] [src.examples] [examples.py:36] [example_1_basic_agent] 
 === Example 1: Basic Agent with Chain-of-Thought ===
 
-[2026-02-07 08:54:07,769] [INFO] [src.agent.agent] [agent.py:172] [_log_execution] 
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:49] [_log_execution] 
 === Agent Execution Trace ===
-[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:173] [_log_execution] Iterations: 1
-[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:174] [_log_execution] Final State: idle
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:50] [_log_execution] Iterations: 2
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:51] [_log_execution] Final State: idle
 
-[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:175] [_log_execution] State History:
-[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   idle -> thinking at 2026-02-07 08:54:06.213214
-[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   thinking -> completed at 2026-02-07 08:54:07.769916
-[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   completed -> idle at 2026-02-07 08:54:07.769933
-[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:181] [_log_execution] 
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:52] [_log_execution] State History:
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:57] [_log_execution]   idle -> thinking at 2026-02-07 08:57:04.228340
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:57] [_log_execution]   thinking -> acting at 2026-02-07 08:57:05.571529
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:57] [_log_execution]   acting -> thinking at 2026-02-07 08:57:10.337268
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:57] [_log_execution]   thinking -> completed at 2026-02-07 08:57:11.484063
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:57] [_log_execution]   completed -> idle at 2026-02-07 08:57:11.484078
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:58] [_log_execution] 
 Events:
-[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [thinking] Agent is thinking
-[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [completed] Agent is completed
-[2026-02-07 08:54:07,770] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [idle] Agent is idle
-[2026-02-07 08:54:07,770] [INFO] [src.examples] [examples.py:58] [example_1_basic_agent] Goal: Write a haiku about the changing seasons
-[2026-02-07 08:54:07,770] [INFO] [src.examples] [examples.py:59] [example_1_basic_agent] Result:
-Green fades to gold now,
-Winter's breath will chill the air,
-Life turns, new cycle.
-[2026-02-07 08:54:07,770] [INFO] [__main__] [main.py:89] [main] 
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:63] [_log_execution]   [thinking] Agent is thinking
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:63] [_log_execution]   [acting] Agent is acting
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:63] [_log_execution]   [thinking] Agent is thinking
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:63] [_log_execution]   [completed] Agent is completed
+[2026-02-07 08:57:11,484] [INFO] [src.agent.extensions.agents.configurable] [configurable.py:63] [_log_execution]   [idle] Agent is idle
+[2026-02-07 08:57:11,484] [INFO] [src.examples] [examples.py:58] [example_1_basic_agent] Goal: Write a haiku about the changing seasons
+[2026-02-07 08:57:11,484] [INFO] [src.examples] [examples.py:59] [example_1_basic_agent] Result:
+Warm sun turns to chill,
+Leaves dance down in fiery hues,
+Earth dreams, fresh life waits.
+[2026-02-07 08:57:11,484] [INFO] [__main__] [main.py:88] [main] 
 ✓ Agent 'example_1_basic_agent' completed successfully
-[2026-02-07 08:54:07,770] [INFO] [__main__] [main.py:93] [main]   Output: Green fades to gold now,
-Winter's breath will chill the air,
-Life turns, new cycle.
-```
-
-```bash
-$ uv run python -m src.main -a example_2_react_agent      
-[2026-02-07 08:55:18,581] [INFO] [__main__] [main.py:84] [main] Running agent: example_2_react_agent
-
-[2026-02-07 08:55:18,581] [INFO] [src.examples] [examples.py:66] [example_2_react_agent] 
-=== Example 2: Agent with ReAct Strategy ===
-
-[2026-02-07 08:55:28,847] [INFO] [src.agent.agent] [agent.py:172] [_log_execution] 
-=== Agent Execution Trace ===
-[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:173] [_log_execution] Iterations: 4
-[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:174] [_log_execution] Final State: idle
-
-[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:175] [_log_execution] State History:
-[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   idle -> thinking at 2026-02-07 08:55:18.581284
-[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   thinking -> acting at 2026-02-07 08:55:19.614846
-[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   acting -> thinking at 2026-02-07 08:55:19.614895
-[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   thinking -> acting at 2026-02-07 08:55:23.555026
-[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   acting -> thinking at 2026-02-07 08:55:23.555046
-[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   thinking -> completed at 2026-02-07 08:55:28.847894
-[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:180] [_log_execution]   completed -> idle at 2026-02-07 08:55:28.847913
-[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:181] [_log_execution] 
-Events:
-[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [thinking] Agent is thinking
-[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [acting] Agent is acting
-[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [thinking] Agent is thinking
-[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [acting] Agent is acting
-[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [thinking] Agent is thinking
-[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [completed] Agent is completed
-[2026-02-07 08:55:28,848] [INFO] [src.agent.agent] [agent.py:186] [_log_execution]   [idle] Agent is idle
-[2026-02-07 08:55:28,848] [INFO] [src.examples] [examples.py:107] [example_2_react_agent] Goal: Search for information about the Eiffel Tower, then write a short poem inspired by what you learned
-[2026-02-07 08:55:28,848] [INFO] [src.examples] [examples.py:108] [example_2_react_agent] Result:
-A structure of iron, a skyward climb,
-Parisian sentinel, defying time.
-From latticework forged, a towering might,
-An iconic beacon, bathed in city light.
-A metallic marvel, a symbol grand and bold,
-A Parisian story, in steel forever told.
-[2026-02-07 08:55:28,848] [INFO] [__main__] [main.py:89] [main] 
-✓ Agent 'example_2_react_agent' completed successfully
-[2026-02-07 08:55:28,848] [INFO] [__main__] [main.py:93] [main]   Output: A structure of iron, a skyward climb,
-Parisian sentinel, defying time.
-From latticework forged, a towering might,
-An iconic beacon, bathed in city light.
-A metallic marvel, a symbol grand and bold,
-A Parisian story, in steel forever told.
-```
-
-
-## 主要コンポーネント
-
-### 思考戦略（Strategy）
-
-| 戦略 | 説明 | 用途 |
-|------|------|------|
-| `ChainOfThoughtStrategy` | 逐次的なステップバイステップ推論 | 数学、論理問題 |
-| `ReActStrategy` | 思考-行動-観察のインターリーブ | 調査、情報収集 |
-| `TreeOfThoughtStrategy` | 複数パスの探索とスコアリング | 創造的問題解決 |
-
-### 安全ハンドラ
-
-| ハンドラ | 説明 | デフォルト値 |
-|---------|------|-------------|
-| `MaxStepsHandler` | 実行ステップ数の上限 | 50ステップ |
-| `CostLimitHandler` | APIコストの上限 | $10.0 |
-| `ToolRateLimitHandler` | ツールごとの呼び出し回数制限 | 10回/ツール |
-| `DangerousActionHandler` | 危険な操作のブロック | delete, destroy, remove_all |
-| `LoopDetectionHandler` | 無限ループの検出 | 5アクション中3回の繰り返し |
-
-### 状態遷移
-
-```
-有効な遷移:
-  Idle -> Thinking
-  Thinking -> Acting, Completed, Error
-  Acting -> Thinking, Completed, Error
-  Completed -> Idle
-  Error -> Idle
+[2026-02-07 08:57:11,484] [INFO] [__main__] [main.py:92] [main]   Output: Warm sun turns to chill,
+Leaves dance down in fiery hues,
+Earth dreams, fresh life waits.
 ```

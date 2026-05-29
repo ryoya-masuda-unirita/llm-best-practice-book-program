@@ -1,17 +1,19 @@
-"""CLI entry point for the Personalized Learning Platform."""
+"""
+CLI entry point for the Contract Risk Compliance Pipeline.
+
+This module provides a command-line interface for evaluating contract
+documents for risk compliance using a pipeline AI agent architecture.
+"""
 
 import asyncio
-import json
 import os
 from functools import wraps
 from pathlib import Path
-from uuid import uuid4
 
 import click
 from src.client.llm_client import OpenAIModel
 from src.logger import make_logger
-from src.model.model import ContentType, LearnerProfile
-from src.service.service import run_personalized_learning
+from src.service.service import run_contract_compliance_pipeline
 
 logger = make_logger(__name__)
 
@@ -24,70 +26,6 @@ def async_cmd(func):
         return asyncio.run(func(*args, **kwargs))
 
     return wrapper
-
-
-def _generate_learner_id() -> str:
-    """Generate a unique learner ID."""
-    return f"learner_{uuid4().hex[:8]}"
-
-
-def _parse_content_types(content_types: list[str]) -> list[ContentType]:
-    """Parse content type strings to ContentType enum values."""
-    return [ContentType(ct) for ct in content_types]
-
-
-def _load_profile_from_file(profile_file: str) -> LearnerProfile:
-    """Load learner profile from a JSON file."""
-    logger.info(f"Loading learner profile from: {profile_file}")
-    with open(profile_file, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    preferred_types = _parse_content_types(data.get("preferred_content_types", []))
-
-    return LearnerProfile(
-        learner_id=data.get("learner_id", _generate_learner_id()),
-        learning_goal=data["learning_goal"],
-        current_knowledge=data.get("current_knowledge", []),
-        available_hours_per_week=data.get("available_hours_per_week", 10),
-        preferred_content_types=preferred_types,
-        target_duration_weeks=data.get("target_duration_weeks", 12),
-    )
-
-
-def _create_profile_from_options(
-    goal: str,
-    hours_per_week: int,
-    duration_weeks: int,
-    current_knowledge: str,
-) -> LearnerProfile:
-    """Create learner profile from command-line options."""
-    logger.info("Creating learner profile from command-line options")
-    knowledge_list = [k.strip() for k in current_knowledge.split(",") if k.strip()]
-
-    return LearnerProfile(
-        learner_id=_generate_learner_id(),
-        learning_goal=goal,
-        current_knowledge=knowledge_list,
-        available_hours_per_week=hours_per_week,
-        preferred_content_types=[],
-        target_duration_weeks=duration_weeks,
-    )
-
-
-def _log_startup_info(
-    model: str,
-    learner_profile: LearnerProfile,
-    output_directory: str,
-) -> None:
-    """Log startup information."""
-    logger.info(
-        f"Personalized Learning Platform\n"
-        f"Model: {model}\n"
-        f"Learning Goal: {learner_profile.learning_goal}\n"
-        f"Hours/Week: {learner_profile.available_hours_per_week}\n"
-        f"Duration: {learner_profile.target_duration_weeks} weeks\n"
-        f"Output directory: {output_directory}"
-    )
 
 
 @click.command()
@@ -108,107 +46,67 @@ def _log_startup_info(
     help="The directory to save output files.",
 )
 @click.option(
-    "--profile-file",
-    "-p",
+    "--contract-file",
+    "-c",
     type=click.Path(exists=True),
-    required=False,
-    default=None,
-    help="Path to a JSON file containing the learner profile.",
-)
-@click.option(
-    "--goal",
-    "-g",
-    type=str,
-    required=False,
-    default=None,
-    help="Learning goal (e.g., '3ヶ月でデータ分析ができるようになりたい').",
-)
-@click.option(
-    "--hours-per-week",
-    "-h",
-    type=int,
-    required=False,
-    default=10,
-    help="Available study hours per week.",
-)
-@click.option(
-    "--duration-weeks",
-    "-d",
-    type=int,
-    required=False,
-    default=12,
-    help="Target duration in weeks.",
-)
-@click.option(
-    "--current-knowledge",
-    "-k",
-    type=str,
-    required=False,
-    default="",
-    help="Current knowledge/skills (comma-separated).",
+    required=True,
+    help="Path to the contract document file (markdown or text).",
 )
 @async_cmd
 async def main(
     model: str,
     output_directory: str,
-    profile_file: str | None,
-    goal: str | None,
-    hours_per_week: int,
-    duration_weeks: int,
-    current_knowledge: str,
+    contract_file: str,
 ):
     """
-    Personalized Learning Platform - A Hierarchical AI Agent System
+    Contract Risk Compliance Pipeline - A Pipeline AI Agent System
 
-    This system creates personalized learning plans using a hierarchical
-    multi-agent architecture with three layers:
+    This system evaluates contract documents for risk compliance using a
+    pipeline AI agent architecture with three stages:
 
     \b
-    1. Strategy Layer: Creates learning roadmap and sets objectives
-    2. Tactics Layer: Designs weekly/daily curriculum
-    3. Execution Layer: Generates content and quizzes
+    1. Extraction Stage: Parse contract structure (chapters, sections)
+    2. Risk Scoring Stage: Evaluate risk for each section
+    3. Report Stage: Generate comprehensive compliance report
 
-    You can provide a learner profile via JSON file or command-line options.
+    The pipeline processes each stage sequentially, with each stage's output
+    becoming the input for the next stage.
 
     Examples:
 
     \b
-        # Using command-line options
-        python -m src.main -g "3ヶ月でPythonプログラミングを習得したい" -h 10 -d 12
+        # Evaluate a contract file
+        python -m src.main -c data/contract_0.md
 
-        # Using a profile file
-        python -m src.main -p example/learner_profile.json
+        # With custom model
+        python -m src.main -c data/contract_0.md -m gpt-5.4
 
-        # With current knowledge
-        python -m src.main -g "データ分析を学びたい" -k "Excel基礎,統計基礎"
+        # With custom output directory
+        python -m src.main -c data/contract_0.md -od reports
     """
-    if profile_file:
-        learner_profile = _load_profile_from_file(profile_file)
-    elif goal:
-        learner_profile = _create_profile_from_options(
-            goal=goal,
-            hours_per_week=hours_per_week,
-            duration_weeks=duration_weeks,
-            current_knowledge=current_knowledge,
-        )
-    else:
-        raise click.UsageError("Either --profile-file or --goal must be provided.")
-
-    _log_startup_info(model, learner_profile, output_directory)
+    logger.info(
+        f"Contract Risk Compliance Pipeline\n"
+        f"Model: {model}\n"
+        f"Contract file: {contract_file}\n"
+        f"Output directory: {output_directory}"
+    )
 
     os.makedirs(output_directory, exist_ok=True)
 
-    plan = await run_personalized_learning(
-        learner_profile=learner_profile,
+    report = await run_contract_compliance_pipeline(
+        contract_file_path=contract_file,
         model=model,
     )
 
-    if plan is None:
-        raise ValueError("Learning platform failed. Check logs for details.")
+    if report is None:
+        raise ValueError("Contract pipeline failed. Check logs for details.")
 
-    output_path = Path(output_directory) / f"learning_plan_{uuid4().hex}.md"
-    output_path.write_text(plan.to_markdown(), encoding="utf-8")
-    logger.info(f"Plan saved: {output_path}")
+    output_path = Path(output_directory) / f"compliance_report_{report.report_id}.md"
+    output_path.write_text(report.to_markdown(), encoding="utf-8")
+    logger.info(f"Report saved: {output_path}")
+    logger.info(f"\nCompliance report saved to: {output_path}")
+    logger.info(f"Overall Status: {report.executive_summary.overall_status}")
+    logger.info(f"Risk Score: {report.executive_summary.overall_risk_score}/100")
 
 
 if __name__ == "__main__":

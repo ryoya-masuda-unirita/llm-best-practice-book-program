@@ -1,4 +1,4 @@
-"""Interactive CLI for article generation with state-based rollback (forget the past pattern)."""
+"""Interactive CLI for article generation with Forget, Replay, Speculate pattern."""
 
 import asyncio
 import os
@@ -7,7 +7,7 @@ from functools import wraps
 import click
 from src.client.llm_client import GeminiModel, LLMProvider, google_genai_client
 from src.logger import make_logger
-from src.service.runner_service import run_forget_past_article_generation
+from src.service.runner_service import run_forget_replay_speculate_article_generation
 
 logger = make_logger(__name__)
 
@@ -56,6 +56,14 @@ def async_cmd(func):  # type: ignore
     is_flag=True,
     help="Automatically select best options without human interaction.",
 )
+@click.option(
+    "--num-outlines",
+    "-n",
+    type=click.IntRange(min=1, max=5),
+    required=False,
+    default=1,
+    help="Number of outline candidates for speculative execution (1=no speculation, max 5).",
+)
 @async_cmd
 async def main(
     theme: str,
@@ -63,13 +71,15 @@ async def main(
     model: str,
     output_directory: str = "outputs",
     auto_select: bool = False,
+    num_outlines: int = 1,
 ) -> None:
-    """Generate an article using state-based rollback pattern (forget the past)."""
+    """Generate an article using the Forget, Replay, Speculate pattern."""
+    speculation_mode = "Enabled" if num_outlines > 1 else "Disabled"
     click.echo(
         f"""
-╔════════════════════════════════════════════════════════════════════════════╗
-║       Article Generation with State-Based Rollback (Forget the Past)      ║
-╚════════════════════════════════════════════════════════════════════════════╝
++============================================================================+
+|    Article Generation with Forget, Replay, Speculate                       |
++============================================================================+
 
 Configuration:
   Theme: {theme}
@@ -77,6 +87,7 @@ Configuration:
   LLM Provider: {LLMProvider.GEMINI.value}
   Model: {model}
   Mode: {"Automatic" if auto_select else "Interactive"}
+  Speculation: {speculation_mode} ({num_outlines} outline(s))
 """
     )
 
@@ -85,13 +96,14 @@ Configuration:
 
     os.makedirs(output_directory, exist_ok=True)
 
-    await run_forget_past_article_generation(
+    await run_forget_replay_speculate_article_generation(
         theme=theme,
         language=language,  # type: ignore
         llm_provider=LLMProvider.GEMINI,
         model=model.lower(),
         output_directory=output_directory,
         auto_select=auto_select,
+        num_outlines=num_outlines,
     )
 
     await google_genai_client.aio.aclose()

@@ -1,4 +1,15 @@
-"""Pydantic models for the Hierarchical Personalized Learning Platform."""
+"""
+Pydantic models for the Contract Risk Compliance Pipeline.
+
+This module defines all data models used across the pipeline AI agent system
+for contract risk evaluation.
+
+Pipeline Stages:
+    1. Input Stage: Read contract document
+    2. Extraction Stage: Extract content by chapter and section
+    3. Risk Scoring Stage: Evaluate risk for each section
+    4. Report Generation Stage: Generate comprehensive compliance report
+"""
 
 from enum import StrEnum
 from typing import Annotated, Sequence
@@ -10,14 +21,7 @@ from typing_extensions import TypedDict
 
 
 class FrozenModel(BaseModel):
-    """
-    Base model with common configuration for all learning platform models.
-
-    Configuration:
-    - validate_assignment: Validates data on attribute assignment
-    - frozen: Makes instances immutable after creation
-    - extra: Ignores extra fields not defined in the model
-    """
+    """Immutable base model with validation on assignment."""
 
     model_config = ConfigDict(
         validate_assignment=True,
@@ -26,353 +30,408 @@ class FrozenModel(BaseModel):
     )
 
 
-class SkillLevel(StrEnum):
-    """Skill level classification."""
+class RiskLevel(StrEnum):
+    """Risk level classification for contract clauses."""
 
-    BEGINNER = "beginner"
-    ELEMENTARY = "elementary"
-    INTERMEDIATE = "intermediate"
-    UPPER_INTERMEDIATE = "upper_intermediate"
-    ADVANCED = "advanced"
-
-
-class ContentType(StrEnum):
-    """Types of learning content."""
-
-    VIDEO = "video"
-    ARTICLE = "article"
-    INTERACTIVE = "interactive"
-    EXERCISE = "exercise"
-    PROJECT = "project"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
 
 
-class QuestionType(StrEnum):
-    """Types of quiz questions."""
+class RiskCategory(StrEnum):
+    """Categories of contract risks."""
 
-    MULTIPLE_CHOICE = "multiple_choice"
-    TRUE_FALSE = "true_false"
-    SHORT_ANSWER = "short_answer"
-    CODING = "coding"
-
-
-class LearningModuleCategory(StrEnum):
-    """Categories of learning modules."""
-
-    FUNDAMENTALS = "fundamentals"
-    THEORY = "theory"
-    PRACTICAL = "practical"
-    ADVANCED_TOPICS = "advanced_topics"
-    PROJECT = "project"
+    INTELLECTUAL_PROPERTY = "intellectual_property"
+    LIABILITY = "liability"
+    CONFIDENTIALITY = "confidentiality"
+    TERMINATION = "termination"
+    PAYMENT = "payment"
+    COMPLIANCE = "compliance"
+    WARRANTY = "warranty"
+    INDEMNIFICATION = "indemnification"
+    DISPUTE_RESOLUTION = "dispute_resolution"
+    OTHER = "other"
 
 
-class LearningModule(FrozenModel):
-    """A learning module in the roadmap."""
+class ComplianceStatus(StrEnum):
+    """Overall compliance status of a contract."""
 
-    module_id: str = Field(..., description="Unique identifier for the module")
-    name: str = Field(..., description="Name of the learning module")
-    category: LearningModuleCategory = Field(..., description="Category of the module")
-    description: str = Field(..., description="Brief description of what will be learned")
-    prerequisites: list[str] = Field(default_factory=list, description="Module IDs that should be completed first")
-    estimated_hours: int = Field(..., description="Estimated hours to complete")
-    target_competencies: list[str] = Field(..., description="Skills/competencies to be acquired")
+    COMPLIANT = "compliant"
+    NEEDS_REVIEW = "needs_review"
+    NON_COMPLIANT = "non_compliant"
 
 
-class LearningRoadmap(FrozenModel):
-    """Strategic learning roadmap."""
+class SectionResponse(BaseModel):
+    """LLM response model for a contract section."""
 
-    goal_summary: str = Field(..., description="Summary of the learning goal")
-    target_level: SkillLevel = Field(..., description="Target skill level to achieve")
-    current_level: SkillLevel = Field(..., description="Current assessed skill level")
-    total_duration_weeks: int = Field(..., description="Total estimated duration in weeks")
-    modules: list[LearningModule] = Field(..., description="Ordered list of learning modules")
-    milestones: list[str] = Field(..., description="Key milestones to track progress")
-    success_criteria: list[str] = Field(..., description="Criteria to determine goal achievement")
+    section_id: str = Field(..., description="Section identifier")
+    section_number: str = Field(..., description="Section number (e.g., '第1条')")
+    title: str = Field(..., description="Title of the section")
+    content: str = Field(..., description="Full text content of the section")
 
 
-class StrategyOutput(FrozenModel):
-    """Output from the Strategy Agent."""
+class ChapterResponse(BaseModel):
+    """LLM response model for a contract chapter."""
 
-    learning_domain: str = Field(..., description="The domain of learning (e.g., Data Analysis, Programming)")
-    roadmap: LearningRoadmap = Field(..., description="The complete learning roadmap")
-    recommended_study_hours_per_week: int = Field(..., description="Recommended study hours per week")
-    learning_style_notes: str = Field(..., description="Notes on recommended learning approach")
-
-
-class DailyTask(FrozenModel):
-    """A daily learning task."""
-
-    task_id: str = Field(..., description="Unique identifier for the task")
-    title: str = Field(..., description="Title of the task")
-    description: str = Field(..., description="Detailed description")
-    content_type: ContentType = Field(..., description="Type of content")
-    estimated_minutes: int = Field(..., description="Estimated time in minutes")
-    learning_objectives: list[str] = Field(..., description="What the learner will achieve")
+    chapter_id: str = Field(..., description="Chapter identifier")
+    chapter_number: str = Field(..., description="Chapter number (e.g., '第1章')")
+    title: str = Field(..., description="Title of the chapter")
+    sections: list[SectionResponse] = Field(..., description="Sections in this chapter")
 
 
-class WeeklyPlan(FrozenModel):
-    """A weekly learning plan."""
+class ExtractionResponse(BaseModel):
+    """LLM response model for extraction stage."""
 
-    week_number: int = Field(..., description="Week number in the curriculum")
-    module_id: str = Field(..., description="Associated module ID")
-    theme: str = Field(..., description="Theme for the week")
-    learning_goals: list[str] = Field(..., description="Goals for this week")
-    daily_tasks: dict[str, list[DailyTask]] = Field(
-        default_factory=dict, description="Tasks organized by day (day1, day2, etc.)"
-    )
-    weekly_assessment: str = Field(..., description="Description of weekly assessment")
+    title: str = Field(..., description="Title of the contract")
+    parties: list[str] = Field(..., description="Parties involved in the contract")
+    effective_date: str = Field(..., description="Effective date of the contract")
+    chapters: list[ChapterResponse] = Field(..., description="Chapters in the contract")
+    extraction_notes: str = Field(..., description="Notes about the extraction process")
 
 
-class TacticsOutput(FrozenModel):
-    """Output from the Tactics Agent."""
+class FindingResponse(BaseModel):
+    """LLM response model for a risk finding."""
 
-    curriculum_summary: str = Field(..., description="Summary of the curriculum")
-    weekly_plans: list[WeeklyPlan] = Field(..., description="Detailed weekly plans")
-    assessment_strategy: str = Field(..., description="Overall assessment strategy")
-    adaptation_notes: str = Field(..., description="Notes on how curriculum may adapt")
-
-
-class LearningContent(FrozenModel):
-    """Learning content provided by the content agent."""
-
-    content_id: str = Field(..., description="Unique identifier for the content")
-    task_id: str = Field(..., description="Associated task ID")
-    title: str = Field(..., description="Title of the content")
-    content_type: ContentType = Field(..., description="Type of content")
-    content_body: str = Field(..., description="The actual learning content")
-    key_concepts: list[str] = Field(..., description="Key concepts covered")
-    resources: list[str] = Field(default_factory=list, description="Additional resources/links")
+    finding_id: str = Field(..., description="Finding identifier")
+    description: str = Field(..., description="Description of the risk")
+    risk_level: RiskLevel = Field(..., description="Severity level")
+    risk_category: RiskCategory = Field(..., description="Category of the risk")
+    affected_clause: str = Field(..., description="The specific clause text affected")
+    recommendation: str = Field(..., description="Recommendation to mitigate the risk")
 
 
-class QuizQuestion(FrozenModel):
-    """A quiz question for assessment."""
+class RiskScoringResponse(BaseModel):
+    """LLM response model for risk scoring stage."""
 
-    question_id: str = Field(..., description="Unique identifier for the question")
-    question_type: QuestionType = Field(..., description="Type of question")
-    question_text: str = Field(..., description="The question text")
-    options: list[str] = Field(default_factory=list, description="Options for multiple choice")
-    correct_answer: str = Field(..., description="The correct answer")
-    explanation: str = Field(..., description="Explanation of the correct answer")
-    difficulty: SkillLevel = Field(..., description="Difficulty level of the question")
-    related_concepts: list[str] = Field(..., description="Concepts this question tests")
+    section_id: str = Field(..., description="Section identifier")
+    section_title: str = Field(..., description="Section title")
+    overall_risk_level: RiskLevel = Field(..., description="Overall risk level")
+    is_compliant: bool = Field(..., description="Whether the section is compliant")
+    findings: list[FindingResponse] = Field(..., description="Risk findings")
+    notes: str = Field(..., description="Additional notes")
 
 
-class Quiz(FrozenModel):
-    """A quiz generated by the quiz agent."""
+class SeverityDistribution(BaseModel):
+    """Severity distribution for risk breakdown."""
 
-    quiz_id: str = Field(..., description="Unique identifier for the quiz")
-    task_id: str = Field(..., description="Associated task ID")
-    title: str = Field(..., description="Title of the quiz")
-    questions: list[QuizQuestion] = Field(..., description="List of questions")
-    passing_score: int = Field(..., description="Minimum score to pass (percentage)")
-    time_limit_minutes: int = Field(default=0, description="Time limit in minutes (0 = no limit)")
+    low: int = Field(..., description="Count of low severity findings")
+    medium: int = Field(..., description="Count of medium severity findings")
+    high: int = Field(..., description="Count of high severity findings")
+    critical: int = Field(..., description="Count of critical severity findings")
 
 
-class FeedbackItem(FrozenModel):
-    """Feedback on learner's answer."""
+class ExecutiveSummaryResponse(BaseModel):
+    """LLM response model for executive summary."""
 
-    question_id: str = Field(..., description="Question being addressed")
-    is_correct: bool = Field(..., description="Whether the answer was correct")
-    learner_answer: str = Field(..., description="The learner's answer")
-    feedback_text: str = Field(..., description="Detailed feedback")
-    improvement_suggestion: str = Field(..., description="Suggestion for improvement")
-    related_content: list[str] = Field(default_factory=list, description="Content to review")
-
-
-class LearnerFeedback(FrozenModel):
-    """Complete feedback from the feedback agent."""
-
-    feedback_id: str = Field(..., description="Unique identifier for the feedback")
-    quiz_id: str = Field(..., description="Associated quiz ID")
-    score: int = Field(..., description="Score achieved (percentage)")
-    passed: bool = Field(..., description="Whether the quiz was passed")
-    items: list[FeedbackItem] = Field(..., description="Feedback for each question")
-    overall_feedback: str = Field(..., description="Overall feedback summary")
-    strengths: list[str] = Field(..., description="Areas of strength")
-    areas_for_improvement: list[str] = Field(..., description="Areas needing improvement")
-    recommended_next_steps: list[str] = Field(..., description="Recommended next steps")
+    overall_status: ComplianceStatus = Field(..., description="Overall status")
+    overall_risk_score: int = Field(..., description="Risk score 0-100")
+    key_concerns: list[str] = Field(..., description="Key concerns")
+    immediate_actions: list[str] = Field(..., description="Immediate actions")
+    summary_text: str = Field(..., description="Summary text")
 
 
-class ProgressMetrics(FrozenModel):
-    """Progress metrics from the reflection agent for quality evaluation."""
+class RiskBreakdownResponse(BaseModel):
+    """LLM response model for risk breakdown."""
 
-    modules_completed: int = Field(..., description="Number of modules completed")
-    total_modules: int = Field(..., description="Total number of modules")
-    current_week: int = Field(..., description="Current week in the curriculum")
-    tasks_completed_this_week: int = Field(..., description="Tasks completed this week")
-    total_tasks_this_week: int = Field(..., description="Total tasks for this week")
-    average_quiz_score: float = Field(..., description="Average quiz score (percentage)")
-    study_hours_logged: float = Field(..., description="Total study hours logged")
-    streak_days: int = Field(..., description="Consecutive days of study")
-    competencies_acquired: list[str] = Field(..., description="Competencies acquired so far")
-    on_track: bool = Field(..., description="Whether learner is on track with the plan")
+    category: RiskCategory = Field(..., description="Risk category")
+    count: int = Field(..., description="Number of findings")
+    severity_distribution: SeverityDistribution = Field(..., description="Distribution by severity")
+    key_issues: list[str] = Field(..., description="Key issues")
 
 
-class ProgressReport(FrozenModel):
-    """
-    Progress report from the Reflection Layer agent.
+class ReportResponse(BaseModel):
+    """LLM response model for report generation stage."""
 
-    This model captures the evaluation output from the reflection layer,
-    including quality assessment and recommendations for plan adjustments.
-    When curriculum_adjustment_needed is True, the reflection layer is
-    signaling that upper layers (strategy/tactics) should revise their plans.
-    """
+    executive_summary: ExecutiveSummaryResponse = Field(..., description="Executive summary")
+    risk_breakdown: list[RiskBreakdownResponse] = Field(..., description="Risk breakdown")
+    recommendations: list[str] = Field(..., description="Recommendations")
+    conclusion: str = Field(..., description="Conclusion")
+
+
+class ContractInput(FrozenModel):
+    """Input contract document information."""
+
+    contract_id: str = Field(..., description="Unique identifier for the contract")
+    file_path: str = Field(..., description="Path to the contract document")
+    raw_content: str = Field(..., description="Raw text content of the contract")
+
+
+class ContractSection(FrozenModel):
+    """A section within a chapter of the contract."""
+
+    section_id: str = Field(..., description="Unique identifier for the section")
+    section_number: str = Field(..., description="Section number (e.g., '第1条')")
+    title: str = Field(..., description="Title of the section")
+    content: str = Field(..., description="Full text content of the section")
+    chapter_id: str = Field(..., description="Parent chapter identifier")
+
+
+class ContractChapter(FrozenModel):
+    """A chapter in the contract document."""
+
+    chapter_id: str = Field(..., description="Unique identifier for the chapter")
+    chapter_number: str = Field(..., description="Chapter number (e.g., '第1章')")
+    title: str = Field(..., description="Title of the chapter")
+    sections: list[ContractSection] = Field(default_factory=list, description="Sections within this chapter")
+
+
+class ContractStructure(FrozenModel):
+    """Extracted structure of the contract document."""
+
+    contract_id: str = Field(..., description="Unique identifier for the contract")
+    title: str = Field(..., description="Title of the contract")
+    parties: list[str] = Field(..., description="Parties involved in the contract")
+    effective_date: str = Field(default="", description="Effective date of the contract")
+    chapters: list[ContractChapter] = Field(..., description="Chapters in the contract")
+    total_sections: int = Field(..., description="Total number of sections extracted")
+
+
+class ExtractionOutput(FrozenModel):
+    """Output from the Extraction Stage."""
+
+    structure: ContractStructure = Field(..., description="Extracted contract structure")
+    extraction_notes: str = Field(default="", description="Notes about the extraction process")
+
+
+class RiskFinding(FrozenModel):
+    """A specific risk finding within a section."""
+
+    finding_id: str = Field(..., description="Unique identifier for the finding")
+    description: str = Field(..., description="Description of the risk")
+    risk_level: RiskLevel = Field(..., description="Severity level of the risk")
+    risk_category: RiskCategory = Field(..., description="Category of the risk")
+    affected_clause: str = Field(..., description="The specific clause text affected")
+    recommendation: str = Field(..., description="Recommendation to mitigate the risk")
+
+
+class SectionRiskAssessment(FrozenModel):
+    """Risk assessment for a specific section."""
+
+    section_id: str = Field(..., description="Identifier of the assessed section")
+    section_title: str = Field(..., description="Title of the section")
+    overall_risk_level: RiskLevel = Field(..., description="Overall risk level for this section")
+    findings: list[RiskFinding] = Field(default_factory=list, description="List of risk findings in this section")
+    is_compliant: bool = Field(..., description="Whether the section is compliant")
+    notes: str = Field(default="", description="Additional notes about the assessment")
+
+
+class RiskScoringOutput(FrozenModel):
+    """Output from the Risk Scoring Stage."""
+
+    contract_id: str = Field(..., description="Contract identifier")
+    assessed_sections: list[SectionRiskAssessment] = Field(..., description="Risk assessments for each section")
+    high_risk_count: int = Field(..., description="Number of high/critical risk findings")
+    total_findings: int = Field(..., description="Total number of risk findings")
+
+
+class ExecutiveSummary(FrozenModel):
+    """Executive summary of the contract risk assessment."""
+
+    overall_status: ComplianceStatus = Field(..., description="Overall compliance status")
+    overall_risk_score: int = Field(..., description="Overall risk score (0-100, higher is riskier)")
+    key_concerns: list[str] = Field(..., description="Key concerns identified")
+    immediate_actions: list[str] = Field(..., description="Immediate actions recommended")
+    summary_text: str = Field(..., description="Brief summary text")
+
+
+class RiskBreakdown(FrozenModel):
+    """Breakdown of risks by category."""
+
+    category: RiskCategory = Field(..., description="Risk category")
+    count: int = Field(..., description="Number of findings in this category")
+    severity_distribution: dict[str, int] = Field(..., description="Distribution by severity level")
+    key_issues: list[str] = Field(..., description="Key issues in this category")
+
+
+class ComplianceReport(FrozenModel):
+    """Complete compliance report for a contract."""
 
     report_id: str = Field(..., description="Unique identifier for the report")
-    metrics: ProgressMetrics = Field(..., description="Current progress metrics")
-    progress_summary: str = Field(..., description="Summary of progress")
-    achievements: list[str] = Field(..., description="Recent achievements")
-    recommendations: list[str] = Field(..., description="Recommendations for improvement")
-    curriculum_adjustment_needed: bool = Field(..., description="Whether curriculum adjustment is needed")
-    adjustment_reason: str = Field(default="", description="Reason for adjustment if needed")
-
-
-class LearnerProfile(FrozenModel):
-    """Profile of the learner."""
-
-    learner_id: str = Field(..., description="Unique identifier for the learner")
-    learning_goal: str = Field(..., description="The learner's stated goal")
-    current_knowledge: list[str] = Field(default_factory=list, description="Current knowledge areas")
-    available_hours_per_week: int = Field(..., description="Available study hours per week")
-    preferred_content_types: list[ContentType] = Field(default_factory=list, description="Preferred content types")
-    target_duration_weeks: int = Field(default=12, description="Target duration in weeks")
-
-
-class LearningSession(FrozenModel):
-    """A learning session containing content, quiz, and feedback."""
-
-    session_id: str = Field(..., description="Unique identifier for the session")
-    task_id: str = Field(..., description="Associated task ID")
-    content: LearningContent = Field(..., description="Learning content for the session")
-    quiz: Quiz = Field(..., description="Quiz for the session")
-    feedback: LearnerFeedback | None = Field(default=None, description="Feedback if quiz taken")
-
-
-class PersonalizedLearningPlan(FrozenModel):
-    """Complete personalized learning plan."""
-
-    plan_id: str = Field(..., description="Unique identifier for the plan")
-    learner_profile: LearnerProfile = Field(..., description="Learner profile")
-    strategy: StrategyOutput = Field(..., description="Strategic learning plan")
-    curriculum: TacticsOutput = Field(..., description="Detailed curriculum")
-    first_week_sessions: list[LearningSession] = Field(..., description="Sessions for the first week")
-    progress_report: ProgressReport = Field(..., description="Initial progress report")
+    contract_id: str = Field(..., description="Contract identifier")
+    contract_title: str = Field(..., description="Title of the contract")
+    generated_at: str = Field(..., description="Timestamp when report was generated")
+    executive_summary: ExecutiveSummary = Field(..., description="Executive summary")
+    risk_breakdown: list[RiskBreakdown] = Field(..., description="Risk breakdown by category")
+    section_assessments: list[SectionRiskAssessment] = Field(..., description="Detailed section assessments")
+    recommendations: list[str] = Field(..., description="Overall recommendations for the contract")
+    conclusion: str = Field(..., description="Conclusion and next steps")
 
     def to_markdown(self) -> str:
-        """Convert the learning plan to markdown format."""
+        """Convert the compliance report to markdown format."""
         lines = [
-            "# パーソナライズ学習プラン",
+            "# 契約書リスクコンプライアンスレポート",
             "",
-            "## 学習者プロフィール",
-            f"- **学習目標**: {self.learner_profile.learning_goal}",
-            f"- **週あたり学習時間**: {self.learner_profile.available_hours_per_week}時間",
-            f"- **目標期間**: {self.learner_profile.target_duration_weeks}週間",
+            f"**契約書**: {self.contract_title}",
+            f"**レポートID**: {self.report_id}",
+            f"**生成日時**: {self.generated_at}",
             "",
-            "## 戦略概要",
-            f"- **学習ドメイン**: {self.strategy.learning_domain}",
-            f"- **現在レベル**: {self.strategy.roadmap.current_level.value}",
-            f"- **目標レベル**: {self.strategy.roadmap.target_level.value}",
-            f"- **推奨学習時間**: 週{self.strategy.recommended_study_hours_per_week}時間",
+            "---",
             "",
-            "## 学習ロードマップ",
+            "## エグゼクティブサマリー",
             "",
-            "### ゴールサマリー",
-            self.strategy.roadmap.goal_summary,
+            "### 総合評価",
+            f"- **コンプライアンス状態**: {self._status_to_japanese(self.executive_summary.overall_status)}",
+            f"- **リスクスコア**: {self.executive_summary.overall_risk_score}/100",
             "",
-            "### マイルストーン",
+            f"{self.executive_summary.summary_text}",
+            "",
         ]
 
-        for i, milestone in enumerate(self.strategy.roadmap.milestones, 1):
-            lines.append(f"{i}. {milestone}")
-
-        lines.extend(["", "## 学習モジュール"])
-        for m in self.strategy.roadmap.modules:
+        if self.executive_summary.key_concerns:
             lines.extend(
                 [
-                    f"### {m.module_id}: {m.name}",
-                    f"- **カテゴリ**: {m.category.value}",
-                    f"- **説明**: {m.description}",
-                    f"- **推定時間**: {m.estimated_hours}時間",
-                    f"- **習得スキル**: {', '.join(m.target_competencies)}",
-                    "",
+                    "### 主要な懸念事項",
                 ]
             )
-
-        lines.extend(
-            [
-                "## カリキュラム詳細",
-                "",
-                "### カリキュラム概要",
-                self.curriculum.curriculum_summary,
-                "",
-                "### 評価戦略",
-                self.curriculum.assessment_strategy,
-                "",
-            ]
-        )
-
-        for week in self.curriculum.weekly_plans[:2]:
-            lines.extend(
-                [
-                    f"### 第{week.week_number}週: {week.theme}",
-                    "**学習目標**:",
-                ]
-            )
-            for goal in week.learning_goals:
-                lines.append(f"- {goal}")
-
+            for concern in self.executive_summary.key_concerns:
+                lines.append(f"- {concern}")
             lines.append("")
-            lines.append("**日別タスク**:")
-            for day, tasks in week.daily_tasks.items():
-                task_names = ", ".join(t.title for t in tasks)
-                lines.append(f"  - **{day}**: {task_names}")
 
+        if self.executive_summary.immediate_actions:
             lines.extend(
                 [
-                    "",
-                    f"**週次評価**: {week.weekly_assessment}",
-                    "",
+                    "### 即時対応が必要な事項",
                 ]
             )
+            for action in self.executive_summary.immediate_actions:
+                lines.append(f"- ⚠️ {action}")
+            lines.append("")
 
-        lines.append("## 今週の学習セッション")
-        for session in self.first_week_sessions[:3]:
-            lines.extend(
-                [
-                    "",
-                    f"### {session.content.title}",
-                    f"- **コンテンツタイプ**: {session.content.content_type.value}",
-                    f"- **キーコンセプト**: {', '.join(session.content.key_concepts)}",
-                    "",
-                    f"**クイズ**: {session.quiz.title} ({len(session.quiz.questions)}問)",
-                    "",
-                ]
-            )
-
-        track_status = "順調" if self.progress_report.metrics.on_track else "調整が必要"
         lines.extend(
             [
-                "## 進捗レポート",
-                f"- **進捗状況**: {self.progress_report.progress_summary}",
-                f"- **トラック状況**: {track_status}",
+                "---",
                 "",
-                "### 推奨事項",
+                "## リスク分析",
+                "",
             ]
         )
-        for rec in self.progress_report.recommendations:
-            lines.append(f"- {rec}")
+
+        for breakdown in self.risk_breakdown:
+            if breakdown.count > 0:
+                lines.extend(
+                    [
+                        f"### {self._category_to_japanese(breakdown.category)}",
+                        f"- **検出件数**: {breakdown.count}件",
+                    ]
+                )
+                if breakdown.key_issues:
+                    lines.append("- **主な問題点**:")
+                    for issue in breakdown.key_issues:
+                        lines.append(f"  - {issue}")
+                lines.append("")
+
+        lines.extend(
+            [
+                "---",
+                "",
+                "## セクション別評価詳細",
+                "",
+            ]
+        )
+
+        for assessment in self.section_assessments:
+            status_icon = "✅" if assessment.is_compliant else "⚠️"
+            lines.extend(
+                [
+                    f"### {status_icon} {assessment.section_title}",
+                    f"- **リスクレベル**: {self._risk_level_to_japanese(assessment.overall_risk_level)}",
+                    f"- **コンプライアンス**: {'適合' if assessment.is_compliant else '要確認'}",
+                ]
+            )
+
+            if assessment.findings:
+                lines.append("")
+                lines.append("**検出されたリスク:**")
+                for finding in assessment.findings:
+                    lines.extend(
+                        [
+                            "",
+                            f"- **{finding.description}**",
+                            f"  - カテゴリ: {self._category_to_japanese(finding.risk_category)}",
+                            f"  - レベル: {self._risk_level_to_japanese(finding.risk_level)}",
+                            f"  - 推奨対応: {finding.recommendation}",
+                        ]
+                    )
+
+            if assessment.notes:
+                lines.extend(
+                    [
+                        "",
+                        f"**備考**: {assessment.notes}",
+                    ]
+                )
+            lines.append("")
+
+        lines.extend(
+            [
+                "---",
+                "",
+                "## 総合的な推奨事項",
+                "",
+            ]
+        )
+        for i, rec in enumerate(self.recommendations, 1):
+            lines.append(f"{i}. {rec}")
+
+        lines.extend(
+            [
+                "",
+                "---",
+                "",
+                "## 結論",
+                "",
+                self.conclusion,
+                "",
+            ]
+        )
 
         return "\n".join(lines)
 
+    def _status_to_japanese(self, status: ComplianceStatus) -> str:
+        """Convert compliance status to Japanese."""
+        mapping = {
+            ComplianceStatus.COMPLIANT: "✅ 適合",
+            ComplianceStatus.NEEDS_REVIEW: "⚠️ 要確認",
+            ComplianceStatus.NON_COMPLIANT: "❌ 不適合",
+        }
+        return mapping.get(status, str(status))
 
-class HierarchicalAgentState(TypedDict):
-    """State for the hierarchical personalized learning agent system."""
+    def _risk_level_to_japanese(self, level: RiskLevel) -> str:
+        """Convert risk level to Japanese."""
+        mapping = {
+            RiskLevel.LOW: "🟢 低",
+            RiskLevel.MEDIUM: "🟡 中",
+            RiskLevel.HIGH: "🟠 高",
+            RiskLevel.CRITICAL: "🔴 重大",
+        }
+        return mapping.get(level, str(level))
 
-    learner_profile: LearnerProfile
-    strategy_output: StrategyOutput | None
-    tactics_output: TacticsOutput | None
-    learning_sessions: list[LearningSession]
-    progress_report: ProgressReport | None
-    current_week: int
-    current_day: str
-    current_task_index: int
+    def _category_to_japanese(self, category: RiskCategory) -> str:
+        """Convert risk category to Japanese."""
+        mapping = {
+            RiskCategory.INTELLECTUAL_PROPERTY: "知的財産権",
+            RiskCategory.LIABILITY: "責任・賠償",
+            RiskCategory.CONFIDENTIALITY: "秘密保持",
+            RiskCategory.TERMINATION: "契約解除",
+            RiskCategory.PAYMENT: "支払条件",
+            RiskCategory.COMPLIANCE: "法令遵守",
+            RiskCategory.WARRANTY: "保証",
+            RiskCategory.INDEMNIFICATION: "補償",
+            RiskCategory.DISPUTE_RESOLUTION: "紛争解決",
+            RiskCategory.OTHER: "その他",
+        }
+        return mapping.get(category, str(category))
+
+
+class ContractPipelineState(TypedDict):
+    """State for the contract risk compliance pipeline."""
+
+    contract_input: ContractInput
+    extraction_output: ExtractionOutput | None
+    risk_scoring_output: RiskScoringOutput | None
+    compliance_report: ComplianceReport | None
+    current_stage: str
+    pending_sections: list[ContractSection]
+    current_section_index: int
     messages: Annotated[Sequence[BaseMessage], add_messages]

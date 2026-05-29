@@ -1,8 +1,4 @@
-"""Mediator pattern for managing complex agent interactions.
-
-This module defines the abstract interfaces for graph-based agent coordination.
-Concrete node and mediator implementations should be placed in the extensions layer.
-"""
+"""Mediator pattern for managing complex agent interactions."""
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -87,11 +83,7 @@ class GraphExecutionResult:
 
 
 class Node(ABC):
-    """Abstract base class for nodes in the agent graph.
-
-    This interface defines how nodes execute and communicate.
-    Concrete node implementations should be placed in the extensions layer.
-    """
+    """Abstract base class for nodes in the agent graph."""
 
     def __init__(self, node_id: str, node_type: NodeType):
         self.node_id = node_id
@@ -111,11 +103,7 @@ class Node(ABC):
 
 
 class GraphMediator(ABC):
-    """Abstract mediator for managing node interactions.
-
-    This interface defines how graphs are constructed and executed.
-    Concrete mediator implementations should be placed in the extensions layer.
-    """
+    """Abstract mediator for managing node interactions."""
 
     @abstractmethod
     def add_node(self, node: Node) -> None:

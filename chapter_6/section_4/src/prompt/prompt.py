@@ -55,7 +55,9 @@ Create an engaging and well-structured outline that would result in a high-quali
 
 
 def make_first_half_generation_system_instruction(
-    outline: ArticleOutline, language: Literal["en", "ja"]
+    outline: ArticleOutline,
+    language: Literal["en", "ja"],
+    user_requirements: list[str] | None = None,
 ) -> tuple[str, str]:
     lang_instruction = "in English" if language == "en" else "in Japanese (日本語)"
 
@@ -93,10 +95,17 @@ Requirements:
 
     outline_md = outline.to_markdown()
 
+    requirements_section = ""
+    if user_requirements:
+        requirements_section = "\n**Additional User Requirements:**\n"
+        for req in user_requirements:
+            requirements_section += f"- {req}\n"
+        requirements_section += "\nPlease incorporate these requirements into the article.\n"
+
     user_content = f"""Please write the FIRST HALF of an article based on this outline:
 
 {outline_md}
-
+{requirements_section}
 Write engaging, informative content that covers roughly the first half of the outlined structure.
 """
 
@@ -166,6 +175,7 @@ def make_second_half_generation_system_instruction(
     outline: ArticleOutline,
     first_half: str,
     language: Literal["en", "ja"],
+    user_requirements: list[str] | None = None,
 ) -> tuple[str, str]:
     lang_instruction = "in English" if language == "en" else "in Japanese (日本語)"
 
@@ -204,6 +214,13 @@ Requirements:
 
     outline_md = outline.to_markdown()
 
+    requirements_section = ""
+    if user_requirements:
+        requirements_section = "\n**Additional User Requirements:**\n"
+        for req in user_requirements:
+            requirements_section += f"- {req}\n"
+        requirements_section += "\nPlease incorporate these requirements into the article.\n"
+
     user_content = f"""Please write the SECOND HALF of an article to complete it.
 
 **Article Outline:**
@@ -211,7 +228,7 @@ Requirements:
 
 **First Half (already written):**
 {first_half}
-
+{requirements_section}
 Write the second half that completes the article, covering the remaining sections and providing a strong conclusion.
 """
 

@@ -1,13 +1,13 @@
-from src.service.execution import ExecutionLLMService
-from src.service.factory import LLMServiceFactory, get_llm_service, reset_llm_service
-from src.service.interface import ILLMService
-from src.service.storage import CachedLLMService
+from src.service.container import ServiceContainer, service_container
+from src.service.interfaces import ITextClassificationService, ITextGenerationService
+from src.service.text_classification_service import TextClassificationService
+from src.service.text_generation_service import TextGenerationService
 
 __all__ = [
-    "ILLMService",
-    "ExecutionLLMService",
-    "CachedLLMService",
-    "LLMServiceFactory",
-    "get_llm_service",
-    "reset_llm_service",
+    "ITextGenerationService",
+    "ITextClassificationService",
+    "TextGenerationService",
+    "TextClassificationService",
+    "ServiceContainer",
+    "service_container",
 ]

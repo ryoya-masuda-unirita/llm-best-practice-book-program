@@ -25,36 +25,22 @@ class ConfigurableAgent(BaseAgent):
         super().__init__(strategy, toolbox, memory, controller)
         self.enable_logging = enable_logging
         self.max_iterations = max_iterations
-        self.current_iteration = 0
+        self._current_iteration = 0
 
     def execute(self, goal: str) -> str:
-        self.current_iteration = 0
+        self._current_iteration = 0
         result = super().execute(goal)
         if self.enable_logging:
             self._log_execution()
         return result
 
-    def _is_task_complete(self, goal: str) -> bool:
-        self.current_iteration += 1
-        if self.current_iteration >= self.max_iterations:
-            self.agent_context.add_event(f"Maximum iterations ({self.max_iterations}) reached")
-            return True
-        return super()._is_task_complete(goal)
-
     def _log_execution(self) -> None:
         trace = self.get_execution_trace()
-        logger.info("\n=== Agent Execution Trace ===")
-        logger.info(f"Iterations: {self.current_iteration}")
-        logger.info(f"Final State: {trace['current_state']}\n")
-        logger.info("State History:")
-        state_history = trace.get("state_history")
-        if isinstance(state_history, list):
-            for state in state_history:
-                if isinstance(state, dict):
-                    logger.info(f"  {state.get('from_state')} -> {state.get('to_state')} at {state.get('timestamp')}")
-        logger.info("\nEvents:")
-        events = trace.get("events")
-        if isinstance(events, list):
-            for event in events:
-                if isinstance(event, dict):
-                    logger.info(f"  [{event.get('state')}] {event.get('message')}")
+        logger.info(f"Execution completed. State history: {len(trace.get('state_history', []))} transitions")
+        logger.info(f"Events: {len(trace.get('events', []))}")
+
+    def _is_task_complete(self, goal: str) -> bool:
+        self._current_iteration += 1
+        if self._current_iteration > self.max_iterations:
+            return True
+        return super()._is_task_complete(goal)

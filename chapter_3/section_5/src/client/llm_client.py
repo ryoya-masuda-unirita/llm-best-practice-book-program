@@ -1,14 +1,16 @@
 from enum import StrEnum
 
-from openai import AsyncOpenAI
-from src.config import config
-
 
 class LLMProvider(StrEnum):
+    """Enum for LLM providers."""
+
     OPENAI = "openai"
+    GEMINI = "gemini"
 
 
 class OpenAIModel(StrEnum):
+    """Enum for OpenAI models."""
+
     GPT_5_5 = "gpt-5.5"
     GPT_5_4 = "gpt-5.4"
     GPT_5_4_MINI = "gpt-5.4-mini"
@@ -21,7 +23,18 @@ class OpenAIModel(StrEnum):
 
     @staticmethod
     def list_str() -> list[str]:
-        return [model for model in OpenAIModel]
+        return list(OpenAIModel)
 
 
-openai_client = AsyncOpenAI(api_key=config.openai_api_key)
+class GeminiModel(StrEnum):
+    """Enum for Gemini models."""
+
+    GEMINI_2_5_PRO = "gemini-2.5-pro"
+    GEMINI_2_5_FLASH = "gemini-2.5-flash"
+    GEMINI_2_5_FLASH_LITE = "gemini-2.5-flash-lite"
+    GEMINI_3_5_FLASH = "gemini-3.5-flash"
+    GEMINI_3_1_FLASH_LITE = "gemini-3.1-flash-lite"
+
+    @staticmethod
+    def list_str() -> list[str]:
+        return list(GeminiModel)

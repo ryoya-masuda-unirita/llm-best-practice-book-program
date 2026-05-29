@@ -1,145 +1,139 @@
-"""Hierarchical Personalized Learning Platform Service."""
+"""
+Contract Risk Compliance Pipeline Service.
 
-from typing import Literal
+This module implements a pipeline AI agent system for evaluating
+contract risk compliance using LangGraph.
+
+Pipeline Architecture:
+    ┌─────────────────┐
+    │  Input Stage    │  (Read contract file)
+    └────────┬────────┘
+             │
+             ▼
+    ┌─────────────────┐
+    │ Extraction Stage│  (Parse structure: chapters, sections)
+    └────────┬────────┘
+             │
+             ▼
+    ┌─────────────────┐
+    │ Risk Scoring    │  (Evaluate each section)
+    │     Stage       │
+    └────────┬────────┘
+             │
+             ▼
+    ┌─────────────────┐
+    │ Report Stage    │  (Generate compliance report)
+    └────────┬────────┘
+             │
+             ▼
+           [END]
+
+"""
+
+from pathlib import Path
 from uuid import uuid4
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import END, StateGraph
 from src.client.llm_client import OpenAIModel
-from src.layer.execution import MAX_SESSIONS_FIRST_WEEK, execution_agent_node
-from src.layer.reflection import reflection_agent_node
-from src.layer.strategy import strategy_agent_node
-from src.layer.tactics import tactics_agent_node
+from src.layer.contract_pipeline import (
+    extraction_stage_node,
+    report_stage_node,
+    risk_scoring_stage_node,
+)
 from src.logger import make_logger
 from src.model.model import (
-    HierarchicalAgentState,
-    LearnerProfile,
-    PersonalizedLearningPlan,
+    ComplianceReport,
+    ContractInput,
+    ContractPipelineState,
 )
 
 logger = make_logger(__name__)
 
 
-def _has_more_tasks(state: HierarchicalAgentState) -> bool:
-    """Check if there are more tasks to execute."""
-    tactics = state["tactics_output"]
-    if not tactics:
-        return False
+def create_contract_pipeline_graph() -> StateGraph:
+    """Create the contract risk compliance pipeline graph."""
+    logger.info("Creating contract compliance pipeline graph...")
 
-    current_week = state["current_week"]
-    if current_week > len(tactics.weekly_plans):
-        return False
+    graph = StateGraph(ContractPipelineState)
 
-    week_plan = tactics.weekly_plans[current_week - 1]
-    day_tasks = week_plan.daily_tasks.get(state["current_day"], [])
-    return state["current_task_index"] < len(day_tasks)
+    graph.add_node("extraction", extraction_stage_node)
+    graph.add_node("risk_scoring", risk_scoring_stage_node)
+    graph.add_node("report", report_stage_node)
 
+    graph.set_entry_point("extraction")
+    graph.add_edge("extraction", "risk_scoring")
+    graph.add_edge("risk_scoring", "report")
+    graph.add_edge("report", END)
 
-def should_continue_execution(state: HierarchicalAgentState) -> Literal["execute", "reflect"]:
-    """Determine whether to continue executing or move to reflection."""
-    sessions = state["learning_sessions"]
-
-    if len(sessions) < MAX_SESSIONS_FIRST_WEEK and _has_more_tasks(state):
-        logger.info(f"Continuing execution: {len(sessions)}/{MAX_SESSIONS_FIRST_WEEK} sessions")
-        return "execute"
-
-    logger.info("Moving to Reflection Layer for evaluation")
-    return "reflect"
-
-
-def create_learning_platform_graph() -> StateGraph:
-    """Create the hierarchical personalized learning platform graph."""
-    logger.info("Creating hierarchical learning platform graph...")
-
-    graph = StateGraph(HierarchicalAgentState)
-
-    graph.add_node("strategy", strategy_agent_node)
-    graph.add_node("tactics", tactics_agent_node)
-    graph.add_node("execution", execution_agent_node)
-    graph.add_node("reflection", reflection_agent_node)
-
-    graph.set_entry_point("strategy")
-    graph.add_edge("strategy", "tactics")
-    graph.add_edge("tactics", "execution")
-    graph.add_conditional_edges(
-        "execution",
-        should_continue_execution,
-        {"execute": "execution", "reflect": "reflection"},
-    )
-    graph.add_edge("reflection", END)
-
-    logger.info("Learning platform graph created successfully")
+    logger.info("Contract pipeline graph created successfully")
     return graph.compile()
 
 
-def _create_initial_state(learner_profile: LearnerProfile) -> HierarchicalAgentState:
-    """Create initial state for the learning platform."""
+def _read_contract_file(file_path: str) -> str:
+    """Read contract content from file."""
+    path = Path(file_path)
+    if not path.exists():
+        raise FileNotFoundError(f"Contract file not found: {file_path}")
+
+    logger.info(f"Reading contract file: {file_path}")
+    return path.read_text(encoding="utf-8")
+
+
+def _create_initial_state(file_path: str) -> ContractPipelineState:
+    """Create initial state for the contract pipeline."""
+    raw_content = _read_contract_file(file_path)
+
+    contract_input = ContractInput(
+        contract_id=f"contract_{uuid4().hex[:8]}",
+        file_path=file_path,
+        raw_content=raw_content,
+    )
+
     return {
-        "learner_profile": learner_profile,
-        "strategy_output": None,
-        "tactics_output": None,
-        "learning_sessions": [],
-        "progress_report": None,
-        "current_week": 1,
-        "current_day": "day1",
-        "current_task_index": 0,
+        "contract_input": contract_input,
+        "extraction_output": None,
+        "risk_scoring_output": None,
+        "compliance_report": None,
+        "current_stage": "extraction",
+        "pending_sections": [],
+        "current_section_index": 0,
         "messages": [],
     }
 
 
-def _create_plan_from_state(
-    final_state: dict,
-    learner_profile: LearnerProfile,
-) -> PersonalizedLearningPlan | None:
-    """Create a PersonalizedLearningPlan from final graph state."""
-    strategy = final_state.get("strategy_output")
-    tactics = final_state.get("tactics_output")
-    sessions = final_state.get("learning_sessions", [])
-    progress = final_state.get("progress_report")
-
-    if not (strategy and tactics and progress):
-        logger.warning("Learning plan incomplete - missing layer outputs")
-        return None
-
-    return PersonalizedLearningPlan(
-        plan_id=f"plan_{uuid4().hex[:8]}",
-        learner_profile=learner_profile,
-        strategy=strategy,
-        curriculum=tactics,
-        first_week_sessions=sessions,
-        progress_report=progress,
-    )
+def _extract_report_from_state(final_state: dict) -> ComplianceReport | None:
+    """Extract the compliance report from final graph state."""
+    return final_state.get("compliance_report")
 
 
-async def run_personalized_learning(
-    learner_profile: LearnerProfile,
+async def run_contract_compliance_pipeline(
+    contract_file_path: str,
     model: str = OpenAIModel.GPT_5_MINI,
-) -> PersonalizedLearningPlan | None:
-    """Run the hierarchical personalized learning agent system."""
+) -> ComplianceReport | None:
+    """Run the contract risk compliance pipeline."""
     logger.info("=" * 80)
-    logger.info("HIERARCHICAL PERSONALIZED LEARNING PLATFORM")
-    logger.info("4-Layer Architecture: Strategy -> Tactics -> Execution -> Reflection")
+    logger.info("CONTRACT RISK COMPLIANCE PIPELINE")
+    logger.info("Pipeline: Input -> Extraction -> Risk Scoring -> Report")
     logger.info("=" * 80)
-    logger.info(f"Learner goal: {learner_profile.learning_goal}")
-    logger.info(f"Available hours/week: {learner_profile.available_hours_per_week}")
-    logger.info(f"Target duration: {learner_profile.target_duration_weeks} weeks")
+    logger.info(f"Contract file: {contract_file_path}")
     logger.info(f"Model: {model}")
 
-    graph = create_learning_platform_graph()
+    graph = create_contract_pipeline_graph()
     config = RunnableConfig(configurable={"model": model})
 
-    try:
-        final_state = await graph.ainvoke(_create_initial_state(learner_profile), config)
-        plan = _create_plan_from_state(final_state, learner_profile)
+    initial_state = _create_initial_state(contract_file_path)
+    logger.info(f"Contract ID: {initial_state['contract_input'].contract_id}")
 
-        if plan:
-            logger.info("=" * 80)
-            logger.info("LEARNING PLAN CREATED SUCCESSFULLY")
-            logger.info("All layers completed: Strategy -> Tactics -> Execution -> Reflection")
-            logger.info("=" * 80)
+    final_state = await graph.ainvoke(initial_state, config)
+    report = _extract_report_from_state(final_state)
 
-        return plan
+    if report:
+        logger.info("=" * 80)
+        logger.info("COMPLIANCE REPORT GENERATED SUCCESSFULLY")
+        logger.info(f"Report ID: {report.report_id}")
+        logger.info(f"Overall Status: {report.executive_summary.overall_status}")
+        logger.info(f"Risk Score: {report.executive_summary.overall_risk_score}/100")
+        logger.info("=" * 80)
 
-    except Exception as e:
-        logger.error(f"Learning platform failed: {str(e)}")
-        raise
+    return report

@@ -16,7 +16,7 @@ import click
 from google.genai import types
 from src.client import GeminiModel, google_genai_client
 from src.logger import make_logger
-from src.service.request_llm import SessionResultCache, process_with_function_calling
+from src.service.request_llm import SessionResultCache, process_with_tool_chain
 
 logger = make_logger(__name__)
 
@@ -143,7 +143,7 @@ async def main(model: str, query: str, output_directory: Path | None):
     conversation_history: list[types.Content] = []
     session_cache = SessionResultCache()
 
-    response, conversation_history, session_cache = await process_with_function_calling(
+    response, conversation_history, session_cache = await process_with_tool_chain(
         model=model,
         user_message=query,
         conversation_history=conversation_history,

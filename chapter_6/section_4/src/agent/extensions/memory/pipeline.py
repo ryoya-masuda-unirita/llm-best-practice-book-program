@@ -34,7 +34,7 @@ class PipelineMemory(Memory):
     to any previous phase in the pipeline. Each phase completion is tracked
     as a snapshot that can be restored.
 
-    Simplified phase detection (single session, no parallel worlds):
+    Phase detection (single session):
     - Phase 0: Initial state (only theme, language, metadata)
     - Phase 1: outline populated
     - Phase 2: first_half populated
@@ -135,7 +135,7 @@ class PipelineMemory(Memory):
         return [(phase, self.get_phase_name(phase)) for phase in range(current_phase)]
 
     def forget_phases_after(self, target_phase: int) -> None:
-        click.echo(f"\n🔄 Rolling back to Phase {target_phase}: {self.get_phase_name(target_phase)}")
+        click.echo(f"\n  Rolling back to Phase {target_phase}: {self.get_phase_name(target_phase)}")
         click.echo("   Forgetting all subsequent phases...\n")
 
         if target_phase < 5:
@@ -162,7 +162,7 @@ class PipelineMemory(Memory):
 
         self._state.error = None
 
-        click.echo(f"✅ Rolled back to Phase {target_phase}. Forgotten phases will be regenerated.\n")
+        click.echo(f"  Rolled back to Phase {target_phase}. Forgotten phases will be regenerated.\n")
 
     def restore_to_phase(self, target_phase: int) -> bool:
         for snapshot in reversed(self._phase_snapshots):
@@ -171,7 +171,6 @@ class PipelineMemory(Memory):
                 logger.info(f"Restored to phase {snapshot.phase}: {snapshot.phase_name}")
                 return True
 
-        # If no snapshot found, use forget_phases_after instead
         self.forget_phases_after(target_phase)
         return True
 

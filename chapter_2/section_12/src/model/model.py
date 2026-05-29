@@ -1,16 +1,12 @@
+from __future__ import annotations
+
 import json
-from enum import StrEnum
-from typing import Optional
+from dataclasses import dataclass
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class Gender(StrEnum):
-    FEMALE = "female"
-    MALE = "male"
-
-
-class CharacterRequest(BaseModel):
+class SampledSentences(BaseModel):
     model_config = ConfigDict(
         validate_assignment=True,
         frozen=True,
@@ -18,12 +14,12 @@ class CharacterRequest(BaseModel):
         arbitrary_types_allowed=True,
     )
 
-    gender: Gender = Field(..., description="The gender of the character.")
-    age: int = Field(..., description="The age of the character.", ge=0, le=100)
-    additional_instructions: Optional[str] = Field(..., description="Additional instructions for character generation.")
+    sentences: list[str] = Field(..., description="List of representative sentences sampled from the document.")
+    document_type: str = Field(..., description="Identified type of the document (e.g., contract, report, manual).")
+    key_sections: list[str] = Field(..., description="Identified key section names or headers in the document.")
 
 
-class CharacterPersonality(BaseModel):
+class GeneratedScript(BaseModel):
     model_config = ConfigDict(
         validate_assignment=True,
         frozen=True,
@@ -31,11 +27,11 @@ class CharacterPersonality(BaseModel):
         arbitrary_types_allowed=True,
     )
 
-    short_personality: str = Field(..., description="A short description of the character's personality.")
-    description: str = Field(..., description="A description of the character's personality traits and behaviors.")
+    script: str = Field(..., description="The generated Python script code.")
+    explanation: str = Field(..., description="Brief explanation of what the script does.")
 
 
-class CharacterResponse(BaseModel):
+class DocumentSection(BaseModel):
     model_config = ConfigDict(
         validate_assignment=True,
         frozen=True,
@@ -43,37 +39,67 @@ class CharacterResponse(BaseModel):
         arbitrary_types_allowed=True,
     )
 
-    first_name: str = Field(..., description="The first name of the character.")
-    last_name: str = Field(..., description="The last name of the character.")
-    gender: Gender = Field(Gender.MALE, description="The gender of the character.")
-    age: int = Field(..., description="The age of the character.", ge=0, le=100)
-    personalities: list[CharacterPersonality] = Field(
-        ..., description="The three most important personality traits of the character."
+    title: str = Field(..., description="Title or heading of the section.")
+    level: int = Field(..., description="Heading level (1 for top-level, 2 for subsection, etc.).")
+    content: str = Field(default="", description="Content of the section.")
+    subsections: list["DocumentSection"] = Field(default_factory=list, description="Nested subsections.")
+
+
+class DocumentStructure(BaseModel):
+    model_config = ConfigDict(
+        validate_assignment=True,
+        frozen=True,
+        extra="ignore",
+        arbitrary_types_allowed=True,
     )
 
-    @staticmethod
-    def detailed_model() -> dict:
-        params = {}
-        for k, v in CharacterResponse.model_fields.items():
-            if k in ["first_name", "last_name"]:
-                params[k] = f"string; {v.description}"
-            elif k == "gender":
-                params[k] = f"enum; {v.description}; {[g.value for g in Gender]}"
-            elif k == "age":
-                params[k] = f"number; {v.description}; 0-100"
-            elif k == "personalities":
-                params[k] = []
-                for i in range(3):
-                    params[k].append(
-                        {
-                            "short_personality": f"string; {v.description} (personality {i + 1})",
-                            "description": f"string; {v.description} (detailed description for personality {i + 1})",
-                        }
-                    )
-        return params
+    title: str = Field(..., description="Title of the document.")
+    document_type: str = Field(..., description="Type of the document.")
+    sections: list[DocumentSection] = Field(default_factory=list, description="List of top-level sections.")
+    metadata: dict = Field(default_factory=dict, description="Additional metadata extracted.")
 
     def save_as_json(self, file_path: str) -> None:
-        """Save the character response as a JSON file."""
-
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(self.model_dump(), f, indent=4, ensure_ascii=False)
+
+
+class ScriptExecutionResult(BaseModel):
+    model_config = ConfigDict(
+        validate_assignment=True,
+        frozen=True,
+        extra="ignore",
+        arbitrary_types_allowed=True,
+    )
+
+    success: bool = Field(..., description="Whether the script executed successfully.")
+    output: str = Field(default="", description="Standard output from the script.")
+    error: str = Field(default="", description="Error message if execution failed.")
+    result: dict | None = Field(default=None, description="Parsed JSON result if available.")
+
+
+class ValidationResult(BaseModel):
+    model_config = ConfigDict(
+        validate_assignment=True,
+        frozen=True,
+        extra="ignore",
+        arbitrary_types_allowed=True,
+    )
+
+    reasoning: str = Field(..., description="Detailed reasoning for the score.")
+    score: int = Field(..., description="Validation score from 1 to 5.", ge=1, le=5)
+    fix_proposal: str | None = Field(
+        default=None,
+        description="Proposal to fix issues if score is below 3.",
+    )
+
+
+@dataclass
+class ExtractionResult:
+    success: bool
+    document_structure: DocumentStructure | None
+    raw_result: dict | None
+    final_script: str
+    sampled_info: SampledSentences
+    script_explanation: str
+    error: str | None = None
+    validation_result: ValidationResult | None = None

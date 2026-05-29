@@ -4,6 +4,8 @@ Tool functions for data analysis following the ID reference pattern.
 These tools are designed as composite functions that perform multiple operations
 internally and return summaries with result IDs for the LLM context.
 Each tool function composes smaller, testable functions from the functions module.
+
+Output format is compatible with Pydantic output schemas for Tool Chain support.
 """
 
 from src.logger import make_logger
@@ -20,10 +22,9 @@ from src.model import (
 )
 from src.service.tools.functions import (
     VALID_CLASSES,
+    analyze_class_scores,
     analyze_scores,
     analyze_student_scores,
-    build_error_response,
-    build_success_response,
     calculate_curriculum_completion,
     calculate_grade_distribution,
     compare_two_students,
@@ -85,7 +86,15 @@ def list_available_data() -> dict:
 
     result_storage.store(result_id, {"files": file_names, "categories": list(categories)}, result)
 
-    return result.to_llm_response()
+    return {
+        "tool_name": "list_available_data",
+        "result_id": result_id,
+        "result_summary": result.result_summary,
+        "success": True,
+        "file_count": len(file_names),
+        "file_categories": sorted(categories),
+        "files": file_names,
+    }
 
 
 def get_students() -> dict:
@@ -106,7 +115,14 @@ def get_students() -> dict:
 
     result_storage.store(result_id, students, result)
 
-    return result.to_llm_response()
+    return {
+        "tool_name": "get_students",
+        "result_id": result_id,
+        "result_summary": result.result_summary,
+        "success": True,
+        "student_count": len(students),
+        "student_ids": student_ids,
+    }
 
 
 def get_test_scores(quarter: int) -> dict:
@@ -115,7 +131,19 @@ def get_test_scores(quarter: int) -> dict:
 
     validation = validate_quarter(quarter)
     if not validation.is_valid:
-        return build_error_response("get_test_scores", validation.error_message)
+        return {
+            "tool_name": "get_test_scores",
+            "result_id": "",
+            "result_summary": f"Error: {validation.error_message}",
+            "success": False,
+            "error_message": validation.error_message,
+            "quarter": quarter,
+            "student_count": 0,
+            "subjects": [],
+            "subject_stats": {},
+            "overall_average": 0.0,
+            "scores": [],
+        }
 
     scores = load_test_scores(quarter)
     subjects = VALID_CLASSES
@@ -141,7 +169,18 @@ def get_test_scores(quarter: int) -> dict:
         result,
     )
 
-    return result.to_llm_response()
+    return {
+        "tool_name": "get_test_scores",
+        "result_id": result_id,
+        "result_summary": result.result_summary,
+        "success": True,
+        "quarter": quarter,
+        "student_count": analysis.record_count,
+        "subjects": subjects,
+        "subject_stats": stats,
+        "overall_average": analysis.overall_mean,
+        "scores": scores,
+    }
 
 
 def get_grade_report(quarter: int) -> dict:
@@ -150,7 +189,17 @@ def get_grade_report(quarter: int) -> dict:
 
     validation = validate_quarter(quarter)
     if not validation.is_valid:
-        return build_error_response("get_grade_report", validation.error_message)
+        return {
+            "tool_name": "get_grade_report",
+            "result_id": "",
+            "result_summary": f"Error: {validation.error_message}",
+            "success": False,
+            "error_message": validation.error_message,
+            "quarter": quarter,
+            "student_count": 0,
+            "grade_distribution": {},
+            "reports": [],
+        }
 
     reports = load_grade_report(quarter)
     distribution = calculate_grade_distribution(reports, VALID_CLASSES)
@@ -172,7 +221,16 @@ def get_grade_report(quarter: int) -> dict:
         result,
     )
 
-    return result.to_llm_response()
+    return {
+        "tool_name": "get_grade_report",
+        "result_id": result_id,
+        "result_summary": result.result_summary,
+        "success": True,
+        "quarter": quarter,
+        "student_count": len(reports),
+        "grade_distribution": distribution.overall,
+        "reports": reports,
+    }
 
 
 def get_curriculum(quarter: int) -> dict:
@@ -181,7 +239,17 @@ def get_curriculum(quarter: int) -> dict:
 
     validation = validate_quarter(quarter)
     if not validation.is_valid:
-        return build_error_response("get_curriculum", validation.error_message)
+        return {
+            "tool_name": "get_curriculum",
+            "result_id": "",
+            "result_summary": f"Error: {validation.error_message}",
+            "success": False,
+            "error_message": validation.error_message,
+            "quarter": quarter,
+            "subjects": [],
+            "average_completion": 0.0,
+            "curriculum_data": {},
+        }
 
     curriculum = load_curriculum(quarter)
     subjects = list(curriculum["classes"].keys())
@@ -201,7 +269,16 @@ def get_curriculum(quarter: int) -> dict:
 
     result_storage.store(result_id, curriculum, result)
 
-    return result.to_llm_response()
+    return {
+        "tool_name": "get_curriculum",
+        "result_id": result_id,
+        "result_summary": result.result_summary,
+        "success": True,
+        "quarter": quarter,
+        "subjects": subjects,
+        "average_completion": avg_completion,
+        "curriculum_data": curriculum,
+    }
 
 
 def _collect_student_data(student_id: str) -> tuple[list[dict], list[dict], list[dict]]:
@@ -238,10 +315,23 @@ def analyze_student_performance(student_id: str) -> dict:
     all_scores, all_grades, all_advice = _collect_student_data(student_id)
 
     if not all_scores:
-        return build_error_response(
-            "analyze_student_performance",
-            f"Student {student_id} not found in records.",
-        )
+        return {
+            "tool_name": "analyze_student_performance",
+            "result_id": "",
+            "result_summary": f"Error: Student {student_id} not found in records.",
+            "success": False,
+            "error_message": f"Student {student_id} not found in records.",
+            "student_id": student_id,
+            "quarters_analyzed": [],
+            "overall_average": 0.0,
+            "subject_averages": {},
+            "strongest_subject": "",
+            "weakest_subject": "",
+            "trends": {},
+            "quarterly_scores": [],
+            "quarterly_grades": [],
+            "teacher_advice": [],
+        }
 
     subjects = VALID_CLASSES
     performance = analyze_student_scores(all_scores, subjects)
@@ -270,7 +360,22 @@ def analyze_student_performance(student_id: str) -> dict:
 
     result_storage.store(result_id, detailed_data, result)
 
-    return result.to_llm_response()
+    return {
+        "tool_name": "analyze_student_performance",
+        "result_id": result_id,
+        "result_summary": result.result_summary,
+        "success": True,
+        "student_id": student_id,
+        "quarters_analyzed": [1, 2, 3, 4],
+        "overall_average": performance.overall_average,
+        "subject_averages": performance.subject_averages,
+        "strongest_subject": performance.strongest_subject,
+        "weakest_subject": performance.weakest_subject,
+        "trends": performance.trends,
+        "quarterly_scores": all_scores,
+        "quarterly_grades": all_grades,
+        "teacher_advice": all_advice,
+    }
 
 
 def _collect_class_data(class_name: str) -> tuple[list[dict], list[dict]]:
@@ -310,14 +415,25 @@ def analyze_class_performance(class_name: str) -> dict:
 
     validation = validate_class_name(class_name)
     if not validation.is_valid:
-        return build_error_response("analyze_class_performance", validation.error_message)
+        return {
+            "tool_name": "analyze_class_performance",
+            "result_id": "",
+            "result_summary": f"Error: {validation.error_message}",
+            "success": False,
+            "error_message": validation.error_message,
+            "class_name": class_name,
+            "quarters_analyzed": [],
+            "class_average": 0.0,
+            "top_performer_id": "",
+            "top_performer_avg": 0.0,
+            "curriculum_completion_avg": 0.0,
+            "student_averages": [],
+            "quarterly_averages": [],
+        }
 
     class_name = validation.value
 
     all_scores, curriculum_completion = _collect_class_data(class_name)
-
-    from src.service.tools.functions import analyze_class_scores
-
     class_analysis = analyze_class_scores(all_scores, class_name)
 
     avg_curriculum = round(
@@ -352,7 +468,20 @@ def analyze_class_performance(class_name: str) -> dict:
 
     result_storage.store(result_id, detailed_data, result)
 
-    return result.to_llm_response()
+    return {
+        "tool_name": "analyze_class_performance",
+        "result_id": result_id,
+        "result_summary": result.result_summary,
+        "success": True,
+        "class_name": class_name,
+        "quarters_analyzed": [1, 2, 3, 4],
+        "class_average": class_analysis.class_average,
+        "top_performer_id": class_analysis.top_performer_id,
+        "top_performer_avg": class_analysis.top_performer_avg,
+        "curriculum_completion_avg": avg_curriculum,
+        "student_averages": class_analysis.student_averages,
+        "quarterly_averages": class_analysis.quarterly_averages,
+    }
 
 
 def get_result_details(result_id: str) -> dict:
@@ -361,7 +490,16 @@ def get_result_details(result_id: str) -> dict:
 
     validation = validate_result_id(result_id, result_storage.list_ids())
     if not validation.is_valid:
-        return build_error_response("get_result_details", validation.error_message)
+        return {
+            "tool_name": "get_result_details",
+            "result_id": "",
+            "result_summary": f"Error: {validation.error_message}",
+            "success": False,
+            "error_message": validation.error_message,
+            "original_result_id": result_id,
+            "data_type": "unknown",
+            "detailed_data": None,
+        }
 
     stored = result_storage.get(result_id)
     data, metadata = stored
@@ -375,12 +513,15 @@ def get_result_details(result_id: str) -> dict:
         data_type=metadata.tool_name if metadata else "unknown",
     )
 
-    return build_success_response(
-        "get_result_details",
-        new_result_id,
-        result.result_summary,
-        detailed_data=data,
-    )
+    return {
+        "tool_name": "get_result_details",
+        "result_id": new_result_id,
+        "result_summary": result.result_summary,
+        "success": True,
+        "original_result_id": result_id,
+        "data_type": metadata.tool_name if metadata else "unknown",
+        "detailed_data": data,
+    }
 
 
 def _collect_comparison_data(
@@ -421,10 +562,19 @@ def compare_students(student_id_1: str, student_id_2: str) -> dict:
             missing.append(truncate_id(student_id_1))
         if not student2_data:
             missing.append(truncate_id(student_id_2))
-        return build_error_response(
-            "compare_students",
-            f"Student(s) not found: {', '.join(missing)}...",
-        )
+        return {
+            "tool_name": "compare_students",
+            "result_id": "",
+            "result_summary": f"Error: Student(s) not found: {', '.join(missing)}...",
+            "success": False,
+            "error_message": f"Student(s) not found: {', '.join(missing)}...",
+            "student1_id": student_id_1,
+            "student2_id": student_id_2,
+            "comparison": {},
+            "overall_averages": {},
+            "student1_scores": [],
+            "student2_scores": [],
+        }
 
     subjects = VALID_CLASSES
     comparison_result = compare_two_students(student1_data, student2_data, subjects)
@@ -433,12 +583,6 @@ def compare_students(student_id_1: str, student_id_2: str) -> dict:
 
     summary_parts = format_comparison_summary(comparison_result["comparison"], subjects)
     overall = comparison_result["overall_averages"]
-
-    result = build_success_response(
-        "compare_students",
-        result_id,
-        f"Comparison complete. Overall: S1={overall['student1']}, S2={overall['student2']}. {summary_parts}",
-    )
 
     detailed_data = {
         "student1_id": student_id_1,
@@ -451,7 +595,18 @@ def compare_students(student_id_1: str, student_id_2: str) -> dict:
 
     result_storage.store(result_id, detailed_data, None)
 
-    return result
+    return {
+        "tool_name": "compare_students",
+        "result_id": result_id,
+        "result_summary": f"Comparison complete. Overall: S1={overall['student1']}, S2={overall['student2']}. {summary_parts}",
+        "success": True,
+        "student1_id": student_id_1,
+        "student2_id": student_id_2,
+        "comparison": comparison_result["comparison"],
+        "overall_averages": overall,
+        "student1_scores": student1_data,
+        "student2_scores": student2_data,
+    }
 
 
 def _collect_filtered_scores(
@@ -491,18 +646,57 @@ def filter_scores(
 
     class_validation = validate_classes(classes)
     if not class_validation.is_valid:
-        return build_error_response("filter_scores", class_validation.error_message)
+        return {
+            "tool_name": "filter_scores",
+            "result_id": "",
+            "result_summary": f"Error: {class_validation.error_message}",
+            "success": False,
+            "error_message": class_validation.error_message,
+            "record_count": 0,
+            "unique_students": 0,
+            "unique_quarters": 0,
+            "overall_average": 0.0,
+            "filters_applied": {},
+            "subject_stats": {},
+            "scores": [],
+        }
     classes = class_validation.value
 
     quarter_validation = validate_quarters(quarters)
     if not quarter_validation.is_valid:
-        return build_error_response("filter_scores", quarter_validation.error_message)
+        return {
+            "tool_name": "filter_scores",
+            "result_id": "",
+            "result_summary": f"Error: {quarter_validation.error_message}",
+            "success": False,
+            "error_message": quarter_validation.error_message,
+            "record_count": 0,
+            "unique_students": 0,
+            "unique_quarters": 0,
+            "overall_average": 0.0,
+            "filters_applied": {},
+            "subject_stats": {},
+            "scores": [],
+        }
     quarters = quarter_validation.value
 
     all_scores = _collect_filtered_scores(classes, student_ids, quarters)
 
     if not all_scores:
-        return build_error_response("filter_scores", "No data found matching the specified filters.")
+        return {
+            "tool_name": "filter_scores",
+            "result_id": "",
+            "result_summary": "Error: No data found matching the specified filters.",
+            "success": False,
+            "error_message": "No data found matching the specified filters.",
+            "record_count": 0,
+            "unique_students": 0,
+            "unique_quarters": 0,
+            "overall_average": 0.0,
+            "filters_applied": {"classes": classes, "student_ids": student_ids, "quarters": quarters},
+            "subject_stats": {},
+            "scores": [],
+        }
 
     analysis = analyze_scores(all_scores, classes)
 
@@ -512,12 +706,6 @@ def filter_scores(
 
     context = format_filter_context(classes, student_ids, quarters)
     result_id = generate_result_id("filter_scores", context)
-
-    result = build_success_response(
-        "filter_scores",
-        result_id,
-        f"Filtered data: {analysis.record_count} records, {analysis.unique_students} students, {analysis.unique_quarters} quarters, {len(classes)} classes. Overall avg: {analysis.overall_mean}",
-    )
 
     detailed_data = {
         "filters": {
@@ -535,7 +723,19 @@ def filter_scores(
 
     result_storage.store(result_id, detailed_data, None)
 
-    return result
+    return {
+        "tool_name": "filter_scores",
+        "result_id": result_id,
+        "result_summary": f"Filtered data: {analysis.record_count} records, {analysis.unique_students} students, {analysis.unique_quarters} quarters, {len(classes)} classes. Overall avg: {analysis.overall_mean}",
+        "success": True,
+        "record_count": analysis.record_count,
+        "unique_students": analysis.unique_students,
+        "unique_quarters": analysis.unique_quarters,
+        "overall_average": analysis.overall_mean,
+        "filters_applied": {"classes": classes, "student_ids": student_ids, "quarters": quarters},
+        "subject_stats": stats,
+        "scores": all_scores,
+    }
 
 
 def _collect_filtered_grades(
@@ -587,18 +787,60 @@ def filter_grades(
 
     class_validation = validate_classes(classes)
     if not class_validation.is_valid:
-        return build_error_response("filter_grades", class_validation.error_message)
+        return {
+            "tool_name": "filter_grades",
+            "result_id": "",
+            "result_summary": f"Error: {class_validation.error_message}",
+            "success": False,
+            "error_message": class_validation.error_message,
+            "record_count": 0,
+            "unique_students": 0,
+            "unique_quarters": 0,
+            "filters_applied": {},
+            "overall_distribution": {},
+            "class_distribution": {},
+            "grades": [],
+            "teacher_advice": [],
+        }
     classes = class_validation.value
 
     quarter_validation = validate_quarters(quarters)
     if not quarter_validation.is_valid:
-        return build_error_response("filter_grades", quarter_validation.error_message)
+        return {
+            "tool_name": "filter_grades",
+            "result_id": "",
+            "result_summary": f"Error: {quarter_validation.error_message}",
+            "success": False,
+            "error_message": quarter_validation.error_message,
+            "record_count": 0,
+            "unique_students": 0,
+            "unique_quarters": 0,
+            "filters_applied": {},
+            "overall_distribution": {},
+            "class_distribution": {},
+            "grades": [],
+            "teacher_advice": [],
+        }
     quarters = quarter_validation.value
 
     all_grades, all_advice = _collect_filtered_grades(classes, student_ids, quarters)
 
     if not all_grades:
-        return build_error_response("filter_grades", "No data found matching the specified filters.")
+        return {
+            "tool_name": "filter_grades",
+            "result_id": "",
+            "result_summary": "Error: No data found matching the specified filters.",
+            "success": False,
+            "error_message": "No data found matching the specified filters.",
+            "record_count": 0,
+            "unique_students": 0,
+            "unique_quarters": 0,
+            "filters_applied": {"classes": classes, "student_ids": student_ids, "quarters": quarters},
+            "overall_distribution": {},
+            "class_distribution": {},
+            "grades": [],
+            "teacher_advice": [],
+        }
 
     distribution = calculate_grade_distribution(all_grades, classes)
 
@@ -609,12 +851,6 @@ def filter_grades(
     result_id = generate_result_id("filter_grades", context)
 
     dist_str = format_grade_distribution(distribution.overall)
-
-    result = build_success_response(
-        "filter_grades",
-        result_id,
-        f"Filtered grades: {len(all_grades)} records, {unique_students} students, {unique_quarters} quarters. Distribution: {dist_str}",
-    )
 
     detailed_data = {
         "filters": {
@@ -633,7 +869,20 @@ def filter_grades(
 
     result_storage.store(result_id, detailed_data, None)
 
-    return result
+    return {
+        "tool_name": "filter_grades",
+        "result_id": result_id,
+        "result_summary": f"Filtered grades: {len(all_grades)} records, {unique_students} students, {unique_quarters} quarters. Distribution: {dist_str}",
+        "success": True,
+        "record_count": len(all_grades),
+        "unique_students": unique_students,
+        "unique_quarters": unique_quarters,
+        "filters_applied": {"classes": classes, "student_ids": student_ids, "quarters": quarters},
+        "overall_distribution": distribution.overall,
+        "class_distribution": distribution.by_class,
+        "grades": all_grades,
+        "teacher_advice": all_advice,
+    }
 
 
 def _collect_filtered_curriculum(
@@ -670,18 +919,51 @@ def filter_curriculum(
 
     class_validation = validate_classes(classes)
     if not class_validation.is_valid:
-        return build_error_response("filter_curriculum", class_validation.error_message)
+        return {
+            "tool_name": "filter_curriculum",
+            "result_id": "",
+            "result_summary": f"Error: {class_validation.error_message}",
+            "success": False,
+            "error_message": class_validation.error_message,
+            "record_count": 0,
+            "average_completion": 0.0,
+            "filters_applied": {},
+            "class_completion": {},
+            "curriculum": [],
+        }
     classes = class_validation.value
 
     quarter_validation = validate_quarters(quarters)
     if not quarter_validation.is_valid:
-        return build_error_response("filter_curriculum", quarter_validation.error_message)
+        return {
+            "tool_name": "filter_curriculum",
+            "result_id": "",
+            "result_summary": f"Error: {quarter_validation.error_message}",
+            "success": False,
+            "error_message": quarter_validation.error_message,
+            "record_count": 0,
+            "average_completion": 0.0,
+            "filters_applied": {},
+            "class_completion": {},
+            "curriculum": [],
+        }
     quarters = quarter_validation.value
 
     curriculum_data = _collect_filtered_curriculum(classes, quarters)
 
     if not curriculum_data:
-        return build_error_response("filter_curriculum", "No data found matching the specified filters.")
+        return {
+            "tool_name": "filter_curriculum",
+            "result_id": "",
+            "result_summary": "Error: No data found matching the specified filters.",
+            "success": False,
+            "error_message": "No data found matching the specified filters.",
+            "record_count": 0,
+            "average_completion": 0.0,
+            "filters_applied": {"classes": classes, "quarters": quarters},
+            "class_completion": {},
+            "curriculum": [],
+        }
 
     completion_rates = calculate_curriculum_completion(curriculum_data)
     avg_completion = round(
@@ -691,12 +973,6 @@ def filter_curriculum(
 
     context = format_filter_context(classes, None, quarters)
     result_id = generate_result_id("filter_curriculum", context)
-
-    result = build_success_response(
-        "filter_curriculum",
-        result_id,
-        f"Filtered curriculum: {len(curriculum_data)} records, {len(classes)} classes, {len(quarters)} quarters. Avg completion: {avg_completion}%",
-    )
 
     detailed_data = {
         "filters": {
@@ -711,4 +987,14 @@ def filter_curriculum(
 
     result_storage.store(result_id, detailed_data, None)
 
-    return result
+    return {
+        "tool_name": "filter_curriculum",
+        "result_id": result_id,
+        "result_summary": f"Filtered curriculum: {len(curriculum_data)} records, {len(classes)} classes, {len(quarters)} quarters. Avg completion: {avg_completion}%",
+        "success": True,
+        "record_count": len(curriculum_data),
+        "average_completion": avg_completion,
+        "filters_applied": {"classes": classes, "quarters": quarters},
+        "class_completion": completion_rates,
+        "curriculum": curriculum_data,
+    }

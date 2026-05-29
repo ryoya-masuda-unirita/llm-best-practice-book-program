@@ -1,10 +1,13 @@
-from src.service.llm_as_a_judge import judge_with_gemini, judge_with_openai
-from src.service.request_llm import request_gemini, request_openai, request_with_judge
+__all__ = ["request_openai", "TemplateEngine"]
 
-__all__ = [
-    "request_openai",
-    "request_gemini",
-    "request_with_judge",
-    "judge_with_openai",
-    "judge_with_gemini",
-]
+
+def __getattr__(name):
+    if name == "request_openai":
+        from src.service.request_llm import request_openai
+
+        return request_openai
+    elif name == "TemplateEngine":
+        from src.service.template_engine import TemplateEngine
+
+        return TemplateEngine
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

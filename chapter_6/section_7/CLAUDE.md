@@ -1,53 +1,54 @@
-# Tool Chain Function Calling Pattern
+# AI Agent Memory Update Strategies
 
 ## Overview
 
-This project demonstrates the **Tool Chain** pattern for LLM function calling. Instead of returning intermediate results to the LLM after each function call, the system executes a chain of tools defined by the LLM upfront, only returning the final result. This reduces token consumption and improves latency.
-
-The implementation uses a school data analysis system as a use case, with tools for analyzing student records, test scores, grade reports, and curriculum data.
+This project implements four memory update strategies for multi-agent AI systems where agents share file-based memory. Since LLM inference takes seconds to tens of seconds, race conditions are more likely than in traditional web applications. This implementation provides exclusive control using an external "Lock Manager" and an append-only data structure approach.
 
 ## Architecture
 
 ```
-+------------------------------------------------------------------+
-|                        User Request                               |
-+------------------------------------------------------------------+
-                              |
-                              v
-+------------------------------------------------------------------+
-|                        Gemini LLM                                 |
-|  +------------------------------------------------------------+  |
-|  | 1. Parse tool metadata                                     |  |
-|  | 2. Output Tool Chain definition (JSON structured output)   |  |
-|  | 3. Generate final report after chain execution             |  |
-|  +------------------------------------------------------------+  |
-+------------------------------------------------------------------+
-                              |
-                              v
-+------------------------------------------------------------------+
-|                   Tool Chain Executor                             |
-|  +------------------------------------------------------------+  |
-|  | validate_chain() -> dry_run() -> execute()                 |  |
-|  +------------------------------------------------------------+  |
-|                                                                   |
-|  +------------------------------------------------------------+  |
-|  |            Data Flow (Bucket Relay Pattern)                |  |
-|  |                                                            |  |
-|  |  +--------+  output_keys   +--------+   output_keys        |  |
-|  |  | Tool A | ------------> | Tool B | -----------> ...      |  |
-|  |  +--------+  input_mapping +--------+                      |  |
-|  |                                                            |  |
-|  +------------------------------------------------------------+  |
-+------------------------------------------------------------------+
-                              |
-                              v
-+------------------------------------------------------------------+
-|                     Session Cache                                 |
-|  +------------------------------------------------------------+  |
-|  | result_id -> detailed_data mapping                         |  |
-|  | (LLM context receives only result_id and summary)          |  |
-|  +------------------------------------------------------------+  |
-+------------------------------------------------------------------+
++-------------------------------------------------------------------------+
+|                          AI Agent System                                |
++-------------------------------------------------------------------------+
+|                                                                         |
+|  +---------------+  +---------------+  +---------------+                |
+|  |   Agent A     |  |   Agent B     |  |   Agent C     |                |
+|  | (priority=50) |  | (priority=50) |  | (priority=100)|                |
+|  +-------+-------+  +-------+-------+  +-------+-------+                |
+|          |                  |                  |                        |
+|          +--------+---------+------------------+                        |
+|                   |                                                     |
+|                   v                                                     |
+|         +------------------------+                                      |
+|         |    Memory Strategy     |                                      |
+|         +------------------------+                                      |
+|         | +--------------------+ |                                      |
+|         | | Conservative Lock  | |  Safest, long blocking               |
+|         | +--------------------+ |                                      |
+|         | +--------------------+ |                                      |
+|         | | Optimistic Lock    | |  High concurrency, retry on conflict |
+|         | +--------------------+ |                                      |
+|         | +--------------------+ |                                      |
+|         | | Preemptible Lock   | |  Priority-based, emergency handling  |
+|         | +--------------------+ |                                      |
+|         | +--------------------+ |                                      |
+|         | | Immutable Memory   | |  Append-only, no locks needed        |
+|         | +--------------------+ |                                      |
+|         +-----------+------------+                                      |
+|                     |                                                   |
+|                     v                                                   |
+|         +------------------------+                                      |
+|         |    Lock Manager        |                                      |
+|         |   (LocalDict/Redis)    |                                      |
+|         +-----------+------------+                                      |
+|                     |                                                   |
+|                     v                                                   |
+|         +------------------------+                                      |
+|         |   File System / JSON   |                                      |
+|         |      (memory/*.json)   |                                      |
+|         +------------------------+                                      |
+|                                                                         |
++-------------------------------------------------------------------------+
 ```
 
 ### Directory Structure
@@ -55,104 +56,78 @@ The implementation uses a school data analysis system as a use case, with tools 
 ```
 chapter_6/section_7/
 |-- src/
-|   |-- main.py                  # CLI entry point (Click)
-|   |-- config.py                # Configuration (API keys via env)
-|   |-- logger.py                # Logging setup
+|   |-- __init__.py
+|   |-- main.py                    # CLI entry point (Click-based)
+|   |-- examples.py                # Demo implementations for each strategy
+|   |-- config.py                  # Configuration management (Pydantic)
+|   |-- logger.py                  # Logging setup
 |   |-- client/
-|   |   |-- __init__.py
-|   |   `-- llm_client.py        # Gemini API client setup
-|   |-- model/
-|   |   |-- __init__.py          # Model exports
-|   |   |-- model.py             # Result models (ToolResult, etc.)
-|   |   |-- schemas.py           # Pydantic I/O schemas for tools
-|   |   `-- tool_chain_models.py # Chain config/result models
-|   |-- prompt/
-|   |   |-- __init__.py
-|   |   `-- prompt.py            # System prompt and tool docs
-|   `-- service/
-|       |-- __init__.py
-|       |-- request_llm.py       # LLM request handler, chain executor
-|       `-- tools/
-|           |-- __init__.py      # Tool registry (TOOL_FUNCTIONS)
-|           |-- data_tools.py    # Data analysis tool functions
-|           |-- tool_chain.py    # ToolChainExecutor class
-|           |-- tool_metadata.py # TOOL_METADATA registry
-|           `-- functions/       # Small composable functions
-|               |-- __init__.py
-|               |-- analyzers.py
-|               |-- formatters.py
-|               |-- loaders.py
-|               `-- validators.py
-|-- data/                        # Sample school data (JSON files)
-|   |-- students.json
-|   |-- 1st_quarter_test_score.json
-|   |-- 1st_quarter_grade_report.json
-|   |-- 1st_quarter_curriculum.json
-|   `-- ... (Q2, Q3, Q4 data)
-|-- tests/                       # Test files
-|-- pyproject.toml               # Project dependencies
-|-- .envrc.example               # Environment variable template
-|-- Makefile                     # Development commands
-`-- README.md
+|   |   +-- llm_client.py          # LLM client abstraction
+|   +-- agent/
+|       |-- core/                  # Agent core functionality
+|       |   |-- agent.py           # Base agent implementation
+|       |   |-- base.py            # Abstract base classes
+|       |   |-- controller.py      # Agent controller
+|       |   |-- mediator.py        # Agent mediator pattern
+|       |   |-- memory.py          # Core memory interface
+|       |   |-- states.py          # Agent states
+|       |   +-- toolbox.py         # Tool management
+|       +-- extensions/
+|           |-- factory.py         # Agent factory
+|           |-- memory/            # Memory strategy implementations
+|           |   |-- models.py              # Data models (Pydantic)
+|           |   |-- lock_manager.py        # Lock management abstraction
+|           |   |-- conservative_lock.py   # Pessimistic locking
+|           |   |-- optimistic_lock.py     # Version-based locking
+|           |   |-- preemptible_lock.py    # Priority-based locking
+|           |   +-- immutable_memory.py    # Append-only memory
+|           |-- handlers/          # Safety handlers
+|           |-- mediators/         # Mediator implementations
+|           |-- nodes/             # Graph nodes for agents
+|           |-- strategies/        # Reasoning strategies (ReAct, CoT, ToT)
+|           +-- tools/             # Tool implementations
+|-- memory/                        # Runtime-generated memory files
+|-- pyproject.toml                 # Project configuration (uv)
+|-- Makefile                       # Development commands
++-- README.md                      # Japanese documentation
 ```
 
 ## Key Components
 
-### Tool Chain Executor (`tool_chain.py`)
+### Memory Strategies
 
-The `ToolChainExecutor` class handles chain execution:
+| Strategy | Class | Use Case |
+|----------|-------|----------|
+| Conservative Lock | `ConservativeLockMemory` | Multi-file transactions, critical data |
+| Optimistic Lock | `OptimisticLockMemory` | High-throughput, low conflict rate (<20%) |
+| Preemptible Lock | `PreemptibleLockMemory` | Emergency response, SLA requirements |
+| Immutable Memory | `ImmutableMemory`, `SessionMemory` | Chat logs, audit trails, event sourcing |
 
-- `validate_chain()` - Validates chain structure (tool existence, connectable_to rules)
-- `dry_run()` - Executes chain with test data to verify I/O compatibility
-- `execute()` - Runs chain with actual data, passing outputs between steps
+### Lock Manager
 
-### Tool Metadata (`tool_metadata.py`)
+- `LockManager` (ABC): Abstract interface for lock management
+- `LocalDictLockManager`: In-memory implementation for testing/single-process
+- Supports TTL-based auto-release, version tracking, shadow copies for preemption
 
-Each tool has metadata defining:
+### Data Models
 
-- `input_model` / `output_model` - Pydantic schemas for type safety
-- `output_keys` - Keys available for passing to connected tools
-- `connectable_to` - List of tools that can follow this one
-- `is_chain_terminal` - Whether tool typically ends a chain
-- `test_input` - Mini test data for dry run validation
-
-### Available Tools
-
-| Tool | Category | Description |
-|------|----------|-------------|
-| `list_available_data` | loader | List all data files |
-| `get_students` | loader | Get student list |
-| `get_test_scores` | loader | Get scores by quarter |
-| `get_grade_report` | loader | Get grades by quarter |
-| `get_curriculum` | loader | Get curriculum by quarter |
-| `filter_scores` | filter | Filter scores by criteria |
-| `filter_grades` | filter | Filter grades by criteria |
-| `filter_curriculum` | filter | Filter curriculum data |
-| `analyze_student_performance` | analyzer | Analyze single student |
-| `analyze_class_performance` | analyzer | Analyze class/subject |
-| `compare_students` | analyzer | Compare two students |
-| `get_result_details` | retriever | Get cached detailed data |
-
-### Request Processing (`request_llm.py`)
-
-The `process_with_tool_chain()` function:
-
-1. Sends user request to Gemini with tool metadata as context
-2. Receives structured JSON output defining the tool chain
-3. Validates and executes the chain (with dry run first)
-4. Caches detailed results, returns summary to LLM
-5. Supports multiple iterations for complex queries
-6. LLM generates final report based on collected data
+- `MemoryDocument`: Container for memory entries with metadata
+- `MemoryEntry`: Individual memory entry with type, content, agent_id
+- `MemoryEntryType`: OBSERVATION, THOUGHT, ACTION
+- `LockInfo`: Lock metadata including holder, priority, expiration
+- `ShadowCopy`: Preserved data when lock is preempted
 
 ## Dependencies
 
 | Package | Purpose |
 |---------|---------|
-| `google-genai` | Gemini API client |
-| `pydantic` | Data validation and schemas |
-| `polars` | Data processing |
-| `click` | CLI framework |
-| `python-dotenv` | Environment variable loading |
+| anthropic | Anthropic Claude API client |
+| google-genai | Google Gemini API client |
+| openai | OpenAI API client |
+| click | CLI framework |
+| pydantic | Data validation and settings |
+| polars | Data processing |
+| python-dotenv | Environment variable loading |
 
 ## Usage
 
@@ -162,8 +137,8 @@ The `process_with_tool_chain()` function:
 # Copy environment template
 cp .envrc.example .envrc
 
-# Set your Gemini API key
-# GEMINI_API_KEY=your_key_here
+# Edit .envrc and set API keys
+export GEMINI_API_KEY="your-gemini-api-key-here"
 
 # Install dependencies
 uv sync
@@ -172,81 +147,67 @@ uv sync
 ### Run
 
 ```bash
-# Basic query
-uv run python src/main.py -q "Analyze math class performance"
+# Show CLI help
+python -m src.main --help
 
-# Specify model
-uv run python src/main.py -m GEMINI_2_5_PRO -q "Compare top students"
+# Run specific strategy demo
+python -m src.main --agent example_1_agent_with_conservative_lock
+python -m src.main --agent example_2_with_optimistic_lock
+python -m src.main --agent example_3_with_preemptive_lock
+python -m src.main --agent example_4_with_immutable_memory
 
-# Save output to directory
-uv run python src/main.py -q "Quarterly analysis" -od ./output
+# Run all strategies
+python -m src.main --agent all
+
+# Specify custom memory directory
+python -m src.main --agent all --memory-directory ./custom_memory
 ```
 
 ### CLI Options
 
-| Option | Short | Description | Default |
-|--------|-------|-------------|---------|
-| `--model` | `-m` | Gemini model to use | `GEMINI_2_5_FLASH` |
-| `--query` | `-q` | Analysis query (required) | - |
-| `--output-directory` | `-od` | Save session log and result | - |
-
-Available models: `GEMINI_2_5_PRO`, `GEMINI_2_5_FLASH`, `GEMINI_2_5_FLASH_LITE`
+| Option | Short | Type | Default | Description |
+|--------|-------|------|---------|-------------|
+| `--agent` | `-a` | Choice | Required | Agent workflow to run |
+| `--memory-directory` | `-md` | Path | `memory` | Directory for memory files |
 
 ## Development Commands
 
 ```bash
-# Lint code
+# Lint code with ruff
 make lint
 
-# Format code
+# Format code with ruff
 make fmt
 
-# Lint and format
+# Run both lint and format
 make fix
 
-# Type check
+# Type check with mypy
 make mypy
 ```
 
 ## Implementation Notes
 
-### Tool Chain JSON Schema
+### Strategy Selection Guide
 
-The LLM outputs chain definitions as structured JSON:
+| Criteria | Conservative | Optimistic | Preemptible | Immutable |
+|----------|-------------|------------|-------------|-----------|
+| Data Integrity | High | Medium | Medium | High |
+| Throughput | Low | High | Medium | High |
+| Complexity | Low | Medium | High | Medium |
 
-```json
-{
-  "chain_name": "math_analysis",
-  "objective": "Analyze math class performance",
-  "steps": [
-    {"tool_name": "analyze_class_performance", "args": [{"key": "class_name", "value": "math"}]}
-  ],
-  "is_final_iteration": true
-}
-```
+### Deadlock Prevention
 
-### Data Flow Between Tools
+- `acquire_multiple_locks()` acquires locks in sorted order
+- TTL-based auto-release prevents indefinite blocking
 
-- Output keys from tool A are mapped to input fields of tool B
-- Auto-mapping occurs when output key names match input field names
-- Manual `input_mapping` can override auto-mapping
+### Conflict Handling
 
-### Context Token Optimization
+- Optimistic lock: Re-read and retry on `OptimisticLockConflictError`
+- Preemptible lock: Shadow copies preserve preempted data for reconciliation
 
-- Detailed data stored in `SessionResultCache` with `result_id`
-- LLM context only receives summaries and result IDs
-- `get_result_details` tool retrieves cached data when needed
+### Performance Considerations
 
-### Validation Flow
-
-1. **Structure validation** - Check tool names, connectable_to rules
-2. **Dry run** - Execute with test_input to verify I/O compatibility
-3. **Execution** - Run with actual data if dry run passes
-
-### Multi-Iteration Support
-
-For complex queries requiring multiple data collection steps:
-
-- LLM can set `is_final_iteration: false` to request another chain
-- Previous results are included in system prompt context
-- Maximum iterations configurable (default: 10)
+- Conservative lock: Other agents blocked during LLM inference (seconds)
+- Optimistic lock: Retry costs (tokens, time) increase with conflict rate
+- Immutable memory: Run compaction periodically to prevent file proliferation

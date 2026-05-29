@@ -1,9 +1,4 @@
-"""Execution controller with Chain of Responsibility pattern.
-
-This module defines the abstract handler interface and controller for managing
-action execution. Concrete handler implementations should be placed in the
-extensions layer.
-"""
+"""Execution controller with Chain of Responsibility pattern."""
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -30,12 +25,7 @@ class ExecutionResponse:
 
 
 class ExecutionHandler(ABC):
-    """Abstract handler in chain of responsibility.
-
-    This interface defines how execution requests are processed.
-    Concrete handlers (e.g., rate limiting, cost control) should be
-    implemented in the extensions layer.
-    """
+    """Abstract handler in chain of responsibility."""
 
     def __init__(self):
         self._next_handler: ExecutionHandler | None = None
@@ -59,11 +49,7 @@ class ExecutionHandler(ABC):
 
 
 class ExecutionController:
-    """Main execution controller that manages the chain of handlers.
-
-    This controller orchestrates a chain of ExecutionHandler instances
-    to validate and control action execution.
-    """
+    """Main execution controller that manages the chain of handlers."""
 
     def __init__(self):
         self.handlers: list[ExecutionHandler] = []

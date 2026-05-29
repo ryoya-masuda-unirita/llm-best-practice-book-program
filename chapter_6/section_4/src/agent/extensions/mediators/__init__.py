@@ -1,9 +1,3 @@
-"""Graph mediator implementations for agent coordination.
-
-This module provides concrete mediator implementations for executing
-agent graphs.
-"""
-
 from src.agent.extensions.mediators.article_pipeline import (
     ArticlePipelineMediator,
     PipelineResult,

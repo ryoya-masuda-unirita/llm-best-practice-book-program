@@ -1,14 +1,31 @@
+"""CLI entry point for running workflow examples."""
+
 import asyncio
-import os
+import sys
 from functools import wraps
-from uuid import uuid4
 
 import click
-from src.client.llm_client import GeminiModel, LLMProvider, OpenAIModel, google_genai_client
+from src.client import google_genai_client
+from src.examples import (
+    example_checkpoint_recovery,
+    example_complex_content_pipeline,
+    example_complex_research_workflow,
+    example_conditional_workflow,
+    example_gemini_simple,
+    example_loop_workflow,
+)
 from src.logger import make_logger
-from src.service import run_document_analysis_pipeline
 
 logger = make_logger(__name__)
+
+WORKFLOWS = {
+    "example_gemini_simple": example_gemini_simple,
+    "example_checkpoint_recovery": example_checkpoint_recovery,
+    "example_loop_workflow": example_loop_workflow,
+    "example_conditional_workflow": example_conditional_workflow,
+    "example_complex_content_pipeline": example_complex_content_pipeline,
+    "example_complex_research_workflow": example_complex_research_workflow,
+}
 
 
 def async_cmd(func):
@@ -21,79 +38,36 @@ def async_cmd(func):
 
 @click.command()
 @click.option(
-    "--llm-provider",
-    "-lp",
-    type=click.Choice(LLMProvider),
-    required=True,
-    default=LLMProvider.GEMINI,
-    help="The LLM provider to use.",
-)
-@click.option(
-    "--model",
-    "-m",
-    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str()),
-    required=True,
-    help="The model to use for the request.",
-)
-@click.option(
-    "--output-directory",
-    "-od",
-    type=click.Path(),
+    "--workflow",
+    "-w",
+    type=click.Choice(list(WORKFLOWS.keys()) + ["all"]),
     required=False,
-    default="outputs",
-    help="The directory to save output files.",
-)
-@click.option(
-    "--document-path",
-    "-dp",
-    type=click.Path(exists=True),
-    required=True,
-    help="Path to the markdown document to analyze.",
+    default="example_gemini_simple",
+    help="Workflow to run. Use 'all' to run all workflows.",
 )
 @async_cmd
-async def main(
-    llm_provider: LLMProvider,
-    model: str,
-    document_path: str,
-    output_directory: str = "outputs",
-):
-    logger.info(f"""LLM provider: {llm_provider.value}
-Model: {model}
-Document path: {document_path}
-Output directory: {output_directory}
-""")
-
-    if llm_provider == LLMProvider.OPENAI and model not in OpenAIModel.list_str():
-        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
-    if llm_provider == LLMProvider.GEMINI and model not in GeminiModel.list_str():
-        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
-
-    os.makedirs(output_directory, exist_ok=True)
-
-    if not document_path:
-        raise ValueError("Document path is required for pipeline mode. Use --document-path option.")
-
-    result = await run_document_analysis_pipeline(
-        document_path=document_path,
-        llm_provider=llm_provider,
-        model=model,
-    )
-
-    if result is None:
-        raise ValueError("Document analysis pipeline failed. Check logs for details.")
-
-    base_name = f"{llm_provider.value}_analysis_{uuid4().hex}"
-    json_file_path = os.path.join(output_directory, f"{base_name}.json")
-    md_file_path = os.path.join(output_directory, f"{base_name}.md")
-
-    result.save_as_json(json_file_path)
-    result.save_as_markdown(md_file_path)
-
-    logger.info(f"""Analysis results saved:
-JSON: {json_file_path}
-Markdown: {md_file_path}""")
-
-    if llm_provider == LLMProvider.GEMINI:
+async def main(workflow: str):
+    """Run workflow orchestration examples."""
+    try:
+        if workflow == "all":
+            logger.info("Running all workflows...")
+            for name, func in WORKFLOWS.items():
+                logger.info(f"\n{'=' * 60}\nRunning: {name}\n{'=' * 60}")
+                result = await func()
+                logger.info(f"Completed: {result.get('status')} ({result.get('nodes_executed')} nodes)")
+                await asyncio.sleep(1)
+            logger.info("\n" + "=" * 60 + "\nALL WORKFLOWS COMPLETED\n" + "=" * 60)
+        else:
+            if workflow not in WORKFLOWS:
+                logger.error(f"Unknown workflow: {workflow}")
+                sys.exit(1)
+            logger.info(f"Running: {workflow}")
+            result = await WORKFLOWS[workflow]()
+            logger.info(f"Completed: {result.get('status')} ({result.get('nodes_executed')} nodes)")
+    except Exception as e:
+        logger.error(f"Failed: {e}", exc_info=True)
+        sys.exit(1)
+    finally:
         await google_genai_client.aio.aclose()
 
 

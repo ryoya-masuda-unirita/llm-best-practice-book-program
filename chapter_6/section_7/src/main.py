@@ -1,27 +1,31 @@
-"""
-Data Analysis LLM Application
-
-A CLI for analyzing school data using Gemini with function calling.
-Demonstrates the ID reference pattern and composite functions for efficient LLM tool usage.
-"""
+"""Main entry point for running workflow examples."""
 
 import asyncio
-import json
-import uuid
-from datetime import datetime
+import sys
 from functools import wraps
-from pathlib import Path
 
 import click
-from google.genai import types
-from src.client import GeminiModel, google_genai_client
+from src.examples import (
+    example_1_agent_with_conservative_lock,
+    example_2_with_optimistic_lock,
+    example_3_with_preemptive_lock,
+    example_4_with_immutable_memory,
+)
 from src.logger import make_logger
-from src.service.request_llm import SessionResultCache, process_with_tool_chain
 
 logger = make_logger(__name__)
 
+AGENTS = {
+    "example_1_agent_with_conservative_lock": example_1_agent_with_conservative_lock,
+    "example_2_with_optimistic_lock": example_2_with_optimistic_lock,
+    "example_3_with_preemptive_lock": example_3_with_preemptive_lock,
+    "example_4_with_immutable_memory": example_4_with_immutable_memory,
+}
+
 
 def async_cmd(func):
+    """Decorator to run async functions with click."""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         return asyncio.run(func(*args, **kwargs))
@@ -29,154 +33,59 @@ def async_cmd(func):
     return wrapper
 
 
-def content_to_dict(content: types.Content) -> dict:
-    """Convert a Content object to a JSON-serializable dict."""
-    parts_data = []
-    for part in content.parts:
-        part_dict = {}
-        if part.text:
-            part_dict["text"] = part.text
-        if part.function_call:
-            part_dict["function_call"] = {
-                "name": part.function_call.name,
-                "args": dict(part.function_call.args) if part.function_call.args else {},
-            }
-        if part.function_response:
-            part_dict["function_response"] = {
-                "name": part.function_response.name,
-                "response": part.function_response.response,
-            }
-        parts_data.append(part_dict)
-
-    return {
-        "role": content.role,
-        "parts": parts_data,
-    }
-
-
-def serialize_session_context(
-    session_id: str,
-    model: str,
-    query: str,
-    conversation_history: list[types.Content],
-    session_cache: SessionResultCache,
-    response_text: str,
-    start_time: datetime,
-    end_time: datetime,
-) -> dict:
-    """Serialize session context to a JSON-serializable dict."""
-    return {
-        "session_id": session_id,
-        "model": model,
-        "query": query,
-        "start_time": start_time.isoformat(),
-        "end_time": end_time.isoformat(),
-        "duration_seconds": (end_time - start_time).total_seconds(),
-        "conversation_history": [content_to_dict(c) for c in conversation_history],
-        "session_cache": {
-            "result_ids": list(session_cache.results.keys()),
-            "results": session_cache.results,
-        },
-        "response_length": len(response_text),
-    }
-
-
-def save_session_outputs(
-    output_dir: Path,
-    session_id: str,
-    session_context: dict,
-    response_text: str,
-) -> tuple[Path, Path]:
-    """Save session log (JSON) and result (Markdown) to output directory."""
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    log_path = output_dir / f"{session_id}_session_log.json"
-    with open(log_path, "w", encoding="utf-8") as f:
-        json.dump(session_context, f, ensure_ascii=False, indent=2)
-
-    result_path = output_dir / f"{session_id}_result.md"
-    with open(result_path, "w", encoding="utf-8") as f:
-        f.write(response_text)
-
-    return log_path, result_path
-
-
 @click.command()
 @click.option(
-    "--model",
-    "-m",
-    type=click.Choice(GeminiModel.list_str()),
-    required=False,
-    default=GeminiModel.GEMINI_2_5_FLASH,
-    help="The Gemini model to use for analysis.",
-)
-@click.option(
-    "--query",
-    "-q",
-    type=str,
+    "--agent",
+    "-a",
+    type=click.Choice(list(AGENTS.keys()) + ["all"]),
     required=True,
-    help="The query to analyze.",
+    help="The agent workflow to run.",
 )
 @click.option(
-    "--output-directory",
-    "-od",
-    type=click.Path(path_type=Path),
+    "--memory-directory",
+    "-md",
+    type=click.Path(),
     required=False,
-    default=None,
-    help="Directory to save session log (JSON) and result (Markdown). Files are named with UUID prefix.",
+    default="memory",
+    help="The directory to save memory files.",
 )
 @async_cmd
-async def main(model: str, query: str, output_directory: Path | None):
-    """
-    Data analysis assistant powered by Gemini.
+async def main(
+    agent: str,
+    memory_directory: str,
+):
+    if agent == "all":
+        logger.info("Running all agent examples...\n")
 
-    Analyzes school data including student records, test scores,
-    grade reports, and curriculum information.
-    """
-    session_id = str(uuid.uuid4())
-    start_time = datetime.now()
+        for name, agent_func in AGENTS.items():
+            logger.info(f"\n{'=' * 60}")
+            logger.info(f"Running workflow: {name}")
+            logger.info(f"{'=' * 60}\n")
 
-    logger.info(f"Session ID: {session_id}")
-    logger.info(f"Starting data analysis with model: {model}")
-    logger.info(f"Query: {query}")
+            ts_log = agent_func(memory_directory=memory_directory)
 
-    conversation_history: list[types.Content] = []
-    session_cache = SessionResultCache()
+            logger.info(f"\n✓ Agent '{name}' completed successfully")
+            ts_log.print_log()
 
-    response, conversation_history, session_cache = await process_with_tool_chain(
-        model=model,
-        user_message=query,
-        conversation_history=conversation_history,
-        session_cache=session_cache,
-    )
+            await asyncio.sleep(1)
 
-    end_time = datetime.now()
+        logger.info("\n" + "=" * 60)
+        logger.info("ALL AGENTS COMPLETED SUCCESSFULLY")
+        logger.info("=" * 60)
 
-    click.echo(response)
+    else:
+        if agent not in AGENTS:
+            logger.error(f"Unknown agent: {agent}")
+            logger.info(f"Available agents: {', '.join(AGENTS.keys())}, all")
+            sys.exit(1)
 
-    if output_directory:
-        session_context = serialize_session_context(
-            session_id=session_id,
-            model=model,
-            query=query,
-            conversation_history=conversation_history,
-            session_cache=session_cache,
-            response_text=response,
-            start_time=start_time,
-            end_time=end_time,
-        )
+        logger.info(f"Running agent: {agent}\n")
 
-        log_path, result_path = save_session_outputs(
-            output_dir=output_directory,
-            session_id=session_id,
-            session_context=session_context,
-            response_text=response,
-        )
+        agent_func = AGENTS[agent]
+        ts_log = agent_func(memory_directory=memory_directory)
 
-        click.echo(f"\nSession log saved: {log_path}")
-        click.echo(f"Result saved: {result_path}")
-
-    await google_genai_client.aio.aclose()
+        logger.info(f"\n✓ Agent '{agent}' completed successfully")
+        ts_log.print_log()
 
 
 if __name__ == "__main__":

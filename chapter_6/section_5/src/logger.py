@@ -6,7 +6,7 @@ if isinstance(LOG_LEVEL, str):
     LOG_LEVEL = LOG_LEVEL.upper()
 
 
-def make_logger(name: str) -> logging.Logger:
+def make_logger(name) -> logging.Logger:
     logger = logging.getLogger(name)
     logger.setLevel(LOG_LEVEL)
     formatter = logging.Formatter(

@@ -1,59 +1,84 @@
-# Chapter 2 Section 7: LLM出力をストリーミングにする
+# Chapter 2 Section 8: LLMでLLMを評価する（LLM-as-a-Judge）
 
 ## 概要
 
-このプロジェクトは、**FastAPI**を使用したLLM（大規模言語モデル）の**ストリーミング・非ストリーミングレスポンス**実装を示すサンプルコードです。OpenAI GPT-5.4-miniに対応し、以下の2つのモードでテキスト生成結果をクライアントに配信します：
+このプロジェクトは、**LLM-as-a-Judge**（LLMを審査員として活用する設計手法）の実装を示すサンプルコードです。LLMが生成したコンテンツを別のLLMが自動的に評価することで、品質管理の自動化と効率化を実現します。
 
-- **ストリーミングモード**: Server-Sent Events (SSE)形式でリアルタイムにテキストを配信
-- **非ストリーミングモード**: 完全な応答を一度に返す従来型のレスポンス
-
-ストリーミング機能により、ユーザーは完全な応答を待つことなく、生成されたテキストを逐次的に受け取ることができ、より良いユーザーエクスペリエンスを提供できます。一方、非ストリーミングモードは、完全な応答が必要な場合や、シンプルな実装が求められる場合に適しています。
+OpenAI、Google Gemini、Anthropic Claudeの3つのプロバイダーに対応し、**クロスプロバイダー評価**（異なるプロバイダーで生成と評価を行う）もサポートしています。キャラクター生成という具体的なユースケースを通じて、LLM-as-a-Judgeの実践的な実装方法を学ぶことができます。
 
 ## 機能
 
-- **ストリーミングレスポンス**: Server-Sent Events (SSE)形式でリアルタイムにテキストを配信
-- **非ストリーミングレスポンス**: 完全な応答を一度に返すJSONレスポンス
-- **FastAPI統合**: 高性能な非同期WebフレームワークによるAPI実装
-- **OpenAI API対応**: GPT-5.4-mini, GPT-5.4などのOpenAIモデルをサポート
-- **複数のエンドポイント**: ストリーミング (`/stream`) と非ストリーミング (`/completions`) を提供
-- **非同期処理**: async/awaitパターンによる効率的な処理
-- **CORS対応**: クロスオリジンリクエストのサポート
-- **エラーハンドリング**: 堅牢なエラー処理とロギング
-- **統合テストクライアント**: ストリーミング・非ストリーミング両方をサポートするCLIツール
-- **包括的なテスト**: pytestによるユニットテスト・統合テスト
+### 基本機能
+- **自動品質評価**: 生成されたすべてのキャラクターを自動的に評価
+- **構造化評価結果**: JSON形式で詳細な評価結果を出力
+- **3つの評価軸**: 正確性（accuracy）、網羅性（comprehensiveness）、明瞭さ（clarity）
+- **スコアリング**: 1-5点の5段階評価と総合スコア算出
+- **品質閾値チェック**: 設定した閾値（デフォルト3.0/5.0）を下回る場合に警告
+
+### 高度な機能
+- **クロスプロバイダー評価**: 異なるLLMプロバイダーで生成と評価を実行
+- **リクエストパラメータ評価**: 生成されたキャラクターが元のリクエスト要件（性別、年齢、追加指示）を満たしているかを自動検証
+- **カスタム評価基準**: プログラマティックAPIでドメイン固有の評価基準を定義可能
+- **温度パラメータ制御**: 評価の一貫性を高めるため低温度（0.0）で実行
+- **マルチプロバイダー対応**: OpenAI、Google Gemini、Anthropic Claude APIの3つをサポート
+- **プロバイダー別プロンプト**: 各LLMプロバイダーの特性に最適化されたプロンプト形式を自動選択
+- **非同期処理**: async/awaitパターンによる効率的なAPI呼び出し
+
+### システム機能
+- **型安全性**: Pydanticによる厳密な型検証とバリデーション
+- **CLIインターフェース**: Clickライブラリを使用した使いやすいコマンドラインツール
+- **環境変数管理**: python-dotenvによる安全なAPIキー管理
+- **ログ出力**: 詳細なログ機能による実行状況の可視化
+- **JSON出力**: 生成結果と評価結果をそれぞれJSON形式でファイルに保存
 
 ## プロジェクト構成
 
 ### アーキテクチャ
 
-このプロジェクトは、以下の4層アーキテクチャで構成されています：
+このプロジェクトは、以下の多層アーキテクチャで構成されています：
 
 ```
-┌─────────────────────────────────────────┐
-│         API Layer (api/)                │
-│  - FastAPI アプリケーション              │
-│  - エンドポイント定義                    │
-│  - リクエスト/レスポンスハンドリング     │
-└─────────────────┬───────────────────────┘
+┌────────────────────────────────────────────────┐
+│         CLI Layer (main.py)                    │
+│  - コマンドライン引数解析                       │
+│  - 生成と評価の統合ワークフロー                 │
+│  - 出力ディレクトリ管理                         │
+└─────────────────┬──────────────────────────────┘
                   │
-┌─────────────────▼───────────────────────┐
-│      Service Layer (service/)           │
-│  - ストリーミングロジック                │
-│  - 非同期ジェネレータ実装                │
-└─────────────────┬───────────────────────┘
+┌─────────────────▼──────────────────────────────┐
+│      Business Logic Layer                      │
+│  ┌──────────────────────────────────────────┐  │
+│  │  生成サービス (request_llm.py)           │  │
+│  │  - request_openai()                      │  │
+│  │  - request_gemini()                      │  │
+│  │  - request_with_judge() ★統合機能       │  │
+│  └──────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────┐  │
+│  │  評価サービス (llm_as_a_judge.py)        │  │
+│  │  - judge_with_openai()                   │  │
+│  │  - judge_with_gemini()                   │  │
+│  └──────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────┐  │
+│  │  プロンプト生成                           │  │
+│  │  - make_prompt() (キャラクター生成)      │  │
+│  │  - make_judge_prompt() (評価)            │  │
+│  │  - make_custom_judge_prompt() (カスタム) │  │
+│  └──────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────┐  │
+│  │  データモデル                             │  │
+│  │  - CharacterRequest/Response             │  │
+│  │  - JudgeRequest/Response                 │  │
+│  │  - EvaluationCriterion                   │  │
+│  └──────────────────────────────────────────┘  │
+└─────────────────┬──────────────────────────────┘
                   │
-┌─────────────────▼───────────────────────┐
-│      Business Logic Layer               │
-│  - LLMクライアント管理 (client/)        │
-│  - データモデル (model/)                │
-└─────────────────┬───────────────────────┘
-                  │
-┌─────────────────▼───────────────────────┐
-│      Infrastructure Layer               │
-│  - 設定管理 (config.py)                 │
-│  - ログ管理 (logger.py)                 │
-│  - 外部API (OpenAI, Gemini)             │
-└─────────────────────────────────────────┘
+┌─────────────────▼──────────────────────────────┐
+│      Infrastructure Layer                      │
+│  - 設定管理 (config.py)                        │
+│  - ログ管理 (logger.py)                        │
+│  - LLMクライアント (llm_client.py)             │
+│  - 外部API (OpenAI, Gemini)                    │
+└────────────────────────────────────────────────┘
 ```
 
 ## 使い方
@@ -62,14 +87,12 @@
 
 - **Python**: 3.13.2以上
 - **依存ライブラリ**:
-  - fastapi>=0.119.0
-  - uvicorn>=0.37.0
-  - aiohttp>=3.11.17
+  - anthropic>=0.42.0
+  - click>=8.3.0
   - google-genai>=1.45.0
   - openai>=2.4.0
   - pydantic>=2.12.2
   - python-dotenv>=1.1.1
-  - click>=8.3.0
 
 ### セットアップ
 
@@ -82,6 +105,8 @@ cp .envrc.example .envrc
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
 OPENAI_API_KEY=<your_openai_api_key_here>
+GEMINI_API_KEY=<your_gemini_api_key_here>
+ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
 ```
 
 2. **依存関係のインストール**
@@ -93,179 +118,211 @@ uv sync
 
 ### 使用方法、実行方法
 
-#### 1. サーバーの起動
+#### 基本的な使い方（同じプロバイダーで生成と評価）
 
 ```bash
-# デフォルト設定で起動（127.0.0.1:8000）
-$ uv run python run_server.py
+# Geminiで生成し、Geminiで評価
+uv run python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH
 
-# カスタムホストとポートを指定
-$ uv run python run_server.py --host 0.0.0.0 --port 8080
+# OpenAIで生成し、OpenAIで評価
+uv run python -m src.main -g FEMALE -a 25 -lp OPENAI -m GPT_5_MINI
 
-# 開発モード（自動リロード有効）
-$ uv run python run_server.py --reload
+# Anthropicで生成し、Anthropicで評価
+uv run python -m src.main -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_SONNET_4_6
+```
 
-$ uv run python run_server.py --help
-Usage: run_server.py [OPTIONS]
+#### クロスプロバイダー評価（推奨）
 
-  FastAPI サーバーを起動します
+異なるプロバイダーで生成と評価を行うことで、より客観的な評価が可能になります：
 
-Options:
-  --host TEXT     ホストアドレス
-  --port INTEGER  ポート番号
-  --reload        自動リロード機能を有効化
-  --help          Show this message and exit.
+```bash
+# Geminiで生成、OpenAIで評価
+uv run python -m src.main \
+  -g FEMALE -a 25 \
+  -lp GEMINI -m GEMINI_2_5_FLASH \
+  -jp OPENAI -jm GPT_5_MINI
+
+# OpenAIで生成、Anthropicで評価
+uv run python -m src.main \
+  -g MALE -a 40 \
+  -lp OPENAI -m GPT_5_4 \
+  -jp ANTHROPIC -jm CLAUDE_OPUS_4_7
+
+# Anthropicで生成、Geminiで評価
+uv run python -m src.main \
+  -g FEMALE -a 30 \
+  -lp ANTHROPIC -m CLAUDE_SONNET_4_6 \
+  -jp GEMINI -jm GEMINI_2_5_PRO
+```
+
+#### 追加指示の指定
+
+```bash
+uv run python -m src.main \
+  -g FEMALE -a 30 \
+  -ai "mysterious artist" \
+  -lp GEMINI -m GEMINI_2_5_FLASH \
+  -jp OPENAI -jm GPT_5_MINI
+```
+
+#### ヘルプの表示
+
+```bash
+uv run python -m src.main --help
 ```
 
 **出力例**:
-```
-Starting LLM Streaming API server on 127.0.0.1:8000
-Press CTRL+C to quit
-INFO:     Started server process [12345]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-```
-
-#### 2. テストクライアントの使用
-
-別のターミナルでテストクライアントを実行します：
-
-##### ストリーミングモード（デフォルト）
-
 ```bash
-$ uv run python example_client.py --help                                                  
-Usage: example_client.py [OPTIONS]
-
-  LLM APIのサンプルクライアント
+$ uv run python -m src.main --help                                              
+Usage: python -m src.main [OPTIONS]
 
 Options:
-  --mode [stream|completion]  リクエストモード: stream（ストリーミング）またはcompletion（非ストリーミング）
-  --url TEXT                  APIエンドポイントのURL（未指定の場合はmodeに応じて自動設定）
-  --prompt TEXT               LLMに送信するプロンプト  [required]
-  --model TEXT                使用するモデル名（オプション）
-  --help                      Show this message and exit.
-
-# 基本的な使用方法
-$ uv run python example_client.py --prompt "Pythonの非同期プログラミングについて説明してください"
-
-# モデルを明示的に指定
-$ uv run python example_client.py --model gpt-5-mini --prompt "AIの未来について教えて"
-```
-
-##### 非ストリーミングモード
-
-```bash
-# 非ストリーミングモードを使用
-$ uv run python example_client.py --mode completion --prompt "Pythonについて教えてください"
-
-# カスタムモデルを指定
-$ uv run python example_client.py --mode completion --model gpt-5-mini --prompt "こんにちは"
-```
-
-#### 3. APIの直接利用
-
-##### curlを使用
-
-**ストリーミングエンドポイント**:
-
-```bash
-curl -X POST http://127.0.0.1:8000/stream \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "Pythonについて教えてください",
-    "provider": "openai"
-  }'
-
-# カスタムモデルを指定
-curl -X POST http://127.0.0.1:8000/stream \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "こんにちは",
-    "provider": "openai",
-    "model": "gpt-5-mini"
-  }'
-```
-
-**非ストリーミングエンドポイント**:
-
-```bash
-curl -X POST http://127.0.0.1:8000/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "Pythonについて教えてください",
-    "provider": "openai"
-  }'
-
-# カスタムモデルを指定
-curl -X POST http://127.0.0.1:8000/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "prompt": "こんにちは",
-    "provider": "openai",
-    "model": "gpt-5-mini"
-  }'
+  -g, --gender [FEMALE|MALE]      The gender of the character to generate.
+                                  [required]
+  -a, --age INTEGER RANGE         The age of the character to generate.
+                                  [0<=x<=100; required]
+  -ai, --additional-instructions TEXT
+                                  Additional instructions for character
+                                  generation.
+  -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
+                                  The LLM provider to use.  [required]
+  -m, --model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_7|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
+                                  The model to use for the request.
+                                  [required]
+  -od, --output-directory PATH    The directory to save output files.
+  -jp, --judge-provider [OPENAI|GEMINI|ANTHROPIC]
+                                  The LLM provider to use for judgment
+                                  (defaults to same as generation provider).
+  -jm, --judge-model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_7|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
+                                  The model to use for judgment (defaults to
+                                  same as generation model).
+  --help                          Show this message and exit.
 ```
 
 ### 出力例
 
-#### ストリーミングモードの実行結果
+実行すると、2つのJSONファイルが生成されます：
 
-```bash
-$ uv run python example_client.py --prompt "日本の未来について" 
+#### 1. キャラクターファイル
 
-============================================================
-Provider: openai
-Prompt: 日本の未来について
-============================================================
+**ファイル名**: `outputs/gemini_character_a1b2c3d4e5f6.json`
 
-Response:
-------------------------------------------------------------
-日本の未来については、さまざまな側面から考えることができます。以下にいくつかの重要なポイントを挙げてみます。
-
-1. **高齢化社会**: 日本は世界でも有数の高齢化が進んでいる国です。これにより、福祉制度や医療制度の見直しが必要となり、労働力不足も懸念されています。高齢者が活躍できる社会を構築するための施策が求められています。
-
-2. **経済の変化**: テクノロジーの発展やグローバル化により、日本の産業構造は大きく変化しています。特にAIやロボティクスの導入が進むことで、効率化や新たなビジネスモデルの創出が期待されています。
-
-3. **環境問題**: 環境問題への対応は日本にとって重要な課題です。再生可能エネルギーの導入や脱炭素化の取り組みが進められ、持続可能な社会の実現を目指しています。
-
-4. **国際関係**: 地政学的な緊張が高まる中、日本の外交政策や安全保障戦略も重要です。周辺国との関係や国際的な協力が、一層重要になるでしょう。
-
-5. **文化と社会**: 日本の伝統文化と現代文化の融合が進み、国際的な影響も受けながら新しい文化が生まれています。これにより、国内外からの観光客を惹きつける要素にもなっています。
-
-これらの課題や展望に対処するためには、政府、企業、市民が一体となって取り組むことが不可欠です。未来の日本は、これらの要素をどうバランスさせていくかにかかっ ています。
-------------------------------------------------------------
-Stream completed successfully!
+```json
+{
+    "first_name": "Mika",
+    "last_name": "Nekomura",
+    "gender": "female",
+    "age": 20,
+    "personalities": [
+        {
+            "short_personality": "執拗な好奇心",
+            "description": "糸の端を見ると放っておけない猫のように、謎や矛盾を見つけると夜更けまで追い続ける。細部に触れる指先が鋭く、痕跡から物語を復元するのが得意。質問は静かだが核心を突き、沈黙の間に相手の本心を引き出す。薄明の時間に最も冴え、街の路地という迷路を自分の縄張りのように歩く。"
+        },
+        {
+            "short_personality": "自立としなやかさ",
+            "description": "群れにも孤独にも居心地を見つけられる、猫背の自由主義者。締め付けられると音もなく距離を取り、必要な時だけ柔らかく寄り添う。計画が崩れても体の向きを変えるように素早く切り替え、失敗を静かに糧にする。誰にも馴れないわけではないが、首輪は自分で選ぶタイプ。"
+        },
+        {
+            "short_personality": "温かな警戒心",
+            "description": "初対面には警戒線を引くが、一度心を許した相手にはひざ掛けのような温もりを惜しまない。弱者や迷子にはすぐ気づき、さりげない手助けを置き土産のように残す。一方で境界線を越えられると、爪のように鋭い言葉で静かに距離を戻す。優しさと自己防衛のバランスを本能的に保てる。"
+        }
+    ]
+}
 ```
 
-#### 非ストリーミングモードの実行結果
+#### 2. 評価ファイル
+
+**ファイル名**: `outputs/openai_judge_a1b2c3d4e5f6.json`（クロスプロバイダー評価の場合）
+
+```json
+{
+    "evaluations": [
+        {
+            "reasoning": "パラメータ（Gender: female, Age: 20）に忠実で、猫の要素も性格描写に一貫して反映。事実関係の矛盾や不正確さはなく、架空キャラ生成という要件に適合している。",
+            "criterion_name": "accuracy",
+            "score": 5
+        },
+        {
+            "reasoning": "名前と年齢、性別に加え、3つの側面から具体的かつ豊かな性格描写があり、行動傾向や対人スタイルまで掘り下げている。背景設定はないが、質問は性格の詳細を主眼としており十分に満たしている。",
+            "criterion_name": "comprehensiveness",
+            "score": 5
+        },
+        {
+            "reasoning": "日本語の表現は明快でイメージが湧きやすく、比喩も過剰ではない。JSON構造で整理され可読性が高い。",
+            "criterion_name": "clarity",
+            "score": 5
+        }
+    ],
+    "overall_score": 5.0,
+    "summary": "要件を正確に満たし、詳細で魅力的な性格描写が明瞭に提示されている優れた回答です。大きな改善点は見当たりません。"
+}
+```
+
+#### 実行ログ例
 
 ```bash
-$ uv run python example_client.py --mode completion --prompt "日本の未来について"          
+$ uv run python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH
 
-============================================================
-Provider: openai
-Prompt: 日本の未来について
-============================================================
+[2026-01-17 17:04:18,436] [INFO] [__main__] [main.py:99] [main] Character Generation Request:
+Gender: female
+Age: 25
+Additional Instructions: 
 
-Response:
-------------------------------------------------------------
-日本の未来について考える際、いくつかの重要な要素が浮かび上がります。以下は、そのいくつかの側面です。
-
-1. **高齢化社会と人口減少**: 日本は急速に高齢化が進んでおり、労働力の減少や社会保障制度への影響が懸念されています。この問題を解決するためには、移民政策の見直しや、AI・ロボット技術の導入が考えられます。
-
-2. **経済の変革**: 世界経済の変化に伴い、日本経済も新しいビジネスモデルや産業の育成が求められています。特にデジタル化やグリーン経済が進展する中で、企業の競争力を高めるための取り組みが重要です。
-
-3. **環境問題**: 環境への配慮がますます重要視される中、日本も脱炭素社会の実現に向けた努力が必要です。再生可能エネルギーの導入や、プラスチック削減などの取り組みが進められています。
-
-4. **国際関係と安全保障**: 地政学的な緊張が高まる中、日本はアジアの中での役割や、アメリカとの同盟関係を再評価する必要があります。また、地域の安全保障のために、協力や対話を重視した外交が求められています。
-
-5. **文化と社会の多様性**: グローバル化が進む中で、日本の文化や社会も多様性を受け入れ、多くの異なる価値観を尊重する姿勢が必要です。これは、国際理解や共生社会の実現につながります。
-
-日本の未来は、これらの課題にどのように取り組むかによって大きく変わるでしょう。政府や企業、そして市民一人ひとりが積極的に関与することで、より良い未来を築い ていくことが可能です。
-
-------------------------------------------------------------
-Completion request successful!
-Model used: gpt-5.4-mini
-Provider: openai
+Generation LLM: gemini / gemini-2.5-flash
+Judge LLM: gemini / gemini-2.5-flash
+Output directory: outputs
+[2026-01-17 17:04:18,436] [INFO] [src.service.request_llm] [request_llm.py:66] [request_with_judge] Generating prompt...
+[2026-01-17 17:04:18,437] [INFO] [src.service.request_llm] [request_llm.py:69] [request_with_judge] Generating character...
+[2026-01-17 17:04:22,542] [INFO] [src.service.request_llm] [request_llm.py:42] [request_gemini] sdk_http_response=HttpResponse(
+  headers=<dict len=11>
+) candidates=[Candidate(
+  content=Content(
+    parts=[
+      Part(
+        text="""{
+  "first_name": "Akira",
+  "last_name": "Yamada",
+  "gender": "female",
+  "age": 25,
+  "personalities": [
+    {
+      "short_personality": "好奇心旺盛",
+      "description": "アキラは常に新しい知識や経験を求めています。見慣れない場所や物事には特に興味を示し、納得がいくまで探求しようとします。"
+    },
+    {
+      "short_personality": "観察力がある",
+      "description": "周囲の環境や人々の微細な変化にもすぐに気づきます。会話の少ないときでも、人や状況を詳細に分析していることが多いです。"
+    },
+    {
+      "short_personality": "内向的だが芯が強い",
+      "description": "初対面の人や大人数の場では控えめですが、自分の信念や大切なものを守るためには断固とした態度を取ります。困難な状況でも冷静さを保ち、解 決策を見つけ出そうと努力するタイプです。"
+    }
+  ]
+}"""
+      ),
+    ],
+    role='model'
+  ),
+  finish_reason=<FinishReason.STOP: 'STOP'>,
+  index=0
+)] create_time=None model_version='gemini-2.5-flash' prompt_feedback=None response_id='hkJraffyFrue1e8P3OvHoAs' usage_metadata=GenerateContentResponseUsageMetadata(
+  candidates_token_count=246,
+  prompt_token_count=388,
+  prompt_tokens_details=[
+    ModalityTokenCount(
+      modality=<MediaModality.TEXT: 'TEXT'>,
+      token_count=388
+    ),
+  ],
+  thoughts_token_count=404,
+  total_token_count=1038
+) automatic_function_calling_history=[] parsed=CharacterResponse(first_name='Akira', last_name='Yamada', gender=<Gender.FEMALE: 'female'>, age=25, personalities=[CharacterPersonality(short_personality='好奇心旺盛', description='アキラは常に新しい知識や経験を求めています。見慣れない場所や物事には特に興味を示し、納得がいくまで探求しようとします。'), CharacterPersonality(short_personality='観察力がある', description='周囲の環境や人々の微細な変化にもすぐに気づきま す。会話の少ないときでも、人や状況を詳細に分析していることが多いです。'), CharacterPersonality(short_personality='内向的だが芯が強い', description='初対面 の人や大人数の場では控えめですが、自分の信念や大切なものを守るためには断固とした態度を取ります。困難な状況でも冷静さを保ち、解決策を見つけ出そうと努力する タイプです。')])
+[2026-01-17 17:04:22,543] [INFO] [src.service.request_llm] [request_llm.py:79] [request_with_judge] Character generation completed.
+[2026-01-17 17:04:22,543] [INFO] [src.service.request_llm] [request_llm.py:81] [request_with_judge] Evaluating character with LLM-as-a-Judge...
+[2026-01-17 17:04:22,543] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:47] [judge_with_gemini] Requesting judgment from Gemini model: gemini-2.5-flash
+[2026-01-17 17:04:28,273] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:61] [judge_with_gemini] Judgment completed. Overall score: 5.00/5.0
+[2026-01-17 17:04:28,273] [INFO] [src.service.request_llm] [request_llm.py:115] [request_with_judge] Evaluation completed. Overall score: 5.00/5.0
+[2026-01-17 17:04:28,275] [INFO] [__main__] [main.py:140] [main] Character file saved to outputs/765f1492a4a34acdb86e7066dd161f42_gemini_character.json
+[2026-01-17 17:04:28,275] [INFO] [__main__] [main.py:145] [main] Judge evaluation saved to outputs/765f1492a4a34acdb86e7066dd161f42_gemini_judge.json
+[2026-01-17 17:04:28,275] [INFO] [__main__] [main.py:146] [main] Overall evaluation score: 5.00/5.0
 ```

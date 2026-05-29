@@ -1,12 +1,10 @@
-"""Node representing an agent in the graph."""
+"""Agent node wrapping a BaseAgent."""
 
 from src.agent.core.agent import BaseAgent
 from src.agent.core.mediator import Node, NodeResult, NodeType
 
 
 class AgentNode(Node):
-    """Node representing an agent."""
-
     def __init__(self, node_id: str, agent: BaseAgent):
         super().__init__(node_id, NodeType.AGENT)
         self.agent = agent

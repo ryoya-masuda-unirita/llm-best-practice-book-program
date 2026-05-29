@@ -52,7 +52,11 @@ logger = make_logger(__name__)
 
 
 def create_contract_pipeline_graph() -> StateGraph:
-    """Create the contract risk compliance pipeline graph."""
+    """
+    Create the contract risk compliance pipeline graph.
+
+    Pipeline: Input -> Extraction -> Risk Scoring -> Report -> END
+    """
     logger.info("Creating contract compliance pipeline graph...")
 
     graph = StateGraph(ContractPipelineState)
@@ -111,7 +115,7 @@ async def run_contract_compliance_pipeline(
     contract_file_path: str,
     model: str = OpenAIModel.GPT_5_MINI,
 ) -> ComplianceReport | None:
-    """Run the contract risk compliance pipeline."""
+    """Run the contract risk compliance pipeline and return the report."""
     logger.info("=" * 80)
     logger.info("CONTRACT RISK COMPLIANCE PIPELINE")
     logger.info("Pipeline: Input -> Extraction -> Risk Scoring -> Report")

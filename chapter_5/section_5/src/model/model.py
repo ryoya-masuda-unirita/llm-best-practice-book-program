@@ -21,7 +21,14 @@ from typing_extensions import TypedDict
 
 
 class FrozenModel(BaseModel):
-    """Immutable base model with validation on assignment."""
+    """
+    Base model with common configuration for all contract pipeline models.
+
+    Configuration:
+    - validate_assignment: Validates data on attribute assignment
+    - frozen: Makes instances immutable after creation
+    - extra: Ignores extra fields not defined in the model
+    """
 
     model_config = ConfigDict(
         validate_assignment=True,
