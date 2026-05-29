@@ -66,7 +66,8 @@
 │         External LLM APIs                         │
 │  - Google Gemini API                              │
 │    (gemini-2.5-pro, gemini-2.5-flash,            │
-│     gemini-2.5-flash-lite)                        │
+│     gemini-2.5-flash-lite, gemini-3.5-flash,     │
+│     gemini-3.1-flash-lite)                        │
 └───────────────────────────────────────────────────┘
 ```
 
@@ -208,7 +209,7 @@ curl -X POST http://localhost:8080/generate \
   }'
 ```
 
-利用可能なモデル: `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`
+利用可能なモデル: `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-3.5-flash`, `gemini-3.1-flash-lite`
 
 **3. メトリクス確認**
 

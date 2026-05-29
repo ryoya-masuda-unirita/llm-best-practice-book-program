@@ -46,7 +46,7 @@ class TestLLMClientFactory:
         models = LLMClientFactory.get_supported_models(LLMProvider.ANTHROPIC)
         assert isinstance(models, list)
         assert AnthropicModel.CLAUDE_SONNET_4_6 in models
-        assert AnthropicModel.CLAUDE_OPUS_4_6 in models
+        assert AnthropicModel.CLAUDE_OPUS_4_7 in models
         assert len(models) > 0
 
     def test_get_supported_models_unknown_provider(self):
@@ -75,7 +75,7 @@ class TestLLMClientFactory:
     def test_is_valid_combination_valid_anthropic(self):
         """Test valid Anthropic provider-model combination."""
         assert LLMClientFactory.is_valid_combination(LLMProvider.ANTHROPIC, AnthropicModel.CLAUDE_SONNET_4_6)
-        assert LLMClientFactory.is_valid_combination(LLMProvider.ANTHROPIC, AnthropicModel.CLAUDE_OPUS_4_6)
+        assert LLMClientFactory.is_valid_combination(LLMProvider.ANTHROPIC, AnthropicModel.CLAUDE_OPUS_4_7)
 
     def test_is_valid_combination_invalid_provider(self):
         """Test invalid provider returns False."""
@@ -130,7 +130,7 @@ class TestLLMClientFactory:
     @patch("src.client.factory.AnthropicAdapter")
     def test_create_client_anthropic_different_models(self, mock_adapter):
         """Test creation of Anthropic clients with different models."""
-        for model in [AnthropicModel.CLAUDE_SONNET_4_6, AnthropicModel.CLAUDE_OPUS_4_6]:
+        for model in [AnthropicModel.CLAUDE_SONNET_4_6, AnthropicModel.CLAUDE_OPUS_4_7]:
             LLMClientFactory.create_client(LLMProvider.ANTHROPIC, model)
 
         assert mock_adapter.call_count == 2

@@ -139,7 +139,7 @@ uv run python -m src.main -od ./my_novels -r "A mystery in a small coastal town"
 
 | Option | Short | Description |
 |--------|-------|-------------|
-| `--model` | `-m` | Gemini model (gemini-2.5-flash, gemini-2.5-pro, gemini-2.5-flash-lite) |
+| `--model` | `-m` | Gemini model (gemini-2.5-flash, gemini-2.5-pro, gemini-2.5-flash-lite, gemini-3.5-flash, gemini-3.1-flash-lite) |
 | `--output-directory` | `-od` | Directory for output files (default: `outputs`) |
 | `--request` | `-r` | Novel request in natural language (required) |
 

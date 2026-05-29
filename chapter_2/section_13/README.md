@@ -118,8 +118,8 @@ uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.0119 -lon -95.6
 
 - `-lp, --llm-provider`: LLMプロバイダー（`OPENAI` または `GEMINI`）【必須】
 - `-m, --model`: 使用するモデル【必須】
-  - OpenAI: `gpt-5`, `gpt-5-mini`, `gpt-5.4`, `gpt-5.4-mini` など
-  - Gemini: `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`
+  - OpenAI: `gpt-5.5`, `gpt-5`, `gpt-5-mini`, `gpt-5.4`, `gpt-5.4-mini` など
+  - Gemini: `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-3.5-flash`, `gemini-3.1-flash-lite`
 - `-lat, --latitude`: 緯度（例: 39.7456）【必須】
 - `-lon, --longitude`: 経度（例: -97.0892）【必須】
 - `-od, --output-directory`: 出力ディレクトリ（デフォルト: `outputs`）
@@ -138,7 +138,7 @@ Usage: python -m src.main [OPTIONS]
 Options:
   -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use.  [required]
-  -m, --model [GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_6|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
+  -m, --model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_7|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
                                   The model to use for the request.
                                   [required]
   -lat, --latitude FLOAT          緯度 (例: 39.7456 for Kansas, USA)  [required]

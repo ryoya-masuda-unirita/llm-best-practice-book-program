@@ -109,9 +109,9 @@ uv run python -m src.main -lp OPENAI -m GPT_5_MINI -od outputs/
 
 | プロバイダー | モデル |
 |-------------|--------|
-| OpenAI | GPT_5_4, GPT_5_4_MINI, GPT_5_4_NANO, GPT_5_2, GPT_5_1, GPT_5, GPT_5_MINI, GPT_5_NANO |
+| OpenAI | GPT_5_5, GPT_5_4, GPT_5_4_MINI, GPT_5_4_NANO, GPT_5_2, GPT_5_1, GPT_5, GPT_5_MINI, GPT_5_NANO |
 | Gemini | GEMINI_2_5_PRO, GEMINI_2_5_FLASH, GEMINI_2_5_FLASH_LITE |
-| Anthropic | CLAUDE_OPUS_4_6, CLAUDE_SONNET_4_6, CLAUDE_HAIKU_4_5 |
+| Anthropic | CLAUDE_OPUS_4_7, CLAUDE_SONNET_4_6, CLAUDE_HAIKU_4_5 |
 
 #### ヘルプの表示
 
@@ -127,7 +127,7 @@ Usage: python -m src.main [OPTIONS]
 Options:
   -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use.  [required]
-  -m, --model [GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_6|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
+  -m, --model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_7|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
                                   The model to use for the request.
                                   [required]
   -od, --output-directory PATH    The directory to save output files.

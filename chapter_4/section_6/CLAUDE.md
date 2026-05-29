@@ -163,4 +163,6 @@ result = await WorkflowEngine().execute(workflow)
 GeminiModel.GEMINI_2_5_PRO        # gemini-2.5-pro
 GeminiModel.GEMINI_2_5_FLASH      # gemini-2.5-flash (default)
 GeminiModel.GEMINI_2_5_FLASH_LITE # gemini-2.5-flash-lite
+GeminiModel.GEMINI_3_5_FLASH      # gemini-3.5-flash
+GeminiModel.GEMINI_3_1_FLASH_LITE # gemini-3.1-flash-lite
 ```

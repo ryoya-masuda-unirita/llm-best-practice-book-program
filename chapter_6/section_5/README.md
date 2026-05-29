@@ -184,7 +184,7 @@ Options:
   -t, --theme TEXT                Article theme/topic.  [required]
   -l, --language [en|ja]          Article language (en: English, ja:
                                   Japanese).  [required]
-  -m, --model [gemini-2.5-pro|gemini-2.5-flash|gemini-2.5-flash-lite]
+  -m, --model [gemini-2.5-pro|gemini-2.5-flash|gemini-2.5-flash-lite|gemini-3.5-flash|gemini-3.1-flash-lite]
                                   The model to use (e.g., gemini-2.5-flash,
                                   gemini-2.5-pro).  [required]
   -od, --output-directory PATH    The directory to save output files.

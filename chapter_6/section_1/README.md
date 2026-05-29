@@ -143,6 +143,7 @@ uv run streamlit run app.py
 #### 利用可能なモデル
 
 **OpenAI**:
+- `gpt-5.5`
 - `gpt-5.2`
 - `gpt-5`
 - `gpt-5-mini`
@@ -152,6 +153,8 @@ uv run streamlit run app.py
 - `gemini-2.5-pro`
 - `gemini-2.5-flash`
 - `gemini-2.5-flash-lite`
+- `gemini-3.5-flash`
+- `gemini-3.1-flash-lite`
 
 ### 出力例
 

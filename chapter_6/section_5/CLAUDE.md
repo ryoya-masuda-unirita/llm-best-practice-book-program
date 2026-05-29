@@ -337,7 +337,7 @@ uv run python -m src.main \
 | `--num-second-half-variants` | `-ns` | INT | 3 | Number of second half variants |
 | `--auto-select` | `-a` | FLAG | False | Auto-select without human input |
 
-**Available Models**: gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite
+**Available Models**: gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite, gemini-3.5-flash, gemini-3.1-flash-lite
 
 ## Development Commands
 

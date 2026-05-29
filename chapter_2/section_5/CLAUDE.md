@@ -156,6 +156,8 @@ for inline_response in batch_job_inline.dest.inlined_responses:
 | gemini-2.5-pro | Highest quality | Complex tasks |
 | gemini-2.5-flash | Balanced | General purpose (recommended) |
 | gemini-2.5-flash-lite | Fast & low-cost | Large-scale processing |
+| gemini-3.5-flash | Next-gen balanced | General purpose |
+| gemini-3.1-flash-lite | Next-gen fast & low-cost | Large-scale processing |
 
 ### Data Models
 

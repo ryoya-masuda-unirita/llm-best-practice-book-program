@@ -161,7 +161,7 @@ python -m src.main --help
 
 | Option | Short | Required | Default | Description |
 |--------|-------|----------|---------|-------------|
-| --model | -m | Yes | - | Model to use (claude-sonnet-4-6 or claude-opus-4-6) |
+| --model | -m | Yes | - | Model to use (claude-sonnet-4-6 or claude-opus-4-7) |
 | --input | -i | Yes | - | Path to input document file |
 | --output-directory | -od | No | outputs | Directory to save output files |
 

@@ -178,9 +178,9 @@ uv run python -m src.main \
 
 | Provider | Models |
 |----------|--------|
-| OpenAI | gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.1, gpt-5, gpt-5-mini, gpt-5-nano |
-| Gemini | gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite |
-| Anthropic | claude-sonnet-4-6, claude-opus-4-6 |
+| OpenAI | gpt-5.5, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.1, gpt-5, gpt-5-mini, gpt-5-nano |
+| Gemini | gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite, gemini-3.5-flash, gemini-3.1-flash-lite |
+| Anthropic | claude-sonnet-4-6, claude-opus-4-7 |
 
 ## Implementation Notes
 

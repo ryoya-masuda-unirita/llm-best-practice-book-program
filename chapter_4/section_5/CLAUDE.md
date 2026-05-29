@@ -274,8 +274,8 @@ GEMINI_API_KEY=AIzaSy...
 **Note**: The project uses `python-dotenv` for loading environment variables. Create `.envrc` from `.envrc.example`.
 
 #### Model Selection
-- OpenAI models: gpt-5.4, gpt-5.4-mini, gpt-5, etc.
-- Gemini models: gemini-2.5-flash, gemini-2.5-pro, etc.
+- OpenAI models: gpt-5.5, gpt-5.4, gpt-5.4-mini, gpt-5, etc.
+- Gemini models: gemini-2.5-flash, gemini-2.5-pro, gemini-2.5-flash-lite, gemini-3.5-flash, gemini-3.1-flash-lite, etc.
 - Models are validated against provider in main.py:67-70
 
 ### Common Operations

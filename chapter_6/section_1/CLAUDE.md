@@ -103,15 +103,18 @@ def make_prompt(character_request: CharacterRequest) -> list:
 
 ### 3. Multi-Provider Support
 
-**OpenAI Models** (8 options):
+**OpenAI Models** (9 options):
+- gpt-5.5
 - GPT-5.4 series: gpt-5.4, gpt-5.4-mini, gpt-5.4-nano
 - gpt-5.2, gpt-5.1
 - GPT-5 series: gpt-5, gpt-5-mini, gpt-5-nano
 
-**Gemini Models** (3 options):
+**Gemini Models** (5 options):
 - gemini-2.5-pro
 - gemini-2.5-flash
 - gemini-2.5-flash-lite
+- gemini-3.5-flash
+- gemini-3.1-flash-lite
 
 Both providers use structured output features:
 - OpenAI: `beta.chat.completions.parse()` with `response_format`

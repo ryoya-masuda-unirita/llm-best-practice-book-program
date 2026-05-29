@@ -44,6 +44,8 @@ The system uses Google Gemini for both character generation and embedding creati
               +-------------------------------+
               |        Gemini API             |
               |  - gemini-2.5-pro/flash/lite  |
+              |  - gemini-3.5-flash           |
+              |  - gemini-3.1-flash-lite      |
               |  - gemini-embedding-001       |
               +-------------------------------+
 ```
@@ -183,6 +185,8 @@ curl http://localhost:8001/query/stats
 | `gemini-2.5-pro` | High quality generation |
 | `gemini-2.5-flash` | Balanced speed/quality |
 | `gemini-2.5-flash-lite` | Fastest generation |
+| `gemini-3.5-flash` | Next-gen balanced |
+| `gemini-3.1-flash-lite` | Next-gen fast generation |
 
 ## Development Commands
 

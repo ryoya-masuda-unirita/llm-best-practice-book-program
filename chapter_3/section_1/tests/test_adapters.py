@@ -224,8 +224,8 @@ class TestAnthropicAdapter:
     def test_initialization(self):
         """Test adapter initialization with model."""
         with patch("src.client.adapters.AsyncAnthropic") as mock_client:
-            adapter = AnthropicAdapter(model=AnthropicModel.CLAUDE_OPUS_4_6)
-            assert adapter._model == AnthropicModel.CLAUDE_OPUS_4_6
+            adapter = AnthropicAdapter(model=AnthropicModel.CLAUDE_OPUS_4_7)
+            assert adapter._model == AnthropicModel.CLAUDE_OPUS_4_7
             mock_client.assert_called_once()
 
     def test_get_provider_name(self, adapter):

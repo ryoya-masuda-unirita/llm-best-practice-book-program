@@ -277,7 +277,7 @@ redis_client = RedisClient()  # Singleton instance
 #### 6. LLM Client Module (`src/client/llm_client.py`)
 
 **Supported Models**:
-- **OpenAI**: GPT-5.4 series (gpt-5.4, gpt-5.4-mini, gpt-5.4-nano), GPT-5.2 (gpt-5.2), GPT-5.1 (gpt-5.1), GPT-5 series (gpt-5, gpt-5-mini, gpt-5-nano)
+- **OpenAI**: GPT-5.5 (gpt-5.5), GPT-5.4 series (gpt-5.4, gpt-5.4-mini, gpt-5.4-nano), GPT-5.2 (gpt-5.2), GPT-5.1 (gpt-5.1), GPT-5 series (gpt-5, gpt-5-mini, gpt-5-nano)
 
 **Client Initialization**:
 ```python

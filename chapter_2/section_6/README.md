@@ -12,9 +12,9 @@
 
 | プロバイダー | モデル | Batch API方式 |
 |------------|--------|---------------|
-| OpenAI | gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.1, gpt-5, gpt-5-mini, gpt-5-nano | JSONLファイルアップロード → バッチ作成 → ポーリング → 結果JSONL取得 |
-| Gemini | gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite | インラインリクエスト → バッチ作成 → ポーリング → インライン結果取得 |
-| Anthropic | claude-opus-4-6, claude-sonnet-4-6, claude-haiku-4-5 | リクエストリスト → バッチ作成 → ポーリング → 結果ストリーミング取得 |
+| OpenAI | gpt-5.5, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.1, gpt-5, gpt-5-mini, gpt-5-nano | JSONLファイルアップロード → バッチ作成 → ポーリング → 結果JSONL取得 |
+| Gemini | gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite, gemini-3.5-flash, gemini-3.1-flash-lite | インラインリクエスト → バッチ作成 → ポーリング → インライン結果取得 |
+| Anthropic | claude-opus-4-7, claude-sonnet-4-6, claude-haiku-4-5 | リクエストリスト → バッチ作成 → ポーリング → 結果ストリーミング取得 |
 
 ## 機能
 

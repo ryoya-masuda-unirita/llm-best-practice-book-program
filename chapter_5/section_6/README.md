@@ -170,7 +170,7 @@ Usage: python -m src.event_runner [OPTIONS]
 
 Options:
   -w, --watch-directory PATH      Directory to watch for new contract files.
-  -m, --model [GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO]
+  -m, --model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO]
                                   The model to use for contract review.
   -od, --output-directory PATH    Directory to save compliance reports.
   --help                          Show this message and exit.

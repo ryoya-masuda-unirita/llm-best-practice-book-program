@@ -230,7 +230,7 @@ Usage: python -m src.main generate [OPTIONS]
     -u user_abc123
 
 Options:
-  -m, --model [GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO]
+  -m, --model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO]
                                   OpenAI model to use.
   -o, --output-dir PATH           Directory to save output files.
   -p, --profile-file PATH         Path to a JSON file containing user profile.

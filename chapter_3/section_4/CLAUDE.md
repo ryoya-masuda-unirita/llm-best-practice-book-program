@@ -41,7 +41,7 @@ Client Applications
         └── /health endpoint
         ↓
     External LLM APIs
-        └── Google Gemini (gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite)
+        └── Google Gemini (gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite, gemini-3.5-flash, gemini-3.1-flash-lite)
 ```
 
 ### Component Overview
@@ -145,7 +145,7 @@ retry_policy = Retry(
 - `GET /health`: Health check endpoint
 
 **Supported Models**:
-- **Gemini**: gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite
+- **Gemini**: gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite, gemini-3.5-flash, gemini-3.1-flash-lite
 
 **Request Model**:
 ```python
