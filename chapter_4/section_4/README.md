@@ -1,4 +1,4 @@
-# Chapter 4 Section 5: LLMパイプライン
+# Chapter 4 Section 4: LLMパイプライン
 
 ## 概要
 

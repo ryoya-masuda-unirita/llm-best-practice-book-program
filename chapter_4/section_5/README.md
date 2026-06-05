@@ -1,4 +1,4 @@
-# Chapter 4 Section 6: LLMワークフローのためのオーケストレーション
+# Chapter 4 Section 5: LLMワークフローのためのオーケストレーション
 
 ## 概要
 

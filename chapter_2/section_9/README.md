@@ -1,4 +1,4 @@
-# Chapter 2 Section 10: プロンプトの単体テスト
+# Chapter 2 Section 9: プロンプトの単体テスト
 
 ## 概要
 

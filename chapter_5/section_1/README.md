@@ -131,18 +131,18 @@ uv run python -m src.main -r "30分以内で作れるイタリアン"
 #### モデルの指定
 
 ```bash
-# デフォルト（claude-haiku-4-5）
+# デフォルト（CLAUDE_HAIKU_4_5）
 uv run python -m src.main -r "簡単な夕食"
 
 # 別のモデルを使用
-uv run python -m src.main -m claude-sonnet-4-6 -r "簡単な夕食"
-uv run python -m src.main -m claude-opus-4-7 -r "本格的なフレンチ"
+uv run python -m src.main -m CLAUDE_SONNET_4_6 -r "簡単な夕食"
+uv run python -m src.main -m CLAUDE_OPUS_4_7 -r "本格的なフレンチ"
 ```
 
 利用可能なモデル:
-- `claude-haiku-4-5`（デフォルト）
-- `claude-sonnet-4-6`
-- `claude-opus-4-7`
+- `CLAUDE_HAIKU_4_5`（デフォルト）
+- `CLAUDE_SONNET_4_6`
+- `CLAUDE_OPUS_4_7`
 
 #### 出力先の指定
 

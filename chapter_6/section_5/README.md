@@ -1,4 +1,4 @@
-# Chapter 6 Section 6: 関数呼び出しのエンジニアリング
+# Chapter 6 Section 5: 関数呼び出しのエンジニアリング
 
 ## 概要
 

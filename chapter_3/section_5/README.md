@@ -1,4 +1,4 @@
-# Chapter 3 Section 6: LLM APIゲートウェイ
+# Chapter 3 Section 5: LLM APIゲートウェイ
 
 ## 概要
 

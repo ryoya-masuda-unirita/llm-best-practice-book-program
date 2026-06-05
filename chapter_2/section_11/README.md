@@ -1,4 +1,4 @@
-# Chapter 2 Section 13: 外部サービス活用
+# Chapter 2 Section 11: 外部サービス活用
 
 ## 概要
 

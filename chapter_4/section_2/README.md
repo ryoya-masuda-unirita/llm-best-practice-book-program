@@ -1,4 +1,4 @@
-# Chapter 4 Section 3: LLMサービスインターフェイスの分離
+# Chapter 4 Section 2: LLMサービスインターフェイスの分離
 
 ## 概要
 

@@ -1,4 +1,4 @@
-# Chapter 4 Section 8: AIエージェントの抽象化設計
+# Chapter 4 Section 7: AIエージェントの抽象化設計
 
 ## 概要
 

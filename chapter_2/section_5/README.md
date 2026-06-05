@@ -1,4 +1,4 @@
-# Chapter 2 Section 6: 非同期バッチ処理
+# Chapter 2 Section 5: 非同期バッチ処理
 
 ## 概要
 

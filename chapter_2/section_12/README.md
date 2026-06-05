@@ -1,4 +1,4 @@
-# Chapter 2 Section 14: LLMによるスクリプト生成と実行
+# Chapter 2 Section 12: LLMによるスクリプト生成と実行
 
 ## 概要
 

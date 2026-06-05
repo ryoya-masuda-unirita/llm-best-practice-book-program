@@ -1,4 +1,4 @@
-# Chapter 5 Section 7: 学習AIエージェント
+# Chapter 5 Section 6: 学習AIエージェント
 
 ## 概要
 

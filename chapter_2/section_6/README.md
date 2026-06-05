@@ -1,4 +1,4 @@
-# Chapter 2 Section 7: LLM出力をストリーミングにする
+# Chapter 2 Section 6: LLM出力をストリーミングにする
 
 ## 概要
 

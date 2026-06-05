@@ -1,4 +1,4 @@
-# Chapter 5 Section 6: イベント駆動型AIエージェント
+# Chapter 5 Section 5: イベント駆動型AIエージェント
 
 ## 概要
 

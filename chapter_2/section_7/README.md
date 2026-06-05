@@ -1,4 +1,4 @@
-# Chapter 2 Section 8: LLMでLLMを評価する（LLM-as-a-Judge）
+# Chapter 2 Section 7: LLMでLLMを評価する（LLM-as-a-Judge）
 
 ## 概要
 

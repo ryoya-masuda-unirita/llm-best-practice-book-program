@@ -1,4 +1,4 @@
-# Chapter 4 Section 4: LLMシステムを機能単位の部品に分離する
+# Chapter 4 Section 3: LLMシステムを機能単位の部品に分離する
 
 ## 概要
 

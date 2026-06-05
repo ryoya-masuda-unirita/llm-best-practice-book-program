@@ -1,4 +1,4 @@
-# Chapter 4 Section 7: LLMパイプラインのための依存性注入
+# Chapter 4 Section 6: LLMパイプラインのための依存性注入
 
 ## 概要
 

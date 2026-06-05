@@ -1,4 +1,4 @@
-# Chapter 6 Section 7: 関数呼び出しのTool Chain
+# Chapter 6 Section 6: 関数呼び出しのTool Chain
 
 ## 概要
 

@@ -1,4 +1,4 @@
-# Chapter 6 Section 9: 不要な過去を忘れ、やり直し、未来を作る
+# Chapter 6 Section 4: 不要な過去を忘れ、やり直し、未来を作る
 
 ## 概要
 

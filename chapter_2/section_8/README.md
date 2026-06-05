@@ -1,4 +1,4 @@
-# Chapter 2 Section 9: プロンプトを構造的にテンプレート化する
+# Chapter 2 Section 8: プロンプトを構造的にテンプレート化する
 
 ## 概要
 

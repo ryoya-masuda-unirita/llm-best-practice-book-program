@@ -1,4 +1,4 @@
-# Chapter 6 Section 8: AIエージェントのメモリ更新戦略
+# Chapter 6 Section 7: AIエージェントのメモリ更新戦略
 
 ## 概要
 
