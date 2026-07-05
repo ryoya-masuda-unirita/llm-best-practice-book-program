@@ -1,216 +1,150 @@
-# School Data Analysis Agent with Function Calling
+# Chapter 6 Section 5: Function Calling at Scale — ID Reference Pattern and Composite Tools
 
-## Overview
+## What This Section Demonstrates
 
-A CLI-based data analysis assistant that uses Google Gemini with function calling to analyze school data. The application demonstrates best practices for LLM tool usage, including the **ID reference pattern** for managing tool results and **composite functions** for efficient multi-step operations.
+Function calling breaks down when tool results are large: raw data dumped into the LLM context burns tokens, dilutes attention, and hits limits. This section is a school-data analysis agent (Gemini function calling over school records) built around two context-economy practices:
+
+- **ID reference pattern** — tools return `{summary, result_id}`; the full `detailed_data` goes into a `SessionResultCache`, *not* the LLM context. If the model actually needs details, it pulls them explicitly via a `get_result_details(result_id)` tool.
+- **Composite functions** — tools like `analyze_student_performance` or `compare_students` do multi-step work (load → join → aggregate) in one call, instead of forcing the model to chain 5 primitive calls and carry intermediate data through context.
+
+Apply these when tools return datasets rather than scalars — analytics assistants, DB copilots, log analysis — anywhere "the model needs the conclusion, not the rows."
+
+## Practice Rules
+
+1. **Return summaries to the model, cache the payload**: every data-producing tool result passes through `extract_context_safe_result`, which strips `detailed_data` into the session cache and marks `detailed_data_available: true`.
+2. **Make detail retrieval an explicit pull**: `get_result_details(result_id)` is the only tool whose full output enters context — the model opts into token spend deliberately.
+3. **Design composite tools around questions, not tables**: "analyze this student" is one tool call, not `get_students` + `get_test_scores` × 4 + math in prose.
+4. **Cap the tool loop** (up to 50 iterations here) and log every function call with args and the context-safe result — the loop trace is your debugging record.
+5. **Return errors as structured results** (`{"error": ..., "status": "error"}`) so the model can react; never raise through the tool boundary.
+6. **Scope the cache to the session** (`SessionResultCache` keyed by `result_id`, cleared per session) — cached data is conversation state, not a database.
 
 ## Architecture
 
 ```
-+------------------------------------------------------------------+
-|                     CLI Layer (main.py)                          |
-|  - Click-based CLI with query input and output options           |
-|  - Session management (UUID, logging, result export)             |
-+----------------------------+-------------------------------------+
-                             |
-                             v
-+------------------------------------------------------------------+
-|                   Service Layer                                  |
-|  +------------------------------------------------------------+  |
-|  |  request_llm.py                                            |  |
-|  |  - Gemini API integration with function calling            |  |
-|  |  - SessionResultCache for ID reference pattern             |  |
-|  |  - Iterative tool execution loop (up to 50 iterations)     |  |
-|  +------------------------------------------------------------+  |
-|  +------------------------------------------------------------+  |
-|  |  tools/data_tools.py                                       |  |
-|  |  - 12 composite tool functions                             |  |
-|  |  - ResultStorage for caching detailed data                 |  |
-|  +------------------------------------------------------------+  |
-|  +------------------------------------------------------------+  |
-|  |  tools/functions/                                          |  |
-|  |  - loaders.py: JSON data file loading                      |  |
-|  |  - analyzers.py: Polars-based statistical analysis         |  |
-|  |  - validators.py: Input validation                         |  |
-|  |  - formatters.py: Output formatting                        |  |
-|  +------------------------------------------------------------+  |
-+----------------------------+-------------------------------------+
-                             |
-                             v
-+------------------------------------------------------------------+
-|                   Data Layer                                     |
-|  data/                                                           |
-|  - students.json (5 students with UUIDs)                         |
-|  - {1st,2nd,3rd,4th}_quarter_test_score.json                     |
-|  - {1st,2nd,3rd,4th}_quarter_grade_report.json                   |
-|  - {1st,2nd,3rd,4th}_quarter_curriculum.json                     |
-+------------------------------------------------------------------+
+CLI (src/main.py)  --query "全生徒の成績を分析してください"
+  ▼
+process_with_function_calling (src/service/request_llm.py)
+  loop (≤ 50 iterations):
+    Gemini generate_content(tools=[function declarations])
+    ├─ function_call? → execute_function_call()
+    │      ├─ TOOL_FUNCTIONS[name](**args)             ← composite tools (data_tools.py)
+    │      ├─ detailed_data → SessionResultCache        ← ID reference pattern
+    │      └─ summary (+result_id) → back to the model
+    │    special case: get_result_details(result_id) → full cached data to the model (pull)
+    └─ text answer → done
+  ▼
+analysis answer + per-quarter report result_ids
 ```
 
 ### Directory Structure
 
 ```
 chapter_6/section_5/
-|-- src/
-|   |-- __init__.py
-|   |-- main.py              # CLI entry point with Click
-|   |-- config.py            # API key configuration (Pydantic)
-|   |-- logger.py            # Logging setup
-|   |-- client/
-|   |   |-- __init__.py
-|   |   |-- llm_client.py    # Gemini client and model definitions
-|   |-- model/
-|   |   |-- __init__.py
-|   |   |-- model.py         # Pydantic models for tool results
-|   |-- prompt/
-|   |   |-- __init__.py
-|   |   |-- prompt.py        # System prompt and tool declarations
-|   |-- service/
-|       |-- __init__.py
-|       |-- request_llm.py   # LLM request handling with function calling
-|       |-- tools/
-|           |-- __init__.py  # Tool function registry
-|           |-- data_tools.py # Composite tool implementations
-|           |-- functions/
-|               |-- __init__.py
-|               |-- loaders.py    # Data file loaders
-|               |-- analyzers.py  # Statistical analysis (Polars)
-|               |-- validators.py # Input validation
-|               |-- formatters.py # Output formatting
-|-- data/                    # School data files (JSON)
-|-- outputs/                 # Session logs and results
-|-- pyproject.toml
-|-- Makefile
-|-- README.md
+├── src/
+│   ├── service/
+│   │   ├── request_llm.py        # function-calling loop + SessionResultCache + context-safe extraction
+│   │   └── tools/
+│   │       ├── data_tools.py     # composite tools + get_result_details
+│   │       └── functions/        # loaders / analyzers / formatters / validators
+│   ├── prompt/prompt.py          # system prompt + tool (function) declarations
+│   ├── model/model.py / client/llm_client.py
+│   ├── main.py                   # CLI (Click), session management + result export
+│   └── config.py / logger.py
+├── data/                         # school records (students, scores, curriculum…)
+├── Makefile / pyproject.toml / .envrc.example
+└── CLAUDE.md
 ```
 
-## Key Components
+## Key Implementation Patterns
 
-### Tool Functions (12 tools)
+### 1. Context-safe result extraction (`src/service/request_llm.py`)
 
-| Tool | Description |
-|------|-------------|
-| `list_available_data` | List all data files by category |
-| `get_students` | Get all student IDs |
-| `get_test_scores` | Get test scores for a quarter |
-| `get_grade_report` | Get grade reports for a quarter |
-| `get_curriculum` | Get curriculum info for a quarter |
-| `analyze_student_performance` | Comprehensive student analysis across all quarters |
-| `analyze_class_performance` | Class-wide performance analysis |
-| `compare_students` | Compare two students side-by-side |
-| `filter_scores` | Filter scores by class/student/quarter |
-| `filter_grades` | Filter grades by class/student/quarter |
-| `filter_curriculum` | Filter curriculum by class/quarter |
-| `get_result_details` | Retrieve full data by result_id (pull pattern) |
+```python
+def extract_context_safe_result(result: dict, session_cache: SessionResultCache) -> dict:
+    result_id = result.get("result_id", "")
+    if "detailed_data" in result and result_id:
+        session_cache.store(result_id, result["detailed_data"])       # payload → cache
+        context_result = {k: v for k, v in result.items() if k != "detailed_data"}
+        context_result["detailed_data_available"] = True               # model knows it can pull
+        return context_result
+    return result
+```
 
-### ID Reference Pattern
+### 2. Pull-based detail access
 
-The application implements the ID reference pattern to manage LLM context size:
+```python
+def execute_function_call(function_call, session_cache) -> dict:
+    result = TOOL_FUNCTIONS[func_name](**func_args)
+    if func_name == "get_result_details":
+        return result                          # the ONE tool that returns full data
+    return extract_context_safe_result(result, session_cache)
+```
 
-1. **Tool Execution**: Tools return a summary + `result_id` to the LLM
-2. **Data Caching**: Full detailed data is stored in `SessionResultCache`
-3. **On-Demand Retrieval**: LLM can call `get_result_details(result_id)` to pull full data when needed
+### 3. Composite tools answer questions (`src/service/tools/data_tools.py`)
 
-This prevents context overflow when analyzing large datasets.
+```python
+def analyze_student_performance(student_id: str) -> dict:
+    scores, reports, curriculum = _collect_student_data(student_id)   # multi-source join
+    # aggregate trends, strengths/weaknesses → {summary stats, result_id, detailed_data}
 
-### Data Model
+def compare_students(student_id_1: str, student_id_2: str) -> dict: ...
+def filter_scores(...) -> dict: ...
+```
 
-- **5 subjects**: Japanese, Math, Physics, History, PE
-- **4 quarters**: Full academic year
-- **5 students**: Each with UUID
-- **Grades**: A, B, C, D, F with teacher advice
-- **Curriculum**: Plan, actual progress, completion rate
+Tool inventory: `list_available_data`, `get_students`, `get_test_scores`, `get_grade_report`, `get_curriculum`, `analyze_student_performance`, `analyze_class_performance`, `compare_students`, `filter_scores`, `filter_grades`, `filter_curriculum`, `get_result_details`.
 
-## Dependencies
+### 4. Structured tool errors
 
-| Package | Purpose |
-|---------|---------|
-| `polars` | High-performance data analysis |
-| `google-genai` | Gemini API client (via root pyproject.toml) |
-| `click` | CLI framework (via root pyproject.toml) |
-| `pydantic` | Data validation and settings (via root pyproject.toml) |
-| `python-dotenv` | Environment variable loading (via root pyproject.toml) |
+```python
+except Exception as e:
+    return {"error": str(e), "status": "error"}    # model-visible, recoverable
+```
 
-## Usage
+## Data Models
 
-### Setup
+| Item | Purpose |
+|------|---------|
+| `SessionResultCache` | result_id → detailed_data, session-scoped |
+| Tool result convention | `{summary fields..., result_id, detailed_data?}` |
+| `TOOL_FUNCTIONS` | name → callable registry backing the declarations |
 
-1. Copy `.envrc.example` to `.envrc` and set your Gemini API key:
-   ```bash
-   cp .envrc.example .envrc
-   # Edit .envrc and set GEMINI_API_KEY=your-key
-   ```
-
-2. Load environment (using direnv or manually source):
-   ```bash
-   direnv allow  # or source .envrc
-   ```
-
-### Run
+## Setup & Run
 
 ```bash
-# Basic query
-uv run python -m src.main --query "Analyze the performance of all students"
+cp .envrc.example .envrc     # set GEMINI_API_KEY
+uv sync
 
-# With specific model
-uv run python -m src.main -m gemini-2.5-pro -q "Compare math and physics scores"
-
-# Save output to files
-uv run python -m src.main -q "Show class performance trends" -od ./outputs
+# Canonical example
+uv run python -m src.main --query '全生徒の成績を分析してください'
 ```
 
 ### CLI Options
 
-| Option | Short | Description | Default |
-|--------|-------|-------------|---------|
-| `--model` | `-m` | Gemini model to use | `gemini-2.5-flash` |
-| `--query` | `-q` | Analysis query (required) | - |
-| `--output-directory` | `-od` | Save session log and result | None |
-
-### Available Models
-
-- `gemini-2.5-pro`
-- `gemini-2.5-flash` (default)
-- `gemini-2.5-flash-lite`
-- `gemini-3.5-flash`
-- `gemini-3.1-flash-lite`
+| Option | Description |
+|--------|-------------|
+| `--query` | Analysis request in natural language |
+| `--model` / `-m` | Gemini model |
+| `--output-directory` | Session output directory |
 
 ## Development Commands
 
 ```bash
-# Lint code
-make lint
-
-# Format code
-make fmt
-
-# Lint and format
-make fix
-
-# Type check
-make mypy
+make lint / make fmt / make fix / make mypy
 ```
 
 ## Implementation Notes
 
-### Function Calling Flow
+- **The ID reference pattern is the RAG inverse**: instead of pushing data into context ahead of need, tools *withhold* data until the model asks. Token usage tracks what the model actually reasons about, not what tools happened to touch.
+- **Composite vs primitive tools**: primitives maximize flexibility but explode iteration counts and context (every intermediate result lands in the conversation). Composites encode domain workflows; keep a few primitives (`get_students`, `filter_scores`) for questions your composites didn't anticipate.
+- **The 50-iteration cap** is generous because composite tools make most analyses finish in a handful of calls; the cap is a runaway guard, not a target.
+- **`detailed_data_available: true` is a teaching flag for the model** — the system prompt explains the pull mechanism, and the flag reminds the model per-result that more data exists.
+- **Session cache lifetime = conversation lifetime**: `result_id`s are meaningless across sessions; export what you need (`main.py` writes results out) before the session ends.
 
-1. User query is sent to Gemini with system prompt and tool declarations
-2. Gemini may respond with function calls (multiple per iteration allowed)
-3. Functions are executed, results cached, summaries returned to LLM
-4. Loop continues until Gemini produces a final text response (max 50 iterations)
-5. Final response is a comprehensive report in the user's language
+## How to Apply This Practice to Your Own Project
 
-### Report Generation
-
-The system prompt instructs the LLM to:
-- Respond in the same language as the user's query
-- Always produce a structured report with specific sections
-- Include specific numbers, percentages, and statistics
-- Cite data sources by result_id
-
-### Session Output
-
-When `--output-directory` is specified:
-- `{session_id}_session_log.json`: Full conversation history with tool calls
-- `{session_id}_result.md`: Final analysis report in Markdown
+1. Establish the tool-result convention first: `summary + result_id (+ cached detailed_data)`; wrap all tool dispatch through one `execute_function_call` that enforces it.
+2. Add `get_result_details` and describe the pull mechanism in the system prompt.
+3. Interview your users' actual questions and build composite tools for the top ones; keep primitives as fallback.
+4. Cap the loop, log every call/args/summary, and return structured errors.
+5. Watch token usage per session before/after adopting the pattern — the delta is your justification.
+6. For multi-user services, key the cache by session/user and add TTL eviction.

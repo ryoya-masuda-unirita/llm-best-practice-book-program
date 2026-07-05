@@ -143,6 +143,8 @@ uv run python -m src.main -m CLAUDE_OPUS_4_7 -r "本格的なフレンチ"
 - `CLAUDE_HAIKU_4_5`（デフォルト）
 - `CLAUDE_SONNET_4_6`
 - `CLAUDE_OPUS_4_7`
+- `CLAUDE_SONNET_5`
+- `CLAUDE_OPUS_4_8`
 
 #### 出力先の指定
 
@@ -179,7 +181,7 @@ Usage: python -m src.main [OPTIONS]
       python -m src.main -r "30分以内で作れるイタリアン"
 
 Options:
-  -m, --model [CLAUDE_OPUS_4_7|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
+  -m, --model [CLAUDE_SONNET_5|CLAUDE_OPUS_4_8|CLAUDE_OPUS_4_7|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
                                   The model to use for the request.
   -od, --output-directory PATH    The directory to save output files.
   -r, --request TEXT              Your dinner request in natural language.

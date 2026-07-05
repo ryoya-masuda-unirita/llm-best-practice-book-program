@@ -1,192 +1,167 @@
-# Chapter 2 Section 14: Unstructured Data Structuring
+# Chapter 2 Section 3: Structuring Unstructured Data — Multimodal Extraction from Images
 
-## Overview
+## What This Section Demonstrates
 
-This project is a CLI tool that uses LLM (Large Language Model) multimodal recognition to extract structured data from unstructured image data such as invoices and presentation slides.
+This section extracts **structured, typed data from unstructured image documents** (invoices and presentation slides) with a multimodal LLM, replacing the traditional OCR → text parsing → rule-based extraction pipeline with schema-bound LLM calls.
 
-The tool leverages Gemini API's multimodal input and structured output capabilities to convert images into machine-processable JSON format, replacing traditional multi-step processes (OCR, text analysis, rule-based extraction) with a single LLM call.
+The key practice is a **classify-then-extract two-step flow**: a first cheap LLM call identifies the document type; a second call extracts data using the Pydantic schema specific to that type. Apply this whenever you ingest heterogeneous documents (invoices, receipts, slides, forms) and need machine-processable output — one generic "extract everything" prompt with a union schema is both less accurate and harder to maintain than per-type schemas.
+
+## Practice Rules
+
+1. **Upload the image once, reuse the handle**: `client.aio.files.upload(file=path)` returns a `File` reference passed to every subsequent call — don't re-encode the image per step.
+2. **Step 1 classifies, step 2 extracts.** The classification call returns a tiny schema (`Diagram` with a `DiagramType` enum). Route to the type-specific extraction prompt AND schema based on the result.
+3. **One Pydantic schema per document type**, mirroring the real document structure (nested models for line items, totals, bank details / chart data points). Don't force different document types into one schema.
+4. **Bind the schema on every call** via `GenerateContentConfig(response_mime_type="application/json", response_schema=Model)` — both the classification and extraction steps are structured-output calls.
+5. **Use enums for closed vocabularies** (`DiagramType`, `InvoiceBankAccountType`, `InvoiceTaxType`, `SlideDiagramType`) so invalid categories fail validation instead of leaking into data.
+6. **Make uncertain fields optional.** Real documents omit fields (invoice number, payment deadline); model them as `Optional` rather than letting the LLM hallucinate values.
+7. **Avoid `dict` fields in Gemini response schemas** — Gemini does not support `additionalProperties`. Type every field explicitly.
 
 ## Architecture
 
 ```
-+-----------------------------------------------------------------------+
-|                          CLI (main.py)                                |
-|  - Image file path input                                              |
-|  - Model selection                                                    |
-|  - Output directory specification                                     |
-+-----------------------------------------------------------------------+
-                                    |
-                                    v
-+-----------------------------------------------------------------------+
-|                    Service Layer (request_llm.py)                     |
-|  +---------------------------------------------------------------+   |
-|  | Step 1: request_identify_diagram_type()                        |   |
-|  | - Identify document type (invoice / slide)                     |   |
-|  +---------------------------------------------------------------+   |
-|                              |                                        |
-|                              v                                        |
-|  +---------------------------------------------------------------+   |
-|  | Step 2: extract_from_image()                                   |   |
-|  | - Extract structured data based on identified type             |   |
-|  +---------------------------------------------------------------+   |
-+-----------------------------------------------------------------------+
-                                    |
-                    +---------------+---------------+
-                    v                               v
-        +-------------------+           +-------------------+
-        |  Invoice Model    |           |   Slide Model     |
-        |  - issue_date     |           |  - title          |
-        |  - issuer_name    |           |  - main_message   |
-        |  - recipient      |           |  - diagrams[]     |
-        |  - totals         |           |    - bar_chart    |
-        |  - line_items[]   |           |    - line_chart   |
-        |  - bank_details   |           |    - pie_chart    |
-        +-------------------+           +-------------------+
-                                    |
-                                    v
-                        +-------------------+
-                        |   JSON Output     |
-                        |   (outputs/*.json)|
-                        +-------------------+
+CLI (src/main.py)
+  │  --image-path upload via Gemini Files API
+  ▼
+request_gemini (src/service/request_llm.py)
+  │
+  ├─ Step 1: request_identify_diagram_type()
+  │    response_schema=Diagram → DiagramType (invoice | slide)
+  │
+  └─ Step 2: extract_from_image()
+       ├─ INVOICE → make_invoice_prompt() + response_schema=Invoice
+       └─ SLIDE   → make_slide_prompt()   + response_schema=Slide
+  ▼
+outputs/gemini_<uuid>.json
 ```
 
 ### Directory Structure
 
 ```
-chapter_2/section_12/
-|-- CLAUDE.md              # This file - project documentation
-|-- README.md              # User-facing documentation (Japanese)
-|-- Makefile               # Development commands
-|-- pyproject.toml         # Project configuration and dependencies
-|-- .envrc.example         # Environment variable template
-|-- data/                  # Sample image data
-|   |-- 001_*.png          # Invoice sample images
-|   |-- 002_*.png
-|   +-- 003_*.png
-|-- outputs/               # Output directory for extracted JSON
-+-- src/
-    |-- __init__.py
-    |-- main.py            # CLI entry point
-    |-- config.py          # Configuration management
-    |-- logger.py          # Logging setup
-    |-- client/
-    |   |-- __init__.py
-    |   +-- llm_client.py  # Gemini API client initialization
-    |-- model/
-    |   |-- __init__.py
-    |   +-- model.py       # Pydantic data model definitions
-    |-- prompt/
-    |   |-- __init__.py
-    |   +-- prompt.py      # Prompt generation functions
-    +-- service/
-        |-- __init__.py
-        +-- request_llm.py # LLM request handling
+chapter_2/section_3/
+├── data/                  # Sample images: 請求書 (invoices) *.png, slide_*.png
+├── outputs/               # Extracted JSON
+├── src/
+│   ├── main.py            # CLI entry point (Click, async)
+│   ├── config.py          # GEMINI_API_KEY via SecretStr
+│   ├── logger.py
+│   ├── client/llm_client.py   # GeminiModel enum + async client
+│   ├── model/model.py         # Diagram / Invoice / Slide schema tree
+│   ├── prompt/prompt.py       # classification + per-type extraction prompts
+│   └── service/request_llm.py # 2-step orchestration
+├── Makefile / pyproject.toml / .envrc.example
+└── CLAUDE.md
 ```
 
-## Key Components
+## Key Implementation Patterns
 
-### Data Models (`src/model/model.py`)
+### 1. Two-step orchestration (`src/service/request_llm.py`)
 
-- **DiagramType**: Enum for document types (invoice, slide)
-- **Invoice**: Complete invoice data structure with line items, totals, bank details
-- **Slide**: Presentation slide with diagrams and chart data
-- **SlideDiagram**: Individual diagram with type-specific data points
-- **ChartDataPoint**: Data point for charts with label, value, unit, series
-
-### Service Layer (`src/service/request_llm.py`)
-
-- **request_identify_diagram_type()**: Identifies document type from image
-- **extract_from_image()**: Extracts structured data based on document type
-- **request_gemini()**: Main orchestration function (2-step process)
-
-### Prompt Generation (`src/prompt/prompt.py`)
-
-- **make_diagram_identification_prompt()**: Prompt for document type classification
-- **make_invoice_prompt()**: Prompt for invoice data extraction
-- **make_slide_prompt()**: Prompt for slide data extraction with combination graph handling
-
-## Dependencies
-
-| Package | Version | Purpose |
-|---------|---------|---------|
-| click | >=8.3.0 | CLI framework |
-| google-genai | >=1.45.0 | Gemini API client |
-| pydantic | >=2.12.2 | Data validation and models |
-| python-dotenv | >=1.1.1 | Environment variable management |
-
-## Usage
-
-### Setup
-
-1. Create environment file:
-```bash
-cp .envrc.example .envrc
-# Edit .envrc and set GEMINI_API_KEY
+```python
+async def request_gemini(model: str, gemini_path: File) -> Invoice | Slide:
+    diagram = await request_identify_diagram_type(model=model, gemini_path=gemini_path)
+    result = await extract_from_image(model=model, gemini_path=gemini_path,
+                                      diagram_type=diagram.diagram_type)
+    return result
 ```
 
-2. Install dependencies:
+Classification and extraction stay separate so each prompt does one focused job.
+
+### 2. Type-routed schema selection (`src/service/request_llm.py`)
+
+```python
+async def extract_from_image(model, gemini_path, diagram_type) -> Invoice | Slide:
+    system_prompt, user_prompt = (
+        make_invoice_prompt() if diagram_type == DiagramType.INVOICE else make_slide_prompt()
+    )
+    response_schema = Invoice if diagram_type == DiagramType.INVOICE else Slide
+
+    result = await google_genai_client.aio.models.generate_content(
+        model=model,
+        contents=[gemini_path, user_prompt],           # image handle + text in one contents list
+        config=GenerateContentConfig(
+            system_instruction=system_prompt,
+            response_mime_type="application/json",
+            response_schema=response_schema,
+        ),
+    )
+    return result.parsed
+```
+
+Prompt and schema are selected together — they must always agree.
+
+### 3. Image upload once via Files API (`src/main.py`)
+
+```python
+gemini_path: File = await google_genai_client.aio.files.upload(file=image_path)
+result = await request_gemini(model=model, gemini_path=gemini_path)
+```
+
+### 4. Document-shaped schema tree (`src/model/model.py`)
+
+```
+Diagram (diagram_type: DiagramType)          # step-1 output
+Invoice                                      # step-2 output (invoices)
+ ├── InvoiceIssuerInfo / InvoiceRecipientInfo
+ ├── InvoiceFinancialTotals
+ ├── InvoiceBankDetails (InvoiceBankAccountType)
+ └── list[InvoiceLineItem] (InvoiceTaxType)
+Slide                                        # step-2 output (slides)
+ └── list[SlideDiagram] (SlideDiagramType)
+      └── list[ChartDataPoint]               # label / value / unit / series
+```
+
+## Data Models
+
+| Model | Purpose |
+|-------|---------|
+| `Diagram` / `DiagramType` | Step-1 classification result: `invoice` or `slide` |
+| `Invoice` + nested models | Full invoice: issuer, recipient, totals, bank details, line items |
+| `Slide` / `SlideDiagram` / `ChartDataPoint` | Slide with per-diagram chart data, split by chart type |
+| `SlideDiagramType` | `bar_chart`, `line_chart`, `pie_chart`, `flow_chart`, `system_diagram`, `image_diagram` |
+
+## Setup & Run
+
 ```bash
+cp .envrc.example .envrc     # set GEMINI_API_KEY
 uv sync
-# or
-pip install -e .
-```
 
-### Run
+# Canonical example (invoice image)
+uv run python -m src.main -m GEMINI_2_5_FLASH -i data/002_請求書_47491048.png
 
-```bash
-# Basic usage
-python -m src.main -m GEMINI_2_5_FLASH -i data/001_*.png
-
-# With custom output directory
-python -m src.main -m GEMINI_2_5_FLASH -i data/001_*.png -od outputs/
+# Slide image
+uv run python -m src.main -m GEMINI_2_5_FLASH -i data/slide_0.png -od outputs/
 ```
 
 ### CLI Options
 
-| Option | Short | Required | Description |
-|--------|-------|----------|-------------|
-| --model | -m | Yes | Gemini model (GEMINI_2_5_PRO, GEMINI_2_5_FLASH, GEMINI_2_5_FLASH_LITE) |
-| --image-path | -i | Yes | Path to input image file |
-| --output-directory | -od | No | Output directory (default: outputs) |
+| Option | Short | Required | Default | Description |
+|--------|-------|----------|---------|-------------|
+| `--model` | `-m` | Yes | — | Gemini model enum name (`GEMINI_2_5_PRO` / `GEMINI_2_5_FLASH` / `GEMINI_2_5_FLASH_LITE` …) |
+| `--image-path` | `-i` | Yes | — | Path to the input image (must exist) |
+| `--output-directory` | `-od` | No | `outputs` | Output directory for extracted JSON |
 
 ## Development Commands
 
-| Command | Description |
-|---------|-------------|
-| make lint | Run ruff linter with auto-fix |
-| make fmt | Format code with ruff |
-| make fix | Run both lint and format |
-| make mypy | Run type checking with mypy |
+```bash
+make lint    # ruff check --fix
+make fmt     # ruff format
+make fix     # lint + fmt
+make mypy    # type checking
+```
 
 ## Implementation Notes
 
-### Two-Step Processing
+- **Why two steps instead of one union schema**: a single "extract as Invoice OR Slide" call forces the model to juggle both schemas at once; splitting classification from extraction keeps each prompt short and measurably improves field accuracy. The classification output is also useful metadata by itself.
+- **Combination graphs**: a slide containing a bar+line combo chart is extracted as *separate* `SlideDiagram` entries, one per chart type, so different metrics never share one data-point list. This decomposition rule lives in `make_slide_prompt()`.
+- **Gemini constraint — no `additionalProperties`**: response schemas must not contain plain `dict` fields; every structure is an explicitly typed Pydantic model.
+- **API keys as `SecretStr`** in `src/config.py` (unwrap with `.get_secret_value()`), so keys never leak into logs.
+- **Cleanup**: close the async Gemini client (`await google_genai_client.aio.aclose()`) before exit.
 
-The tool uses a 2-step LLM call approach:
-1. First call: Identify document type (invoice vs slide)
-2. Second call: Extract data using type-specific schema
+## How to Apply This Practice to Your Own Project
 
-This separation improves accuracy by keeping prompts focused.
-
-### Gemini API Constraints
-
-- **No `additionalProperties`**: Gemini API does not support `dict` types in response schemas. Use explicitly typed Pydantic models instead.
-- **SecretStr for API keys**: Use `SecretStr` type for secure API key handling with `get_secret_value()` method.
-
-### Combination Graph Handling
-
-For slides with combination graphs (e.g., bar chart + line chart):
-- Each sub-graph is extracted as a separate `SlideDiagram` object
-- Data points are separated by chart type
-- This allows accurate data extraction without mixing different metrics
-
-### Supported Diagram Types
-
-| Type | Description |
-|------|-------------|
-| bar_chart | Bar/column charts |
-| line_chart | Line graphs |
-| pie_chart | Pie/donut charts |
-| flow_chart | Process flow diagrams |
-| system_diagram | Architecture/network diagrams |
-| image_diagram | Photos, illustrations, other images |
+1. List the document types you ingest and write one Pydantic schema per type, mirroring the document's real structure (nested models, enums for closed sets, `Optional` for often-missing fields).
+2. Add a minimal classification schema (one enum field) and a classification prompt as step 1.
+3. Route step 2 on the classification result, selecting prompt and schema *as a pair*.
+4. Upload media once via the provider's file API and pass the handle to both steps.
+5. Log the raw LLM response at each step for auditability before returning the parsed object.
+6. Validate business rules downstream (totals add up, dates parse) — schema validation ensures shape, not arithmetic.

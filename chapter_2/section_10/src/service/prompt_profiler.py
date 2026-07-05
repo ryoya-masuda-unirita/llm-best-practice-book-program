@@ -32,6 +32,8 @@ TOKEN_PRICING = {
     "anthropic": {
         "claude-sonnet-4-6": {"input": 0.003, "output": 0.015},
         "claude-opus-4-7": {"input": 0.015, "output": 0.075},
+        "claude-sonnet-5": {"input": 0.003, "output": 0.015},
+        "claude-opus-4-8": {"input": 0.015, "output": 0.075},
     },
 }
 

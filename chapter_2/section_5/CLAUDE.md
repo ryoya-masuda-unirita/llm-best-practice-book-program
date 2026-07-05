@@ -1,267 +1,166 @@
-# Chapter 3 Section 6: Asynchronous Batch Processing for LLM Applications
+# Chapter 2 Section 5: Asynchronous Batch Processing for LLM Applications
 
-## Overview
+## What This Section Demonstrates
 
-This project demonstrates a production-ready implementation of **asynchronous batch processing** for LLM applications. It showcases how to efficiently handle large-scale LLM tasks by decoupling request submission from processing, using Redis as a message queue and background workers for parallel execution.
+This section shows how to run **large, non-latency-sensitive LLM workloads through provider Batch APIs** behind your own asynchronous job service. Instead of firing N synchronous requests, a client submits a job (up to 100 items) and immediately receives a `job_id`; a background worker forwards the job to the provider's batch endpoint (Gemini Batch API / OpenAI Batch API), polls for completion, and stores results in Redis for later retrieval.
 
-### Purpose
+Apply this practice for bulk generation/classification/ETL workloads where throughput and cost matter more than latency: provider batch endpoints are ~50% cheaper, and the submit/poll/result HTTP surface decouples your callers from provider processing times (minutes to hours).
 
-The primary goal is to illustrate best practices for building scalable, fault-tolerant LLM systems that can:
-- Handle bulk processing requests without blocking the API
-- Scale horizontally by adding more workers
-- Provide real-time progress tracking
-- Gracefully handle failures at the task level
-- Optimize resource utilization and cost efficiency
+## Practice Rules
 
-### Use Case
-
-This implementation focuses on fictional character generation as a representative batch processing use case. Users can submit requests to generate multiple characters with specific attributes (gender, age, personality traits), and the system processes them asynchronously via Gemini Batch API.
+1. **Accept work asynchronously**: `POST /batch/submit` validates, enqueues to Redis, and returns `job_id` + `PENDING` immediately. Never hold an HTTP connection open for batch work.
+2. **Separate API server from worker process.** The server only manipulates the queue and status/result records; the worker owns all provider interaction. They share only Redis.
+3. **Run the worker as two concurrent loops**: a pickup loop (blocking dequeue → submit to provider batch API) and a polling loop (check all active provider jobs on an interval, `asyncio.gather` for concurrency).
+4. **Track job state machine explicitly** (`JobStatus`: `PENDING → PROCESSING → COMPLETED | FAILED`) and store per-task outcomes (`TaskStatus`) so partial failures are visible, not swallowed.
+5. **Give every Redis record a TTL** (24h default) — batch results are transient handoffs, not a database.
+6. **Wrap provider batch APIs in three thin functions per provider**: `submit_*_batch`, `get_*_batch_status`, `get_*_batch_results`. Keep provider-specific status strings (e.g. `JOB_STATE_SUCCEEDED`) inside the wrapper.
+7. **Expose observability endpoints** (`/batch/queue/stats`, `/batch/jobs`) from day one — queue depth is your primary operational signal.
 
 ## Architecture
 
-### System Components
+```
+Client ──POST /batch/submit──▶ Batch Server (FastAPI :8001)
+   ◀── job_id (immediate)         │ rpush queue / status=PENDING
+                                  ▼
+                               Redis (:6379)
+                                  ▲ blpop
+                                  │
+                      Batch Worker (no ports)
+                      ├─ _job_pickup_loop:    dequeue → submit_gemini_batch()
+                      └─ _poll_active_jobs_loop: every 5s → get_*_batch_status()
+                                  │ on complete: parse results, set status/result
+                                  ▼
+Client ──GET /batch/{job_id}/status | /result──▶ Batch Server → Redis
+```
 
-```
-+------------------+
-|     Clients      |
-+--------+---------+
-         |
-         +------------------+----------------------+
-         |                  |                      |
-+--------v--------+  +------v-------+  +-----------v----------+
-|   LLM Server    |  | Batch Server |  |    Batch Worker      |
-|   (Port 8000)   |  | (Port 8001)  |  |    (Background)      |
-|                 |  |              |  |                      |
-| POST /generate  |  | POST /submit |  | - Job Pickup Loop    |
-|                 |  | GET /status  |  | - Polling Loop       |
-|                 |  | GET /result  |  | - Gemini Batch API   |
-+--------+--------+  +------+-------+  +-----------+----------+
-         |                  |                      |
-         +------------------+----------------------+
-                            |
-                     +------v------+
-                     |    Redis    |
-                     | (Port 6379) |
-                     |             |
-                     | - Job Queue |
-                     | - Status    |
-                     | - Results   |
-                     +-------------+
-```
+`llm-server` (:8000) is a plain synchronous `/generate` endpoint for contrast with the batch path.
 
 ### Directory Structure
 
 ```
-chapter_3/section_5/
-|-- src/
-|   |-- api/
-|   |   |-- batch_server.py     # Batch job management API (port 8001)
-|   |   +-- llm_server.py       # Synchronous LLM API (port 8000)
-|   |-- worker/
-|   |   +-- batch_worker.py     # Background worker with concurrent polling
-|   |-- client/
-|   |   |-- llm_client.py       # Gemini client initialization
-|   |   +-- redis_client.py     # Async Redis wrapper with decorators
-|   |-- model/
-|   |   |-- model.py            # Character request/response models
-|   |   +-- batch_model.py      # Batch job models (status, result)
-|   |-- service/
-|   |   +-- request_llm.py      # Gemini Batch API functions
-|   |-- prompt/
-|   |   +-- prompt.py           # Prompt generation with schema embedding
-|   |-- config.py               # Pydantic config with Secret types
-|   +-- logger.py               # Logging configuration
-|-- docker-compose.yml
-|-- Dockerfile
-|-- Makefile
-|-- pyproject.toml
-+-- .env.example
+chapter_2/section_5/
+├── src/
+│   ├── api/
+│   │   ├── batch_server.py    # submit/status/result/stats/jobs endpoints
+│   │   └── llm_server.py      # synchronous /generate (comparison baseline)
+│   ├── worker/batch_worker.py # BatchWorker: pickup + polling loops
+│   ├── client/
+│   │   ├── redis_client.py    # async Redis wrapper (queue + status/result records)
+│   │   └── llm_client.py      # provider clients + model enums
+│   ├── model/batch_model.py   # job/task request-response models
+│   ├── model/model.py         # CharacterResponse (task output schema)
+│   ├── prompt/prompt.py
+│   ├── service/request_llm.py # submit/get-status/get-results per provider batch API
+│   └── config.py / logger.py
+├── docker-compose.yml         # redis / llm-server:8000 / batch-server:8001 / batch-worker
+├── Dockerfile
+├── Makefile / pyproject.toml / .envrc.example
+└── CLAUDE.md
 ```
 
-## Key Components
+## Key Implementation Patterns
 
-### Batch Server (`src/api/batch_server.py`)
+### 1. Submit returns immediately (`src/api/batch_server.py`)
 
-FastAPI server for batch job management:
-- `POST /batch/submit` - Submit batch job, returns job_id immediately
-- `GET /batch/{job_id}/status` - Poll job progress
-- `GET /batch/{job_id}/result` - Get completed results
-- `GET /batch/queue/stats` - View queue statistics
-- `GET /batch/jobs` - List all job IDs
+```python
+@app.post("/batch/submit", response_model=BatchJobResponse, tags=["Batch"])
+# validate BatchJobRequest (1-100 character_requests)
+# job_id = uuid; enqueue InternalJobData; set status PENDING
+# return BatchJobResponse(job_id=..., status=PENDING, total_tasks=...)
+```
 
-Uses helper functions `raise_not_found()` and `raise_internal_error()` for consistent error handling, and Pydantic response models (`QueueStatsResponse`, `JobListResponse`).
+### 2. Worker with two cooperating loops (`src/worker/batch_worker.py`)
 
-### Batch Worker (`src/worker/batch_worker.py`)
+```python
+class BatchWorker:
+    async def start(self):
+        await asyncio.gather(self._job_pickup_loop(), self._poll_active_jobs_loop())
 
-Background processor with two concurrent async loops:
+    async def _job_pickup_loop(self):
+        # blpop(queue, timeout=1) → _submit_job → active_jobs[job_id] = ActiveJob(...)
 
-1. **Job Pickup Loop** (`_job_pickup_loop`):
-   - Dequeues jobs from Redis using BLPOP (1s timeout)
-   - Immediately submits to Gemini Batch API
-   - Tracks active jobs in `active_jobs` dict
+    async def _poll_active_jobs_loop(self):
+        # every 5s: asyncio.gather(*[self._check_job_status(j) for j in active_jobs])
+```
 
-2. **Polling Loop** (`_poll_active_jobs_loop`):
-   - Polls all active Gemini batch jobs every 5 seconds
-   - Uses `asyncio.gather()` for concurrent status checks
-   - Processes results when jobs complete
+Pickup latency and provider polling are independent concerns; two loops keep both responsive.
 
-Helper functions:
-- `build_status_response()` - Constructs BatchJobStatusResponse
-- `build_task_results()` - Converts batch results to TaskStatus list
-- `prepare_prompts()` - Prepares prompts from character requests
+### 3. Provider batch wrappers (`src/service/request_llm.py`)
 
-### Redis Client (`src/client/redis_client.py`)
+```python
+def submit_gemini_batch(model, prompts) -> str:
+    inline_batch_job = google_genai_client.batches.create(...)   # returns job name
 
-Async wrapper around redis-py with:
-- `@ensure_connected` decorator for automatic connection
-- `_status_key()` / `_result_key()` static methods for key generation
-- `DEFAULT_TTL = 86400` (24 hours) for automatic cleanup
-- Methods: `enqueue_job`, `dequeue_job`, `set_job_status`, `get_job_status`, `set_job_result`, `get_job_result`, `get_queue_length`, `list_job_ids`
+def get_gemini_batch_status(batch_job_name: str) -> str:
+    return google_genai_client.batches.get(name=batch_job_name).state.name
 
-### Gemini Batch API (`src/service/request_llm.py`)
+def get_gemini_batch_results(batch_job_name: str) -> list[CharacterResponse | None]:
+    # parse response.candidates[0].content.parts[0].text per task → CharacterResponse
+```
 
-Three synchronous functions for Gemini Batch API:
-- `submit_gemini_batch(model, prompts)` - Creates batch job, returns job name
-- `get_gemini_batch_status(batch_job_name)` - Returns state name (JOB_STATE_SUCCEEDED, etc.)
-- `get_gemini_batch_results(batch_job_name)` - Parses results into CharacterResponse list
+The OpenAI equivalents (`submit_openai_batch` builds a JSONL file for `openai_client.batches.create`) live in the same module — same three-function shape.
 
-Result parsing handles nested structure: `response.candidates[0].content.parts[0].text`
+### 4. Redis as the only shared state (`src/client/redis_client.py`)
 
-### Data Models
+```python
+@ensure_connected
+async def enqueue_job(self, queue_name, job_data): await self.redis.rpush(queue_name, job_json)
+async def dequeue_job(self, queue_name, timeout=0): await self.redis.blpop(queue_name, timeout=timeout)
+async def set_job_status(self, job_id, status_data, ttl=DEFAULT_TTL): ...   # key: batch:status:<job_id>
+async def set_job_result(self, job_id, result_data, ttl=DEFAULT_TTL): ...  # key: batch:result:<job_id>
+```
 
-**JobStatus** enum: `PENDING`, `PROCESSING`, `COMPLETED`, `FAILED`
+## Data Models
 
-**Key models**:
-- `BatchJobRequest` - Input: provider, model, character_requests (1-100)
-- `BatchJobResponse` - Immediate response: job_id, status, total_tasks
-- `BatchJobStatusResponse` - Progress: completed_tasks, failed_tasks, pending_tasks
-- `BatchJobResultResponse` - Final: tasks list with TaskStatus entries
-- `InternalJobData` - Queue storage: includes submitted_at timestamp
+| Model | Purpose |
+|-------|---------|
+| `JobStatus` | `PENDING` / `PROCESSING` / `COMPLETED` / `FAILED` |
+| `BatchJobRequest` | Input: provider, model, `character_requests` (1–100) |
+| `BatchJobResponse` | Immediate ack: `job_id`, status, `total_tasks` |
+| `BatchJobStatusResponse` | Progress: completed / failed / pending task counts |
+| `BatchJobResultResponse` / `TaskStatus` | Final per-task outcomes |
+| `InternalJobData` | Queue payload incl. `submitted_at` |
 
-## Dependencies
-
-- `redis>=7.0.0` - Async Redis client
-- `fastapi>=0.115.0` - Web framework
-- `uvicorn>=0.30.0` - ASGI server
-- `pydantic>=2.10.0` - Data validation
-- `google-genai>=1.0.0` - Gemini API client
-
-## Usage
-
-### Setup
+## Setup & Run
 
 ```bash
-# Copy environment template
-cp .env.example .env
+cp .envrc.example .envrc     # GEMINI_API_KEY (and OPENAI_API_KEY for OpenAI batches)
 
-# Edit .env with your API key
-# GEMINI_API_KEY=<your_key>
+# Docker (canonical)
+make docker-build && make docker-up
+curl -s http://localhost:8001/batch/queue/stats     # → {"queue_name":"llm_batch_jobs","pending_jobs":0}
+make docker-down
 
-# Install dependencies
-uv sync
+# Submit → poll → fetch
+curl -X POST http://localhost:8001/batch/submit -H "Content-Type: application/json" \
+  -d '{"llm_provider": "gemini", "model": "gemini-2.5-flash",
+       "character_requests": [{"gender": "female", "age": 25}]}'
+curl http://localhost:8001/batch/<job_id>/status
+curl http://localhost:8001/batch/<job_id>/result
 ```
 
-### Run with Docker
-
-```bash
-make docker-build    # Build image
-make docker-up       # Start all services
-make docker-logs     # View logs
-make docker-down     # Stop services
-```
-
-### Run Locally
-
-```bash
-# Terminal 1: Redis
-redis-server
-
-# Terminal 2: Batch Server
-uvicorn src.api.batch_server:app --host 0.0.0.0 --port 8001
-
-# Terminal 3: Worker
-python -m src.worker.batch_worker
-```
-
-### API Examples
-
-```bash
-# Submit batch job
-curl -X POST http://localhost:8001/batch/submit \
-  -H "Content-Type: application/json" \
-  -d '{
-    "provider": "gemini",
-    "model": "gemini-2.5-flash",
-    "character_requests": [
-      {"gender": "female", "age": 25, "additional_instructions": "cheerful"},
-      {"gender": "male", "age": 30, "additional_instructions": "intellectual"}
-    ]
-  }'
-
-# Check status
-curl http://localhost:8001/batch/{job_id}/status
-
-# Get results
-curl http://localhost:8001/batch/{job_id}/result
-
-# List all jobs
-curl http://localhost:8001/batch/jobs
-
-# Queue stats
-curl http://localhost:8001/batch/queue/stats
-```
+Local (three terminals): `redis-server` / `uv run uvicorn src.api.batch_server:app --port 8001` / `uv run python -m src.worker.batch_worker`.
 
 ## Development Commands
 
-| Command | Description |
-|---------|-------------|
-| `make lint` | Run ruff linter with auto-fix |
-| `make fmt` | Format code with ruff |
-| `make fix` | Run lint + fmt |
-| `make mypy` | Type checking |
-| `make docker-build` | Build Docker image |
-| `make docker-up` | Start services |
-| `make docker-down` | Stop services |
-| `make docker-logs` | View logs |
-| `make docker-restart` | Restart services |
+```bash
+make lint / make fmt / make fix / make mypy
+make docker-build / make docker-up / make docker-down
+```
 
 ## Implementation Notes
 
-### Worker Architecture
+- **Provider Batch APIs are half price** but completion is minutes-to-hours; the job service absorbs that variance so callers never block.
+- **Graceful shutdown**: the worker traps SIGINT/SIGTERM (`signal_handler` → `worker.stop()`) and drains in-flight polling before exit.
+- **Partial failure model**: a job completes even when individual tasks fail — `TaskStatus` records per-task success/error, and counts surface in the status endpoint. Don't fail whole jobs for one bad item.
+- **In-memory `active_jobs` is a single-worker simplification**: if the worker restarts, submitted-but-unfinished provider jobs are orphaned. For production, persist the provider job name in Redis at submit time and rebuild `active_jobs` on startup.
+- **Redis key patterns**: queue `llm_batch_jobs`, status `batch:status:<job_id>`, result `batch:result:<job_id>`, all with 24h TTL.
 
-The worker uses two concurrent loops instead of sequential processing:
-1. Jobs are submitted to Gemini immediately upon dequeue
-2. Multiple Gemini batch jobs can be in-flight simultaneously
-3. All active jobs are polled in parallel every 5 seconds
+## How to Apply This Practice to Your Own Project
 
-This design maximizes throughput when processing many concurrent jobs.
-
-### Redis Key Patterns
-
-- Queue: `llm_batch_jobs` (LIST)
-- Status: `job:{job_id}:status` (STRING with 24h TTL)
-- Result: `job:{job_id}:result` (STRING with 24h TTL)
-
-### Error Handling
-
-- Task-level failures don't affect other tasks
-- Job marked FAILED if any task fails
-- Worker continues processing after job failures
-- Gemini failed states: `JOB_STATE_FAILED`, `JOB_STATE_CANCELLED`, `JOB_STATE_EXPIRED`
-
-### Supported Models
-
-- `gemini-2.5-pro`
-- `gemini-2.5-flash`
-- `gemini-2.5-flash-lite`
-- `gemini-3.5-flash`
-- `gemini-3.1-flash-lite`
-
-### Security Notes
-
-This is example code without production security controls:
-- No authentication/authorization
-- No rate limiting
-- API keys in environment variables
-
-For production, add API key auth, JWT, rate limiting, and secrets management.
+1. Start from the three-process topology: stateless API server, stateless worker, Redis (or your queue of choice) in between.
+2. Define the job state machine and per-task result model first; every endpoint and worker transition maps to it.
+3. Wrap each provider's batch API in the submit/status/results triple; normalize provider states to your `JobStatus` inside the wrapper.
+4. Enforce job-size limits at the API boundary (here 1–100 tasks) to match provider constraints and keep polling cheap.
+5. Add `queue/stats` and job-listing endpoints before you need them — they're your ops dashboard.
+6. Decide result retention (TTL) and idempotency (client-supplied job keys) before production traffic.

@@ -1,269 +1,177 @@
-# Chapter 3 Section 3: LLM API Service Interface Segregation
+# Chapter 4 Section 2: Interface Segregation and DI for LLM API Services
 
-## Overview
+## What This Section Demonstrates
 
-This project demonstrates the **Interface Segregation Principle (ISP)** applied to LLM API services. It implements two distinct functionalities - text generation and text classification - as independent service interfaces, managed through a Dependency Injection (DI) pattern using Anthropic Claude API.
+This section applies the **Interface Segregation Principle (ISP)** and **Dependency Injection (DI)** to an LLM API service. Two independent capabilities — text generation and text classification — are defined as separate abstract interfaces (`ITextGenerationService`, `ITextClassificationService`) with separate concrete implementations, wired together by a `ServiceContainer` and exposed through FastAPI endpoints.
+
+It also demonstrates **plan-based model authorization**: the `AnthropicModel` enum knows which models each subscription plan may use, and services validate the requested model against the caller's plan before any LLM call.
+
+Apply this when an LLM service grows beyond one capability: segregated interfaces keep each endpoint's dependency surface minimal, DI makes services mockable, and plan gating turns "who may use the expensive model" into typed, testable logic.
+
+## Practice Rules
+
+1. **One interface per capability, not one god-service.** `ITextGenerationService.generate_character()` and `ITextClassificationService.classify()` are separate ABCs; endpoints depend only on the interface they use.
+2. **Wire implementations in a DI container** (`ServiceContainer`): services instantiated once at startup, the Anthropic client shared, endpoints pull via `get_*_service()` accessors.
+3. **Put plan→model policy on the model enum** (`AnthropicModel.free_plan_models()` / `standard_plan_models()`), resolved through one helper (`get_available_models(user_plan)`) — policy lives in one place.
+4. **Validate plan access before calling the LLM** and fail with an explanatory error listing the allowed models (HTTP 400).
+5. **Use structured outputs at the service boundary** (`beta.messages.parse` + Pydantic `output_format`) so both services return typed results.
+6. **Keep request/response contracts per endpoint** (`LLMRequest`/`LLMResponse`, `TextClassificationRequest`/`TextClassificationResponse`) — they carry `user_plan` explicitly.
 
 ## Architecture
 
 ```
-+----------------------------------------------------------+
-|                    FastAPI Server                         |
-|  +------------------+    +---------------------------+   |
-|  | POST /generate   |    | POST /classify            |   |
-|  +--------+---------+    +-------------+-------------+   |
-+-----------|-----------------------------|----------------+
-            |                             |
-            v                             v
-+----------------------------------------------------------+
-|                  ServiceContainer (DI)                    |
-|  +------------------------+  +-------------------------+ |
-|  | get_text_generation_   |  | get_text_classification_| |
-|  | service()              |  | service()               | |
-|  +-----------+------------+  +------------+------------+ |
-+--------------|----------------------------|--------------+
-               |                            |
-               v                            v
-+---------------------------+  +----------------------------+
-| ITextGenerationService    |  | ITextClassificationService |
-| (Abstract Interface)      |  | (Abstract Interface)       |
-+-----------+---------------+  +-------------+--------------+
-            |                                |
-            v                                v
-+---------------------------+  +----------------------------+
-| TextGenerationService     |  | TextClassificationService  |
-| (Concrete Implementation) |  | (Concrete Implementation)  |
-+-----------+---------------+  +-------------+--------------+
-            |                                |
-            +---------------+----------------+
-                            |
-                            v
-              +---------------------------+
-              |    Anthropic Client       |
-              |    (AsyncAnthropic)       |
-              +---------------------------+
+FastAPI (src/api/llm_server.py)
+  POST /generate ────────┐        POST /classify ────────┐       GET /health
+        ▼                │              ▼                │
+ServiceContainer (DI)    │      ServiceContainer (DI)    │
+  get_text_generation_service()   get_text_classification_service()
+        ▼                               ▼
+ITextGenerationService          ITextClassificationService     ← interfaces (ISP)
+        ▼                               ▼
+TextGenerationService           TextClassificationService      ← implementations
+        │   validate model ∈ get_available_models(user_plan)   ← plan gating
+        └───────────────┬───────────────┘
+                        ▼
+              AsyncAnthropic (shared client)
+              beta.messages.parse (structured outputs)
 ```
 
 ### Directory Structure
 
 ```
-chapter_3/section_3/
-|-- src/
-|   |-- __init__.py
-|   |-- config.py              # Configuration (API keys)
-|   |-- logger.py              # Logging setup
-|   |-- api/
-|   |   |-- __init__.py
-|   |   +-- llm_server.py      # FastAPI application
-|   |-- client/
-|   |   |-- __init__.py
-|   |   +-- llm_client.py      # Anthropic client setup
-|   |-- model/
-|   |   |-- __init__.py
-|   |   +-- model.py           # Pydantic data models
-|   |-- prompt/
-|   |   |-- __init__.py
-|   |   +-- prompt.py          # Prompt generation
-|   +-- service/
-|       |-- __init__.py
-|       |-- interfaces.py      # Service interfaces (ISP)
-|       |-- container.py       # DI container
-|       |-- text_generation_service.py
-|       +-- text_classification_service.py
-|-- .env.example
-|-- docker-compose.yml
-|-- Dockerfile.web
-|-- Makefile
-|-- pyproject.toml
-+-- README.md
+chapter_4/section_2/
+├── src/
+│   ├── api/llm_server.py                 # /generate, /classify, /health
+│   ├── service/
+│   │   ├── interfaces.py                 # ITextGenerationService / ITextClassificationService / get_available_models
+│   │   ├── container.py                  # ServiceContainer (DI)
+│   │   ├── text_generation_service.py    # generation implementation + plan validation
+│   │   └── text_classification_service.py# classification implementation + plan validation
+│   ├── client/llm_client.py              # AnthropicModel enum (+ plan model lists), client
+│   ├── model/model.py                    # UserPlan + request/response models
+│   ├── prompt/prompt.py
+│   └── config.py / logger.py
+├── docker-compose.yml / Dockerfile.web
+├── Makefile / pyproject.toml / .env.example
+└── CLAUDE.md
 ```
 
-## Key Components
+## Key Implementation Patterns
 
-### Service Interfaces (`src/service/interfaces.py`)
+### 1. Segregated interfaces (`src/service/interfaces.py`)
 
-- `ITextGenerationService` - Abstract interface for text generation
-  - `generate_character()` - Generate character with structured output
-- `ITextClassificationService` - Abstract interface for text classification
-  - `classify()` - Classify text into categories
-- `get_available_models()` - Helper to get models by user plan
-
-### Service Implementations
-
-- `TextGenerationService` - Implements character generation using Anthropic
-- `TextClassificationService` - Implements text classification using Anthropic
-
-### DI Container (`src/service/container.py`)
-
-- `ServiceContainer` - Manages service instances
-  - `get_text_generation_service()` - Returns ITextGenerationService
-  - `get_text_classification_service()` - Returns ITextClassificationService
-
-### LLM Client (`src/client/llm_client.py`)
-
-- `AnthropicModel` - Enum of available models
-  - `CLAUDE_SONNET_4_6` - claude-sonnet-4-6
-  - `CLAUDE_OPUS_4` - claude-opus-4
-- `anthropic_client` - AsyncAnthropic client instance
-
-### Data Models (`src/model/model.py`)
-
-| Model | Purpose |
-|-------|---------|
-| `UserPlan` | FREE or STANDARD plan |
-| `CharacterRequest` | Input for character generation |
-| `CharacterResponse` | Generated character output |
-| `LLMRequest` | API request for /generate |
-| `LLMResponse` | API response for /generate |
-| `TextClassificationRequest` | API request for /classify |
-| `ClassificationResult` | Classification output (structured) |
-| `TextClassificationResponse` | API response for /classify |
-
-### Plan-Based Model Restrictions
-
-| Plan | Available Models |
-|------|------------------|
-| FREE | claude-sonnet-4-6 |
-| STANDARD | claude-sonnet-4-6, claude-opus-4 |
-
-## Dependencies
-
-| Package | Version | Purpose |
-|---------|---------|---------|
-| anthropic | >=0.74.1 | Anthropic Claude API client |
-| fastapi | >=0.119.0 | Web framework |
-| pydantic | >=2.12.2 | Data validation |
-| uvicorn | >=0.37.0 | ASGI server |
-| python-dotenv | >=1.1.1 | Environment variables |
-
-## Usage
-
-### Setup
-
-```bash
-# Copy environment template
-cp .env.example .envrc
-
-# Set your API key in .envrc
-# ANTHROPIC_API_KEY=sk-ant-xxxxx
-
-# Install dependencies
-uv sync
+```python
+def get_available_models(user_plan: UserPlan) -> list[str]:
+    if user_plan == UserPlan.FREE:
+        return AnthropicModel.free_plan_models()
+    return AnthropicModel.standard_plan_models()
 ```
 
-### Run
+Each ABC declares only its own operation; no service knows about the other's methods.
 
-```bash
-# Development server with hot reload
-uv run uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000 --reload
+### 2. Plan policy on the enum (`src/client/llm_client.py`)
 
-# Or using Docker
-make docker-build
-make docker-up
+```python
+class AnthropicModel(StrEnum):
+    CLAUDE_SONNET_5 = "claude-sonnet-5"
+    CLAUDE_OPUS_4_8 = "claude-opus-4-8"
+    CLAUDE_OPUS_4_7 = "claude-opus-4-7"
+    CLAUDE_SONNET_4_6 = "claude-sonnet-4-6"
+    CLAUDE_HAIKU_4_5 = "claude-haiku-4-5"
+
+    @classmethod
+    def free_plan_models(cls) -> list[str]:
+        return [cls.CLAUDE_SONNET_4_6]
+
+    @classmethod
+    def standard_plan_models(cls) -> list[str]:
+        return cls.all_models()
 ```
 
-### API Endpoints
+FREE gets `claude-sonnet-4-6`; STANDARD gets every model in the enum — new models automatically join the standard plan.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | /health | Health check |
-| POST | /generate | Character generation |
-| POST | /classify | Text classification |
+### 3. Validate before you spend (`src/service/text_generation_service.py`)
 
-### Example Requests
-
-**Character Generation:**
-```bash
-curl -X POST http://localhost:8000/generate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "claude-sonnet-4-6",
-    "user_plan": "free",
-    "character_request": {
-      "gender": "female",
-      "age": 25,
-      "additional_instructions": "Adventurous personality"
-    }
-  }'
+```python
+available_models = get_available_models(user_plan)
+if model not in available_models:
+    raise ValueError(
+        f"Model '{model}' is not available for {user_plan.value} plan. "
+        f"Available models: {', '.join(available_models)}"
+    )   # surfaced as HTTP 400 with the allowed list
 ```
 
-**Text Classification:**
-```bash
-curl -X POST http://localhost:8000/classify \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "claude-sonnet-4-6",
-    "user_plan": "free",
-    "text": "This product is excellent!",
-    "categories": ["Positive", "Negative", "Neutral"]
-  }'
-```
+### 4. Structured output at the boundary
 
-## Development Commands
-
-| Command | Description |
-|---------|-------------|
-| `make lint` | Run ruff linter |
-| `make fmt` | Format code with ruff |
-| `make fix` | Run lint and format |
-| `make mypy` | Type checking |
-| `make docker-build` | Build Docker image |
-| `make docker-up` | Start containers |
-| `make docker-down` | Stop containers |
-| `make docker-logs` | View container logs |
-
-## Implementation Notes
-
-### Interface Segregation Principle
-
-Each service interface has a single responsibility:
-- `ITextGenerationService` - Only character generation
-- `ITextClassificationService` - Only text classification
-
-Clients depend only on the interfaces they need, not a monolithic service.
-
-### Dependency Injection
-
-The `ServiceContainer` centralizes service creation:
-- Services are instantiated once at startup
-- Anthropic client is shared across services
-- Easy to mock for testing
-
-### Structured Output
-
-Uses Anthropic's beta structured output feature:
 ```python
 result = await self.client.beta.messages.parse(
     model=model,
     max_tokens=1024,
     betas=["structured-outputs-2025-11-13"],
     messages=prompt,
-    output_format=CharacterResponse,  # Pydantic model
+    output_format=CharacterResponse,     # or ClassificationResult
 )
 ```
 
-### Request Flow
+## Data Models
 
+| Model | Purpose |
+|-------|---------|
+| `UserPlan` | `FREE` / `STANDARD` subscription plans |
+| `LLMRequest` / `LLMResponse` | /generate contract (model, user_plan, character_request) |
+| `TextClassificationRequest` / `TextClassificationResponse` / `ClassificationResult` | /classify contract (text, categories) |
+| `CharacterRequest` / `CharacterResponse` | Generation task schemas |
+
+## Setup & Run
+
+```bash
+cp .env.example .envrc       # set ANTHROPIC_API_KEY
+
+# Canonical (docker)
+make docker-build && make docker-up
+curl -s http://localhost:8000/health
+make docker-down
+
+# Or local dev server
+uv run uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000 --reload
 ```
-1. Client -> POST /generate
-2. FastAPI validates request with Pydantic
-3. ServiceContainer provides ITextGenerationService
-4. Service validates user plan model access
-5. Prompt generated via make_generation_prompt()
-6. Anthropic API called with structured output
-7. Response parsed into CharacterResponse
-8. LLMResponse returned to client
+
+### API Examples
+
+```bash
+# Generation (free plan → claude-sonnet-4-6 only)
+curl -X POST http://localhost:8000/generate -H "Content-Type: application/json" \
+  -d '{"model": "claude-sonnet-4-6", "user_plan": "free",
+       "character_request": {"gender": "female", "age": 25}}'
+
+# Classification
+curl -X POST http://localhost:8000/classify -H "Content-Type: application/json" \
+  -d '{"model": "claude-sonnet-4-6", "user_plan": "free",
+       "text": "This product is excellent!", "categories": ["Positive", "Negative", "Neutral"]}'
+
+# Plan violation → HTTP 400 listing available models
 ```
 
-### Error Handling
+## Development Commands
 
-- Plan restriction errors: HTTP 400 with available models listed
-- Validation errors: HTTP 400 with Pydantic error details
-- LLM errors: HTTP 500 with error message
+```bash
+make lint / make fmt / make fix / make mypy
+make docker-build / make docker-up / make docker-down / make docker-logs
+```
 
-### Security
+## Implementation Notes
 
-- API keys stored in environment variables
-- Secret type masks keys in logs
-- Pydantic validates all input
-- Age constrained to 0-100 range
+- **Why ISP for LLM services**: capabilities accrete fast (generation, classification, summarization, embedding…). Segregated interfaces stop the "one service class with 12 methods" drift and let each capability version, test, and scale independently.
+- **DI payoff is in tests**: endpoints depend on interfaces, so tests inject fakes via the container — no Anthropic client, no network.
+- **Plan gating as domain logic, not middleware**: putting model policy on the enum + one resolver keeps authorization decisions typed and unit-testable, and error messages self-documenting.
+- **Request flow**: FastAPI validation → container resolves interface → plan check → prompt build → structured-output call → typed response. Errors: plan violations → 400, LLM failures → 500.
+- **Secrets** use `Secret` types so keys are masked in logs; age is constrained 0–100 at the Pydantic layer.
+
+## How to Apply This Practice to Your Own Project
+
+1. List your service's capabilities; define one ABC per capability with exactly one or two methods.
+2. Implement each ABC in its own module sharing one provider client; construct everything in a container at startup.
+3. Make endpoints depend on interfaces via the container accessor — never instantiate services in route handlers.
+4. If you have tiers/plans, encode model allowances as classmethods on your model enum and resolve through one function; validate before calling the provider.
+5. Return the allowed alternatives in authorization errors — it turns a 400 into self-service documentation.
+6. Add new capabilities as new interfaces + implementations + endpoints; existing code should not change (open-closed).

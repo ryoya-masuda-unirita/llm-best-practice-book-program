@@ -33,7 +33,7 @@ async def generate_character(request: LLMRequest):
 
     Model availability depends on user plan:
     - Free plan: claude-sonnet-4-6
-    - Standard plan: All models (claude-sonnet-4-6, claude-opus-4)
+    - Standard plan: All models (claude-sonnet-4-6, claude-opus-4, claude-sonnet-5, claude-opus-4-8)
     """
     start_time = time.time()
 
@@ -79,7 +79,7 @@ async def classify_text(request: TextClassificationRequest):
 
     Model availability depends on user plan:
     - Free plan: claude-sonnet-4-6
-    - Standard plan: All models (claude-sonnet-4-6, claude-opus-4)
+    - Standard plan: All models (claude-sonnet-4-6, claude-opus-4, claude-sonnet-5, claude-opus-4-8)
     """
     start_time = time.time()
 

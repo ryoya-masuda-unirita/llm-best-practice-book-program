@@ -1,298 +1,162 @@
-# Learning AI Agent - Training Plan Generator
+# Chapter 5 Section 6: Learning AI Agent — External Memory and Feedback-Driven Adaptation
 
-## Overview
+## What This Section Demonstrates
 
-A learning AI agent that generates personalized 1-week training plans. The system accumulates user feedback and learning history as external memory (JSON files), dynamically injecting learned patterns into prompts for increasingly personalized recommendations.
+This section implements an agent that **improves per user over time without retraining**: a training-plan generator whose behavior adapts through an external memory loop. User feedback and history accumulate as JSON files; a **pattern-analyzer agent** periodically distills them into `LearnedPattern`s ("prefers short practical tasks", "struggles with theory-heavy days"); and the **plan-generator agent** injects those patterns into its prompt, producing increasingly personalized plans.
+
+The learning loop: **generate → record feedback → extract patterns → inject into the next generation**. Apply this pattern to any recurring per-user LLM task (recommendations, coaching, report styles) where "learning" can be represented as *retrieved context*, not model weights.
+
+## Practice Rules
+
+1. **Persist memory outside the model** as versioned JSON files (`memory/{user_id}_{timestamp}.json`) containing profile, history, feedback, and learned patterns — inspectable, portable, deletable per user.
+2. **Separate the learner from the doer.** The pattern analyzer (one agent/prompt) turns raw feedback into structured `LearnedPattern`s; the plan generator (another agent/prompt) consumes patterns. Neither parses the other's prose.
+3. **Gate learning on evidence volume**: pattern analysis runs only with `MIN_FEEDBACK_FOR_LEARNING` feedback entries and reads only the most recent N (`get_recent_feedback(limit=10)`) — no patterns from one data point, no unbounded context.
+4. **Inject learnings as a dedicated prompt block** (`LEARNED_CONTEXT_TEMPLATE`) — patterns enter generation as explicit context, so their influence is visible and debuggable.
+5. **Record which feedback produced each pattern** (`feedback_ids` on `LearnedPattern`) — learned behavior stays auditable back to its evidence.
+6. **Type feedback as enums** (`FeedbackRating`, `DifficultyRating`, `TaskCompletion`) so pattern analysis aggregates over closed vocabularies.
+7. **Parse LLM enums defensively** (`_safe_enum_parse` with defaults) — memory spans many generations of prompts; old files must keep loading.
 
 ## Architecture
 
 ```
-+------------------------------------------------------------------+
-|                    Pattern Analyzer Agent                         |
-|              (Extracts patterns from user feedback)               |
-+---------------------------------+--------------------------------+
-                                  |
-                                  | Injects learned patterns
-                                  v
-+------------------------------------------------------------------+
-|                Training Plan Generator Agent                      |
-|           (Generates plans using learned patterns)                |
-+------------------------------------------------------------------+
-                                  |
-                                  v
-+------------------------------------------------------------------+
-|                         User Memory                               |
-|       (Stores profile, history, feedback, learned patterns)       |
-|                     memory/{user_id}_{timestamp}.json             |
-+------------------------------------------------------------------+
+generate command                         feedback command
+  ▼                                        ▼
+run_training_plan_generation             add_feedback_to_memory
+  ├─ load_memory(user_id) ◀───────────── memory/{user_id}_{ts}.json
+  ├─ analyze_feedback_patterns           (profile / history / feedback /
+  │    (if ≥ MIN_FEEDBACK)                learned patterns / progress)
+  │    Pattern Analyzer Agent → LearnedPattern[]
+  ├─ generate_training_plan
+  │    Plan Generator Agent
+  │    prompt = profile + request + LEARNED_CONTEXT(patterns)
+  └─ save_memory (new snapshot file)
+  ▼
+outputs/training_plan_*.md
 ```
 
-### Learning Feedback Loop
-
-1. **Inference and Recording**: Agent generates training plan, user feedback is saved to memory
-2. **Pattern Extraction**: Accumulated feedback is analyzed to learn user preferences
-3. **Adaptive Generation**: Learned patterns are injected into prompts for personalized plans
-
-## Directory Structure
+### Directory Structure
 
 ```
-chapter_5/section_4/
-|-- src/
-|   |-- __init__.py
-|   |-- config.py                # Configuration (API keys)
-|   |-- logger.py                # Logging setup
-|   |-- main.py                  # CLI entry point
-|   |-- client/
-|   |   |-- __init__.py
-|   |   +-- llm_client.py        # OpenAI model definitions
-|   |-- model/
-|   |   |-- __init__.py
-|   |   +-- model.py             # Pydantic data models
-|   |-- prompt/
-|   |   |-- __init__.py
-|   |   +-- prompt.py            # Prompt templates
-|   +-- service/
-|       |-- __init__.py
-|       |-- memory_service.py    # Memory persistence operations
-|       +-- service.py           # Agent implementation
-|-- memory/                      # User memory storage directory
-|   +-- {user_id}_{timestamp}.json
-|-- example/
-|   +-- profile.json             # Sample user profile
-|-- outputs/                     # Generated plans (auto-created)
-|-- .envrc.example               # Environment variable template
-|-- pyproject.toml               # Dependencies
-|-- Makefile                     # Build commands
-+-- CLAUDE.md                    # This file
+chapter_5/section_6/
+├── src/
+│   ├── service/
+│   │   ├── service.py          # both agents + conversions + run entrypoints
+│   │   └── memory_service.py   # save/load/list memory files, feedback append
+│   ├── model/model.py          # profile/plan/feedback/pattern/memory models
+│   ├── prompt/prompt.py        # generator + analyzer prompts, LEARNED_CONTEXT_TEMPLATE
+│   ├── client/llm_client.py    # OpenAI model enum
+│   ├── main.py                 # CLI group: generate / feedback / list / show
+│   └── config.py / logger.py
+├── memory/                     # per-user memory snapshots (runtime)
+├── Makefile / pyproject.toml / .envrc.example
+└── CLAUDE.md
 ```
 
-## Key Components
+## Key Implementation Patterns
 
-### Data Models (`src/model/model.py`)
+### 1. Evidence-gated pattern extraction (`src/service/service.py`)
+
+```python
+def analyze_feedback_patterns(memory: UserMemory, model=...) -> list[LearnedPattern]:
+    feedback_list = memory.get_recent_feedback(limit=10)
+    if len(feedback_list) < MIN_FEEDBACK_FOR_LEARNING:
+        return []                                    # don't learn from noise
+
+    user_prompt = make_pattern_analyzer_user_prompt(
+        feedback_history=format_feedback_for_analysis(feedback_list),
+        total_weeks_completed=memory.progress.total_weeks_completed,
+        average_completion_rate=memory.progress.average_completion_rate, ...)
+    response = invoke_with_structured_output(llm, messages, PatternAnalysisResponse, "Pattern Analyzer")
+    patterns = [_convert_response_to_learned_pattern(p, feedback_ids) for p in response.patterns]
+    for pattern in patterns:
+        memory.add_learned_pattern(pattern)
+    return patterns
+```
+
+### 2. Patterns injected as an explicit prompt block (`src/prompt/prompt.py`)
+
+```python
+LEARNED_CONTEXT_TEMPLATE = """..."""    # renders learned patterns into the generator prompt
+# generation prompt = profile + request + LEARNED_CONTEXT(patterns)
+```
+
+The generator's personalization is entirely visible in its rendered prompt — nothing hidden in fine-tuning.
+
+### 3. Append-only memory snapshots (`src/service/memory_service.py`)
+
+```python
+def save_memory(memory: UserMemory) -> Path:
+    # writes memory/{user_id}_{timestamp}.json — new snapshot per run
+def load_memory(user_id: str) -> UserMemory | None:
+    # loads the latest snapshot for the user
+def add_feedback_to_memory(...):
+    # appends TrainingFeedback and saves a new snapshot
+```
+
+### 4. Defensive enum parsing across memory generations
+
+```python
+def _safe_enum_parse(enum_class, value: str, default):
+    # unknown/legacy values → default instead of crash; old memories stay loadable
+```
+
+## Data Models
 
 | Model | Purpose |
 |-------|---------|
-| `UserProfile` | User's learning goal, skill level, available time |
-| `TrainingPlan` | 1-week training plan with daily tasks and assessment |
-| `DailyPlan` / `DailyTask` | Daily plans and individual tasks |
-| `TrainingFeedback` | User feedback on completed training |
-| `LearnedPattern` | Patterns extracted from feedback |
-| `UserMemory` | Complete user memory (profile, history, patterns) |
-| `LearningProgress` | Learning progress statistics |
+| `UserProfile` | Goal, skill level, available time |
+| `TrainingPlan` / `DailyPlan` / `DailyTask` / `WeeklyAssessment` | Generated deliverable |
+| `TrainingFeedback` / `TaskCompletion` / `FeedbackRating` / `DifficultyRating` | Recorded user feedback |
+| `LearnedPattern` | Distilled preference/insight + source `feedback_ids` |
+| `UserMemory` / `TrainingRecord` | The persistent external memory container |
 
-### Service Functions (`src/service/service.py`)
-
-| Function | Purpose |
-|----------|---------|
-| `run_training_plan_generation()` | Main workflow - complete plan generation |
-| `generate_training_plan()` | Generate training plan with pattern injection |
-| `analyze_feedback_patterns()` | Extract patterns from feedback |
-| `create_user_profile()` | Create user profile |
-
-### Memory Service (`src/service/memory_service.py`)
-
-| Function | Purpose |
-|----------|---------|
-| `save_memory()` | Save memory to JSON file |
-| `load_memory()` | Load latest memory for user |
-| `create_new_memory()` | Create new memory instance |
-| `add_feedback_to_memory()` | Add feedback and save |
-| `list_user_memories()` | List all users and memory files |
-
-### Prompt Templates (`src/prompt/prompt.py`)
-
-| Template | Purpose |
-|----------|---------|
-| `TRAINING_PLAN_SYSTEM_PROMPT` | System prompt for plan generation |
-| `TRAINING_PLAN_USER_PROMPT_TEMPLATE` | User prompt for plan generation |
-| `PATTERN_ANALYZER_SYSTEM_PROMPT` | System prompt for pattern analysis |
-| `LEARNED_CONTEXT_TEMPLATE` | Template for injecting learned patterns |
-
-## Usage
-
-### Setup
+## Setup & Run
 
 ```bash
-# Set environment variables
-cp .envrc.example .envrc
-# Edit .envrc to set OPENAI_API_KEY
-
-# Install dependencies
+cp .envrc.example .envrc     # set OPENAI_API_KEY
 uv sync
-```
 
-### CLI Commands
+# 1. Generate a plan (creates memory for the user)
+uv run python -m src.main generate -g 'Learn Python programming' -h 10 -s beginner
 
-#### Generate Plan
+# 2. Record feedback (accumulates learning evidence)
+uv run python -m src.main feedback ...    # rating / difficulty / completed tasks
 
-```bash
-# New user with command-line options
-uv run python -m src.main generate -g "Learn Python programming" -h 10 -s beginner
+# 3. Generate again — once feedback ≥ threshold, learned patterns shape the plan
+uv run python -m src.main generate -g 'Learn Python programming' -h 10 -s beginner
 
-# Use profile file
-uv run python -m src.main generate -p example/profile.json
-
-# Existing user (loads from memory)
-uv run python -m src.main generate -u user_example
-```
-
-#### Submit Feedback
-
-```bash
-uv run python -m src.main feedback -u user_example -r good -d just_right
-uv run python -m src.main feedback -u user_example -r excellent -d challenging -ft "Great content!"
-```
-
-#### List Users
-
-```bash
+# Inspect memory
 uv run python -m src.main list
 ```
 
-#### Show User Details
+### CLI (click group)
 
-```bash
-uv run python -m src.main show -u user_example --show-plans --show-patterns
-```
-
-### CLI Options
-
-#### generate command
-
-| Option | Short | Description |
-|--------|-------|-------------|
-| `--model` | `-m` | OpenAI model to use |
-| `--output-dir` | `-o` | Output directory |
-| `--profile-file` | `-p` | Path to profile JSON file |
-| `--user-id` | `-u` | User ID (loads existing memory) |
-| `--goal` | `-g` | Learning goal |
-| `--hours-per-week` | `-h` | Weekly available hours |
-| `--skill-level` | `-s` | Skill level (beginner/intermediate/advanced) |
-| `--learning-pace` | `-lp` | Learning pace (slow/moderate/fast) |
-| `--skip-analysis` | | Skip pattern analysis |
-
-#### feedback command
-
-| Option | Short | Description |
-|--------|-------|-------------|
-| `--user-id` | `-u` | User ID (required) |
-| `--plan-id` | `-pid` | Plan ID (uses latest if not specified) |
-| `--rating` | `-r` | Overall rating (required) |
-| `--difficulty` | `-d` | Difficulty rating (required) |
-| `--improvement-suggestions` | `-is` | Suggestions (comma-separated) |
-| `--free-text` | `-ft` | Free text feedback |
-
-## Memory Structure
-
-### File Naming Convention
-
-```
-memory/{user_id}_{timestamp}.json
-```
-
-Example: `memory/user_example_20241221_143052.json`
-
-The latest file contains the most up-to-date memory.
-
-### Memory JSON Schema
-
-```json
-{
-  "user_id": "user_example",
-  "created_at": "2024-12-21T14:30:52",
-  "updated_at": "2024-12-21T15:45:30",
-  "profile": {
-    "user_id": "user_example",
-    "learning_goal": "Learn Python programming",
-    "skill_level": "beginner",
-    "available_hours_per_week": 10
-  },
-  "training_history": [
-    {
-      "plan": { ... },
-      "feedback": { ... }
-    }
-  ],
-  "learned_patterns": [
-    {
-      "pattern_type": "preference",
-      "description": "Prefers video content",
-      "confidence_score": 0.8
-    }
-  ],
-  "progress": {
-    "total_weeks_completed": 3,
-    "total_tasks_completed": 42,
-    "average_completion_rate": 0.85
-  }
-}
-```
-
-## Learning Mechanism
-
-### Pattern Extraction
-
-Pattern analysis runs when 2+ feedback entries exist:
-
-1. **preference**: Content type and learning style preferences
-2. **difficulty**: Difficulty-related patterns
-3. **pace**: Learning pace patterns
-4. **content**: Specific content patterns
-5. **time**: Time allocation patterns
-
-### Prompt Injection
-
-Patterns with confidence_score >= 0.6 are injected into prompts:
-
-```
-## Insights from Past Learning
-
-### User Preferences
-- Prefers video content
-- Prefers short learning units (under 30 minutes)
-
-### Difficulty Information
-- Slightly easier difficulty is appropriate
-
-### Specific Recommendations
-- Include more video content
-- Set each task under 30 minutes
-```
-
-## Dependencies
-
-| Package | Purpose |
+| Command | Purpose |
 |---------|---------|
-| `langchain-openai` | OpenAI LLM integration |
-| `openai` | OpenAI API client |
-| `pydantic` | Data validation and models |
-| `click` | CLI framework |
-| `python-dotenv` | Environment variable loading |
+| `generate` | Create a 1-week training plan (`-g` goal, `-h` hours, `-s` skill level, …) |
+| `feedback` | Record ratings/completions against a plan |
+| `list` | List stored user memories |
+| (see `--help` for the full command set) | |
 
 ## Development Commands
 
 ```bash
-# Install dependencies
-uv sync
-
-# Show help
-uv run python -m src.main --help
-
-# Generate plan
-uv run python -m src.main generate -p example/profile.json
-
-# Run tests
-uv run pytest
-
-# Lint code
-make lint
-
-# Format code
-make fmt
-
-# Run both lint and format
-make fix
-
-# Type check
-make mypy
+make lint / make fmt / make fix / make mypy
 ```
+
+## Implementation Notes
+
+- **"Learning" here is context engineering, not weight updates** — the same practice behind memory in production assistants. Its strengths: per-user, immediately effective, fully auditable, erasable (delete the JSON). Its limit: patterns must fit the prompt budget — hence the recent-N window and distillation into compact `LearnedPattern`s rather than raw feedback replay.
+- **Distill-then-inject beats raw-history injection**: 10 feedback entries → a few patterns is both cheaper and more instructive to the generator than pasting the history verbatim.
+- **Snapshot-per-run persistence** gives free history/rollback at the cost of file accumulation; production variants keep the same `UserMemory` schema in a database with versioning.
+- **The two-agent split matters for quality control**: you can evaluate the analyzer (are extracted patterns supported by the feedback?) separately from the generator (does the plan follow the patterns?).
+- **Cold start is explicit**: with no memory, generation runs pattern-free; the system degrades to a good generic generator rather than hallucinating preferences.
+
+## How to Apply This Practice to Your Own Project
+
+1. Define your `UserMemory` schema: profile, interaction history, feedback (typed enums), learned patterns with evidence links.
+2. Build the feedback capture path first — no feedback, no learning loop.
+3. Write the analyzer agent with a structured `PatternAnalysisResponse`; gate it on minimum evidence and a recent-N window.
+4. Inject patterns via a dedicated template block in the doer agent's prompt; log the rendered block per run.
+5. Store memory externally (files → DB) with per-user deletion support; never bury user-specific learning in prompt code.
+6. Evaluate the loop end-to-end: does plan quality (or acceptance rate) actually improve after feedback? If not, fix the analyzer prompt before adding more memory.

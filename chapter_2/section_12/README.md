@@ -111,7 +111,7 @@ Usage: python -m src.main [OPTIONS]
   Analyze and extract document structure using LLM-generated scripts.
 
 Options:
-  -m, --model [claude-opus-4-7|claude-sonnet-4-6|claude-haiku-4-5]
+  -m, --model [claude-sonnet-5|claude-opus-4-8|claude-opus-4-7|claude-sonnet-4-6|claude-haiku-4-5]
                                   The Anthropic model to use for analysis.
                                   [required]
   -i, --input PATH                Path to the input document (text or
@@ -132,7 +132,7 @@ uv run python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md -od outputs
 
 | オプション | 短縮形 | 必須 | デフォルト | 説明 |
 |-----------|-------|------|-----------|------|
-| `--model` | `-m` | Yes | - | 使用するモデル（`claude-sonnet-4-6` または `claude-opus-4-7`） |
+| `--model` | `-m` | Yes | - | 使用するモデル（`claude-sonnet-4-6`、`claude-opus-4-7`、`claude-sonnet-5`、または `claude-opus-4-8`） |
 | `--input` | `-i` | Yes | - | 入力文書ファイルのパス |
 | `--output-directory` | `-od` | No | `outputs` | 出力ファイルの保存先ディレクトリ |
 

@@ -157,7 +157,7 @@ Options:
                                   or gemini).  [required]
   -m, --model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|
                GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|
-               GEMINI_2_5_FLASH_LITE|CLAUDE_OPUS_4_7|CLAUDE_HAIKU_4_5|
+               GEMINI_2_5_FLASH_LITE|CLAUDE_SONNET_5|CLAUDE_OPUS_4_8|CLAUDE_OPUS_4_7|CLAUDE_HAIKU_4_5|
                CLAUDE_SONNET_4_6]
                                   The model to use for the request.
                                   [required]

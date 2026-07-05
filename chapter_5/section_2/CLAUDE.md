@@ -1,244 +1,155 @@
-# Multi-Agent Contract Review System
+# Chapter 5 Section 2: Multi-Agent System — Orchestrator-Worker Contract Review
 
-## Overview
+## What This Section Demonstrates
 
-A multi-agent AI system for contract document review using LangGraph and Google Gemini. The system employs 7 specialized agents (including orchestrator) that collaborate to analyze contracts, assess risks, compare against standard templates, and generate comprehensive review reports.
+This section implements a **multi-agent system with the Orchestrator-Worker pattern** on LangGraph: an orchestrator agent plans the review strategy, then dispatches specialized worker agents — document parser → (clause classifier ∥ risk assessor ∥ diff checker, **in parallel**) → collector → amendment proposer → synthesizer — to review a contract against a standard template and produce a Markdown report.
 
-This project demonstrates the Orchestrator-Worker pattern for Multi-AI Agent architecture, where an orchestrator plans the workflow and dispatches tasks to specialized worker agents, with some workers executing in parallel for efficiency.
+Each worker is a focused LLM call with its own system prompt and structured-output schema; workers share a typed `AgentState` and are dispatched via LangGraph's `Send` API for fan-out. Apply this pattern when a task decomposes into specialist subtasks with different prompts/criteria, and some of them are independent enough to run concurrently — document review, due diligence, multi-aspect analysis.
+
+## Practice Rules
+
+1. **One agent = one responsibility + one system prompt + one output schema.** The clause classifier knows nothing about risk scoring; the diff checker only compares against the template.
+2. **Let the orchestrator plan, not micro-manage**: it produces an `OrchestratorPlan` (strategy, focus areas, task list) via structured output; the graph topology executes the plan.
+3. **Fan out independent workers with `Send`** (`dispatch_to_parallel_analyzers` returns three `Send` targets) and **join with a collector node** before dependent stages.
+4. **Give the orchestrator a failure default** — if planning fails, fall back to a default sequential plan instead of aborting the run.
+5. **Type every inter-agent artifact** (`ContractClause`, `RiskAssessment`, `ClauseDiff`, `AmendmentProposal`…): workers communicate through validated state fields, never prose.
+6. **Pass runtime config through `RunnableConfig`** (`config["configurable"]["model"]`) so all agents honor the CLI-selected model without global state.
+7. **Synthesize at the end**: a dedicated report generator merges all worker outputs into the human deliverable — workers never write the final report.
 
 ## Architecture
 
 ```
-+-------------------------------------------------------------------------+
-|                   Orchestrator-Worker Pipeline                           |
-+-------------------------------------------------------------------------+
-|                                                                          |
-|  +----------------+    +-------------------+                             |
-|  | Contract Input |--->|   Orchestrator    |                             |
-|  | (Contract/     |    |      Agent        |                             |
-|  |  Template)     |    +--------+----------+                             |
-|  +----------------+             |                                        |
-|                                 v                                        |
-|                    +-------------------+                                 |
-|                    | Document Parser   |                                 |
-|                    |     Worker        |                                 |
-|                    +--------+----------+                                 |
-|                             |                                            |
-|          +------------------+------------------+                         |
-|          |                  |                  |                         |
-|          v                  v                  v                         |
-|  +---------------+  +---------------+  +---------------+                 |
-|  |    Clause     |  |     Risk      |  |     Diff      |  (Parallel)    |
-|  |  Classifier   |  |  Assessment   |  |    Checker    |                 |
-|  |    Worker     |  |    Worker     |  |    Worker     |                 |
-|  +-------+-------+  +-------+-------+  +-------+-------+                 |
-|          |                  |                  |                         |
-|          +------------------+------------------+                         |
-|                             |                                            |
-|                             v                                            |
-|                    +-------------------+                                 |
-|                    |     Collector     |                                 |
-|                    +--------+----------+                                 |
-|                             |                                            |
-|                             v                                            |
-|                    +-------------------+                                 |
-|                    |    Amendment      |                                 |
-|                    |    Proposer       |                                 |
-|                    +--------+----------+                                 |
-|                             |                                            |
-|                             v                                            |
-|                    +-------------------+                                 |
-|                    |   Synthesizer     |                                 |
-|                    | (Report Generator)|                                 |
-|                    +--------+----------+                                 |
-|                             |                                            |
-|                             v                                            |
-|                    +-------------------+                                 |
-|                    |  Review Report    |                                 |
-|                    |   (Markdown)      |                                 |
-|                    +-------------------+                                 |
-+-------------------------------------------------------------------------+
+START ─▶ orchestrator (plan: strategy/focus/tasks — structured output)
+            │ Send
+            ▼
+       document_parser_worker (contract text → ContractClause[])
+            │ Send ×3 (parallel fan-out)
+   ┌────────┼──────────────┐
+   ▼        ▼              ▼
+clause_   risk_        diff_checker_worker
+classifier assessment  (vs standard template)
+   └────────┼──────────────┘
+            ▼
+        collector (join)
+            ▼
+ amendment_proposer_worker (fixes for high-risk/deviant clauses)
+            ▼
+        synthesizer (ContractReviewReport → Markdown)
+            ▼
+           END
 ```
 
 ### Directory Structure
 
 ```
 chapter_5/section_2/
-|-- src/
-|   |-- __init__.py
-|   |-- main.py                      # CLI entry point
-|   |-- config.py                    # Environment configuration (Gemini API key)
-|   |-- logger.py                    # Logging setup
-|   |-- client/
-|   |   |-- __init__.py
-|   |   +-- llm_client.py            # Gemini model definitions
-|   |-- model/
-|   |   |-- __init__.py
-|   |   +-- multi_agent_model.py     # Pydantic data models and AgentState
-|   |-- prompt/
-|   |   |-- __init__.py
-|   |   +-- multi_agent_prompt.py    # System prompts for each agent
-|   +-- service/
-|       |-- __init__.py
-|       +-- multi_agent_service.py   # LangGraph pipeline implementation
-|-- example/                          # Sample contracts and templates
-|   |-- standard_nda_template.md
-|   |-- sample_nda.md
-|   |-- sample_nda_02.md
-|   |-- sample_nda_03.md
-|   |-- standard_purchase_order_template.md
-|   |-- sample_purchase_order_01.md
-|   |-- sample_purchase_order_02.md
-|   |-- standard_consulting_template.md
-|   |-- sample_consulting_01.md
-|   +-- sample_consulting_02.md
-|-- outputs/                          # Generated review reports
-|-- pyproject.toml
-|-- Makefile
-|-- .envrc.example
-+-- README.md
+├── src/
+│   ├── service/multi_agent_service.py   # all agent nodes + dispatchers + graph factories
+│   ├── model/multi_agent_model.py       # per-agent response schemas + plan + report + AgentState
+│   ├── prompt/multi_agent_prompt.py     # per-agent system prompts
+│   ├── client/llm_client.py             # Gemini via langchain-google-genai
+│   ├── main.py                          # CLI: contract + template files
+│   └── config.py / logger.py
+├── example/sample_nda.md / standard_nda_template.md
+├── Makefile / pyproject.toml / .envrc.example
+└── CLAUDE.md
 ```
 
-## Key Components
+## Key Implementation Patterns
 
-### Agents (src/service/multi_agent_service.py)
+### 1. Orchestrator plans with structured output + failure default (`src/service/multi_agent_service.py`)
 
-| Agent | Function | Output |
-|-------|----------|--------|
-| Orchestrator | Plans workflow and dispatches tasks | `orchestrator_plan` |
-| Document Parser | Extracts clauses from contract text | `parsed_clauses` |
-| Clause Classifier | Categorizes clauses (confidentiality, liability, IP, etc.) | `clause_categories` |
-| Risk Assessment | Evaluates risk level (1-10) for each clause | `risk_assessments` |
-| Diff Checker | Compares contract with standard template | `diffs` |
-| Amendment Proposer | Suggests modifications for high-risk clauses | `amendments` |
-| Report Generator | Creates final markdown report | `final_report` |
+```python
+def orchestrator_node(state: AgentState, config: RunnableConfig) -> dict:
+    model = ChatGoogleGenerativeAI(model=model_name, temperature=0, ...)\
+        .with_structured_output(OrchestratorResponse)
+    try:
+        response: OrchestratorResponse = model.invoke(messages)
+        return {"orchestrator_plan": response.plan, "current_phase": "planning_complete"}
+    except Exception:
+        default_plan = OrchestratorPlan(tasks=[], strategy="Default sequential review",
+                                        focus_areas=["All clauses"])
+        return {"orchestrator_plan": default_plan, "current_phase": "planning_failed"}
+```
 
-### Data Models (src/model/multi_agent_model.py)
+### 2. Parallel fan-out with `Send` and a collector join
 
-- `ContractClause` - Parsed clause structure
-- `ClauseCategory` - Category classification result
-- `RiskAssessment` - Risk evaluation with score and factors
-- `ClauseDiff` - Difference between contract and template
-- `AmendmentProposal` - Suggested modification with rationale
-- `OrchestratorPlan` - Task assignments and review strategy
-- `ContractReviewReport` - Final report with `to_markdown()` method
-- `AgentState` - LangGraph state management TypedDict
-- `WorkerState` - State for individual worker agents
+```python
+graph.add_conditional_edges(
+    "document_parser_worker",
+    dispatch_to_parallel_analyzers,      # returns [Send("clause_classifier_worker", ...), Send(...), Send(...)]
+    ["clause_classifier_worker", "risk_assessment_worker", "diff_checker_worker"],
+)
+graph.add_edge("clause_classifier_worker", "collector")
+graph.add_edge("risk_assessment_worker", "collector")
+graph.add_edge("diff_checker_worker", "collector")     # join point
+graph.add_edge("collector", "amendment_proposer_worker")
+```
 
-### Prompts (src/prompt/multi_agent_prompt.py)
+The three analyzers run concurrently — wall-clock time is max(worker latencies), not the sum.
 
-Each agent has:
-- System prompt defining role and evaluation criteria (in Japanese)
-- Prompt generator function for dynamic user prompts
+### 3. Specialist workers with typed outputs
 
-## Dependencies
+Each `*_node` binds its own schema: `DocumentParserResponse` (clauses), `ClauseClassifierResponse` (categories), `RiskAssessmentResponse` (risk level + reasoning per clause), `DiffCheckerResponse` (deviations from the template), `AmendmentProposerResponse` (proposed fixes), `ReportGeneratorResponse` (final report structure).
 
-| Package | Purpose |
-|---------|---------|
-| `langchain-google-genai` | LangChain integration for Gemini |
-| `langgraph` | Multi-agent graph orchestration |
-| `google-genai` | Google Gemini API client |
-| `pydantic` | Data validation and models |
-| `click` | CLI framework |
-| `python-dotenv` | Environment variable management |
+### 4. Model selection flows through config
 
-## Usage
+```python
+model_name = config.get("configurable", {}).get("model", GeminiModel.GEMINI_2_5_PRO)
+```
 
-### Setup
+One CLI flag configures every agent — no globals, no per-node hardcoding.
+
+## Data Models
+
+| Model | Purpose |
+|-------|---------|
+| `OrchestratorPlan` / `TaskAssignment` / `OrchestratorResponse` | Planning output |
+| `ContractClause` / `ClauseCategory` / `RiskAssessment` / `ClauseDiff` / `AmendmentProposal` | Inter-agent artifacts |
+| `*Response` per worker | Structured output schema per agent |
+| `ContractReviewReport` | Final synthesized report |
+| `AgentState` | Shared graph state carrying all of the above |
+
+## Setup & Run
 
 ```bash
-# Copy environment template
-cp .envrc.example .envrc
-
-# Edit .envrc and set API key
-GEMINI_API_KEY=<your_key>
-
-# Install dependencies
+cp .envrc.example .envrc     # set GEMINI_API_KEY
 uv sync
-```
 
-### Run
-
-```bash
-# Basic usage
-python -m src.main -c <contract_file> -t <template_file>
-
-# Example: Review NDA
-python -m src.main \
-  -c example/sample_nda.md \
-  -t example/standard_nda_template.md
-
-# With model selection and custom output
-python -m src.main \
-  -m gemini-2.5-flash \
-  -c example/sample_consulting_02.md \
-  -t example/standard_consulting_template.md \
-  -od reports
+# Canonical example (sample NDA vs standard template)
+uv run python -m src.main -c example/sample_nda.md -t example/standard_nda_template.md
 ```
 
 ### CLI Options
 
-| Option | Short | Required | Default | Description |
-|--------|-------|----------|---------|-------------|
-| `--contract-file` | `-c` | Yes | - | Path to contract file (markdown) |
-| `--template-file` | `-t` | Yes | - | Path to standard template (markdown) |
-| `--model` | `-m` | No | gemini-2.5-pro | Model: gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite, gemini-3.5-flash, gemini-3.1-flash-lite |
-| `--output-directory` | `-od` | No | outputs | Directory for output files |
+| Option | Short | Required | Description |
+|--------|-------|----------|-------------|
+| `--contract-file` | `-c` | Yes | Contract document (Markdown) |
+| `--template-file` | `-t` | Yes | Standard template to compare against |
+| `--model` | `-m` | No | Gemini model (default `GEMINI_2_5_PRO`) |
+| `--output-directory` | `-od` | No | Report output directory |
+
+Output: `outputs/contract_review_<id>.md`.
 
 ## Development Commands
 
 ```bash
-# Lint code with ruff
-make lint
-
-# Format code with ruff
-make fmt
-
-# Run both lint and format
-make fix
-
-# Type checking with mypy
-make mypy
+make lint / make fmt / make fix / make mypy
 ```
 
 ## Implementation Notes
 
-### Orchestrator-Worker Pattern
+- **Why multiple agents instead of one big prompt**: specialist prompts with narrow schemas measurably beat a single "review everything" prompt on consistency — each worker's context contains only what its task needs, and each output is independently validated.
+- **Parallelism is a topology decision**: classification, risk scoring, and diff checking all depend only on parsed clauses, so they fan out; amendment proposals need all three, so a collector joins before it. Draw the dependency graph first; parallelize the independent branches.
+- **The run takes on the order of minutes with 7 LLM calls** — multi-agent quality costs latency and tokens. Reserve the pattern for high-stakes documents where thoroughness pays.
+- **Failure containment**: the orchestrator's default plan and per-worker try/except keep one agent's failure from destroying the run; the report notes what's missing.
+- **Subgraph factories** (`create_*_subgraph`) exist alongside the orchestrator-worker graph — each worker is also packaged as a standalone compiled graph, usable and testable in isolation.
 
-- Uses LangGraph `Send` API to dispatch tasks to worker agents
-- Parallel execution of Clause Classifier, Risk Assessment, and Diff Checker
-- Collector node aggregates results from parallel workers
-- Synthesizer generates final report from all worker outputs
+## How to Apply This Practice to Your Own Project
 
-### Agent Communication Pattern
-
-- Agents communicate through shared `AgentState` TypedDict
-- Each agent receives full state and returns partial update
-- `reduce_list` custom reducer handles concurrent list updates from parallel workers
-- LangGraph manages state merging automatically
-
-### Structured Output
-
-- All agents use `with_structured_output()` for type-safe responses
-- Pydantic models define expected response schemas
-- Automatic JSON parsing and validation
-
-### Risk Evaluation Criteria
-
-Risks are evaluated from the recipient's (Party B) perspective:
-- Unilateral disadvantages
-- Excessive obligations
-- Ambiguous expressions
-- Practical difficulties
-- Legal risks
-- Financial risks (damages, penalties)
-
-### Sample Contracts
-
-The `example/` directory contains intentionally problematic contracts for testing:
-- Unlimited liability clauses
-- One-sided IP ownership
-- Unrestricted audit rights
-- Minimal damage caps
-
-These demonstrate the system's ability to identify and flag high-risk provisions.
+1. Decompose your review/analysis task into specialists; write one system prompt + one output schema per specialist.
+2. Draw the dependency DAG between specialists; use `Send` fan-out + collector joins for the independent branches.
+3. Give the orchestrator a planning schema (strategy, focus, tasks) and a safe default plan on failure.
+4. Keep all inter-agent communication in typed state fields; ban free-text handoffs.
+5. Thread model/config through `RunnableConfig` so deployments can tune per-environment.
+6. Budget the run: (number of agents) × (per-call latency/cost) — cut agents that don't earn their slot, or merge sequential ones with compatible prompts.

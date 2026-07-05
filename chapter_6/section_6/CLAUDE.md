@@ -1,252 +1,159 @@
-# Tool Chain Function Calling Pattern
+# Chapter 6 Section 6: Tool Chain Pattern — Plan Once, Execute Without Round Trips
 
-## Overview
+## What This Section Demonstrates
 
-This project demonstrates the **Tool Chain** pattern for LLM function calling. Instead of returning intermediate results to the LLM after each function call, the system executes a chain of tools defined by the LLM upfront, only returning the final result. This reduces token consumption and improves latency.
+Standard function calling is a round trip per tool: call → result into context → model thinks → next call. For multi-step data work, most of those round trips (and their token costs) are waste. This section implements the **Tool Chain pattern**: the LLM **plans the whole chain upfront** as a structured object (steps, input mappings, objective), the system **validates and dry-runs** the plan, then executes all steps locally — passing outputs between tools directly ("bucket relay") — and returns only the final result to the model for report generation.
 
-The implementation uses a school data analysis system as a use case, with tools for analyzing student records, test scores, grade reports, and curriculum data.
+Same school-data domain as Chapter 6 Section 5; the difference is *when* the model is involved: 6-5 keeps the model in the loop per call, 6-6 moves it to plan-time and report-time only. Apply this when tool sequences are predictable from the request and intermediate results don't require model judgment — ETL-ish analysis, report assembly, fixed data workflows.
+
+## Practice Rules
+
+1. **Force plan-first**: the system prompt requires the model to define a tool chain (name, objective, steps) via structured output before any data operation.
+2. **Validate the plan before running it** (`validate_chain`): every tool exists, input mappings reference available keys, categories are compatible. Reject with a specific error message the model can fix.
+3. **Dry-run to check data flow** (`dry_run`) — simulate key propagation through the chain without executing tools; catches wiring bugs for free.
+4. **Execute with explicit data plumbing**: each `ChainStepConfig` declares `input_mapping` (which previous output keys feed which parameters); `_resolve_input` wires step N's output into step N+1 without model involvement.
+5. **Stop on first failure with a typed result** — `ToolChainResult` records per-step `ChainStepResult`s; a failed step ends the chain with the error preserved.
+6. **Describe tools with machine-readable metadata** (`ToolMetadata`: category, input/output keys) — the model plans from metadata, so metadata quality determines plan quality.
+7. **Keep the ID-reference cache for the final result** (`SessionResultCache`, as in 6-5) — even the final output returns summary + result_id.
 
 ## Architecture
 
 ```
-+------------------------------------------------------------------+
-|                        User Request                               |
-+------------------------------------------------------------------+
-                              |
-                              v
-+------------------------------------------------------------------+
-|                        Gemini LLM                                 |
-|  +------------------------------------------------------------+  |
-|  | 1. Parse tool metadata                                     |  |
-|  | 2. Output Tool Chain definition (JSON structured output)   |  |
-|  | 3. Generate final report after chain execution             |  |
-|  +------------------------------------------------------------+  |
-+------------------------------------------------------------------+
-                              |
-                              v
-+------------------------------------------------------------------+
-|                   Tool Chain Executor                             |
-|  +------------------------------------------------------------+  |
-|  | validate_chain() -> dry_run() -> execute()                 |  |
-|  +------------------------------------------------------------+  |
-|                                                                   |
-|  +------------------------------------------------------------+  |
-|  |            Data Flow (Bucket Relay Pattern)                |  |
-|  |                                                            |  |
-|  |  +--------+  output_keys   +--------+   output_keys        |  |
-|  |  | Tool A | ------------> | Tool B | -----------> ...      |  |
-|  |  +--------+  input_mapping +--------+                      |  |
-|  |                                                            |  |
-|  +------------------------------------------------------------+  |
-+------------------------------------------------------------------+
-                              |
-                              v
-+------------------------------------------------------------------+
-|                     Session Cache                                 |
-|  +------------------------------------------------------------+  |
-|  | result_id -> detailed_data mapping                         |  |
-|  | (LLM context receives only result_id and summary)          |  |
-|  +------------------------------------------------------------+  |
-+------------------------------------------------------------------+
+User query
+  ▼
+Gemini (structured output: ToolChainResponseSchema)
+  "plan_tool_chain": name / objective / steps[tool_name, input_mapping]
+  ▼
+execute_planned_tool_chain (src/service/request_llm.py)
+  ├─ validate_chain()   ← tool existence, key compatibility → error message back to model on failure
+  ├─ dry_run()          ← simulate key flow, no execution
+  └─ execute()          ← bucket relay:
+        Tool A ──output_keys──▶ input_mapping ──▶ Tool B ──▶ ... ──▶ final output
+  ▼
+final result (summary + result_id) → Gemini → user-facing report
 ```
 
 ### Directory Structure
 
 ```
 chapter_6/section_6/
-|-- src/
-|   |-- main.py                  # CLI entry point (Click)
-|   |-- config.py                # Configuration (API keys via env)
-|   |-- logger.py                # Logging setup
-|   |-- client/
-|   |   |-- __init__.py
-|   |   `-- llm_client.py        # Gemini API client setup
-|   |-- model/
-|   |   |-- __init__.py          # Model exports
-|   |   |-- model.py             # Result models (ToolResult, etc.)
-|   |   |-- schemas.py           # Pydantic I/O schemas for tools
-|   |   `-- tool_chain_models.py # Chain config/result models
-|   |-- prompt/
-|   |   |-- __init__.py
-|   |   `-- prompt.py            # System prompt and tool docs
-|   `-- service/
-|       |-- __init__.py
-|       |-- request_llm.py       # LLM request handler, chain executor
-|       `-- tools/
-|           |-- __init__.py      # Tool registry (TOOL_FUNCTIONS)
-|           |-- data_tools.py    # Data analysis tool functions
-|           |-- tool_chain.py    # ToolChainExecutor class
-|           |-- tool_metadata.py # TOOL_METADATA registry
-|           `-- functions/       # Small composable functions
-|               |-- __init__.py
-|               |-- analyzers.py
-|               |-- formatters.py
-|               |-- loaders.py
-|               `-- validators.py
-|-- data/                        # Sample school data (JSON files)
-|   |-- students.json
-|   |-- 1st_quarter_test_score.json
-|   |-- 1st_quarter_grade_report.json
-|   |-- 1st_quarter_curriculum.json
-|   `-- ... (Q2, Q3, Q4 data)
-|-- tests/                       # Test files
-|-- pyproject.toml               # Project dependencies
-|-- .envrc.example               # Environment variable template
-|-- Makefile                     # Development commands
-`-- README.md
+├── src/
+│   ├── service/
+│   │   ├── request_llm.py            # plan → validate → execute loop + SessionResultCache
+│   │   └── tools/
+│   │       ├── tool_chain.py         # ToolChainExecutor: validate / dry_run / execute
+│   │       ├── tool_metadata.py      # ToolMetadata registry (planning surface)
+│   │       ├── data_tools.py         # school-data tools
+│   │       └── functions/            # loaders / analyzers / formatters / validators
+│   ├── model/
+│   │   ├── tool_chain_models.py      # ChainStepConfig / ToolChainConfig / results + response schema
+│   │   └── model.py / schemas.py
+│   ├── prompt/prompt.py              # plan-first system prompt + chain feedback messages
+│   ├── client/llm_client.py / main.py / config.py / logger.py
+├── data/                             # school records
+├── Makefile / pyproject.toml / .envrc.example
+└── CLAUDE.md
 ```
 
-## Key Components
+## Key Implementation Patterns
 
-### Tool Chain Executor (`tool_chain.py`)
+### 1. The chain is a validated Pydantic plan (`src/model/tool_chain_models.py`)
 
-The `ToolChainExecutor` class handles chain execution:
+```python
+class ChainStepConfig(BaseModel):
+    tool_name: str
+    input_mapping: ...       # previous-output key → parameter name
+class ToolChainConfig(BaseModel):
+    name: str
+    steps: list[ChainStepConfig]
+    initial_input: ...
+class ToolChainResult(BaseModel):
+    step_results: list[ChainStepResult]
+    final_output: ...
+```
 
-- `validate_chain()` - Validates chain structure (tool existence, connectable_to rules)
-- `dry_run()` - Executes chain with test data to verify I/O compatibility
-- `execute()` - Runs chain with actual data, passing outputs between steps
+The model emits `ToolChainResponseSchema` via structured output — the plan itself is typed data.
 
-### Tool Metadata (`tool_metadata.py`)
+### 2. Validate → dry-run → execute (`src/service/tools/tool_chain.py`)
 
-Each tool has metadata defining:
+```python
+class ToolChainExecutor:
+    def validate_chain(self, chain_config) -> ...:   # tools exist? keys compatible?
+    def dry_run(self, chain_config) -> ...:          # simulate key propagation
+    def execute(self, chain_config) -> ToolChainResult:
+        previous_output = None
+        for i, step in enumerate(chain_config.steps):
+            resolved_input = self._resolve_input(step, previous_output, chain_config.initial_input)
+            step_result = self._execute_step(step, i, resolved_input)
+            if not step_result.success:
+                return ToolChainResult(...)          # stop on first failure, error preserved
+            previous_output = step_result.output
+```
 
-- `input_model` / `output_model` - Pydantic schemas for type safety
-- `output_keys` - Keys available for passing to connected tools
-- `connectable_to` - List of tools that can follow this one
-- `is_chain_terminal` - Whether tool typically ends a chain
-- `test_input` - Mini test data for dry run validation
+### 3. Validation errors go back to the planner
 
-### Available Tools
+```python
+# request_llm.py: on validation failure, get_chain_validation_error_message(...)
+# is returned to Gemini so it can re-plan with the specific problem named.
+```
 
-| Tool | Category | Description |
-|------|----------|-------------|
-| `list_available_data` | loader | List all data files |
-| `get_students` | loader | Get student list |
-| `get_test_scores` | loader | Get scores by quarter |
-| `get_grade_report` | loader | Get grades by quarter |
-| `get_curriculum` | loader | Get curriculum by quarter |
-| `filter_scores` | filter | Filter scores by criteria |
-| `filter_grades` | filter | Filter grades by criteria |
-| `filter_curriculum` | filter | Filter curriculum data |
-| `analyze_student_performance` | analyzer | Analyze single student |
-| `analyze_class_performance` | analyzer | Analyze class/subject |
-| `compare_students` | analyzer | Compare two students |
-| `get_result_details` | retriever | Get cached detailed data |
+### 4. Metadata as the planning surface (`src/service/tools/tool_metadata.py`)
 
-### Request Processing (`request_llm.py`)
+```python
+@dataclass
+class ToolMetadata:
+    # name, category (ToolCategory), description, input keys, output keys
+```
 
-The `process_with_tool_chain()` function:
+The model never sees implementations — only this metadata; chains are only as good as these declarations.
 
-1. Sends user request to Gemini with tool metadata as context
-2. Receives structured JSON output defining the tool chain
-3. Validates and executes the chain (with dry run first)
-4. Caches detailed results, returns summary to LLM
-5. Supports multiple iterations for complex queries
-6. LLM generates final report based on collected data
+## Data Models
 
-## Dependencies
+| Model | Purpose |
+|-------|---------|
+| `ToolChainConfig` / `ChainStepConfig` | The LLM-authored plan |
+| `ToolChainResult` / `ChainStepResult` | Execution record, per step |
+| `ToolMetadata` / `ToolCategory` | Planning surface for the model |
+| `ToolChainResponseSchema` (+ `KeyValuePair`) | Structured-output schema for plan emission |
+| `SessionResultCache` | result_id → detailed data (ID reference pattern) |
 
-| Package | Purpose |
-|---------|---------|
-| `google-genai` | Gemini API client |
-| `pydantic` | Data validation and schemas |
-| `polars` | Data processing |
-| `click` | CLI framework |
-| `python-dotenv` | Environment variable loading |
-
-## Usage
-
-### Setup
+## Setup & Run
 
 ```bash
-# Copy environment template
-cp .envrc.example .envrc
-
-# Set your Gemini API key
-# GEMINI_API_KEY=your_key_here
-
-# Install dependencies
+cp .envrc.example .envrc     # set GEMINI_API_KEY
 uv sync
-```
 
-### Run
-
-```bash
-# Basic query
-uv run python src/main.py -q "Analyze math class performance"
-
-# Specify model
-uv run python src/main.py -m GEMINI_2_5_PRO -q "Compare top students"
-
-# Save output to directory
-uv run python src/main.py -q "Quarterly analysis" -od ./output
+# Canonical example
+uv run python -m src.main --query '数学の成績を分析してください'
 ```
 
 ### CLI Options
 
-| Option | Short | Description | Default |
-|--------|-------|-------------|---------|
-| `--model` | `-m` | Gemini model to use | `GEMINI_2_5_FLASH` |
-| `--query` | `-q` | Analysis query (required) | - |
-| `--output-directory` | `-od` | Save session log and result | - |
-
-Available models: `GEMINI_2_5_PRO`, `GEMINI_2_5_FLASH`, `GEMINI_2_5_FLASH_LITE`
+| Option | Description |
+|--------|-------------|
+| `--query` | Analysis request in natural language |
+| `--model` / `-m` | Gemini model |
+| `--output-directory` | Output directory |
 
 ## Development Commands
 
 ```bash
-# Lint code
-make lint
-
-# Format code
-make fmt
-
-# Lint and format
-make fix
-
-# Type check
-make mypy
+make lint / make fmt / make fix / make mypy
 ```
 
 ## Implementation Notes
 
-### Tool Chain JSON Schema
+- **Tool chain vs per-call function calling (6-5)**: chains cut LLM round trips from N to 2 (plan + report) — lower latency and tokens — but give up mid-course correction: the model can't react to surprising intermediate data. Choose per workflow; hybrid systems let the model pick between `plan_tool_chain` and direct calls.
+- **Validation + dry-run are what make LLM-authored plans safe to execute** — the model routinely names wrong keys or misorders steps; catching that *before* running tools converts silent garbage into a re-planning loop.
+- **Watch for empty-result reports**: if the chain executes but yields `[]`, the report generator will still write a report "based on empty results". Guard the report step with an emptiness check and route back to re-planning — this failure mode is visible in this demo when the plan filters incorrectly.
+- **The bucket-relay `input_mapping`** is deliberately explicit (no magic auto-wiring): the plan documents exactly which output feeds which parameter, making chains auditable.
+- **Structured output quirk**: Gemini's schema limitations are why `KeyValuePair` lists (not free dicts) carry mappings in `ToolChainResponseSchema` (converted by `key_value_list_to_dict`).
 
-The LLM outputs chain definitions as structured JSON:
+## How to Apply This Practice to Your Own Project
 
-```json
-{
-  "chain_name": "math_analysis",
-  "objective": "Analyze math class performance",
-  "steps": [
-    {"tool_name": "analyze_class_performance", "args": [{"key": "class_name", "value": "math"}]}
-  ],
-  "is_final_iteration": true
-}
-```
-
-### Data Flow Between Tools
-
-- Output keys from tool A are mapped to input fields of tool B
-- Auto-mapping occurs when output key names match input field names
-- Manual `input_mapping` can override auto-mapping
-
-### Context Token Optimization
-
-- Detailed data stored in `SessionResultCache` with `result_id`
-- LLM context only receives summaries and result IDs
-- `get_result_details` tool retrieves cached data when needed
-
-### Validation Flow
-
-1. **Structure validation** - Check tool names, connectable_to rules
-2. **Dry run** - Execute with test_input to verify I/O compatibility
-3. **Execution** - Run with actual data if dry run passes
-
-### Multi-Iteration Support
-
-For complex queries requiring multiple data collection steps:
-
-- LLM can set `is_final_iteration: false` to request another chain
-- Previous results are included in system prompt context
-- Maximum iterations configurable (default: 10)
+1. Write `ToolMetadata` for every tool (category, input/output keys) — this, not the code, is what the model plans against.
+2. Define the plan schema (`ToolChainConfig` + response schema) and require plan-first in the system prompt.
+3. Implement the executor triad: `validate_chain` → `dry_run` → `execute` with stop-on-failure and typed step results.
+4. Feed validation errors back to the model as re-planning prompts (bounded retries).
+5. Guard the final report against empty/degenerate chain outputs.
+6. Offer both modes (chain + per-call) and log which the model chooses — that data tells you where chains actually pay off.

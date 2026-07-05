@@ -1,213 +1,148 @@
-# Best-of-N with LLM-as-a-Judge
+# Chapter 6 Section 3: Best-of-N Generation with LLM-as-a-Judge Selection
 
-## Overview
+## What This Section Demonstrates
 
-This project implements the "Best-of-N" pattern with LLM-as-a-Judge evaluation for quality control. It generates multiple candidate outputs in parallel, evaluates each using an LLM judge on three criteria (accuracy, comprehensiveness, clarity), and returns the best candidate that meets a quality threshold.
+Single-shot generation quality is a lottery; this section trades compute for quality with the **Best-of-N pattern**: generate N candidates **in parallel**, score each with an LLM judge (accuracy / comprehensiveness / clarity, 1–5), and return the highest-scoring candidate that clears a quality threshold. If no candidate passes, regenerate the whole batch (bounded retries); if retries exhaust, return the best available with an explicit warning.
 
-Key features:
-- Parallel generation of N candidates (1-10)
-- LLM-as-a-Judge evaluation with structured scoring
-- Quality threshold filtering with automatic retry
-- Multi-provider support (OpenAI, Gemini, Anthropic)
-- Separate generation and judge model configuration
+Generation and judging are independently configurable (provider/model each), reusing the judge from Chapter 2 Section 7. Apply this pattern to high-stakes, low-volume outputs — published copy, contracts, canonical dataset entries — where an extra N× generation cost is cheaper than a bad output escaping.
+
+## Practice Rules
+
+1. **Generate candidates concurrently** — `asyncio.gather` over `generate_and_evaluate_candidate` tasks; Best-of-N latency should approach 1× generation + 1× judging, not N×.
+2. **Judge each candidate immediately in the same task** (generation and evaluation paired per candidate) so selection needs no second pass.
+3. **Select by threshold-then-max**: filter to `is_passing(threshold)`, then take `max(score)` — a threshold alone wastes quality headroom; a max alone can return garbage when everything is bad.
+4. **Retry the batch, not the champion**: if all N fail the threshold, regenerate all candidates (up to `max_retries`); diversity across batches is the point.
+5. **Define the exhaustion policy explicitly**: return the best-available candidate *with a logged warning* rather than raising — and make that a conscious choice per use case.
+6. **Keep N, threshold, and retries configurable** (config defaults + CLI overrides: `-n`, `-qt`, `-mr`) — the quality/cost dial must be tunable per call site.
+7. **Judge with a different provider/model when possible** (`-jp/-jm`) to avoid self-preference bias in selection.
 
 ## Architecture
 
 ```
-+-------------------------------------------------------------------------+
-|                           CLI (main.py)                                 |
-|   --num-candidates, --quality-threshold, --max-retries                  |
-+------------------------------------+------------------------------------+
-                                     |
-                                     v
-+-------------------------------------------------------------------------+
-|                    request_with_best_of_n()                             |
-|                                                                         |
-|  +-------------------------------------------------------------------+  |
-|  |              Parallel Candidate Generation (asyncio.gather)       |  |
-|  |   +----------+  +----------+  +----------+      +----------+      |  |
-|  |   |Candidate |  |Candidate |  |Candidate | ...  |Candidate |      |  |
-|  |   |    1     |  |    2     |  |    3     |      |    N     |      |  |
-|  |   +----+-----+  +----+-----+  +----+-----+      +----+-----+      |  |
-|  +--------|-------------|-------------|----------------|-------------+  |
-|           |             |             |                |                |
-|           v             v             v                v                |
-|  +-------------------------------------------------------------------+  |
-|  |              LLM-as-a-Judge Evaluation (Parallel)                 |  |
-|  |   +----------+  +----------+  +----------+      +----------+      |  |
-|  |   | Score:   |  | Score:   |  | Score:   | ...  | Score:   |      |  |
-|  |   |  4.2/5   |  |  3.1/5   |  |  4.8/5   |      |  2.5/5   |      |  |
-|  |   +----------+  +----------+  +----------+      +----------+      |  |
-|  +-------------------------------------------------------------------+  |
-|                                     |                                   |
-|                                     v                                   |
-|  +-------------------------------------------------------------------+  |
-|  |                    Threshold Check                                |  |
-|  |   passing = [c for c in results if score >= threshold]           |  |
-|  |   if passing: return max(passing)                                 |  |
-|  |   else: retry or fallback                                         |  |
-|  +-------------------------------------------------------------------+  |
-+-------------------------------------------------------------------------+
-                                     |
-                                     v
-                        +------------------------+
-                        |   Best Candidate +     |
-                        |   Judge Evaluation     |
-                        |   (JSON output)        |
-                        +------------------------+
+CLI (src/main.py)  -n N -qt threshold -mr retries  (-lp/-m generation, -jp/-jm judge)
+  ▼
+request_with_best_of_n (src/service/request_llm.py)
+  for retry in range(max_retries):
+      tasks = [generate_and_evaluate_candidate(i) for i in range(N)]   ← parallel
+      results = await asyncio.gather(*tasks)
+      passing = [r for r in results if r.judge_result.is_passing(threshold)]
+      if passing: return max(passing, key=score)          ← threshold-then-max
+  # exhausted: return best_overall with warning            ← explicit fallback
+  ▼
+outputs/<id>_<provider>_character.json + _judge.json
 ```
 
 ### Directory Structure
 
 ```
-section_3/
-+-- .envrc.example           # Environment variables template
-+-- pyproject.toml           # Project configuration
-+-- README.md                # Documentation (Japanese)
-+-- CLAUDE.md                # This file
-+-- src/
-    +-- __init__.py
-    +-- main.py              # CLI entry point with Click
-    +-- config.py            # Configuration with Pydantic
-    +-- logger.py            # Logging setup
-    +-- client/
-    |   +-- __init__.py
-    |   +-- llm_client.py    # LLM client initialization and model enums
-    +-- model/
-    |   +-- __init__.py
-    |   +-- model.py         # CharacterRequest/Response models
-    |   +-- llm_as_a_judge_model.py  # JudgeRequest/Response models
-    +-- prompt/
-    |   +-- __init__.py
-    |   +-- prompt.py        # Character generation prompts
-    |   +-- llm_as_a_judge_prompt.py  # Evaluation prompts
-    +-- service/
-        +-- __init__.py
-        +-- request_llm.py   # Best-of-N generation logic
-        +-- llm_as_a_judge.py  # Judge evaluation logic
+chapter_6/section_3/
+├── src/
+│   ├── service/
+│   │   ├── request_llm.py           # candidate generation + best-of-n loop
+│   │   └── llm_as_a_judge.py        # judge_with_openai/gemini/anthropic
+│   ├── model/model.py               # CharacterRequest/Response + CandidateResult
+│   ├── model/llm_as_a_judge_model.py# JudgeRequest / JudgeResponse (is_passing)
+│   ├── prompt/                      # generation + judge prompts
+│   ├── client/llm_client.py         # 3-provider clients + model enums
+│   ├── main.py                      # CLI
+│   └── config.py / logger.py        # defaults: num_candidates / quality_threshold / max_retries
+├── Makefile / pyproject.toml / .envrc.example
+└── CLAUDE.md
 ```
 
-## Key Components
+## Key Implementation Patterns
 
-### Core Functions (src/service/request_llm.py)
+### 1. Parallel generate-and-judge per candidate (`src/service/request_llm.py`)
 
-| Function | Description |
-|----------|-------------|
-| `request_with_best_of_n()` | Main orchestrator: generates N candidates in parallel, evaluates each, returns best passing candidate |
-| `generate_and_evaluate_candidate()` | Generates single candidate and evaluates it |
-| `generate_single_candidate()` | Routes to provider-specific generation |
-| `evaluate_candidate()` | Evaluates candidate using LLM-as-a-Judge |
+```python
+tasks = [
+    generate_and_evaluate_candidate(prompt=prompt, model=model, provider=provider,
+                                    judge_model=judge_model, judge_provider=judge_provider, index=i)
+    for i in range(num_candidates)
+]
+results: list[CandidateResult] = await asyncio.gather(*tasks)
+```
 
-### Data Models (src/model/)
+### 2. Threshold-then-max selection
 
-| Model | Description |
-|-------|-------------|
-| `CharacterRequest` | Input: gender, age, additional_instructions |
-| `CharacterResponse` | Output: first_name, last_name, gender, age, personalities |
-| `JudgeRequest` | Evaluation input: question, response, context, request_parameters |
-| `JudgeResponse` | Evaluation output: evaluations list, overall_score, summary |
-| `CandidateResult` | Internal: candidate + judge_result + index |
+```python
+passing_candidates = [r for r in results if r.judge_result.is_passing(threshold=quality_threshold)]
+if passing_candidates:
+    best_candidate = max(passing_candidates, key=lambda r: r.judge_result.overall_score)
+    return best_candidate.candidate, best_candidate.judge_result
+```
 
-### Evaluation Criteria
+### 3. Batch retry + explicit exhaustion fallback
 
-The LLM-as-a-Judge evaluates on three axes (1-5 scale):
-- **accuracy**: Response is correct and faithful to requirements
-- **comprehensiveness**: All required information is included
-- **clarity**: Response is clear and well-written
+```python
+for retry in range(max_retries):
+    ...  # regenerate ALL candidates when none pass
+logger.error(f"All {max_retries} retry attempts exhausted. Returning best available candidate.")
+best_overall = max(results, key=lambda r: r.judge_result.overall_score)
+return best_overall.candidate, best_overall.judge_result   # logged as below-threshold
+```
 
-## Dependencies
+### 4. Config defaults with per-call overrides
 
-- `click` - CLI framework
-- `pydantic` - Data validation and models
-- `openai` - OpenAI API client (AsyncOpenAI)
-- `google-genai` - Google Gemini API client
-- `anthropic` - Anthropic API client (AsyncAnthropic)
-- `python-dotenv` - Environment variable loading
+```python
+if num_candidates is None:   num_candidates = config.num_candidates
+if quality_threshold is None: quality_threshold = config.quality_threshold
+if judge_model is None:       judge_model = model        # same-model judging as fallback
+```
 
-## Usage
+## Data Models
 
-### Setup
+| Model | Purpose |
+|-------|---------|
+| `CandidateResult` | index + candidate + judge verdict, the unit of selection |
+| `JudgeRequest` / `JudgeResponse` (+ `is_passing`) | 3-criteria judge I/O (from Chapter 2 Section 7) |
+| `CharacterRequest` / `CharacterResponse` | Demo task I/O |
+
+## Setup & Run
 
 ```bash
-# Copy environment template
-cp .envrc.example .envrc
-
-# Set API keys in .envrc
-OPENAI_API_KEY=<your_key>
-GEMINI_API_KEY=<your_key>
-ANTHROPIC_API_KEY=<your_key>
-
-# Install dependencies
+cp .envrc.example .envrc     # OPENAI_API_KEY / GEMINI_API_KEY / ANTHROPIC_API_KEY
 uv sync
-```
 
-### Run
+# Canonical example: 3 candidates, threshold 3.0
+uv run python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH -n 3 -qt 3.0
 
-```bash
-# Basic usage
-uv run python -m src.main -lp gemini -m gemini-2.5-flash
-
-# With Best-of-N parameters
-uv run python -m src.main \
-  -lp gemini -m gemini-2.5-flash \
-  -n 5 -qt 4.0 -mr 3
-
-# Different models for generation and evaluation
-uv run python -m src.main \
-  -lp gemini -m gemini-2.5-flash \
-  -jp openai -jm gpt-5.4
+# Cross-provider judge
+uv run python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
+  -n 5 -qt 4.0 -jp OPENAI -jm GPT_5_4_MINI
 ```
 
 ### CLI Options
 
-| Option | Short | Description | Default |
-|--------|-------|-------------|---------|
-| `--gender` | `-g` | Character gender (female/male) | female |
-| `--age` | `-a` | Character age (0-100) | 25 |
-| `--additional-instructions` | `-ai` | Extra generation instructions | "" |
-| `--llm-provider` | `-lp` | Generation provider | gemini |
-| `--model` | `-m` | Generation model | (required) |
-| `--output-directory` | `-od` | Output directory | outputs |
-| `--judge-provider` | `-jp` | Judge provider | (same as generation) |
-| `--judge-model` | `-jm` | Judge model | (same as generation) |
-| `--num-candidates` | `-n` | Number of candidates | 3 |
-| `--quality-threshold` | `-qt` | Quality threshold (1.0-5.0) | 3.0 |
-| `--max-retries` | `-mr` | Max retry attempts | 3 |
+| Option | Short | Description |
+|--------|-------|-------------|
+| `--gender` / `--age` / `--additional-instructions` | `-g` / `-a` / `-ai` | Character request |
+| `--llm-provider` / `--model` | `-lp` / `-m` | Generation provider/model |
+| `--judge-provider` / `--judge-model` | `-jp` / `-jm` | Judge (defaults to generation) |
+| `--num-candidates` | `-n` | N (1–10) |
+| `--quality-threshold` | `-qt` | Minimum passing overall score (1.0–5.0) |
+| `--max-retries` | `-mr` | Batch regeneration attempts |
+| `--output-directory` | `-od` | Output directory |
 
-### Supported Models
+## Development Commands
 
-| Provider | Models |
-|----------|--------|
-| OpenAI | gpt-5.5, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.1, gpt-5, gpt-5-mini, gpt-5-nano |
-| Gemini | gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite, gemini-3.5-flash, gemini-3.1-flash-lite |
-| Anthropic | claude-sonnet-4-6, claude-opus-4-7 |
+```bash
+make lint / make fmt / make fix / make mypy
+```
 
 ## Implementation Notes
 
-### Parallel Processing
+- **Cost model**: one call becomes N generations + N judgments (× retry batches worst case). Best-of-3 with a cheap judge roughly quadruples cost — reserve for outputs whose failure costs more than that.
+- **Choosing N and the threshold**: run N=1 with judging first to measure your baseline score distribution; set the threshold near the score you'd accept manually, and N so that P(at least one candidate passes) is high (score variance decides — high variance favors larger N).
+- **Batch retry vs temperature bumping**: this implementation regenerates with the same settings, relying on sampling diversity; a common extension is escalating temperature or model tier per retry batch.
+- **The fallback return is deliberate product behavior** — some flows prefer "best effort + warning" (this code), others must raise and queue for human review. Pick and document one; the returned judge verdict always carries the true score, so callers can re-check.
+- **Best-of-N composes with the rest of this repo**: candidates can be generated through the fallback coordinator (3-2), logged via LLMOps logging (2-4), and judged with custom criteria (2-9).
 
-All candidates are generated and evaluated in parallel using `asyncio.gather()`:
+## How to Apply This Practice to Your Own Project
 
-```python
-tasks = [generate_and_evaluate_candidate(...) for i in range(num_candidates)]
-results = await asyncio.gather(*tasks)
-```
-
-### Threshold and Fallback
-
-1. Filter candidates by threshold: `passing = [r for r in results if r.judge_result.is_passing(threshold)]`
-2. If passing candidates exist: return best score
-3. If all below threshold: retry up to max_retries
-4. If retries exhausted: return best available (with warning)
-
-### Provider-Specific Configuration
-
-- **Gemini**: Uses `temperature=2.0` for diversity, structured output with `response_schema`
-- **OpenAI**: Uses `responses.parse()` with `text_format` for structured output
-- **Anthropic**: Uses `beta.messages.parse()` with `output_format` for structured output
-
-### Output Files
-
-Two JSON files are generated per run:
-- `{uuid}_{provider}_character.json` - Generated character data
-- `{uuid}_{provider}_judge.json` - Evaluation results with scores and reasoning
+1. Reuse your Chapter 2 Section 7 judge; add `CandidateResult` and the generate-and-evaluate-per-candidate task shape.
+2. Fan out with `asyncio.gather`; keep generation+judging paired per candidate.
+3. Implement threshold-then-max selection and a bounded batch retry.
+4. Decide the exhaustion policy per product surface (best-effort vs raise); log it loudly either way.
+5. Expose N/threshold/retries as config with call-site overrides.
+6. Measure: track scores of selected vs rejected candidates over time — if rejected candidates rarely differ, lower N and save the money.

@@ -1,250 +1,161 @@
-# CQRS Knowledge Base Implementation
+# Chapter 4 Section 1: CQRS for an LLM Knowledge Base
 
-## Overview
+## What This Section Demonstrates
 
-This project implements the **CQRS (Command Query Responsibility Segregation)** pattern for LLM-based knowledge management systems. It separates write operations (Commands) from read operations (Queries), achieving high throughput for writes and low latency for reads.
+This section applies **CQRS (Command Query Responsibility Segregation)** to an LLM-backed knowledge base with a vector database. Writes (registering generated knowledge, which require embedding computation) and reads (semantic search) have opposite performance profiles, so they are split:
 
-The system uses Google Gemini for both character generation and embedding creation, with ChromaDB as the vector database for semantic search.
+- **Command side** — `POST /command/register` accepts a write, returns a `job_id` immediately, and computes the embedding + stores into ChromaDB in a background task (async, high-throughput, eventually consistent).
+- **Query side** — `POST /query/search` embeds the query and runs a synchronous vector search optimized for low latency; `GET /query/stats` reports collection statistics.
+
+An LLM server (`/generate`, Gemini character generation) demonstrates the producer side: generated content is auto-registered as knowledge. Apply CQRS when your LLM system both ingests content (slow, embedding-heavy) and serves search (fast), and you don't want ingestion spikes to degrade query latency.
+
+## Practice Rules
+
+1. **Separate command and query code paths entirely** — different service modules (`knowledge_command.py` / `knowledge_query.py`), different endpoints, independently tunable.
+2. **Commands return immediately with a `job_id`**; the actual embedding + store runs via `asyncio.create_task`. Never make a writer wait for vector indexing.
+3. **Be explicit about eventual consistency** — written knowledge becomes searchable seconds later; document it and provide a sync variant (`register_knowledge_sync`) for tests/consistency-critical paths.
+4. **Build the embedding text deliberately** (`_generate_embedding_text` concatenates the salient fields) — what you embed defines what search can find.
+5. **Use one embedding model for both write and query sides** (`gemini-embedding-001`, cosine distance) — mixed embedding models silently break retrieval.
+6. **Wrap blocking vector-DB calls in a shared `ThreadPoolExecutor`** so the async servers never block the event loop.
+7. **Type both sides' contracts** as Pydantic models (`KnowledgeRegisterCommand` vs `KnowledgeSearchQuery` etc.) — command and query models evolve independently; don't share one "Knowledge" DTO.
 
 ## Architecture
 
 ```
-+-------------------------------------------------------------+
-|                      User Requests                          |
-+-------------------------------------------------------------+
-              |                           |
-              v                           v
-+---------------------------+   +---------------------------+
-|      LLM Server           |   |   Knowledge Server        |
-|      Port 8000            |   |   Port 8001               |
-|                           |   |                           |
-|  POST /generate           |   |  POST /command/register   |
-|   - Character generation  |   |   - Async write (Command) |
-|   - Auto-store knowledge  |   |                           |
-|                           |   |  POST /query/search       |
-|                           |   |   - Sync read (Query)     |
-|                           |   |                           |
-|                           |   |  GET /query/stats         |
-|                           |   |   - Statistics (Query)    |
-+-------------+-------------+   +-------------+-------------+
-              |                               |
-              +---------------+---------------+
-                              |
-                              v
-              +-------------------------------+
-              |          ChromaDB             |
-              |       Vector Database         |
-              |                               |
-              |  - Cosine similarity search   |
-              |  - Custom Gemini embeddings   |
-              |  - Metadata filtering         |
-              +---------------+---------------+
-                              |
-                              v
-              +-------------------------------+
-              |        Gemini API             |
-              |  - gemini-2.5-pro/flash/lite  |
-              |  - gemini-3.5-flash           |
-              |  - gemini-3.1-flash-lite      |
-              |  - gemini-embedding-001       |
-              +-------------------------------+
+             User / LLM apps
+        ┌──────────┴─────────────┐
+        ▼                        ▼
+LLM Server (:8000)        Knowledge Server (:8001)
+  POST /generate            POST /command/register   [Command: async write]
+  (Gemini generation,       POST /query/search       [Query: sync read]
+   auto-registers            GET  /query/stats        [Query]
+   generated knowledge)          │
+        │                        │
+        ▼                        ▼
+   knowledge_command.py     knowledge_query.py
+   embed → job_id now,      embed query → ChromaDB
+   store via create_task    similarity search
+        └──────────┬─────────────┘
+                   ▼
+           ChromaDB (:8002→8000)   gemini-embedding-001 / cosine / 768-dim
 ```
 
 ### Directory Structure
 
 ```
-src/
-|-- __init__.py              # Package init, shared ThreadPoolExecutor
-|-- config.py                # Configuration (GEMINI_API_KEY)
-|-- logger.py                # Logging utility
-|-- api/
-|   |-- __init__.py
-|   |-- llm_server.py        # LLM API server (Port 8000)
-|   +-- knowledge_server.py  # CQRS API server (Port 8001)
-|-- client/
-|   |-- __init__.py
-|   |-- llm_client.py        # Gemini API client
-|   +-- chromadb_client.py   # ChromaDB client (local/remote)
-|-- model/
-|   |-- __init__.py
-|   |-- model.py             # LLM data models (FrozenModel base)
-|   +-- knowledge.py         # CQRS models (Command/Query)
-|-- service/
-|   |-- __init__.py
-|   |-- request_llm.py       # Gemini LLM request handler
-|   |-- embedding_service.py # Gemini embedding service
-|   |-- knowledge_command.py # Command service (async writes)
-|   +-- knowledge_query.py   # Query service (sync reads)
-+-- prompt/
-    |-- __init__.py
-    +-- prompt.py            # Prompt generation
+chapter_4/section_1/
+├── src/
+│   ├── api/
+│   │   ├── llm_server.py          # /generate (+ auto knowledge registration)
+│   │   └── knowledge_server.py    # /command/register, /query/search, /query/stats
+│   ├── service/
+│   │   ├── knowledge_command.py   # async/sync registration (Command side)
+│   │   ├── knowledge_query.py     # search + stats (Query side)
+│   │   ├── embedding_service.py   # gemini-embedding-001 wrapper
+│   │   └── request_llm.py         # Gemini generation
+│   ├── client/
+│   │   ├── chromadb_client.py     # local / remote (CHROMA_HOST) modes
+│   │   └── llm_client.py
+│   ├── model/knowledge.py         # command/query request-response models
+│   ├── model/model.py / prompt/prompt.py / config.py / logger.py
+│   └── __init__.py                # shared ThreadPoolExecutor(max_workers=4)
+├── docker-compose.yml             # chromadb:8002 / llm-server:8000 / knowledge-server:8001
+├── Makefile / pyproject.toml / .envrc.example
+└── CLAUDE.md
 ```
 
-## Key Components
+## Key Implementation Patterns
 
-### CQRS Services
+### 1. Fire-and-return command (`src/service/knowledge_command.py`)
 
-| Component | File | Purpose |
-|-----------|------|---------|
-| Command Service | `src/service/knowledge_command.py` | Async knowledge registration |
-| Query Service | `src/service/knowledge_query.py` | Sync knowledge search |
-| Embedding Service | `src/service/embedding_service.py` | Gemini embedding generation |
+```python
+async def register_knowledge_async(command: KnowledgeRegisterCommand) -> str:
+    job_id = str(uuid.uuid4())
+    asyncio.create_task(_store_in_chromadb_async(command, job_id))   # background
+    return job_id                                                     # immediate ack
 
-### Data Models
-
-| Model | File | Purpose |
-|-------|------|---------|
-| `FrozenModel` | `src/model/model.py` | Base Pydantic model with frozen config |
-| `KnowledgeRegisterCommand` | `src/model/knowledge.py` | Command input model |
-| `KnowledgeSearchQuery` | `src/model/knowledge.py` | Query input model |
-| `KnowledgeSearchResponse` | `src/model/knowledge.py` | Query response with results |
-
-### API Servers
-
-| Server | Port | Endpoints |
-|--------|------|-----------|
-| LLM Server | 8000 | `GET /health`, `POST /generate` |
-| Knowledge Server | 8001 | `GET /health`, `POST /command/register`, `POST /query/search`, `GET /query/stats` |
-
-## Dependencies
-
-```toml
-[dependencies]
-chromadb = ">=1.3.0"
-fastapi = ">=0.119.0"
-google-genai = ">=1.45.0"
-pydantic = ">=2.12.2"
-uvicorn = ">=0.37.0"
+async def register_knowledge_sync(command: KnowledgeRegisterCommand) -> str:
+    job_id = str(uuid.uuid4())
+    await _store_in_chromadb_async(command, job_id)                   # for tests / strict consistency
+    return job_id
 ```
 
-## Usage
+### 2. Deliberate embedding text construction
 
-### Setup
+```python
+def _generate_embedding_text(command: KnowledgeRegisterCommand) -> str:
+    # concatenates name/attributes/description into the string that gets embedded —
+    # this string IS the search surface
+```
 
-1. Set environment variable:
+### 3. Low-latency query path (`src/service/knowledge_query.py`)
+
+```python
+async def search_knowledge(query: KnowledgeSearchQuery) -> KnowledgeSearchResponse:
+    query_embedding = await get_embedding(query.query)
+    results = _search_chromadb(query_embedding, query)     # top-k cosine search
+    return KnowledgeSearchResponse(items=_parse_search_results(results), ...)
+```
+
+### 4. One embedding function for both sides (`src/service/embedding_service.py`)
+
+```python
+GEMINI_EMBEDDING_MODEL = "gemini-embedding-001"
+
+async def get_embedding(text: str) -> list[float]:
+    # runs _get_gemini_embedding_sync in the shared ThreadPoolExecutor
+```
+
+## Data Models
+
+| Model | Purpose |
+|-------|---------|
+| `KnowledgeRegisterCommand` / `KnowledgeRegisterResponse` | Write contract: content + metadata → job_id |
+| `KnowledgeSearchQuery` / `KnowledgeSearchResponse` / `KnowledgeItem` | Read contract: query + top_k → ranked items with distances |
+| `KnowledgeStatsQuery` / `KnowledgeStatsResponse` | Collection statistics |
+
+## Setup & Run
+
 ```bash
-export GEMINI_API_KEY="your-api-key"
+cp .envrc.example .envrc     # set GEMINI_API_KEY
+
+# Canonical (docker: chromadb + llm-server + knowledge-server)
+make docker-build && make docker-up
+curl -s http://localhost:8000/health
+make docker-down
+
+# Write (returns job_id immediately)
+curl -X POST http://localhost:8001/command/register -H "Content-Type: application/json" \
+  -d '{"name": "...", "description": "...", ...}'
+
+# Read (seconds later — eventual consistency)
+curl -X POST http://localhost:8001/query/search -H "Content-Type: application/json" \
+  -d '{"query": "brave knight", "top_k": 3}'
+curl -s http://localhost:8001/query/stats
 ```
 
-2. Install dependencies:
-```bash
-uv sync
-```
-
-### Run
-
-**Local Development:**
-```bash
-# Terminal 1: LLM Server
-uv run python -m src.api.llm_server
-
-# Terminal 2: Knowledge Server
-uv run python -m src.api.knowledge_server
-```
-
-**Docker Compose:**
-```bash
-docker-compose up -d
-```
-
-### API Examples
-
-**Generate Character:**
-```bash
-curl -X POST http://localhost:8000/generate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "gemini-2.5-flash",
-    "character_request": {
-      "gender": "female",
-      "age": 25,
-      "additional_instructions": "brave warrior"
-    }
-  }'
-```
-
-**Search Knowledge:**
-```bash
-curl -X POST http://localhost:8001/query/search \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query_text": "brave warrior",
-    "limit": 5
-  }'
-```
-
-**Get Statistics:**
-```bash
-curl http://localhost:8001/query/stats
-```
-
-### Available Gemini Models
-
-| Model | Use Case |
-|-------|----------|
-| `gemini-2.5-pro` | High quality generation |
-| `gemini-2.5-flash` | Balanced speed/quality |
-| `gemini-2.5-flash-lite` | Fastest generation |
-| `gemini-3.5-flash` | Next-gen balanced |
-| `gemini-3.1-flash-lite` | Next-gen fast generation |
+ChromaDB runs remote via `CHROMA_HOST`/`CHROMA_PORT` in docker; without them, the client falls back to local mode (`./data/chromadb`).
 
 ## Development Commands
 
 ```bash
-# Install dependencies
-uv sync
-
-# Run LLM server
-uv run python -m src.api.llm_server
-
-# Run Knowledge server
-uv run python -m src.api.knowledge_server
-
-# Syntax check all files
-python -m py_compile src/**/*.py
-
-# Docker operations
-docker-compose up -d      # Start all services
-docker-compose ps         # Check status
-docker-compose logs -f    # View logs
-docker-compose down       # Stop all services
+make lint / make fmt / make fix / make mypy
+make docker-build / make docker-up / make docker-down / make docker-logs
 ```
 
 ## Implementation Notes
 
-### CQRS Pattern
+- **Why CQRS here**: embedding computation makes writes much slower than reads. Coupling them means ingestion bursts inflate search P99. Splitting lets you scale the query path (stateless, CPU-light) separately from the command path (embedding-bound).
+- **Eventual consistency window** is embedding time + index update (~2–5s here). Surface `job_id` so callers can build "is it indexed yet?" checks if needed.
+- **`asyncio.create_task` is the minimal async-write implementation** — sufficient for a single process. For durability across restarts, replace it with a real queue (the Redis worker pattern from Chapter 2 Section 5) without touching the API contract.
+- **The shared `ThreadPoolExecutor` (in `src/__init__.py`)** exists because ChromaDB and the embedding SDK expose blocking calls; both sides funnel through it to keep FastAPI's event loop responsive.
+- **The LLM server auto-registering its outputs** shows the natural producer integration: generation results become searchable knowledge with no extra client work.
 
-- **Command (Write)**: Async processing via `asyncio.create_task()`, returns job ID immediately
-- **Query (Read)**: Sync processing, optimized for low latency (<300ms)
-- **Eventual Consistency**: 2-5 second delay between write and read availability
+## How to Apply This Practice to Your Own Project
 
-### Embedding Configuration
-
-- Model: `gemini-embedding-001`
-- Dimensions: 768
-- Distance Metric: Cosine similarity
-
-### ChromaDB Modes
-
-- **Local Mode**: Uses `./data/chromadb` when `CHROMA_HOST` is not set
-- **Remote Mode**: Connects via HTTP when `CHROMA_HOST` and `CHROMA_PORT` are set
-
-### Shared Resources
-
-- `src/__init__.py` contains shared `ThreadPoolExecutor(max_workers=4)`
-- Used by both Command and Query services for blocking ChromaDB operations
-
-### Error Handling
-
-- All API endpoints return appropriate HTTP status codes
-- Background tasks log errors without crashing the main server
-- ChromaDB operations wrapped in try-except blocks
-
-### Performance Characteristics
-
-| Operation | Latency |
-|-----------|---------|
-| Character Generation | 1-2 seconds |
-| Background Storage | +2-5 seconds |
-| Query Search | 100-300 ms |
-| Stats Retrieval | 50-100 ms |
+1. Split your knowledge service into `*_command.py` and `*_query.py` modules with separate Pydantic contracts before optimizing anything.
+2. Make writes acknowledge with a job identifier and move embedding+indexing off the request path.
+3. Define `_generate_embedding_text` for your domain deliberately — include the fields users search by, exclude noise.
+4. Pin one embedding model + distance metric in one module; never let the two sides drift.
+5. State your consistency window in the API docs; add a sync write variant for tests.
+6. When write volume grows, swap `create_task` for a durable queue + worker; when read volume grows, replicate the query service — the split makes both moves independent.

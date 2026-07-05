@@ -1,305 +1,155 @@
-# Chapter 4 Section 4: Hierarchical AI Agent - Personalized Learning Platform
+# Chapter 5 Section 3: Hierarchical AI Agent — Strategy / Tactics / Execution / Reflection
 
-## Overview
+## What This Section Demonstrates
 
-This project implements a **Hierarchical (Multi-Layer) AI Agent** pattern for a personalized learning platform. The system uses a 4-layer architecture to autonomously create customized learning plans based on learner goals and constraints.
+This section implements a **Hierarchical (Multi-Layer) Agent** for a personalized-learning-plan generator. Like an organization, responsibilities are split by abstraction level, each layer consuming the layer above's output as its specification:
 
-The hierarchical approach separates concerns across different abstraction levels, similar to organizational structures:
-- **Strategy Layer (戦略・プランニング層)**: Defines learning objectives and roadmaps
-- **Tactics Layer (戦術・マネジメント層)**: Designs weekly/daily curricula
-- **Execution Layer (実行層)**: Generates content and quizzes
-- **Reflection Layer (自己評価・省察層)**: Evaluates quality and goal alignment
+- **Strategy Layer (戦略・プランニング層)** — interprets the ambiguous goal, sets skill levels, produces a module roadmap (the blueprint). Never touches implementation details.
+- **Tactics Layer (戦術・マネジメント層)** — decomposes the roadmap into weekly themes and daily tasks (the ToDo list for execution).
+- **Execution Layer (実行層)** — specialists (`ContentAgent`, `QuizAgent`) faithfully produce learning content and quizzes per task. No strategic decisions.
+- **Reflection Layer (自己評価・省察層)** — an independent auditor that scores quality, checks goal alignment, and recommends corrections — preventing confident execution in the wrong direction.
 
-Reference: See `REFERENCE.md` for architectural principles.
+The layers are orchestrated as a LangGraph state machine (`strategy → tactics → execution loop → reflection → END`). Apply this when a goal is too abstract for one prompt and needs progressive refinement with an independent quality check. See `REFERENCE.md` for the underlying architectural principles.
+
+## Practice Rules
+
+1. **Each layer has one abstraction level** and communicates only through structured JSON models (`StrategyOutput` → `TacticsOutput` → `LearningSession`s → `ProgressReport`) — never free text between layers.
+2. **Upper layers produce blueprints, not implementations**: the Strategy layer outputs modules/milestones; how a day's content looks is not its business.
+3. **Execution agents are specialists**: `ContentAgent` and `QuizAgent` each do one thing per task, iterating the Tactics layer's task list.
+4. **Reflection is a separate, independent layer** — it evaluates execution outputs against the original goal and can request corrections; it does not generate content itself.
+5. **Bound the execution loop** (the demo generates sessions for the first week, capped) — hierarchical agents multiply LLM calls fast; cap fan-out per run.
+6. **Harden JSON handling in the base agent** (`BaseAgent`): multiple extraction strategies (raw / markdown fence / brace matching), truncated-JSON repair, `MAX_RETRIES=3`.
+7. **Derive plan size from explicit inputs** (`--duration-weeks`, `--hours-per-week`), not from prose in the goal — runtime and cost scale with the plan, so the knobs must be first-class.
 
 ## Architecture
 
 ```
-+----------------------------------------------------------+
-|                    CLI Layer (main.py)                    |
-|              - Command-line argument parsing              |
-|              - Profile loading and validation             |
-+---------------------------+------------------------------+
-                            |
-                            v
-+---------------------------+------------------------------+
-|              LangGraph State Machine                      |
-|                 (llm_pipeline_service.py)                 |
-+---------------------------+------------------------------+
-                            |
-                            v
-         ┌─────────────────────────────────┐
-         │    1. STRATEGY LAYER            │
-         │    (戦略・プランニング層)         │
-         │    - Goal interpretation        │
-         │    - Roadmap creation           │
-         │    - Blueprint for lower layers │
-         └──────────────┬──────────────────┘
-                        │
-                        v
-         ┌─────────────────────────────────┐
-         │    2. TACTICS LAYER             │
-         │    (戦術・マネジメント層)         │
-         │    - Task decomposition         │
-         │    - Weekly/Daily planning      │
-         │    - Task assignment            │
-         └──────────────┬──────────────────┘
-                        │
-                        v
-         ┌─────────────────────────────────┐
-         │    3. EXECUTION LAYER           │◄───┐
-         │    (実行層)                      │    │
-         │    - Content generation         │    │ Loop
-         │    - Quiz creation              │    │
-         └──────────────┬──────────────────┘    │
-                        │                       │
-                        ▼                       │
-                 ┌──────┴──────┐                │
-                 │ More tasks? │────────────────┘
-                 └──────┬──────┘
-                        │ No
-                        v
-         ┌─────────────────────────────────┐
-         │    4. REFLECTION LAYER          │
-         │    (自己評価・省察層)            │
-         │    - Quality evaluation         │
-         │    - Goal alignment check       │
-         │    - Improvement recommendations│
-         └──────────────┬──────────────────┘
-                        │
-                        v
-                      [END]
+CLI (src/main.py)  goal / hours / duration / profile JSON
+  ▼
+LangGraph state machine (src/service/llm_pipeline_service.py)
+  1. STRATEGY   (layer/strategy.py)   goal → skill levels → LearningRoadmap (blueprint)
+  2. TACTICS    (layer/tactics.py)    roadmap → WeeklyPlan + DailyTask list
+  3. EXECUTION  (layer/execution.py)  per task: ContentAgent → LearningContent
+        ▲                             QuizAgent → Quiz            (loop over tasks)
+        └── more tasks? ──┘
+  4. REFLECTION (layer/reflection.py) outputs vs goal → ProgressReport + recommendations
+  ▼
+outputs/learning_plan_<id>.md
 ```
 
 ### Directory Structure
 
 ```
-chapter_4/section_3/
-|-- src/
-|   |-- __init__.py              # Package initialization
-|   |-- config.py                # Configuration (API keys)
-|   |-- logger.py                # Logging utilities
-|   |-- main.py                  # CLI entry point
-|   |-- client/
-|   |   |-- __init__.py
-|   |   +-- llm_client.py        # OpenAI client setup
-|   |-- layer/                   # 4-Layer Agent Implementation
-|   |   |-- __init__.py          # Layer package exports
-|   |   |-- base.py              # BaseAgent abstract class
-|   |   |-- strategy.py          # Strategy Layer (戦略・プランニング層)
-|   |   |-- tactics.py           # Tactics Layer (戦術・マネジメント層)
-|   |   |-- execution.py         # Execution Layer (実行層)
-|   |   +-- reflection.py        # Reflection Layer (自己評価・省察層)
-|   |-- model/
-|   |   |-- __init__.py
-|   |   +-- llm_pipeline_model.py  # Pydantic data models
-|   |-- prompt/
-|   |   |-- __init__.py
-|   |   +-- llm_pipeline_prompt.py # Agent prompts per layer
-|   +-- service/
-|       |-- __init__.py
-|       +-- llm_pipeline_service.py  # LangGraph orchestration
-|-- outputs/                     # Generated learning plans
-|-- .envrc.example               # Environment variable template
-|-- pyproject.toml               # Project dependencies
-|-- Makefile                     # Development commands
-|-- REFERENCE.md                 # Architectural principles reference
-+-- CLAUDE.md                    # This file
+chapter_5/section_3/
+├── src/
+│   ├── layer/
+│   │   ├── base.py          # BaseAgent: LLM call + robust JSON parsing + retries
+│   │   ├── strategy.py      # Strategy layer (戦略・プランニング層)
+│   │   ├── tactics.py       # Tactics layer (戦術・マネジメント層)
+│   │   ├── execution.py     # Execution layer: ContentAgent / QuizAgent
+│   │   └── reflection.py    # Reflection layer (自己評価・省察層)
+│   ├── service/llm_pipeline_service.py   # LangGraph orchestration
+│   ├── model/llm_pipeline_model.py       # per-layer Pydantic models + state
+│   ├── prompt/llm_pipeline_prompt.py     # per-layer prompts
+│   ├── client/llm_client.py              # OpenAI client + model enum
+│   ├── main.py                           # CLI (Click)
+│   └── config.py / logger.py
+├── example/learner_profile.json
+├── outputs/
+├── REFERENCE.md              # architectural principles for hierarchical agents
+├── Makefile / pyproject.toml / .envrc.example
+└── CLAUDE.md
 ```
 
-## Key Components
+## Key Implementation Patterns
 
-### 4-Layer Agent Architecture
-
-| Layer      | Module              | Responsibility                                      |
-|------------|---------------------|-----------------------------------------------------|
-| Strategy   | `layer/strategy.py` | Analyze goals, create learning roadmap (blueprint)  |
-| Tactics    | `layer/tactics.py`  | Design weekly/daily curriculum, assign tasks        |
-| Execution  | `layer/execution.py`| Generate content and quizzes (ContentAgent, QuizAgent) |
-| Reflection | `layer/reflection.py`| Evaluate quality, check goal alignment, recommend adjustments |
-
-### Layer Responsibilities (REFERENCE.md)
-
-1. **Strategy Layer (戦略・プランニング層)**
-   - Interprets ambiguous user goals
-   - Sets overall architecture and direction
-   - Creates blueprints for lower layers
-   - Does NOT involve itself in implementation details
-
-2. **Tactics Layer (戦術・マネジメント層)**
-   - Transforms strategy into executable sub-tasks
-   - Creates ToDo lists for execution layer
-   - Manages progress aggregation
-   - Acts as middle-management bridge
-
-3. **Execution Layer (実行層)**
-   - Performs concrete tasks faithfully
-   - Operates external tools (LLM for content generation)
-   - Specialists: ContentAgent, QuizAgent
-   - Does NOT make strategic decisions
-
-4. **Reflection Layer (自己評価・省察層)**
-   - Independent quality auditor
-   - Monitors execution outputs
-   - Evaluates goal alignment
-   - Requests plan corrections when needed
-   - Prevents runaway execution in wrong directions
-
-### Data Models (llm_pipeline_model.py)
-
-**Strategy Layer Models:**
-- `LearningModule`, `LearningRoadmap`, `StrategyOutput`
-
-**Tactics Layer Models:**
-- `DailyTask`, `WeeklyPlan`, `TacticsOutput`
-
-**Execution Layer Models:**
-- `LearningContent`, `Quiz`, `QuizQuestion`, `LearningSession`
-
-**Reflection Layer Models:**
-- `ProgressMetrics`, `ProgressReport`
-
-**Session & State Models:**
-- `LearnerProfile`, `PersonalizedLearningPlan`, `HierarchicalAgentState`
-
-### State Machine Flow
+### 1. Layer contracts as Pydantic models (`src/model/llm_pipeline_model.py`)
 
 ```
-strategy -> tactics -> execution (loop) -> reflection -> END
+StrategyOutput   = LearningRoadmap (modules, milestones) + levels
+TacticsOutput    = WeeklyPlan[] + DailyTask[]           # execution's ToDo list
+LearningSession  = LearningContent + Quiz (QuizQuestion[])
+ProgressReport   = ProgressMetrics + recommendations     # reflection's verdict
+HierarchicalAgentState = LangGraph state carrying all of the above
 ```
 
-## Dependencies
+Every layer boundary is a schema — swapping a layer's implementation cannot corrupt its neighbors.
 
-| Package           | Purpose                            |
-|-------------------|------------------------------------|
-| langchain-openai  | OpenAI integration for LangChain   |
-| langgraph         | State machine for agent workflows  |
-| openai            | OpenAI API client                  |
-| pydantic          | Data validation and modeling       |
-| click             | CLI framework                      |
-| python-dotenv     | Environment variable management    |
+### 2. State machine flow (`src/service/llm_pipeline_service.py`)
 
-## Usage
+```
+strategy -> tactics -> execution (loop while tasks remain) -> reflection -> END
+```
 
-### Setup
+### 3. Robust JSON handling in the shared base agent (`src/layer/base.py`)
 
-1. Create environment file:
+- Extraction strategies in order: raw JSON → markdown code block → brace matching
+- Truncated-JSON repair (close unclosed brackets/braces)
+- Retry with `MAX_RETRIES=3` on parse failure
+
+### 4. Reflection as independent audit (`src/layer/reflection.py`)
+
+The reflection agent receives the goal, the plan, and execution outputs — and returns quality scores, goal-alignment checks, and improvement recommendations that are attached to the final report.
+
+## Data Models
+
+| Model | Layer | Purpose |
+|-------|-------|---------|
+| `LearnerProfile` | input | goal, current knowledge, hours/week, duration |
+| `LearningModule` / `LearningRoadmap` / `StrategyOutput` | Strategy | blueprint |
+| `DailyTask` / `WeeklyPlan` / `TacticsOutput` | Tactics | task decomposition |
+| `LearningContent` / `Quiz` / `QuizQuestion` / `LearningSession` | Execution | deliverables |
+| `ProgressMetrics` / `ProgressReport` | Reflection | audit result |
+| `PersonalizedLearningPlan` / `HierarchicalAgentState` | — | final artifact / graph state |
+
+## Setup & Run
+
+> **Runtime scales with plan size**: every day × task in the plan costs multiple LLM calls (content + quiz). A 1-week plan (`-d 1`) takes ~5 minutes; a 12-week plan takes much longer. Start small.
+
 ```bash
-cp .envrc.example .envrc
-# Edit .envrc and set your API key:
-# OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxx
-```
-
-2. Install dependencies:
-```bash
+cp .envrc.example .envrc     # set OPENAI_API_KEY
 uv sync
-```
 
-### Run
+# Canonical (small, fast) example
+uv run python -m src.main -g '1週間でPythonの基礎を学びたい' -h 3 -d 1
 
-```bash
-# Basic usage with learning goal
-uv run python -m src.main -g "3 months to learn Python programming" -h 10 -d 12
-
-# Using a profile JSON file
+# Larger plan / profile file / knowledge priors
+uv run python -m src.main -g "3ヶ月でPythonプログラミングを習得したい" -h 10 -d 12
 uv run python -m src.main -p example/learner_profile.json
-
-# Specify current knowledge
-uv run python -m src.main -g "Learn data analysis" -k "Excel basics,Statistics"
-
-# Use a specific model
-uv run python -m src.main -g "Learn SQL" -m gpt-5.4-mini
+uv run python -m src.main -g "データ分析を学びたい" -k "Excel基礎,統計基礎"
 ```
 
 ### CLI Options
 
-| Option                  | Short | Description                           | Default   |
-|-------------------------|-------|---------------------------------------|-----------|
-| --model                 | -m    | OpenAI model to use                   | gpt-5.4    |
-| --output-directory      | -od   | Directory for output files            | outputs   |
-| --profile-file          | -p    | JSON file with learner profile        | None      |
-| --goal                  | -g    | Learning goal description             | None      |
-| --hours-per-week        | -h    | Available study hours per week        | 10        |
-| --duration-weeks        | -d    | Target duration in weeks              | 12        |
-| --current-knowledge     | -k    | Comma-separated current skills        | ""        |
-
-### Example Profile JSON
-
-```json
-{
-  "learner_id": "learner_001",
-  "learning_goal": "3 months to become proficient in data analysis",
-  "current_knowledge": ["Excel basics", "Statistics fundamentals"],
-  "available_hours_per_week": 10,
-  "preferred_content_types": ["video", "exercise"],
-  "target_duration_weeks": 12
-}
-```
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--goal` | `-g` | — | Learning goal (natural language) |
+| `--hours-per-week` | `-h` | 10 | Available study hours per week |
+| `--duration-weeks` | `-d` | 12 | Target duration — the main runtime/cost knob |
+| `--current-knowledge` | `-k` | "" | Comma-separated existing skills |
+| `--profile-file` | `-p` | — | Learner profile JSON (alternative to flags) |
+| `--model` | `-m` | `gpt-5.4` | OpenAI model |
+| `--output-directory` | `-od` | `outputs` | Output directory |
 
 ## Development Commands
 
 ```bash
-make lint    # Run ruff linter with auto-fix
-make fmt     # Format code with ruff
-make fix     # Run both lint and format
-make mypy    # Type checking with mypy
+make lint / make fmt / make fix / make mypy
 ```
 
 ## Implementation Notes
 
-### 4-Layer Hierarchical Agent Flow
+- **Why layers instead of one planner prompt**: a single "make me a full learning plan" prompt produces shallow, inconsistent plans. Splitting interpretation (strategy) from decomposition (tactics) from production (execution) lets each prompt be small, focused, and independently improvable — and reflection catches drift between them.
+- **Trade-offs (from REFERENCE.md)**: latency multiplies with layers; layer interfaces add design work; upper-layer errors propagate downward (a bad roadmap yields a bad everything); rigid hierarchies can suppress useful bottom-up signals. Reflection mitigates but doesn't eliminate these.
+- **Build bottom-up**: implement and test execution agents first with hand-written tasks, then add tactics, then strategy — each layer's tests use fixture inputs shaped like the layer above's output.
+- **Skill levels and content types are closed enums** (beginner…advanced; video/article/interactive/exercise/project) so plans stay renderable and comparable.
+- **Cost control lives at the tactics/execution boundary**: cap sessions per run, or generate content lazily (only the first week) as this demo does.
 
-1. **Strategy Layer**: Analyzes learner profile, determines skill levels, creates module-based roadmap as a blueprint
-2. **Tactics Layer**: Transforms roadmap into weekly themes and daily tasks, creates ToDo lists for execution
-3. **Execution Loop**: Iterates through tasks generating content and quizzes (max 5 sessions for first week)
-4. **Reflection Layer**: Evaluates output quality, checks goal alignment, provides recommendations
+## How to Apply This Practice to Your Own Project
 
-### Key Design Principles (from REFERENCE.md)
-
-- **Separation of Concerns**: Each layer has a distinct abstraction level and responsibility
-- **Clear Interfaces**: Layers communicate via structured JSON data (not natural language)
-- **Independent Audit**: Reflection layer operates independently to evaluate execution outputs
-- **Bottom-up Development**: Start with execution layer components, add higher layers incrementally
-
-### JSON Response Handling
-
-The base agent includes robust JSON parsing with:
-- Multiple extraction strategies (raw JSON, markdown code blocks, brace matching)
-- Truncated JSON repair (closing unclosed brackets/braces)
-- Retry logic with configurable attempts (MAX_RETRIES=3)
-
-### Skill Levels
-
-- beginner: No prior knowledge
-- elementary: Basic concepts understood
-- intermediate: Can work independently on basic tasks
-- upper_intermediate: Can handle complex tasks
-- advanced: Expert level, can teach others
-
-### Content Types
-
-- video: Video content
-- article: Text-based articles
-- interactive: Interactive tutorials
-- exercise: Practice exercises
-- project: Project-based learning
-
-## Trade-offs and Considerations
-
-As noted in REFERENCE.md:
-
-- **Latency**: Multi-layer processing increases response time
-- **Complexity**: Layer interfaces and state management add design complexity
-- **Rigidity Risk**: Upper layer decisions may override valuable insights from execution
-- **Error Propagation**: Strategy mistakes affect all downstream layers
-
-## Output
-
-The system generates a markdown file containing:
-- Learner profile summary
-- Strategy overview (domain, levels, duration)
-- Learning roadmap with milestones
-- Module descriptions
-- Weekly curriculum details
-- Sample learning sessions with quizzes
-- Progress report with recommendations from reflection layer
+1. Identify the abstraction levels in your task (interpret → decompose → produce → audit) and define one Pydantic contract per boundary.
+2. Implement a shared `BaseAgent` with hardened JSON parsing and retries; every layer agent extends it.
+3. Orchestrate layers as a state machine (LangGraph or Chapter 4 Section 4's pattern) with an explicit execution loop and cap.
+4. Make the reflection layer independent — different prompt, evaluating against the *original* goal, empowered to recommend corrections.
+5. Expose plan-size knobs (duration, budget) as first-class parameters; never infer scale from prose.
+6. Test each layer with fixtures of its upstream contract before wiring the full hierarchy.

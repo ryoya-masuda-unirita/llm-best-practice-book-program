@@ -1,500 +1,171 @@
-# Chapter 3 Section 1: Controlling LLM Request Volume - Project Status Report
+# Chapter 3 Section 4: Controlling LLM Request Volume — Proxy with Rate Limiter, Queue, and Circuit Breaker
 
-## Project Overview
+## What This Section Demonstrates
 
-This project implements a **proxy server architecture for controlling LLM API request volume** to address rate limiting challenges in production LLM applications. The implementation demonstrates a practical approach to managing API rate limits through a dedicated reverse proxy that sits between client applications and LLM API backends.
+Provider rate limits are a shared, org-wide resource; letting every client hit the LLM API directly guarantees 429 storms. This section builds a **traffic-control proxy** that sits between clients and an LLM backend and composes three classic mechanisms:
 
-**Status**: ✅ Implementation Complete
+- **Token-bucket rate limiter** — smooths outbound request rate to a configured requests/window.
+- **Request queue** — absorbs bursts: requests wait (bounded queue + future-based completion) instead of failing when the bucket is empty.
+- **Circuit breaker** — CLOSED → OPEN on consecutive failures/error rate, rejecting fast while the backend is unhealthy; OPEN → HALF_OPEN probes recovery.
 
-The project consists of two FastAPI-based servers:
-1. **LLM API Server** (Port 8000): Provides character generation endpoints using Google Gemini API
-2. **Proxy Server** (Port 8080): Implements traffic control mechanisms including rate limiting, circuit breaker, request queuing, and automatic retry
+The proxy exposes the same `/generate` surface as the backend plus `/metrics` and `/proxy-health`, so clients switch by changing one base URL. Apply this pattern whenever multiple consumers share one LLM quota, or when a flaky upstream must not cascade into your app.
 
-## Problem Statement
+## Practice Rules
 
-LLM APIs impose rate limits (Requests Per Second, Tokens Per Minute) on API keys, which creates operational challenges when:
-- Multiple teams or services share a single API contract
-- Burst traffic from one consumer affects all other consumers
-- Unexpected load spikes cause cascading failures across the system
-- 429 (Too Many Requests) errors impact user experience
+1. **Centralize volume control in one process** (the proxy). Client-side politeness doesn't compose across services; one choke point does.
+2. **Order the mechanisms: queue → rate limiter → circuit breaker → backend.** The queue absorbs bursts, the limiter paces dequeues, the breaker guards the actual call.
+3. **Use a token bucket for pacing** (`tokens = max_requests`, refilled at `max_requests / window_seconds` per second) — it allows short bursts up to bucket size while enforcing the average rate.
+4. **Bound the queue and fail explicitly when full** (`RequestQueueFullError` → HTTP 503) — unbounded queues convert overload into latency and memory pressure.
+5. **Complete queued requests via futures**: the enqueuer awaits a future; the worker loop dequeues, executes, and resolves it — decoupling client connections from execution pacing.
+6. **Trip the breaker on both consecutive failures and error rate** (`failure_threshold`, `error_rate_threshold`), and auto-probe recovery after `timeout_seconds` via HALF_OPEN.
+7. **Expose metrics for all three mechanisms** (`/metrics`: available tokens, queue size, breaker state/counters) — you cannot tune what you cannot see.
 
-**Real-world scenarios addressed**:
-1. **Multi-team organizations**: Preventing one team's bulk processing from blocking others' development work
-2. **E-commerce platforms**: Handling peak traffic during sales events without service degradation
-3. **Batch processing**: Ensuring overnight data pipelines complete successfully within rate limits
-
-## Implementation Architecture
-
-### System Architecture
+## Architecture
 
 ```
-Client Applications
-        ↓
-    [Proxy Server - Port 8080]
-        ├── Request Queue (max: 100, timeout: 300s)
-        ├── Rate Limiter (Token Bucket: 10 req/sec)
-        ├── Circuit Breaker (failure threshold: 5, timeout: 60s)
-        └── Retry Logic (max: 3, exponential backoff)
-        ↓
-    [LLM API Server - Port 8000]
-        ├── /generate endpoint
-        └── /health endpoint
-        ↓
-    External LLM APIs
-        └── Google Gemini (gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite, gemini-3.5-flash, gemini-3.1-flash-lite)
+Clients ──POST /generate──▶ Proxy Server (:8080, src/proxy/proxy_server.py)
+                              │ enqueue → await future
+                              ▼
+                        RequestQueue (bounded)          ← 503 when full
+                              │ worker loop dequeues
+                              ▼
+                        TokenBucketRateLimiter.acquire(timeout=30s)
+                              ▼
+                        CircuitBreaker.call(forward_to_backend)
+                              │ CLOSED/HALF_OPEN → forward; OPEN → fast fail
+                              ▼
+                        LLM Backend (:8000, src/api/llm_server.py) → Gemini
+Monitoring:
+  GET /proxy-health  GET /metrics  POST /circuit-breaker/reset
 ```
 
-### Component Overview
-
-#### 1. Proxy Server (`src/proxy/proxy_server.py`)
-
-**Purpose**: Central traffic control and coordination layer
-
-**Key Features**:
-- Integrates all control mechanisms (queue, rate limiter, circuit breaker, retry)
-- Exposes monitoring endpoints (`/metrics`, `/proxy-health`, `/circuit-breaker/reset`)
-- Adds proxy metadata to all responses for observability
-- Implements background queue processor for async request handling
-
-**Configuration**:
-- Backend URL: `http://localhost:8000`
-- Max retries: 3
-- Retry backoff base: 2.0 seconds
-
-#### 2. Rate Limiter (`src/proxy/rate_limiter.py`)
-
-**Algorithm**: Token Bucket
-
-**Implementation Details**:
-- **Capacity**: 10 requests per second (configurable)
-- **Refill rate**: Tokens replenished continuously at calculated rate
-- **Behavior**: Requests wait (blocking) when tokens unavailable
-- **Timeout**: Configurable maximum wait time (default: 30s)
-
-**Key Methods**:
-- `acquire()`: Consume one token, wait if unavailable
-- `get_available_tokens()`: Return current token count for monitoring
-
-**Code Reference**: `src/proxy/rate_limiter.py:20-98`
-
-#### 3. Circuit Breaker (`src/proxy/circuit_breaker.py`)
-
-**Pattern**: Three-state circuit breaker (CLOSED → OPEN → HALF_OPEN)
-
-**State Transitions**:
-- **CLOSED → OPEN**:
-  - Consecutive failures reach threshold (5) OR
-  - Error rate exceeds 50% (after minimum 10 requests)
-- **OPEN → HALF_OPEN**: Timeout period elapses (60 seconds)
-- **HALF_OPEN → CLOSED**: Consecutive successes reach threshold (2)
-- **HALF_OPEN → OPEN**: Any failure during half-open state
-
-**Metrics Tracked**:
-- Total requests and failed requests
-- Error rate calculation
-- Failure/success counters
-- Last failure timestamp
-
-**Code Reference**: `src/proxy/circuit_breaker.py:38-191`
-
-#### 4. Request Queue (`src/proxy/request_queue.py`)
-
-**Purpose**: Absorb burst traffic and prevent request rejection
-
-**Implementation Details**:
-- **Queue type**: `asyncio.Queue` for async/await compatibility
-- **Max size**: 100 requests
-- **Request timeout**: 300 seconds
-- **Behavior**: Returns 503 when full, 504 on timeout
-
-**Queueing Mechanism**:
-- Uses `asyncio.Future` for async result waiting
-- Background processor continuously dequeues and processes requests
-- Tracks metrics: total queued, processed, timeouts
-
-**Code Reference**: `src/proxy/request_queue.py:26-132`
-
-#### 5. Retry Logic (`src/proxy/proxy_server.py:100`)
-
-**Library**: `httpx-retries` for robust retry handling
-
-**Retry Policy**:
-- **Total attempts**: 3
-- **Backoff factor**: 1.0 (results in 1s, 2s, 4s intervals)
-- **Status codes triggering retry**:
-  - 429 Too Many Requests
-  - 500-599 Server Errors
-
-**Implementation**:
-```python
-retry_policy = Retry(
-    total=3,
-    backoff_factor=1.0,
-    status_forcelist=[429, 500, 501, 502, 503, 504, ...]
-)
-```
-
-**Code Reference**: `src/proxy/proxy_server.py:100-188`
-
-#### 6. LLM API Server (`src/api/llm_server.py`)
-
-**Purpose**: Backend service exposing LLM functionality
-
-**Endpoints**:
-- `POST /generate`: Generate character descriptions
-- `GET /health`: Health check endpoint
-
-**Supported Models**:
-- **Gemini**: gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite, gemini-3.5-flash, gemini-3.1-flash-lite
-
-**Request Model**:
-```python
-{
-    "model": "gemini-2.5-flash",
-    "character_request": {
-        "gender": "male" | "female",
-        "age": 0-100,
-        "additional_instructions": "..."
-    }
-}
-```
-
-**Code Reference**: `src/api/llm_server.py:1-92`
-
-## Key Features Implemented
-
-### 1. Multi-Layer Traffic Control
-
-All requests flow through four sequential control layers:
-1. **Queue** → Prevents immediate rejection during bursts
-2. **Rate Limiter** → Enforces throughput limits
-3. **Circuit Breaker** → Protects against cascading failures
-4. **Retry Logic** → Handles transient errors automatically
-
-### 2. Comprehensive Monitoring
-
-**Metrics Endpoint** (`GET /metrics`):
-```json
-{
-    "rate_limiter": {
-        "available_tokens": 8.5,
-        "max_requests": 10,
-        "window_seconds": 1.0
-    },
-    "circuit_breaker": {
-        "state": "closed",
-        "total_requests": 1523,
-        "failed_requests": 12,
-        "error_rate": 0.00788
-    },
-    "request_queue": {
-        "current_size": 3,
-        "max_size": 100,
-        "total_queued": 1523,
-        "total_processed": 1520,
-        "total_timeouts": 0
-    }
-}
-```
-
-### 3. Response Metadata Enrichment
-
-All proxy responses include metadata for observability:
-```json
-{
-    "_proxy_metadata": {
-        "processing_time_ms": 1456.78,
-        "circuit_state": "closed",
-        "queue_size": 2
-    }
-}
-```
-
-### 4. Structured Logging
-
-Comprehensive logging at all layers:
-- Request queuing and dequeuing events
-- Token acquisition and waiting
-- Circuit state transitions
-- Retry attempts with backoff timing
-- Error conditions with context
-
-**Example Log Output**:
-```
-[INFO] Rate limiter initialized: 10 requests per 1.0s (refill rate: 10.00 tokens/s)
-[INFO] Request queued. Queue size: 1/100
-[INFO] Token acquired. Remaining tokens: 9.00
-[INFO] Generate request completed successfully in 1456.78ms (queue size: 0)
-```
-
-### 5. Manual Circuit Breaker Control
-
-**Endpoint**: `POST /circuit-breaker/reset`
-
-Allows operators to manually reset circuit breaker to CLOSED state during maintenance or after resolving backend issues.
-
-## Technology Stack
-
-### Core Framework
-- **FastAPI**: High-performance async web framework for both servers
-- **Uvicorn**: ASGI server for production deployment
-- **Pydantic**: Data validation and settings management
-
-### HTTP Client
-- **httpx**: Modern async HTTP client
-- **httpx-retries**: Automatic retry logic with exponential backoff
-
-### LLM SDKs
-- **Google GenAI SDK**: Native Pydantic schema support for structured outputs
-
-### Development Tools
-- **python-dotenv**: Environment variable management
-- **click**: CLI interface (if needed)
-- **pytest**: Testing framework (configured in dev dependencies)
-
-## Data Flow Example
-
-**Scenario**: Client sends character generation request
+### Directory Structure
 
 ```
-1. Client → POST http://localhost:8080/generate
-   {
-       "model": "gemini-2.5-flash",
-       "character_request": {...}
-   }
-
-2. Proxy → Queue.enqueue(request_data)
-   - Creates asyncio.Future for result
-   - Waits in queue if multiple requests pending
-
-3. Queue Processor → Dequeues next request
-   - Background task continuously processes queue
-
-4. Rate Limiter → acquire()
-   - Checks token availability
-   - Waits if insufficient tokens
-   - Consumes 1 token on success
-
-5. Circuit Breaker → call(make_request_with_retry, ...)
-   - Checks state (CLOSED/OPEN/HALF_OPEN)
-   - Allows request if CLOSED or HALF_OPEN
-   - Raises error if OPEN
-
-6. Retry Logic → POST http://localhost:8000/generate
-   - Attempts request with exponential backoff on failure
-   - Max 3 attempts for 429/5xx errors
-
-7. LLM API Server → request_gemini()
-   - Calls Gemini API with structured output
-   - Returns CharacterResponse model
-
-8. Response Path (reverse direction)
-   - Circuit Breaker records success/failure
-   - Queue marks Future as complete
-   - Proxy adds metadata
-   - Client receives response with proxy_metadata
+chapter_3/section_4/
+├── src/
+│   ├── proxy/
+│   │   ├── proxy_server.py      # FastAPI proxy: queue worker, endpoints, wiring
+│   │   ├── rate_limiter.py      # TokenBucketRateLimiter + RateLimiterConfig
+│   │   ├── request_queue.py     # RequestQueue + QueueConfig + RequestQueueFullError
+│   │   └── circuit_breaker.py   # CircuitBreaker + CircuitBreakerConfig + states
+│   ├── api/llm_server.py        # backend: /generate (Gemini structured output), /health
+│   ├── client/llm_client.py / service/request_llm.py
+│   ├── model/model.py / prompt/prompt.py / config.py / logger.py
+├── docker-compose.yml           # llm-server:8000 + proxy-server:8080
+├── Dockerfile.web / Dockerfile.proxy
+├── Makefile / pyproject.toml / .envrc.example
+└── CLAUDE.md
 ```
 
-## Configuration
+## Key Implementation Patterns
 
-### Environment Variables
-
-For local execution, use `.env`:
-```bash
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
-```
-
-For Docker execution, use `.envrc`:
-```bash
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXX
-```
-
-### Proxy Configuration (`src/proxy/proxy_server.py:20-48`)
+### 1. Token bucket (`src/proxy/rate_limiter.py`)
 
 ```python
-# Rate Limiter
-max_requests=10          # 10 requests per window
-window_seconds=1.0       # 1 second window
+@dataclass
+class RateLimiterConfig:
+    max_requests: int = 10        # bucket size
+    window_seconds: float = 1.0   # refill window
 
-# Circuit Breaker
-failure_threshold=5      # Open after 5 consecutive failures
-success_threshold=2      # Close after 2 consecutive successes in half-open
-timeout_seconds=60.0     # Wait 60s before half-open
-error_rate_threshold=0.5 # Open if error rate > 50%
-min_requests=10          # Minimum requests before error rate check
+class TokenBucketRateLimiter:
+    def __init__(self, config):
+        self.tokens = float(config.max_requests)
+        self.refill_rate = config.max_requests / config.window_seconds
 
-# Request Queue
-max_queue_size=100       # Maximum 100 pending requests
-request_timeout=300.0    # 5 minutes maximum wait
-
-# Retry
-MAX_RETRIES=3            # Maximum retry attempts
-RETRY_BACKOFF_BASE=2.0   # Exponential backoff base
+    async def acquire(self, timeout: float | None = None) -> bool:
+        # refill tokens by elapsed_time * refill_rate (capped at bucket size),
+        # consume one, or wait until available / timeout
 ```
 
-## Testing and Validation
+### 2. Bounded queue with future completion (`src/proxy/request_queue.py`)
 
-### Manual Testing Approaches
+```python
+async def enqueue(self, request_data) -> Any:
+    if self.is_full():
+        raise RequestQueueFullError(...)
+    future = asyncio.get_event_loop().create_future()
+    await self.queue.put({"data": request_data, "future": future})
+    return await future                      # caller waits here
 
-**1. Rate Limiting Test**:
-```bash
-# Send 20 requests rapidly (limit: 10/sec)
-for i in {1..20}; do
-  curl -X POST http://localhost:8080/generate ... &
-done
-
-# Expected: First 10 process immediately, remaining 10 queue and process over ~2 seconds
+def complete_request(self, future, result=None, exception=None):
+    exception and future.set_exception(exception) or future.set_result(result)
 ```
 
-**2. Circuit Breaker Test**:
-```bash
-# Stop backend server
-# Send 10 requests
+### 3. Worker loop pacing dequeues (`src/proxy/proxy_server.py`)
 
-# Expected:
-# - First 5 requests fail
-# - Circuit opens
-# - Remaining 5 get immediate 503 errors
-# - After 60s, circuit moves to half-open
+```python
+async def process_queue_worker():
+    while True:
+        queue_item = await request_queue.dequeue()
+        acquired = await rate_limiter.acquire(timeout=30.0)     # pace here
+        result = await circuit_breaker.call(forward_request, queue_item["data"])
+        request_queue.complete_request(queue_item["future"], result=result)
 ```
 
-**3. Queue Overflow Test**:
-```bash
-# Send 150 requests simultaneously (queue max: 100)
+### 4. Circuit breaker state machine (`src/proxy/circuit_breaker.py`)
 
-# Expected:
-# - First 100 queue successfully
-# - Remaining 50 receive 503 Queue Full errors
+```python
+async def call(self, func, *args, **kwargs):
+    async with self.lock:
+        await self._check_state()                    # OPEN → HALF_OPEN after timeout
+        if self.state == CircuitState.OPEN:
+            raise CircuitBreakerOpenError(...)
+    try:
+        result = await func(*args, **kwargs)
+        await self._on_success()                     # HALF_OPEN successes → CLOSED
+        return result
+    except Exception:
+        await self._on_failure()                     # threshold/error-rate → OPEN
+        raise
 ```
 
-### Metrics Validation
+## Data Models
 
-Monitor real-time metrics during testing:
-```bash
-watch -n 1 'curl -s http://localhost:8080/metrics | jq'
-```
+| Model | Purpose |
+|-------|---------|
+| `RateLimiterConfig` / `QueueConfig` / `CircuitBreakerConfig` | Tunables per mechanism |
+| `CircuitState` | `CLOSED` / `OPEN` / `HALF_OPEN` |
+| `ProxyMetrics` / `ProxyHealthResponse` | Monitoring payloads (tokens, queue size, breaker counters) |
+| `LLMRequest` / `ProxiedLLMResponse` | Passthrough request/response incl. circuit_state + queue_size metadata |
 
-Observe:
-- Token depletion and replenishment
-- Queue size fluctuations
-- Circuit state transitions
-- Error rate calculations
-
-## Current Limitations and Future Work
-
-### Current Limitations
-
-1. **No Caching**: Repeated identical requests all hit the backend
-2. **Single Instance**: No horizontal scaling or load balancing
-3. **No Priority Queuing**: All requests treated equally (FIFO)
-4. **Fixed Configuration**: Rate limits hard-coded, not dynamic
-5. **Limited Metrics**: No Prometheus/Grafana integration
-
-### Potential Enhancements
-
-1. **Response Caching**:
-   - Implement Redis-based cache for identical prompts
-   - Configurable TTL based on use case
-   - Cache invalidation mechanisms
-
-2. **Distributed Deployment**:
-   - Multiple proxy instances with shared state (Redis)
-   - Distributed rate limiting using Redis sorted sets
-   - Load balancer in front of proxy cluster
-
-3. **Priority Queuing**:
-   - Multiple queues with different priorities
-   - User/service tier-based queue assignment
-   - Weighted fair queuing algorithm
-
-4. **Dynamic Rate Limiting**:
-   - Auto-adjust limits based on backend performance
-   - Per-user/service rate limits
-   - Time-based limit schedules (higher during off-peak)
-
-5. **Advanced Monitoring**:
-   - Prometheus metrics export
-   - Grafana dashboards
-   - Alerting on high error rates or queue backlog
-   - Distributed tracing with OpenTelemetry
-
-6. **Cost Optimization**:
-   - Token usage tracking per user/service
-   - Budget-based throttling
-   - Cost attribution and chargebacks
-
-## Running the Project
-
-### Setup
+## Setup & Run
 
 ```bash
-# Install dependencies
-uv sync
+cp .envrc.example .envrc     # set GEMINI_API_KEY
 
-# Configure environment (choose one)
-cp .env.example .env           # For local execution
-cp .envrc.example .envrc       # For Docker execution
-# Edit the file with your API key
-
-# Start servers locally (two terminals)
-uv run uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000 --reload
-uv run uvicorn src.proxy.proxy_server:app --host 0.0.0.0 --port 8080 --reload
-
-# Or use Docker Compose
+# Canonical (docker)
 make docker-build && make docker-up
+curl -s http://localhost:8000/health          # backend direct
+curl -s http://localhost:8080/proxy-health    # via proxy
+curl -s http://localhost:8080/metrics         # limiter/queue/breaker state
+make docker-down
+
+# Generate through the proxy
+curl -X POST http://localhost:8080/generate -H "Content-Type: application/json" \
+  -d '{"gender": "female", "age": 25}'
 ```
 
-### API Usage
+## Development Commands
 
-**Generate Character**:
 ```bash
-curl -X POST http://localhost:8080/generate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "gemini-2.5-flash",
-    "character_request": {
-      "gender": "male",
-      "age": 25,
-      "additional_instructions": "Make them adventurous"
-    }
-  }'
+make lint / make fmt / make fix / make mypy
+make docker-build / make docker-up / make docker-down / make docker-logs
 ```
 
-**Check Metrics**:
-```bash
-curl http://localhost:8080/metrics
-```
+## Implementation Notes
 
-**View API Docs**:
-- Proxy: http://localhost:8080/docs
-- Backend: http://localhost:8000/docs
+- **Why proxy-level control beats client-side**: quotas are per-organization; a proxy makes the quota a single managed resource with global visibility, and lets you change policy without redeploying N clients.
+- **Token bucket vs fixed window**: fixed windows allow 2× bursts at boundaries; token bucket enforces the average while still permitting controlled bursts up to bucket size.
+- **Backpressure semantics**: queue full → 503 immediately (client should back off); queue accepted → client waits up to the limiter/queue latency. Both outcomes are explicit, never silent queuing forever — `acquire(timeout=30)` caps wait time.
+- **Breaker protects both sides**: OPEN state spares the failing backend from hammering *and* gives clients fast failures instead of timeouts. `POST /circuit-breaker/reset` exists for operator override after a known fix.
+- **These mechanisms compose but measure differently**: watch `available_tokens` for pacing pressure, `queue_size` for sustained overload, breaker `state`/failure counts for upstream health — three different alerts.
 
-## Key Learnings
+## How to Apply This Practice to Your Own Project
 
-### Architectural Insights
-
-1. **Separation of Concerns**: Proxy handles all traffic control; backend focuses on LLM integration
-2. **Defense in Depth**: Multiple layers (queue → rate limit → circuit breaker → retry) provide robust protection
-3. **Observability First**: Rich metrics and metadata enable effective operations
-
-### Implementation Decisions
-
-1. **Token Bucket over Leaky Bucket**: Allows burst traffic within limits, better UX
-2. **Async Queue over Synchronous**: Enables non-blocking operations, better scalability
-3. **httpx-retries over Manual Retry**: Leverages battle-tested library, reduces bugs
-4. **Pydantic Throughout**: Type safety from API to LLM response parsing
-
-### Operational Considerations
-
-1. **Circuit Breaker Tuning**: Balance between protection and availability
-2. **Queue Size**: Trade-off between memory usage and burst absorption
-3. **Timeout Values**: Coordinate queue timeout, rate limiter timeout, and HTTP timeout
-4. **Logging Volume**: Detailed logs help debugging but increase storage costs
-
-## Conclusion
-
-This implementation demonstrates a production-ready pattern for controlling LLM API request volume through a proxy architecture. The combination of rate limiting, circuit breaking, queuing, and automatic retry provides robust protection against rate limit errors while maintaining good user experience during burst traffic.
-
-The modular design allows each component to be tuned independently based on specific requirements, and the comprehensive monitoring enables data-driven optimization. While current implementation is single-instance, the architecture can be extended to distributed deployment with shared state for larger-scale applications.
-
-**Status**: Ready for educational use and adaptation to production environments with appropriate hardening and scaling considerations.
+1. Deploy the proxy pattern when ≥2 consumers share an LLM quota; keep the backend API unchanged and move clients over by base-URL switch.
+2. Size the token bucket from your provider tier: `max_requests/window` ≈ 80% of the documented RPM; leave headroom for retries.
+3. Bound the queue at (acceptable wait seconds × dequeue rate); return 503 + `Retry-After` beyond it.
+4. Start the breaker with `failure_threshold=5`, `timeout_seconds=30`, `error_rate_threshold=0.5`, then tune from incident data.
+5. Ship `/metrics` into your monitoring stack and alert on queue growth and breaker opens.
+6. If you need per-tenant fairness, shard the token bucket per tenant key in the proxy — the composition order stays the same.

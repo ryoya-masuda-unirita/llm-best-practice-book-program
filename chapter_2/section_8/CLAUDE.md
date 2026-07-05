@@ -1,485 +1,167 @@
-# Chapter 2 Section 6: Structured Template Prompting - Project Status Report
+# Chapter 2 Section 8: Structured Template Prompting with Jinja2 and YAML
 
-**Generated**: 2025-10-18
-**Project**: Structured Template Prompting with Jinja2 and YAML
-**Status**: ✅ Implementation Complete - Production Ready
-**Version**: 1.0
+## What This Section Demonstrates
 
----
+Hardcoded prompt strings scatter across a codebase, drift out of sync, and can't be reviewed or reused. This section implements **prompt-as-configuration**: prompts live in version-controlled YAML files with Jinja2 placeholders (`{{ gender }}`, `{% if additional_instructions %}` …), and a small `TemplateEngine` loads, validates, and renders them into LLM message lists at runtime. Variable sets live in their own YAML files, so the same template runs with different data.
 
-## 📊 Project Overview
+Apply this practice as soon as you have more than one prompt, more than one prompt consumer, or non-engineers editing prompt text. It separates prompt content (reviewable text) from application logic (code), and makes missing-variable errors fail fast instead of producing silently broken prompts.
 
-This section implements a production-ready structured template prompting system for Large Language Model (LLM) applications. The system addresses critical challenges in prompt management: maintainability, reusability, testability, and collaborative development.
+## Practice Rules
 
-### Core Problem
+1. **Store each prompt as a YAML file with `system_prompt` / `user_prompt` keys**; use Jinja2 syntax for variables and conditionals inside the values.
+2. **Validate variables before rendering.** Extract required variables from the template AST (`jinja2.meta.find_undeclared_variables`) and raise `TemplateValidationError` listing what's missing — never render with silent gaps.
+3. **Render to the provider message format in one place** (`render_prompt_messages` → `[{"role": "system", ...}, {"role": "user", ...}]`) so call sites never do string assembly.
+4. **Keep variable sets in separate YAML files** (`variables/*.yaml`) — one template × many variable files covers personas, campaigns, product types.
+5. **Inject the output schema into the template as a variable too** (`{{ response_schema | indent(2) }}`), generated from the Pydantic model, so prompt text and enforced schema stay in sync.
+6. **Configure Jinja2 for prompt-friendly whitespace**: `trim_blocks=True, lstrip_blocks=True, keep_trailing_newline=True` — whitespace bugs in prompts are real bugs.
+7. **Unit-test the template layer without any LLM** (`tests/test_template_engine.py`): assert rendering, validation failures, and message structure.
 
-Traditional prompt management approaches fail for LLM applications because:
-- Hardcoded prompts in source code are difficult to modify and maintain
-- Copy-paste duplication leads to inconsistency and maintenance overhead
-- Non-technical team members cannot easily improve prompts
-- Testing and version control of prompts is challenging
-- Dynamic prompt assembly from multiple sources becomes unmanageable
-
-### Solution
-
-A template-driven architecture that separates prompt structure from code, enabling:
-- YAML-based template definition with Jinja2 for dynamic variable injection
-- Complete separation of prompt logic (templates) from data (variables)
-- Validation to ensure all required variables are provided
-- Multiple template variations for A/B testing and multi-use cases
-- Non-engineer prompt editing without touching code
-- Clean version control and collaboration workflows
-
----
-
-## ✅ Completed Features
-
-### Core Components
-- [x] TemplateEngine class with Jinja2 integration (src/service/template_engine.py - 147 lines)
-- [x] Variable extraction (`get_template_variables`)
-- [x] Variable validation (`validate_variables`)
-- [x] Template rendering (`render_template`)
-- [x] Message format conversion (`render_prompt_messages`)
-- [x] YAML template format with system_prompt and user_prompt keys
-- [x] Support for Jinja2 features (variables, conditionals, loops, filters)
-
-### Templates and Variables
-- [x] Character generation template (templates/character_generation.yaml)
-- [x] Product description template (templates/product_description.yaml)
-- [x] Email templates: formal and casual (templates/email_*.yaml)
-- [x] Character variable files: artist, detective (variables/character_*.yaml)
-- [x] Product variable files: electronics, apparel (variables/product_*.yaml)
-- [x] Email campaign variables: summer, winter (variables/email_campaign_*.yaml)
-
-### Application Integration
-- [x] Prompt generation using templates (src/prompt/prompt.py)
-- [x] LLM request handlers for OpenAI (src/service/request_llm.py)
-- [x] CLI with model and provider selection (src/main.py)
-- [x] Pydantic models for type safety (src/model/model.py)
-- [x] Configuration management (src/config.py)
-- [x] Logging setup (src/logger.py)
-
-### Testing
-- [x] 54 comprehensive tests across 2 test files
-- [x] TemplateEngine tests (46 tests) - initialization, validation, rendering, edge cases
-- [x] Prompt generation tests (8 tests)
-- [x] Test fixtures for temporary template directories (tests/conftest.py)
-- [x] Coverage for Unicode, special characters, nested structures
-
-### Infrastructure
-- [x] Makefile for common tasks (install, test, run, lint)
-- [x] pytest configuration with asyncio support
-- [x] Environment variable management
-- [x] Dependencies: jinja2>=3.1.6, pyyaml>=6.0.3
-
-### Documentation
-- [x] Comprehensive README.md (Japanese, production-ready)
-- [x] CLAUDE.md design specification (this file)
-- [x] Inline code documentation
-- [x] Usage examples and patterns
-
----
-
-## 📁 Project Structure
+## Architecture
 
 ```
-section_6/
+templates/*.yaml      variables/*.yaml
+ (Jinja2 in YAML)      (data per use case)
+        └──────┬──────────┘
+               ▼
+TemplateEngine (src/service/template_engine.py)
+  get_template_variables()  ← jinja2.meta AST inspection
+  validate_variables()      ← fail fast on missing vars
+  render_template()         ← Jinja2 render → yaml.safe_load
+  render_prompt_messages()  ← → [{"role": "system"}, {"role": "user"}]
+               ▼
+request_llm (src/service/request_llm.py) → OpenAI structured output → CharacterResponse
+```
+
+### Directory Structure
+
+```
+chapter_2/section_8/
+├── templates/
+│   ├── character_generation.yaml   # system/user prompt with {{ gender }}, {{ age }}, schema injection
+│   ├── email_formal.yaml / email_casual.yaml
+│   └── product_description.yaml
+├── variables/
+│   ├── character_artist.yaml / character_detective.yaml
+│   ├── email_campaign_summer.yaml / email_campaign_winter.yaml
+│   └── product_electronics.yaml / product_apparel.yaml
 ├── src/
-│   ├── __init__.py
-│   ├── main.py                    # CLI entry point
-│   ├── config.py                  # Configuration (API keys)
-│   ├── logger.py                  # Logging setup
-│   ├── client/
-│   │   ├── __init__.py
-│   │   └── llm_client.py          # OpenAI client
-│   ├── model/
-│   │   ├── __init__.py
-│   │   └── model.py               # Request/Response models
-│   ├── prompt/
-│   │   ├── __init__.py
-│   │   └── prompt.py              # make_prompt function
-│   └── service/
-│       ├── __init__.py
-│       ├── request_llm.py         # LLM request handlers
-│       └── template_engine.py     # Template engine (147 lines)
-├── templates/                      # YAML templates (4 files)
-│   ├── character_generation.yaml
-│   ├── product_description.yaml
-│   ├── email_formal.yaml
-│   └── email_casual.yaml
-├── variables/                      # Variable definitions (6 files)
-│   ├── character_artist.yaml
-│   ├── character_detective.yaml
-│   ├── product_electronics.yaml
-│   ├── product_apparel.yaml
-│   ├── email_campaign_summer.yaml
-│   └── email_campaign_winter.yaml
-├── tests/                          # Test suite (54 tests)
-│   ├── __init__.py
-│   ├── conftest.py
-│   ├── test_template_engine.py    # 46 tests
-│   └── test_prompt.py             # 8 tests
-├── outputs/                        # Generated files (gitignored)
-├── .envrc.example
-├── pyproject.toml
-├── pytest.ini
-├── Makefile
-├── README.md
+│   ├── main.py                     # CLI: pick template + variables + model
+│   ├── service/
+│   │   ├── template_engine.py      # TemplateEngine + TemplateValidationError
+│   │   └── request_llm.py          # path resolution, variable loading, LLM execution
+│   ├── model/model.py              # CharacterRequest / CharacterResponse
+│   ├── client/llm_client.py        # OpenAIModel enum + client
+│   └── config.py / logger.py
+├── tests/                          # template engine + prompt tests (no LLM needed)
+├── Makefile / pyproject.toml / .envrc.example
 └── CLAUDE.md
 ```
 
-**Statistics**:
-- 17 Python files
-- 54 comprehensive tests
-- 4 template files
-- 6 variable files
+## Key Implementation Patterns
 
----
+### 1. Template file: prompt + logic + schema slot (`templates/character_generation.yaml`)
 
-## 🎓 Key Implementation Details
-
-### 1. TemplateEngine (src/service/template_engine.py)
-
-**Purpose**: Core template management system using Jinja2 and YAML
-
-**Key Methods**:
-- `get_template_variables(template_name)` - Extract all variable names from a template
-- `validate_variables(template_name, variables)` - Validate that all required variables are provided
-- `render_template(template_name, variables, validate=True)` - Render template to dict
-- `render_prompt_messages(...)` - Render and convert to LLM API message format
-
-**Features**:
-- Automatic variable extraction using `jinja2.meta.find_undeclared_variables()`
-- Validation before rendering to catch errors early
-- Support for Jinja2 filters, conditionals, loops
-- Proper YAML indentation handling (`trim_blocks`, `lstrip_blocks`)
-
-### 2. YAML Template Format
-
-**Standard Structure**:
 ```yaml
 system_prompt: >-
-  System instruction text here.
-  {{ variable_name }}
+  あなたは創造的なキャラクタージェネレーターです。
+  ...以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：
 
+  {{ response_schema | indent(2) }}
+  ...
 user_prompt: >-
-  User instruction text here.
-  {% if optional_variable %}
-  {{ optional_variable }}
-  {% endif %}
+  ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。
+  性別は「{{ gender }}」、年齢は「{{ age }}」歳です。
+{% if additional_instructions %}
+  {{ additional_instructions }}
+{% endif %}
 ```
 
-**Jinja2 Features Supported**:
-- Variable substitution: `{{ variable }}`
-- Conditionals: `{% if condition %}...{% endif %}`
-- Loops: `{% for item in list %}...{% endfor %}`
-- Filters: `{{ variable | indent(2) }}`
+### 2. Fail-fast variable validation (`src/service/template_engine.py`)
 
-### 3. Variable Files
+```python
+def get_template_variables(self, template_name: str) -> set[str]:
+    template_source = self.env.loader.get_source(self.env, template_name)[0]
+    parsed_content = self.env.parse(template_source)
+    return meta.find_undeclared_variables(parsed_content)      # AST, not regex
 
-Separate YAML files containing data to inject into templates:
+def validate_variables(self, template_name, variables) -> None:
+    missing_vars = self.get_template_variables(template_name) - set(variables.keys())
+    if missing_vars:
+        raise TemplateValidationError(f"Missing required variables for template '{template_name}': {missing_vars}")
+```
+
+### 3. Render straight to message format (`src/service/template_engine.py`)
+
+```python
+def render_prompt_messages(self, template_name, variables, ...) -> list[dict[str, str]]:
+    rendered = self.render_template(template_name, variables)   # Jinja2 → yaml.safe_load
+    return [
+        {"role": "system", "content": rendered["system_prompt"]},
+        {"role": "user", "content": rendered["user_prompt"]},
+    ]
+```
+
+### 4. Variable files as data (`variables/character_artist.yaml`)
 
 ```yaml
-# variables/character_artist.yaml
 gender: "female"
 age: 28
-additional_instructions: "このキャラクターは画家で、感受性が豊かです。"
+additional_instructions: "このキャラクターは画家で、感受性が豊かです。..."
 ```
 
-**Benefits**:
-- Same template, multiple data sets
-- Easy A/B testing
-- Non-engineer editable
-- Version control for variations
+`prepare_character_variables()` merges these with computed values (like the rendered `response_schema`) before rendering.
 
-### 4. Prompt Generation (src/prompt/prompt.py)
+## Data Models
 
-```python
-# Initialize template engine once at module level
-_template_engine = TemplateEngine(template_dir=_template_dir)
+| Model | Purpose |
+|-------|---------|
+| `CharacterRequest` / `CharacterResponse` | Demo task input/output schemas (structured output) |
+| `TemplateValidationError` | Raised on missing variables or missing `system_prompt`/`user_prompt` keys |
+| `OpenAIModel` | `StrEnum` of usable model IDs |
 
-def make_prompt(character_request: CharacterRequest) -> list:
-    # Prepare variables
-    template_variables = {
-        "response_schema": response_schema,
-        "gender": character_request.gender.value,
-        "age": character_request.age,
-        "additional_instructions": character_request.additional_instructions or "",
-    }
-
-    # Render with validation
-    return _template_engine.render_prompt_messages(
-        template_name="character_generation.yaml",
-        variables=template_variables,
-        validate=True
-    )
-```
-
----
-
-## 🧪 Testing Strategy
-
-### Test Coverage (54 tests)
-
-**TemplateEngine Tests** (46 tests):
-- Initialization: valid/invalid directories, string paths
-- Variable extraction: simple, loops, conditionals, multiple vars
-- Variable validation: missing, extra, partial variables
-- Template rendering: loops, conditionals, nested structures
-- Message conversion: default keys, custom keys, missing keys
-- Edge cases: Unicode, None values, special chars, boolean values
-
-**Prompt Generation Tests** (8 tests):
-- Correct message format
-- Variable injection
-- Schema inclusion
-- Conditional sections
-- Validation enforcement
-
-### Running Tests
+## Setup & Run
 
 ```bash
-# All tests
-make test
-uv run pytest
-
-# With coverage
-make pytest-cov
-
-# Specific test file
-uv run pytest tests/test_template_engine.py -v
-
-# Failed tests only
-make pytest-failed
-```
-
----
-
-## 🚀 Usage Examples
-
-### Basic CLI Usage
-
-```bash
-# Install dependencies
+cp .envrc.example .envrc     # set OPENAI_API_KEY
 uv sync
-make install
 
-# Run with OpenAI
-uv run python -m src.main --model gpt-5.4
-make run-openai
+# Canonical example (template with default variables)
+uv run python -m src.main -m GPT_5_4 -t templates/character_generation.yaml
 
-# Custom output directory
-uv run python -m src.main -m gpt-5.4-mini -od ./my_outputs
+# Template + variable file combinations
+uv run python -m src.main -m GPT_5_4 -t templates/character_generation.yaml -v variables/character_artist.yaml
+uv run python -m src.main -m GPT_5_4 -t templates/email_formal.yaml -v variables/email_campaign_summer.yaml
 ```
 
-### Programmatic Usage
+### CLI Options
 
-```python
-from src.service.template_engine import TemplateEngine
+| Option | Short | Required | Default | Description |
+|--------|-------|----------|---------|-------------|
+| `--model` | `-m` | Yes | — | OpenAI model enum name |
+| `--template` | `-t` | Yes | — | Template YAML path |
+| `--variables` | `-v` | No | — | Variables YAML path |
+| `--output-directory` | `-od` | No | `outputs` | Output directory |
 
-# Initialize engine
-engine = TemplateEngine(template_dir="templates")
+## Development Commands
 
-# Define variables
-variables = {
-    "gender": "female",
-    "age": 28,
-    "additional_instructions": "Creative and artistic."
-}
-
-# Render to LLM message format
-messages = engine.render_prompt_messages(
-    template_name="character_generation.yaml",
-    variables=variables,
-    validate=True
-)
-
-# Use with LLM API
-response = await llm_client.generate(messages=messages)
+```bash
+make lint / make fmt / make fix / make mypy
+uv run pytest tests/ -v      # template engine + prompt tests, no API key needed
 ```
 
----
+## Implementation Notes
 
-## 💡 Key Benefits
+- **Why YAML wrapping Jinja2 (not raw text files)**: one file carries multiple named prompt parts (`system_prompt`, `user_prompt` — extensible to `few_shot_examples` etc.), and `yaml.safe_load` after rendering gives structure for free.
+- **Whitespace control**: `>-` folded scalars in YAML plus `trim_blocks`/`lstrip_blocks` in Jinja2 keep rendered prompts free of stray blank lines — diff the rendered output when editing templates.
+- **The template layer is fully testable offline** — rendering and validation tests run without API keys, which makes prompt changes CI-checkable.
+- **Schema injection keeps prompt and validation aligned**: the `response_schema` variable is generated from `CharacterResponse.detailed_model()`, the same model used for structured output enforcement.
+- **Review workflow**: prompt changes become YAML diffs in pull requests; non-engineers can edit templates without touching Python.
 
-### 1. Enhanced Maintainability
-- Centralized prompt management
-- No code changes for prompt updates
-- Version control for prompt history
-- Easy rollback to previous versions
+## How to Apply This Practice to Your Own Project
 
-### 2. Improved Reusability
-- One template, multiple variable sets
-- Easy A/B testing
-- Template variations for different use cases
-
-### 3. Team Collaboration
-- Non-engineers can edit YAML files
-- Product managers can iterate on prompts
-- Domain experts can refine instructions
-- No code deployment for prompt changes
-
-### 4. Better Testing
-- Templates testable in isolation
-- Systematic validation testing
-- Edge case coverage
-- Mock data testing
-
-### 5. Flexibility
-- Jinja2 provides powerful features
-- Conditional content
-- Loop constructs
-- Filter functions
-
----
-
-## ⚖️ Trade-offs and Considerations
-
-### Benefits
-1. Maintainability: Centralized prompt management
-2. Reusability: One template, many variable sets
-3. Testability: Easy to test templates in isolation
-4. Collaboration: Non-engineers can edit YAML files
-5. Version Control: Git-friendly prompt history
-6. Validation: Catch missing variables early
-
-### Trade-offs
-1. **Complexity**: Additional abstraction layer
-   - Mitigation: Good documentation, examples
-
-2. **Over-abstraction Risk**: Too many template layers
-   - Mitigation: Keep templates simple, limit nesting
-
-3. **Debugging Challenges**: Errors in template or variables
-   - Mitigation: Detailed error messages, validation
-
-4. **Performance**: Template parsing overhead
-   - Mitigation: Cache compiled templates (Jinja2 default)
-
-5. **Logic in Templates**: Temptation to add business logic
-   - Mitigation: Keep templates simple, complex logic in Python
-
----
-
-## 📚 Best Practices
-
-### Do's
-1. Keep templates simple - minimize logic
-2. Always validate in production (`validate=True`)
-3. Use variable files for data separation
-4. Write template tests
-5. Document required variables
-6. Version control templates and variables
-7. Use meaningful file names
-8. Monitor template usage
-
-### Don'ts
-1. Don't put business logic in templates
-2. Don't skip validation in production
-3. Don't hardcode variables
-4. Don't over-abstract
-5. Don't ignore template errors
-6. Don't mix languages in same file
-7. Don't commit sensitive data
-8. Don't skip documentation
-
----
-
-## 🔮 Future Enhancements
-
-### Planned Features
-1. **Template Inheritance** - Base templates with extensions
-2. **Template Macros** - Reusable template components
-3. **Template Linting** - Validate YAML and Jinja2 syntax
-4. **Template Preview** - Render with sample data
-5. **Performance Optimization** - Template caching
-6. **Advanced Validation** - Type checking for variables
-7. **Multi-model Templates** - Model-specific optimizations
-8. **Template Analytics** - Track usage and performance
-
----
-
-## 🛠️ Troubleshooting
-
-### Common Issues
-
-**1. TemplateNotFound Error**
-```
-jinja2.exceptions.TemplateNotFound: character_generation.yaml
-```
-Solution: Check template directory path, verify file exists
-
-**2. Missing Variables**
-```
-TemplateValidationError: Missing required variables: {'age'}
-```
-Solution: Use `get_template_variables()` to check required variables
-
-**3. YAML Syntax Error**
-```
-yaml.scanner.ScannerError: mapping values are not allowed here
-```
-Solution: Check indentation and colons in YAML
-
-**4. Undefined Variable**
-```
-jinja2.exceptions.UndefinedError: 'age' is undefined
-```
-Solution: Enable validation or use default values in template
-
----
-
-## 📖 References
-
-- **Design Pattern**: Template Method Pattern
-- **Jinja2 Documentation**: https://jinja.palletsprojects.com/
-- **YAML Specification**: https://yaml.org/spec/
-- **Best Practices**: Separation of Concerns, DRY principle
-- **Testing**: pytest, fixture-based testing
-- **Chapter Reference**: Chapter 2, Section 6 - Structured Template Prompting
-
----
-
-## 📝 Changelog
-
-### v1.0 (2025-10-18) - Initial Implementation
-
-**Core Features**:
-- TemplateEngine class with Jinja2 integration
-- YAML template format
-- Variable validation
-- Message format conversion
-- Jinja2 features support
-
-**Templates** (4 files):
-- Character generation
-- Product description
-- Email (formal and casual)
-
-**Variable Files** (6 files):
-- Character variations: artist, detective
-- Product variations: electronics, apparel
-- Email campaigns: summer, winter
-
-**Testing**:
-- 54 comprehensive tests
-- Full edge case coverage
-- Temporary directory fixtures
-
-**Infrastructure**:
-- CLI with provider/model selection
-- LLM request handlers
-- Makefile automation
-- pytest configuration
-
-**Documentation**:
-- Comprehensive README.md (Japanese)
-- CLAUDE.md (this file)
-- Code documentation
-- Usage examples
-
----
-
-**Generated by**: Claude Code
-**Date**: 2025-10-18
-**Version**: 1.0
+1. Create `templates/` and move every inline prompt into a YAML file with `system_prompt`/`user_prompt` keys; parameterize differences with `{{ vars }}` and `{% if %}` blocks.
+2. Copy `TemplateEngine` as-is — it has no project-specific logic.
+3. Route all prompt construction through `render_prompt_messages()`; delete ad-hoc f-string prompt assembly.
+4. Put per-use-case data in `variables/*.yaml`; treat new use cases as new variable files, not new templates, until the structure actually differs.
+5. If the task uses structured output, inject the schema description as a template variable derived from the Pydantic model.
+6. Add rendering/validation unit tests; run them in CI so prompt edits can't ship broken.
