@@ -1,10 +1,10 @@
 # llm-best-practice-book-program
 
-このレポジトリは『<書名>』のためのコード例をまとめたものです。
+このレポジトリは翔泳社刊『[LLM・AIエージェントシステムベストプラクティス](https://www.shoeisha.co.jp/book/detail/9784798194318)』のためのコード例をまとめたものです。
 
 ## 書籍について
 
-TODO
+![img.png](img.png)
 
 ## プログラムについて
 
