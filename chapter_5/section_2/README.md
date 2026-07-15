@@ -1,4 +1,4 @@
-# Chapter 5 Section 2: マルチエージェント契約書レビューシステム
+# Chapter 5 Section 2: マルチAIエージェント
 
 ## 概要
 

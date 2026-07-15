@@ -1,4 +1,4 @@
-# Chapter 4 Section 8: AIエージェントフレームワーク（デザインパターン適用）
+# Chapter 4 Section 8: 安定したコア層と柔軟な拡張層
 
 ## 概要
 

@@ -1,4 +1,4 @@
-# Chapter 6 Section 3: 複数推論と候補評価（Best-of-N with LLM-as-a-Judge）
+# Chapter 6 Section 3: 複数推論と候補評価
 
 ## 概要
 

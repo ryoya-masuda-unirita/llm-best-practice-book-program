@@ -1,4 +1,4 @@
-# Chapter 5 Section 3: 階層型マルチエージェント - パーソナライズ学習プラットフォーム
+# Chapter 5 Section 3: 多層型AIエージェント
 
 ## 概要
 

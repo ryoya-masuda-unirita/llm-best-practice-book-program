@@ -1,4 +1,4 @@
-# Chapter 4 Section 8: Agent Framework Packaging — Stable Core, Flexible Extensions
+# Chapter 4 Section 8: Stable Core, Flexible Extensions
 
 ## What This Section Demonstrates
 

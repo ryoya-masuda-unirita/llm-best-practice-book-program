@@ -43,13 +43,13 @@ TODO
   - [第6項 LLM出力をストリーミングにする](./chapter_2/section_6)
   - [第7項 LLMでLLMを評価する](./chapter_2/section_7)
   - [第8項 プロンプトを構造的にテンプレート化する](./chapter_2/section_8)
-  - [第9項 プロンプトの単体テスト](./chapter_2/section_9)
+  - [第9項 プロンプトのユニットテスト](./chapter_2/section_9)
   - [第10項 プロンプトパフォーマンスのプロファイリング](./chapter_2/section_10)
   - [第11項 関数呼び出し（Tool call）と外部サービス活用](./chapter_2/section_11)
   - [第12項 LLMによるスクリプト生成と実行](./chapter_2/section_12)
 
 - 第3章 LLMのAPIを活用するプラクティス
-  - [第1項 LLM APIのためのアダプターとファクトリーパターン](./chapter_3/section_1)
+  - [第1項 LLM APIのためのAdaptorとFactoryパターン](./chapter_3/section_1)
   - [第2項 LLMリクエストのタイムアウトとフォールバック](./chapter_3/section_2)
   - [第3項 LLMリクエストの適応的バックオフによるリトライ](./chapter_3/section_3)
   - [第4項 LLMのリクエスト量を制御する](./chapter_3/section_4)

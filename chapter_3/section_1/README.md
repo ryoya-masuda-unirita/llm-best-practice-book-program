@@ -1,4 +1,4 @@
-# Chapter 3 Section 1: LLM APIのためのアダプターとファクトリーパターン
+# Chapter 3 Section 1: LLM APIのためのAdaptorとFactoryパターン
 
 ## 概要
 
