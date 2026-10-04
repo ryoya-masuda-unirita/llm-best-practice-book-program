@@ -7,9 +7,9 @@ from src.client.llm_client import LLMProvider
 from src.model.llm_pipeline_model import AnalysisEvaluation, DocumentAnalysis, PipelineState
 from src.service.llm_pipeline_service import (
     MAX_RETRIES,
-    analyze_document_gemini_node,
+    analyze_document_anthropic_node,
     analyze_document_openai_node,
-    judge_analysis_gemini_node,
+    judge_analysis_anthropic_node,
     judge_analysis_openai_node,
     read_document_node,
     route_after_judge,
@@ -62,7 +62,7 @@ class TestAnalyzeDocumentOpenAINode:
         with patch("src.service.llm_pipeline_service.openai_client") as mock_client:
             mock_client.beta.chat.completions.parse = AsyncMock(return_value=mock_response)
 
-            state = {**base_pipeline_state, "llm_provider": LLMProvider.OPENAI, "model": "gpt-5.4"}
+            state = {**base_pipeline_state, "llm_provider": LLMProvider.OPENAI, "model": "openai.gpt-5.4"}
             result = await analyze_document_openai_node(state)
 
             assert result["error"] is None
@@ -87,7 +87,7 @@ class TestAnalyzeDocumentOpenAINode:
             state = {
                 **base_pipeline_state,
                 "llm_provider": LLMProvider.OPENAI,
-                "model": "gpt-5.4",
+                "model": "openai.gpt-5.4",
                 "retry_count": 1,
                 "evaluation_result": sample_evaluation_poor,
             }
@@ -114,35 +114,35 @@ class TestAnalyzeDocumentOpenAINode:
             assert result["analysis_result"] is None
 
 
-class TestAnalyzeDocumentGeminiNode:
-    """Tests for analyze_document_gemini_node."""
+class TestAnalyzeDocumentAnthropicNode:
+    """Tests for analyze_document_anthropic_node."""
 
     @pytest.mark.asyncio
     async def test_analyze_first_attempt(self, base_pipeline_state: PipelineState, sample_analysis: DocumentAnalysis):
-        """Test first analysis attempt with Gemini."""
+        """Test first analysis attempt with Anthropic."""
         mock_response = MagicMock()
-        mock_response.parsed = sample_analysis
+        mock_response.parsed_output = sample_analysis
 
-        with patch("src.service.llm_pipeline_service.google_genai_client") as mock_client:
-            mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
+        with patch("src.service.llm_pipeline_service.anthropic_client") as mock_client:
+            mock_client.messages.parse = AsyncMock(return_value=mock_response)
 
-            state = {**base_pipeline_state, "llm_provider": LLMProvider.GEMINI}
-            result = await analyze_document_gemini_node(state)
+            state = {**base_pipeline_state, "llm_provider": LLMProvider.ANTHROPIC}
+            result = await analyze_document_anthropic_node(state)
 
             assert result["error"] is None
             assert result["analysis_result"] == sample_analysis
-            mock_client.aio.models.generate_content.assert_called_once()
+            mock_client.messages.parse.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_analyze_api_error(self, base_pipeline_state: PipelineState):
         """Test handling API errors."""
-        with patch("src.service.llm_pipeline_service.google_genai_client") as mock_client:
-            mock_client.aio.models.generate_content = AsyncMock(side_effect=Exception("API Error"))
+        with patch("src.service.llm_pipeline_service.anthropic_client") as mock_client:
+            mock_client.messages.parse = AsyncMock(side_effect=Exception("API Error"))
 
-            result = await analyze_document_gemini_node(base_pipeline_state)
+            result = await analyze_document_anthropic_node(base_pipeline_state)
 
             assert result["error"] is not None
-            assert "Failed to analyze document with Gemini" in result["error"]
+            assert "Failed to analyze document with Anthropic" in result["error"]
             assert result["analysis_result"] is None
 
 
@@ -191,8 +191,8 @@ class TestJudgeAnalysisOpenAINode:
             assert "Failed to evaluate analysis with OpenAI" in result["error"]
 
 
-class TestJudgeAnalysisGeminiNode:
-    """Tests for judge_analysis_gemini_node."""
+class TestJudgeAnalysisAnthropicNode:
+    """Tests for judge_analysis_anthropic_node."""
 
     @pytest.mark.asyncio
     async def test_judge_analysis(
@@ -200,18 +200,18 @@ class TestJudgeAnalysisGeminiNode:
         pipeline_state_with_analysis: PipelineState,
         sample_evaluation_good: AnalysisEvaluation,
     ):
-        """Test judging analysis with Gemini."""
+        """Test judging analysis with Anthropic."""
         mock_response = MagicMock()
-        mock_response.parsed = sample_evaluation_good
+        mock_response.parsed_output = sample_evaluation_good
 
-        with patch("src.service.llm_pipeline_service.google_genai_client") as mock_client:
-            mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
+        with patch("src.service.llm_pipeline_service.anthropic_client") as mock_client:
+            mock_client.messages.parse = AsyncMock(return_value=mock_response)
 
-            result = await judge_analysis_gemini_node(pipeline_state_with_analysis)
+            result = await judge_analysis_anthropic_node(pipeline_state_with_analysis)
 
             assert result["error"] is None
             assert result["evaluation_result"] == sample_evaluation_good
-            mock_client.aio.models.generate_content.assert_called_once()
+            mock_client.messages.parse.assert_called_once()
 
 
 class TestRouteToLLMProvider:
@@ -223,11 +223,11 @@ class TestRouteToLLMProvider:
         result = route_to_llm_provider(state)
         assert result == "analyze_openai"
 
-    def test_route_to_gemini(self, base_pipeline_state: PipelineState):
-        """Test routing to Gemini provider."""
-        state = {**base_pipeline_state, "llm_provider": LLMProvider.GEMINI}
+    def test_route_to_anthropic(self, base_pipeline_state: PipelineState):
+        """Test routing to Anthropic provider."""
+        state = {**base_pipeline_state, "llm_provider": LLMProvider.ANTHROPIC}
         result = route_to_llm_provider(state)
-        assert result == "analyze_gemini"
+        assert result == "analyze_anthropic"
 
     def test_route_with_error(self, base_pipeline_state: PipelineState):
         """Test routing when error exists."""
@@ -245,11 +245,11 @@ class TestRouteToJudge:
         result = route_to_judge(state)
         assert result == "judge_openai"
 
-    def test_route_to_gemini_judge(self, pipeline_state_with_analysis: PipelineState):
-        """Test routing to Gemini judge."""
-        state = {**pipeline_state_with_analysis, "llm_provider": LLMProvider.GEMINI}
+    def test_route_to_anthropic_judge(self, pipeline_state_with_analysis: PipelineState):
+        """Test routing to Anthropic judge."""
+        state = {**pipeline_state_with_analysis, "llm_provider": LLMProvider.ANTHROPIC}
         result = route_to_judge(state)
-        assert result == "judge_gemini"
+        assert result == "judge_anthropic"
 
     def test_route_with_error(self, pipeline_state_with_analysis: PipelineState):
         """Test routing when error exists."""
@@ -292,20 +292,20 @@ class TestRouteAfterJudge:
         assert result == "analyze_openai"
         assert state["retry_count"] == 1
 
-    def test_retry_poor_analysis_gemini(
+    def test_retry_poor_analysis_anthropic(
         self,
         pipeline_state_with_analysis: PipelineState,
         sample_evaluation_poor: AnalysisEvaluation,
     ):
-        """Test retrying analysis with poor grade (Gemini)."""
+        """Test retrying analysis with poor grade (Anthropic)."""
         state = {
             **pipeline_state_with_analysis,
-            "llm_provider": LLMProvider.GEMINI,
+            "llm_provider": LLMProvider.ANTHROPIC,
             "evaluation_result": sample_evaluation_poor,
             "retry_count": 0,
         }
         result = route_after_judge(state)
-        assert result == "analyze_gemini"
+        assert result == "analyze_anthropic"
         assert state["retry_count"] == 1
 
     def test_max_retries_reached(

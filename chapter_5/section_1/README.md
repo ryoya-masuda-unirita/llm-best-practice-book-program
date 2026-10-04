@@ -103,7 +103,7 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. **依存関係のインストール**
@@ -136,15 +136,15 @@ uv run python -m src.main -r "簡単な夕食"
 
 # 別のモデルを使用
 uv run python -m src.main -m CLAUDE_SONNET_4_6 -r "簡単な夕食"
-uv run python -m src.main -m CLAUDE_OPUS_4_7 -r "本格的なフレンチ"
+uv run python -m src.main -m CLAUDE_SONNET_4_6 -r "本格的なフレンチ"
 ```
 
 利用可能なモデル:
 - `CLAUDE_HAIKU_4_5`（デフォルト）
 - `CLAUDE_SONNET_4_6`
-- `CLAUDE_OPUS_4_7`
-- `CLAUDE_SONNET_5`
-- `CLAUDE_OPUS_4_8`
+- `CLAUDE_SONNET_4_6`
+- `CLAUDE_SONNET_4_6`
+- `CLAUDE_SONNET_4_6`
 
 #### 出力先の指定
 
@@ -181,7 +181,7 @@ Usage: python -m src.main [OPTIONS]
       python -m src.main -r "30分以内で作れるイタリアン"
 
 Options:
-  -m, --model [CLAUDE_SONNET_5|CLAUDE_OPUS_4_8|CLAUDE_OPUS_4_7|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
+  -m, --model [CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
                                   The model to use for the request.
   -od, --output-directory PATH    The directory to save output files.
   -r, --request TEXT              Your dinner request in natural language.
@@ -227,12 +227,12 @@ Options:
 ```bash
 $ uv run python -m src.main -r "今日は疲れているので簡単な料理がいい" -od outputs -m CLAUDE_HAIKU_4_5
 [2026-02-07 09:00:54,193] [INFO] [__main__] [main.py:69] [main] Dinner Menu Advisor
-Model: claude-haiku-4-5
+Model: global.anthropic.claude-haiku-4-5-20251001-v1:0
 Request: 今日は疲れているので簡単な料理がいい
 Output directory: outputs
 
 [2026-02-07 09:00:54,193] [INFO] [src.service.service] [service.py:263] [run_dinner_advisor] Starting dinner advisor for request: 今日は疲れているので簡単な料理がいい
-[2026-02-07 09:00:54,193] [INFO] [src.service.service] [service.py:264] [run_dinner_advisor] Using model: claude-haiku-4-5
+[2026-02-07 09:00:54,193] [INFO] [src.service.service] [service.py:264] [run_dinner_advisor] Using model: global.anthropic.claude-haiku-4-5-20251001-v1:0
 [2026-02-07 09:00:54,193] [INFO] [src.service.service] [service.py:232] [create_dinner_advisor_graph] Creating dinner advisor ReAct agent graph with structured output...
 [2026-02-07 09:00:54,193] [INFO] [src.service.service] [service.py:254] [create_dinner_advisor_graph] Dinner advisor graph created successfully
 [2026-02-07 09:00:54,200] [INFO] [src.service.service] [service.py:138] [call_model] Agent: Calling model for reasoning...

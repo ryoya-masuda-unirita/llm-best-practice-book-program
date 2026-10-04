@@ -4,10 +4,10 @@ from functools import wraps
 from uuid import uuid4
 
 import click
-from src.client.llm_client import AnthropicModel, GeminiModel, LLMProvider, OpenAIModel
+from src.client.llm_client import AnthropicModel, LLMProvider, OpenAIModel  # , GeminiModel
 from src.logger import make_logger
 from src.model.llmops_log import StorageType
-from src.service import request_anthropic, request_gemini, request_openai
+from src.service import request_anthropic, request_openai  # , request_gemini
 from src.service.llmops_logger import create_llmops_logger
 
 logger = make_logger(__name__)
@@ -26,14 +26,14 @@ def async_cmd(func):
     "--llm-provider",
     "-lp",
     type=click.Choice(LLMProvider),
-    default=LLMProvider.GEMINI,
+    default=LLMProvider.ANTHROPIC,
     required=True,
     help="The LLM provider to use.",
 )
 @click.option(
     "--model",
     "-m",
-    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str() + AnthropicModel.list_str()),
+    type=click.Choice(OpenAIModel.list_str() + AnthropicModel.list_str()),  # + GeminiModel.list_str()
     required=True,
     help="The model to use for the request.",
 )
@@ -75,8 +75,8 @@ Storage type: {storage_type.value}""")
 
     if llm_provider == LLMProvider.OPENAI and model not in OpenAIModel.list_str():
         raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
-    if llm_provider == LLMProvider.GEMINI and model not in GeminiModel.list_str():
-        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
+    # if llm_provider == LLMProvider.GEMINI and model not in GeminiModel.list_str():
+    #     raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
     if llm_provider == LLMProvider.ANTHROPIC and model not in AnthropicModel.list_str():
         raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
 
@@ -85,8 +85,8 @@ Storage type: {storage_type.value}""")
     llmops_logger = create_llmops_logger(logger_name="llmops", storage_type=storage_type)
     if llm_provider == LLMProvider.OPENAI:
         result = await request_openai(model=model, llmops_logger=llmops_logger, user_id=user_id)
-    elif llm_provider == LLMProvider.GEMINI:
-        result = await request_gemini(model=model, llmops_logger=llmops_logger, user_id=user_id)
+    # elif llm_provider == LLMProvider.GEMINI:
+    #     result = await request_gemini(model=model, llmops_logger=llmops_logger, user_id=user_id)
     elif llm_provider == LLMProvider.ANTHROPIC:
         result = await request_anthropic(model=model, llmops_logger=llmops_logger, user_id=user_id)
     else:

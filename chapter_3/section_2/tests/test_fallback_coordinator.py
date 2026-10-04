@@ -55,7 +55,7 @@ class TestFallbackCoordinator:
             primary_provider=LLMProvider.OPENAI,
             primary_request_func=mock_primary_request,
             prompt=sample_prompt,
-            model="gpt-5.4",
+            model="openai.gpt-5.4",
         )
 
         assert response == sample_character_response
@@ -74,7 +74,7 @@ class TestFallbackCoordinator:
 
         cache_manager = CacheManager(cache_dir=temp_cache_dir)
         # Pre-populate cache
-        cache_manager.set(sample_prompt, "gpt-5.4", sample_character_response)
+        cache_manager.set(sample_prompt, "openai.gpt-5.4", sample_character_response)
 
         coordinator = FallbackCoordinator(
             fallback_strategy=FallbackStrategy.PARAMETER_CACHE, cache_manager=cache_manager, timeout=0.1
@@ -88,7 +88,7 @@ class TestFallbackCoordinator:
             primary_provider=LLMProvider.OPENAI,
             primary_request_func=slow_primary_request,
             prompt=sample_prompt,
-            model="gpt-5.4",
+            model="openai.gpt-5.4",
         )
 
         assert response.first_name == sample_character_response.first_name
@@ -258,11 +258,11 @@ class TestFallbackCoordinator:
             primary_provider=LLMProvider.OPENAI,
             primary_request_func=successful_request,
             prompt=sample_prompt,
-            model="gpt-5.4",
+            model="openai.gpt-5.4",
         )
 
         # Verify cache was populated
-        cached = cache_manager.get(sample_prompt, "gpt-5.4")
+        cached = cache_manager.get(sample_prompt, "openai.gpt-5.4")
         assert cached is not None
         assert cached.first_name == sample_character_response.first_name
 
@@ -423,7 +423,7 @@ class TestFallbackCoordinator:
         )
 
         # Pre-populate semantic cache
-        await semantic_cache_manager.set(sample_prompt, "gpt-5.4", sample_character_response)
+        await semantic_cache_manager.set(sample_prompt, "openai.gpt-5.4", sample_character_response)
 
         coordinator = FallbackCoordinator(
             fallback_strategy=FallbackStrategy.SEMANTIC_CACHE,
@@ -440,7 +440,7 @@ class TestFallbackCoordinator:
             primary_provider=LLMProvider.OPENAI,
             primary_request_func=slow_primary_request,
             prompt=sample_prompt,
-            model="gpt-5.4",
+            model="openai.gpt-5.4",
         )
 
         assert response.first_name == sample_character_response.first_name
@@ -449,7 +449,7 @@ class TestFallbackCoordinator:
         assert coordinator.stats["timeout_count"] == 1
         assert coordinator.stats["semantic_cache_hits"] == 1
 
-    @pytest.mark.parametrize("provider", [LLMProvider.OPENAI, LLMProvider.GEMINI])
+    @pytest.mark.parametrize("provider", [LLMProvider.OPENAI, LLMProvider.ANTHROPIC])
     async def test_different_providers(self, temp_cache_dir, provider, sample_character_response, sample_prompt):
         """Test fallback coordinator with different providers."""
         from src.service.cache_manager import CacheManager

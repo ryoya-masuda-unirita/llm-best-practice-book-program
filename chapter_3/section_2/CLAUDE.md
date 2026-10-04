@@ -142,11 +142,11 @@ cp .envrc.example .envrc     # OPENAI_API_KEY / GEMINI_API_KEY
 uv sync
 
 # Canonical example (alternative-provider fallback: Gemini primary → OpenAI backup)
-uv run python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH -am GPT_5_4_MINI
+uv run python -m src.main -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 -am GPT_5_4
 
 # Cache-based strategies
-uv run python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH -fs parameter_cache
-uv run python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH -fs semantic_cache
+uv run python -m src.main -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 -fs parameter_cache
+uv run python -m src.main -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 -fs semantic_cache
 ```
 
 ### CLI Options

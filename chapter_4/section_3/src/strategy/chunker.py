@@ -1,7 +1,6 @@
 """Semantic chunker component using LLM."""
 
-from google.genai.types import GenerateContentConfig
-from src.client.llm_client import GeminiModel, google_genai_client
+from src.client.llm_client import AnthropicModel, anthropic_client
 from src.logger import make_logger
 from src.model.rag_model import Chunk, ChunkingResponse, Document
 from src.strategy.base import Component
@@ -12,7 +11,7 @@ logger = make_logger(__name__)
 class SemanticChunker(Component[list[Document], list[Chunk]]):
     """Component for splitting documents into semantic chunks using LLM."""
 
-    def __init__(self, model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH):
+    def __init__(self, model: AnthropicModel = AnthropicModel.CLAUDE_HAIKU_4_5):
         self.model = model
 
     async def process(self, input_data: list[Document]) -> list[Chunk]:
@@ -50,16 +49,14 @@ class SemanticChunker(Component[list[Document], list[Chunk]]):
 
 各セグメントについて、開始行番号、終了行番号、トピック、分割理由を提供してください。"""
 
-        result = await google_genai_client.aio.models.generate_content(
+        result = await anthropic_client.messages.parse(
             model=self.model,
-            contents=user_prompt,
-            config=GenerateContentConfig(
-                system_instruction=system_instruction,
-                response_mime_type="application/json",
-                response_schema=ChunkingResponse,
-            ),
+            max_tokens=4096,
+            system=system_instruction,
+            messages=[{"role": "user", "content": user_prompt}],
+            output_format=ChunkingResponse,
         )
-        chunking_response: ChunkingResponse = result.parsed
+        chunking_response: ChunkingResponse = result.parsed_output
 
         chunks = []
         for idx, segment in enumerate(chunking_response.segments):

@@ -2,7 +2,7 @@ import json
 from datetime import datetime
 from typing import Literal
 
-from langchain_anthropic import ChatAnthropic
+from langchain_aws import ChatBedrockConverse
 from langchain_core.messages import AIMessage, SystemMessage, ToolMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
@@ -139,7 +139,7 @@ def call_model(state: AgentState, config: RunnableConfig) -> dict:
 
     model_name = config.get("configurable", {}).get("model", AnthropicModel.CLAUDE_HAIKU_4_5)
 
-    model = ChatAnthropic(model=model_name, api_key=global_config.anthropic_api_key)
+    model = ChatBedrockConverse(model=model_name, region_name=global_config.aws_region)
     model_with_tools = model.bind_tools(all_tools, tool_choice="any")
 
     system_message = SystemMessage(content=make_dinner_advisor_system_prompt())

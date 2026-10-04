@@ -1,8 +1,7 @@
 from typing import Literal
 
-from google.genai.types import GenerateContentConfig
 from langgraph.graph import END, START, StateGraph
-from src.client.llm_client import GeminiModel, LLMProvider, OpenAIModel, google_genai_client, openai_client
+from src.client.llm_client import AnthropicModel, LLMProvider, OpenAIModel, anthropic_client, openai_client
 from src.logger import make_logger
 from src.model.llm_pipeline_model import AnalysisEvaluation, DocumentAnalysis, PipelineState
 from src.prompt.llm_pipeline_prompt import (
@@ -92,13 +91,13 @@ async def analyze_document_openai_node(state: PipelineState) -> PipelineState:
         }
 
 
-async def analyze_document_gemini_node(state: PipelineState) -> PipelineState:
-    """Analyze the document using Google Gemini API."""
+async def analyze_document_anthropic_node(state: PipelineState) -> PipelineState:
+    """Analyze the document using Google Anthropic API."""
     retry_count = state.get("retry_count", 0)
-    logger.info(f"Analyzing document with Gemini (attempt {retry_count + 1})")
+    logger.info(f"Analyzing document with Anthropic (attempt {retry_count + 1})")
 
     try:
-        model = state.get("model", GeminiModel.GEMINI_2_5_FLASH)
+        model = state.get("model", AnthropicModel.CLAUDE_HAIKU_4_5)
         system_instruction, user_content = make_document_analysis_system_instruction(state["document_content"])
 
         evaluation_result = state.get("evaluation_result")
@@ -117,18 +116,16 @@ async def analyze_document_gemini_node(state: PipelineState) -> PipelineState:
             user_content += "\n\n" + feedback_msg
             logger.info("Added judge feedback to prompt for retry")
 
-        result = await google_genai_client.aio.models.generate_content(
+        result = await anthropic_client.messages.parse(
             model=model,
-            contents=user_content,
-            config=GenerateContentConfig(
-                system_instruction=system_instruction,
-                response_mime_type="application/json",
-                response_schema=DocumentAnalysis,
-            ),
+            max_tokens=4096,
+            system=system_instruction,
+            messages=[{"role": "user", "content": user_content}],
+            output_format=DocumentAnalysis,
         )
 
-        analysis_result = result.parsed
-        logger.info("Successfully analyzed document with Gemini")
+        analysis_result = result.parsed_output
+        logger.info("Successfully analyzed document with Anthropic")
 
         return {
             **state,
@@ -136,7 +133,7 @@ async def analyze_document_gemini_node(state: PipelineState) -> PipelineState:
             "error": None,
         }
     except Exception as e:
-        error_msg = f"Failed to analyze document with Gemini: {str(e)}"
+        error_msg = f"Failed to analyze document with Anthropic: {str(e)}"
         logger.error(error_msg)
         return {
             **state,
@@ -182,31 +179,29 @@ async def judge_analysis_openai_node(state: PipelineState) -> PipelineState:
         }
 
 
-async def judge_analysis_gemini_node(state: PipelineState) -> PipelineState:
-    """Evaluate the analysis using Google Gemini API (LLM-as-a-judge)."""
-    logger.info("Evaluating analysis with Gemini judge")
+async def judge_analysis_anthropic_node(state: PipelineState) -> PipelineState:
+    """Evaluate the analysis using Google Anthropic API (LLM-as-a-judge)."""
+    logger.info("Evaluating analysis with Anthropic judge")
 
     try:
         if not state.get("analysis_result"):
             logger.warning("No analysis result to evaluate")
             return state
 
-        model = state.get("model", GeminiModel.GEMINI_2_5_FLASH)
+        model = state.get("model", AnthropicModel.CLAUDE_HAIKU_4_5)
         system_instruction, user_content = make_judge_system_instruction(
             state["document_content"], state["analysis_result"]
         )
 
-        result = await google_genai_client.aio.models.generate_content(
+        result = await anthropic_client.messages.parse(
             model=model,
-            contents=user_content,
-            config=GenerateContentConfig(
-                system_instruction=system_instruction,
-                response_mime_type="application/json",
-                response_schema=AnalysisEvaluation,
-            ),
+            max_tokens=4096,
+            system=system_instruction,
+            messages=[{"role": "user", "content": user_content}],
+            output_format=AnalysisEvaluation,
         )
 
-        evaluation_result = result.parsed
+        evaluation_result = result.parsed_output
         logger.info(f"Evaluation complete: Grade {evaluation_result.grade}/5")
         logger.info(f"Reasoning: {evaluation_result.reasoning}")
 
@@ -216,7 +211,7 @@ async def judge_analysis_gemini_node(state: PipelineState) -> PipelineState:
             "error": None,
         }
     except Exception as e:
-        error_msg = f"Failed to evaluate analysis with Gemini: {str(e)}"
+        error_msg = f"Failed to evaluate analysis with Anthropic: {str(e)}"
         logger.error(error_msg)
         return {
             **state,
@@ -225,7 +220,7 @@ async def judge_analysis_gemini_node(state: PipelineState) -> PipelineState:
         }
 
 
-def route_to_llm_provider(state: PipelineState) -> Literal["analyze_openai", "analyze_gemini", "end"]:
+def route_to_llm_provider(state: PipelineState) -> Literal["analyze_openai", "analyze_anthropic", "end"]:
     """Route to the appropriate LLM provider based on state."""
     if state.get("error"):
         logger.error(f"Error detected, ending pipeline: {state['error']}")
@@ -236,15 +231,15 @@ def route_to_llm_provider(state: PipelineState) -> Literal["analyze_openai", "an
     if llm_provider == LLMProvider.OPENAI:
         logger.info("Routing to OpenAI")
         return "analyze_openai"
-    elif llm_provider == LLMProvider.GEMINI:
-        logger.info("Routing to Gemini")
-        return "analyze_gemini"
+    elif llm_provider == LLMProvider.ANTHROPIC:
+        logger.info("Routing to Anthropic")
+        return "analyze_anthropic"
     else:
         logger.error(f"Unknown LLM provider: {llm_provider}")
         return "end"
 
 
-def route_to_judge(state: PipelineState) -> Literal["judge_openai", "judge_gemini", "end"]:
+def route_to_judge(state: PipelineState) -> Literal["judge_openai", "judge_anthropic", "end"]:
     """Route to the appropriate LLM judge based on state."""
     if state.get("error"):
         logger.error(f"Error detected, ending pipeline: {state['error']}")
@@ -259,15 +254,15 @@ def route_to_judge(state: PipelineState) -> Literal["judge_openai", "judge_gemin
     if llm_provider == LLMProvider.OPENAI:
         logger.info("Routing to OpenAI judge")
         return "judge_openai"
-    elif llm_provider == LLMProvider.GEMINI:
-        logger.info("Routing to Gemini judge")
-        return "judge_gemini"
+    elif llm_provider == LLMProvider.ANTHROPIC:
+        logger.info("Routing to Anthropic judge")
+        return "judge_anthropic"
     else:
         logger.error(f"Unknown LLM provider: {llm_provider}")
         return "end"
 
 
-def route_after_judge(state: PipelineState) -> Literal["analyze_openai", "analyze_gemini", "end"]:
+def route_after_judge(state: PipelineState) -> Literal["analyze_openai", "analyze_anthropic", "end"]:
     """Decide whether to retry analysis or end pipeline based on evaluation."""
     if state.get("error"):
         logger.error(f"Error detected, ending pipeline: {state['error']}")
@@ -300,8 +295,8 @@ def route_after_judge(state: PipelineState) -> Literal["analyze_openai", "analyz
     llm_provider = state.get("llm_provider", LLMProvider.OPENAI)
     if llm_provider == LLMProvider.OPENAI:
         return "analyze_openai"
-    elif llm_provider == LLMProvider.GEMINI:
-        return "analyze_gemini"
+    elif llm_provider == LLMProvider.ANTHROPIC:
+        return "analyze_anthropic"
     else:
         return "end"
 
@@ -312,9 +307,9 @@ def create_document_analysis_graph() -> StateGraph:
 
     graph.add_node("read_document", read_document_node)
     graph.add_node("analyze_openai", analyze_document_openai_node)
-    graph.add_node("analyze_gemini", analyze_document_gemini_node)
+    graph.add_node("analyze_anthropic", analyze_document_anthropic_node)
     graph.add_node("judge_openai", judge_analysis_openai_node)
-    graph.add_node("judge_gemini", judge_analysis_gemini_node)
+    graph.add_node("judge_anthropic", judge_analysis_anthropic_node)
 
     graph.add_edge(START, "read_document")
 
@@ -323,7 +318,7 @@ def create_document_analysis_graph() -> StateGraph:
         route_to_llm_provider,
         {
             "analyze_openai": "analyze_openai",
-            "analyze_gemini": "analyze_gemini",
+            "analyze_anthropic": "analyze_anthropic",
             "end": END,
         },
     )
@@ -333,17 +328,17 @@ def create_document_analysis_graph() -> StateGraph:
         route_to_judge,
         {
             "judge_openai": "judge_openai",
-            "judge_gemini": "judge_gemini",
+            "judge_anthropic": "judge_anthropic",
             "end": END,
         },
     )
 
     graph.add_conditional_edges(
-        "analyze_gemini",
+        "analyze_anthropic",
         route_to_judge,
         {
             "judge_openai": "judge_openai",
-            "judge_gemini": "judge_gemini",
+            "judge_anthropic": "judge_anthropic",
             "end": END,
         },
     )
@@ -353,17 +348,17 @@ def create_document_analysis_graph() -> StateGraph:
         route_after_judge,
         {
             "analyze_openai": "analyze_openai",
-            "analyze_gemini": "analyze_gemini",
+            "analyze_anthropic": "analyze_anthropic",
             "end": END,
         },
     )
 
     graph.add_conditional_edges(
-        "judge_gemini",
+        "judge_anthropic",
         route_after_judge,
         {
             "analyze_openai": "analyze_openai",
-            "analyze_gemini": "analyze_gemini",
+            "analyze_anthropic": "analyze_anthropic",
             "end": END,
         },
     )

@@ -79,7 +79,7 @@ def sample_metadata():
     """Sample metadata for testing."""
     return {
         "provider": "openai",
-        "model_version": "gpt-5.4-mini",
+        "model_version": "openai.gpt-5.4",
         "response_format": "json",
     }
 

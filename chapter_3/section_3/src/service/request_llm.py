@@ -3,9 +3,8 @@ import random
 from functools import wraps
 from typing import Any, Callable
 
-from google.api_core import exceptions as google_exceptions
-from google.genai.types import GenerateContentConfig
-from src.client.llm_client import GeminiModel, google_genai_client
+import anthropic
+from src.client.llm_client import AnthropicModel, anthropic_client
 from src.logger import make_logger
 from src.model.model import CharacterRequest, CharacterResponse
 from src.prompt.prompt import make_prompt
@@ -38,17 +37,14 @@ def should_retry_error(error: Exception) -> tuple[bool, int | None]:
     Returns:
         tuple: (should_retry: bool, retry_after_seconds: int | None)
     """
-    if isinstance(error, google_exceptions.ResourceExhausted):
+    if isinstance(error, anthropic.RateLimitError):
+        retry_after = error.response.headers.get("retry-after")
+        return True, int(float(retry_after)) if retry_after else None
+
+    if isinstance(error, anthropic.APIStatusError) and error.status_code in RETRYABLE_STATUS_CODES:
         return True, None
 
-    if isinstance(
-        error,
-        (
-            google_exceptions.ServiceUnavailable,
-            google_exceptions.InternalServerError,
-            google_exceptions.DeadlineExceeded,
-        ),
-    ):
+    if isinstance(error, anthropic.APIConnectionError):
         return True, None
 
     return False, None
@@ -104,15 +100,15 @@ def retry_with_exponential_backoff(max_retries: int = MAX_RETRIES):
 
 
 @retry_with_exponential_backoff()
-async def request_gemini(
+async def request_anthropic(
     character_request: CharacterRequest,
-    model: GeminiModel,
+    model: AnthropicModel,
     llmops_logger: LLMOpsLogger,
     user_id: str = "default_user",
 ) -> CharacterResponse:
-    """Request character generation from Gemini with structured logging and retry logic."""
+    """Request character generation from Anthropic with structured logging and retry logic."""
     prompt = make_prompt(character_request)
-    temperature = 2.0
+    temperature = 1.0  # Claudeの既定値。ログ記録用（messages.parseはtemperature指定を受け付けない）
 
     async with llmops_logger.track_llm_request(
         model=model,
@@ -120,40 +116,37 @@ async def request_gemini(
         prompt_content=prompt,
         user_id=user_id,
         metadata={
-            "provider": "gemini",
+            "provider": "anthropic",
             "model": model,
             "response_format": "CharacterResponse",
             "character_request": character_request.model_dump(),
         },
     ) as tracking:
-        result = await google_genai_client.aio.models.generate_content(
+        result = await anthropic_client.messages.parse(
             model=model,
-            contents=prompt[-1]["content"],
-            config=GenerateContentConfig(
-                system_instruction=prompt[0]["content"],
-                response_mime_type="application/json",
-                response_schema=CharacterResponse,
-                temperature=temperature,
-            ),
+            max_tokens=4096,
+            system=prompt[0]["content"],
+            messages=[{"role": "user", "content": prompt[-1]["content"]}],
+            output_format=CharacterResponse,
         )
         logger.info(result)
-        tracking["response"] = result.parsed.model_dump() if result.parsed else None
-        return result.parsed
+        tracking["response"] = result.parsed_output.model_dump() if result.parsed_output else None
+        return result.parsed_output
 
 
-async def batch_request_gemini(
+async def batch_request_anthropic(
     character_requests: list[CharacterRequest],
-    model: GeminiModel,
+    model: AnthropicModel,
     llmops_logger: LLMOpsLogger,
     user_id: str = "default_user",
     parallelism: int = 5,
 ) -> list[CharacterResponse]:
     """
-    Process multiple character generation requests in batch using Gemini.
+    Process multiple character generation requests in batch using Anthropic.
 
     Args:
         character_requests: List of character generation requests
-        model: Gemini model to use
+        model: Anthropic model to use
         llmops_logger: Logger for LLM operations
         user_id: User ID for logging
         parallelism: Maximum number of concurrent requests (default: 5)
@@ -162,7 +155,7 @@ async def batch_request_gemini(
         List of generated character responses
     """
     logger.info(
-        f"Starting batch processing of {len(character_requests)} requests using Gemini {model} "
+        f"Starting batch processing of {len(character_requests)} requests using Anthropic {model} "
         f"(parallelism: {parallelism})"
     )
 
@@ -170,7 +163,7 @@ async def batch_request_gemini(
 
     async def request_with_semaphore(req: CharacterRequest) -> CharacterResponse:
         async with semaphore:
-            return await request_gemini(
+            return await request_anthropic(
                 character_request=req,
                 model=model,
                 llmops_logger=llmops_logger,

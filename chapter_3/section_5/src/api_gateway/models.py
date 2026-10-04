@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 class GatewayRequest(BaseModel):
     """Request model for LLM API Gateway."""
 
-    provider: str = Field(..., description="LLM provider (openai or gemini)")
+    provider: str = Field(..., description="LLM provider (openai or anthropic)")
     model: str = Field(..., description="Model name to use")
     prompt: list[dict[str, str]] = Field(..., description="Prompt messages")
     response_format: dict[str, Any] = Field(..., description="Response format schema")

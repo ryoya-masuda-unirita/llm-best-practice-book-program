@@ -2,8 +2,7 @@
 
 from typing import Optional
 
-from google.genai.types import GenerateContentConfig
-from src.client.llm_client import GeminiModel, LLMProvider, OpenAIModel, google_genai_client, openai_client
+from src.client.llm_client import AnthropicModel, LLMProvider, OpenAIModel, anthropic_client, openai_client
 from src.logger import make_logger
 from src.model.model import CharacterResponse
 from src.service.fallback_coordinator import FallbackCoordinator, FallbackStrategy
@@ -20,31 +19,31 @@ class LLMRequestWrapper:
     async def request_openai(
         self,
         prompt: str | list[dict],
-        model: OpenAIModel = OpenAIModel.GPT_5_4_MINI,
-        alternative_model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH,
+        model: OpenAIModel = OpenAIModel.GPT_5_4,
+        alternative_model: AnthropicModel = AnthropicModel.CLAUDE_HAIKU_4_5,
         with_fallback: bool = True,
     ) -> tuple[CharacterResponse, Optional[FallbackStrategy], Optional[str]]:
-        """Request character generation from OpenAI with optional fallback to Gemini."""
+        """Request character generation from OpenAI with optional fallback to Anthropic."""
         return await self._make_request(
             primary_provider=LLMProvider.OPENAI,
             primary_func=lambda: self._request_openai_internal(prompt, model),
-            alternative_func=lambda: self._request_gemini_internal(prompt, alternative_model),
+            alternative_func=lambda: self._request_anthropic_internal(prompt, alternative_model),
             prompt=prompt,
             model=model,
             with_fallback=with_fallback,
         )
 
-    async def request_gemini(
+    async def request_anthropic(
         self,
         prompt: str | list[dict],
-        model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH,
-        alternative_model: OpenAIModel = OpenAIModel.GPT_5_4_MINI,
+        model: AnthropicModel = AnthropicModel.CLAUDE_HAIKU_4_5,
+        alternative_model: OpenAIModel = OpenAIModel.GPT_5_4,
         with_fallback: bool = True,
     ) -> tuple[CharacterResponse, Optional[FallbackStrategy], Optional[str]]:
-        """Request character generation from Gemini with optional fallback to OpenAI."""
+        """Request character generation from Anthropic with optional fallback to OpenAI."""
         return await self._make_request(
-            primary_provider=LLMProvider.GEMINI,
-            primary_func=lambda: self._request_gemini_internal(prompt, model),
+            primary_provider=LLMProvider.ANTHROPIC,
+            primary_func=lambda: self._request_anthropic_internal(prompt, model),
             alternative_func=lambda: self._request_openai_internal(prompt, alternative_model),
             prompt=prompt,
             model=model,
@@ -73,23 +72,21 @@ class LLMRequestWrapper:
             response = await primary_func()
             return response, None, None
 
-    async def _request_gemini_internal(
-        self, prompt: str | list[dict], model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH
+    async def _request_anthropic_internal(
+        self, prompt: str | list[dict], model: AnthropicModel = AnthropicModel.CLAUDE_HAIKU_4_5
     ) -> CharacterResponse:
-        """Internal method for Gemini API requests."""
-        result = await google_genai_client.aio.models.generate_content(
+        """Internal method for Anthropic API requests."""
+        result = await anthropic_client.messages.parse(
             model=model,
-            contents=prompt[-1]["content"],
-            config=GenerateContentConfig(
-                system_instruction=prompt[0]["content"],
-                response_mime_type="application/json",
-                response_schema=CharacterResponse,
-            ),
+            max_tokens=4096,
+            system=prompt[0]["content"],
+            messages=[{"role": "user", "content": prompt[-1]["content"]}],
+            output_format=CharacterResponse,
         )
-        return result.parsed
+        return result.parsed_output
 
     async def _request_openai_internal(
-        self, prompt: str | list[dict], model: OpenAIModel = OpenAIModel.GPT_5_4_MINI
+        self, prompt: str | list[dict], model: OpenAIModel = OpenAIModel.GPT_5_4
     ) -> CharacterResponse:
         """Internal method for OpenAI API requests."""
         result = await openai_client.responses.parse(

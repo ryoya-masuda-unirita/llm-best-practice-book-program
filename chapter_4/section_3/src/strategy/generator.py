@@ -1,7 +1,6 @@
 """Answer generator component using LLM."""
 
-from google.genai.types import GenerateContentConfig
-from src.client.llm_client import GeminiModel, google_genai_client
+from src.client.llm_client import AnthropicModel, anthropic_client
 from src.logger import make_logger
 from src.model.rag_model import Chunk, RAGAnswer
 from src.strategy.base import Component
@@ -20,7 +19,7 @@ class AnswerGeneratorInput:
 class AnswerGenerator(Component[AnswerGeneratorInput, RAGAnswer]):
     """Component for generating answers based on retrieved chunks."""
 
-    def __init__(self, model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH):
+    def __init__(self, model: AnthropicModel = AnthropicModel.CLAUDE_HAIKU_4_5):
         self.model = model
 
     async def process(self, input_data: AnswerGeneratorInput) -> RAGAnswer:
@@ -71,11 +70,10 @@ class AnswerGenerator(Component[AnswerGeneratorInput, RAGAnswer]):
 
 【回答】"""
 
-        result = await google_genai_client.aio.models.generate_content(
+        result = await anthropic_client.messages.create(
             model=self.model,
-            contents=user_prompt,
-            config=GenerateContentConfig(
-                system_instruction=system_instruction,
-            ),
+            max_tokens=4096,
+            system=system_instruction,
+            messages=[{"role": "user", "content": user_prompt}],
         )
-        return result.text
+        return result.content[0].text

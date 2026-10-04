@@ -60,7 +60,7 @@
 
 - **Python**: 3.13.2以上
 - **依存ライブラリ**:
-  - anthropic>=0.74.1
+  - anthropic[bedrock]>=1.11.0
   - click>=8.3.0
   - google-genai>=1.45.0
   - openai>=2.4.0
@@ -78,9 +78,7 @@
 cp .envrc.example .envrc
 
 # .envrcを編集してAPIキーを設定
-OPENAI_API_KEY=<your_openai_api_key_here>
-GOOGLE_API_KEY=<your_google_api_key_here>
-ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. **依存関係のインストール**
@@ -96,10 +94,10 @@ uv sync
 
 ```bash
 # Gemini APIを使用
-uv run python -m src.main --llm-provider GEMINI --model GEMINI_2_5_FLASH
+uv run python -m src.main --llm-provider ANTHROPIC --model CLAUDE_HAIKU_4_5
 
 # OpenAI APIを使用
-uv run python -m src.main --llm-provider OPENAI --model GPT_5_MINI
+uv run python -m src.main --llm-provider OPENAI --model GPT_5_4
 
 # Anthropic APIを使用
 uv run python -m src.main --llm-provider ANTHROPIC --model CLAUDE_HAIKU_4_5
@@ -109,7 +107,7 @@ uv run python -m src.main --llm-provider ANTHROPIC --model CLAUDE_HAIKU_4_5
 
 ```bash
 # カスタム出力ディレクトリを指定
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH --output-directory ./custom_output
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 --output-directory ./custom_output
 ```
 
 #### ヘルプの表示
@@ -121,7 +119,7 @@ Usage: python -m src.main [OPTIONS]
 Options:
   -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use.  [required]
-  -m, --model [GPT_5_2|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_SONNET_5|CLAUDE_OPUS_4_8|CLAUDE_OPUS_4_7|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
+  -m, --model [GPT_5_4|CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
                                   The model to use for the request.
                                   [required]
   -od, --output-directory PATH    The directory to save output files.
@@ -167,7 +165,7 @@ Options:
   "method": "aio.models.generate_content",
   "duration_ms": 3655.6670000000004,
   "request": {
-    "model": "gemini-2.5-flash",
+    "model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
     "contents": "ユニークで興味深いフィクションのキャラクターを、詳細な性格と共に生成してください。",
     "config": "http_options=None should_return_http_response=None system_instruction='あなたは創造的なキャラクタージェネレーターです。\\nあなたの任務は、詳細な情報を持つフィクションのキャラクターを生成することです。\\n以下の構造に厳密に従ったJSONオブジェクトで応答する必要があります：\\n\\n{\\n  \"first_name\": \"string; The first name of the character.\",\\n  \"last_name\": \"string; The last name of the character.\",\\n  \"gender\": \"enum; The gender of the character.; [\\'female\\', \\'male\\']\",\\n  \"age\": \"number; The age of the character.; 0-100\",\\n  \"personalities\": [\\n    {\\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 1)\",\\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 1)\"\\n    },\\n    {\\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 2)\",\\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 2)\"\\n    },\\n    {\\n      \"short_personality\": \"string; The three most important personality traits of the character. (personality 3)\",\\n      \"description\": \"string; The three most important personality traits of the character. (detailed description for personality 3)\"\\n    }\\n  ]\\n}\\n\\n以下を確認してください：\\n1. 応答は有効なJSONであること\\n2. すべてのフィールドが含まれていること\\n3. 性別は「female」または「male」のいずれかであること\\n4. 年齢は0から100の間であること\\n5. 正確に3つの性格特性が提供されていること\\n6. JSON構造の外に説明や追加のテキストを含めないこと\\n' temperature=None top_p=None top_k=None candidate_count=None max_output_tokens=None stop_sequences=None response_logprobs=None logprobs=None presence_penalty=None frequency_penalty=None seed=None response_mime_type='application/json' response_schema=<class 'src.model.model.CharacterResponse'> response_json_schema=None routing_config=None model_selection_config=None safety_settings=None tools=None tool_config=None labels=None cached_content=None response_modalities=None media_resolution=None speech_config=None audio_timestamp=None automatic_function_calling=None thinking_config=None image_config=None",
     "parameters": {}
@@ -200,10 +198,10 @@ Options:
 #### 実行ログ
 
 ```bash
-$ uv run python -m src.main --llm-provider GEMINI --model GEMINI_2_5_FLASH
+$ uv run python -m src.main --llm-provider ANTHROPIC --model CLAUDE_HAIKU_4_5
 
 [2026-02-08 09:09:34,576] [INFO] [__main__] [main.py:52] [main] LLM provider: gemini
-Model: gemini-2.5-flash
+Model: global.anthropic.claude-haiku-4-5-20251001-v1:0
 Output directory: outputs
 [2026-02-08 09:09:38,233] [INFO] [src.service.request_llm] [request_llm.py:38] [request_gemini] sdk_http_response=HttpResponse(
   headers=<dict len=11>
@@ -237,7 +235,7 @@ Output directory: outputs
   ),
   finish_reason=<FinishReason.STOP: 'STOP'>,
   index=0
-)] create_time=None model_version='gemini-2.5-flash' prompt_feedback=None response_id='QtSHaZz3Av3k2roPlv_BkA4' usage_metadata=GenerateContentResponseUsageMetadata(
+)] create_time=None model_version='global.anthropic.claude-haiku-4-5-20251001-v1:0' prompt_feedback=None response_id='QtSHaZz3Av3k2roPlv_BkA4' usage_metadata=GenerateContentResponseUsageMetadata(
   candidates_token_count=253,
   prompt_token_count=411,
   prompt_tokens_details=[

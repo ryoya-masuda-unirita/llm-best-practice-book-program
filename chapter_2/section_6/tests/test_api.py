@@ -110,7 +110,7 @@ class TestStreamEndpoint:
                 json={
                     "prompt": "Hello",
                     "provider": "openai",
-                    "model": "gpt-5.4-mini",
+                    "model": "openai.gpt-5.4",
                 },
             )
 
@@ -153,7 +153,7 @@ class TestStreamEndpoint:
                 json={
                     "prompt": "Test",
                     "provider": "openai",
-                    "model": "gpt-5.4",
+                    "model": "openai.gpt-5.4",
                 },
             )
 
@@ -217,7 +217,7 @@ class TestStreamOpenAIEndpoint:
         ):
             response = test_client.post(
                 "/stream/openai",
-                json={"prompt": "Test", "model": "gpt-5.4"},
+                json={"prompt": "Test", "model": "openai.gpt-5.4"},
             )
 
             assert response.status_code == 200
@@ -249,7 +249,7 @@ class TestStreamOpenAIEndpoint:
 
     @pytest.mark.parametrize(
         "model",
-        ["gpt-5.4", "gpt-5.4-mini", "gpt-5", None],
+        ["openai.gpt-5.4", "openai.gpt-5.4", "openai.gpt-5.4", None],
     )
     def test_stream_openai_endpoint_various_models(
         self,

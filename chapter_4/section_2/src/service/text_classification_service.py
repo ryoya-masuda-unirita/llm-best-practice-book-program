@@ -1,4 +1,4 @@
-from anthropic import AsyncAnthropic
+from anthropic import AsyncAnthropicBedrock
 from src.logger import make_logger
 from src.model.model import ClassificationResult, UserPlan
 from src.prompt.prompt import make_classification_prompt
@@ -6,13 +6,11 @@ from src.service.interfaces import ITextClassificationService, get_available_mod
 
 logger = make_logger(__name__)
 
-STRUCTURED_OUTPUT_BETA = "structured-outputs-2025-11-13"
-
 
 class TextClassificationService(ITextClassificationService):
     """Service for classifying text into predefined categories."""
 
-    def __init__(self, client: AsyncAnthropic):
+    def __init__(self, client: AsyncAnthropicBedrock):
         super().__init__(client=client)
 
     async def classify(
@@ -33,10 +31,9 @@ class TextClassificationService(ITextClassificationService):
         prompt = make_classification_prompt(text=text, categories=categories)
 
         logger.info(f"Classifying text using Anthropic model: {model}")
-        result = await self.client.beta.messages.parse(
+        result = await self.client.messages.parse(
             model=model,
             max_tokens=1024,
-            betas=[STRUCTURED_OUTPUT_BETA],
             messages=prompt,
             output_format=ClassificationResult,
         )

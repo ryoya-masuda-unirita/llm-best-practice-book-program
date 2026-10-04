@@ -16,10 +16,9 @@ logger = make_logger(__name__)
 
 async def sample_document(model: AnthropicModel, document_content: str) -> SampledSentences:
     prompt = make_sampling_prompt(document_content)
-    result = await anthropic_client.beta.messages.parse(
+    result = await anthropic_client.messages.parse(
         model=model,
         max_tokens=2048,
-        betas=["structured-outputs-2025-11-13"],
         messages=prompt,
         output_format=SampledSentences,
     )
@@ -33,10 +32,9 @@ async def generate_extraction_script(
     sampled_info: dict,
 ) -> GeneratedScript:
     prompt = make_script_generation_prompt(document_content, sampled_info)
-    result = await anthropic_client.beta.messages.parse(
+    result = await anthropic_client.messages.parse(
         model=model,
         max_tokens=4096,
-        betas=["structured-outputs-2025-11-13"],
         messages=prompt,
         output_format=GeneratedScript,
     )
@@ -51,10 +49,9 @@ async def correct_script(
     document_content: str,
 ) -> GeneratedScript:
     prompt = make_error_correction_prompt(original_script, error_message, document_content)
-    result = await anthropic_client.beta.messages.parse(
+    result = await anthropic_client.messages.parse(
         model=model,
         max_tokens=4096,
-        betas=["structured-outputs-2025-11-13"],
         messages=prompt,
         output_format=GeneratedScript,
     )
@@ -70,10 +67,9 @@ async def correct_script_from_validation(
     document_content: str,
 ) -> GeneratedScript:
     prompt = make_validation_correction_prompt(original_script, validation_reasoning, fix_proposal, document_content)
-    result = await anthropic_client.beta.messages.parse(
+    result = await anthropic_client.messages.parse(
         model=model,
         max_tokens=4096,
-        betas=["structured-outputs-2025-11-13"],
         messages=prompt,
         output_format=GeneratedScript,
     )

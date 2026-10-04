@@ -118,7 +118,7 @@ cp .envrc.example .envrc     # set GEMINI_API_KEY
 uv sync
 
 # Canonical example (auto-select: judge decides at every gate)
-uv run python -m src.main --theme 'AI in healthcare' --language en -m gemini-2.5-flash --auto-select
+uv run python -m src.main --theme 'AI in healthcare' --language en -m global.anthropic.claude-haiku-4-5-20251001-v1:0 --auto-select
 
 # Interactive with speculation (3 parallel outline worlds, human picks)
 uv run python -m src.main --theme 'AIと医療' --num-outlines 3

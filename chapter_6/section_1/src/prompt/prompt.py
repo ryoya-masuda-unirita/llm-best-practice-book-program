@@ -36,7 +36,7 @@ def make_openai_prompt(
     ]
 
 
-def make_gemini_prompt(
+def make_anthropic_prompt(
     character_request: CharacterRequest,
 ) -> tuple[str, str]:
     params = CharacterResponse.detailed_model()

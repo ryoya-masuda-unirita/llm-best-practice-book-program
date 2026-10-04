@@ -85,8 +85,7 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-OPENAI_API_KEY=<your_openai_api_key_here>
-GEMINI_API_KEY=<your_gemini_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. **依存関係のインストール**
@@ -103,20 +102,20 @@ uv sync
 ```bash
 # Gemini APIを使用（デフォルト）
 uv run python -m src.main \
-  --llm-provider GEMINI \
-  --model GEMINI_2_5_FLASH \
+  --llm-provider ANTHROPIC \
+  --model CLAUDE_HAIKU_4_5 \
   --document-path dataset/document_0.md
 
 # OpenAI APIを使用
 uv run python -m src.main \
   --llm-provider OPENAI \
-  --model GPT_5_MINI \
+  --model GPT_5_4 \
   --document-path dataset/document_1.md
 
 # 短縮オプション
 uv run python -m src.main \
   -lp OPENAI \
-  -m GPT_5_MINI \
+  -m GPT_5_4 \
   -dp dataset/document_0.md
 ```
 
@@ -125,15 +124,15 @@ uv run python -m src.main \
 ```bash
 # カスタム出力ディレクトリを指定
 uv run python -m src.main \
-  -lp GEMINI \
-  -m GEMINI_2_5_FLASH \
+  -lp ANTHROPIC \
+  -m CLAUDE_HAIKU_4_5 \
   -dp dataset/document_0.md \
   --output-directory ./custom_output
 
 # 短縮オプション
 uv run python -m src.main \
-  -lp GEMINI \
-  -m GEMINI_2_5_FLASH \
+  -lp ANTHROPIC \
+  -m CLAUDE_HAIKU_4_5 \
   -dp dataset/document_0.md \
   -od ./my_analysis
 ```
@@ -152,7 +151,7 @@ Usage: python -m src.main [OPTIONS]
 Options:
   -lp, --llm-provider [OPENAI|GEMINI]
                                   The LLM provider to use.  [required]
-  -m, --model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
+  -m, --model [GPT_5_5|GPT_5_4|CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5]
                                   The model to use for the request.
                                   [required]
   -od, --output-directory PATH    The directory to save output files.
@@ -205,17 +204,17 @@ LLMの出力を構造化することで、システムに安全かつ信頼性�
 
 ```
 $ uv run python -m src.main \
-  --llm-provider GEMINI \
-  --model GEMINI_2_5_FLASH \
+  --llm-provider ANTHROPIC \
+  --model CLAUDE_HAIKU_4_5 \
   --document-path dataset/document_0.md
 
 [2026-02-07 08:37:06,749] [INFO] [__main__] [main.py:60] [main] LLM provider: gemini
-Model: gemini-2.5-flash
+Model: global.anthropic.claude-haiku-4-5-20251001-v1:0
 Document path: dataset/document_0.md
 Output directory: outputs
 
 [2026-02-07 08:37:06,749] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:380] [run_document_analysis_pipeline] Starting document analysis pipeline for: dataset/document_0.md
-[2026-02-07 08:37:06,749] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:381] [run_document_analysis_pipeline] LLM Provider: gemini, Model: gemini-2.5-flash
+[2026-02-07 08:37:06,749] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:381] [run_document_analysis_pipeline] LLM Provider: gemini, Model: global.anthropic.claude-haiku-4-5-20251001-v1:0
 [2026-02-07 08:37:07,736] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:23] [read_document_node] Reading document from: dataset/document_0.md
 [2026-02-07 08:37:07,738] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:29] [read_document_node] Successfully read document (4743 characters)
 [2026-02-07 08:37:07,739] [INFO] [src.service.llm_pipeline_service] [llm_pipeline_service.py:237] [route_to_llm_provider] Routing to OpenAI

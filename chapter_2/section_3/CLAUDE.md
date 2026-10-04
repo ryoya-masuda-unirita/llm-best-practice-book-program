@@ -126,17 +126,17 @@ cp .envrc.example .envrc     # set GEMINI_API_KEY
 uv sync
 
 # Canonical example (invoice image)
-uv run python -m src.main -m GEMINI_2_5_FLASH -i data/002_請求書_47491048.png
+uv run python -m src.main -m CLAUDE_HAIKU_4_5 -i data/002_請求書_47491048.png
 
 # Slide image
-uv run python -m src.main -m GEMINI_2_5_FLASH -i data/slide_0.png -od outputs/
+uv run python -m src.main -m CLAUDE_HAIKU_4_5 -i data/slide_0.png -od outputs/
 ```
 
 ### CLI Options
 
 | Option | Short | Required | Default | Description |
 |--------|-------|----------|---------|-------------|
-| `--model` | `-m` | Yes | — | Gemini model enum name (`GEMINI_2_5_PRO` / `GEMINI_2_5_FLASH` / `GEMINI_2_5_FLASH_LITE` …) |
+| `--model` | `-m` | Yes | — | Gemini model enum name (`CLAUDE_SONNET_4_6` / `CLAUDE_HAIKU_4_5` / `CLAUDE_HAIKU_4_5` …) |
 | `--image-path` | `-i` | Yes | — | Path to the input image (must exist) |
 | `--output-directory` | `-od` | No | `outputs` | Output directory for extracted JSON |
 

@@ -1,6 +1,6 @@
 import os
 
-from pydantic import BaseModel, ConfigDict, Field, Secret
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Config(BaseModel):
@@ -11,7 +11,7 @@ class Config(BaseModel):
         arbitrary_types_allowed=True,
     )
 
-    gemini_api_key: Secret[str] = Field(default=os.environ["GEMINI_API_KEY"], description="API key for Gemini")
+    aws_region: str = Field(default=os.environ.get("AWS_REGION", "us-east-1"), description="AWS region for Bedrock")
     backend_url: str = Field(default=os.environ.get("BACKEND_URL", "http://localhost:8000"), description="Backend URL")
     proxy_url: str = Field(default=os.environ.get("PROXY_URL", "http://localhost:8080"), description="Proxy URL")
     proxy_max_retries: int = Field(

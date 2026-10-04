@@ -28,7 +28,7 @@ class BatchJobRequest(BaseModel):
         arbitrary_types_allowed=True,
     )
 
-    provider: str = Field(..., description="LLM provider to use (openai or gemini)")
+    provider: str = Field(..., description="LLM provider to use (openai or anthropic)")
     model: str = Field(..., description="Model name to use")
     character_requests: list[CharacterRequest] = Field(
         ..., description="List of character generation requests", min_length=1, max_length=100

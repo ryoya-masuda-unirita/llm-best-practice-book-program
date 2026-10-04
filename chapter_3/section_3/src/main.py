@@ -4,12 +4,12 @@ from functools import wraps
 from uuid import uuid4
 
 import click
-from src.client.llm_client import GeminiModel, google_genai_client
+from src.client.llm_client import AnthropicModel, anthropic_client
 from src.logger import make_logger
 from src.model.llmops_log import StorageType
 from src.model.model import CharacterRequests
 from src.service.llmops_logger import create_llmops_logger
-from src.service.request_llm import batch_request_gemini
+from src.service.request_llm import batch_request_anthropic
 
 logger = make_logger(__name__)
 
@@ -33,9 +33,9 @@ def async_cmd(func):
 @click.option(
     "--model",
     "-m",
-    type=click.Choice(GeminiModel.list_str()),
+    type=click.Choice(AnthropicModel.list_str()),
     required=True,
-    help="The Gemini model to use for the request.",
+    help="The Anthropic model to use for the request.",
 )
 @click.option(
     "--output-directory",
@@ -82,8 +82,8 @@ Parallelism: {parallelism}
 User ID: {user_id}
 Storage type: {storage_type.value}""")
 
-    if model not in GeminiModel.list_str():
-        raise ValueError(f"Invalid Gemini model '{model}'.")
+    if model not in AnthropicModel.list_str():
+        raise ValueError(f"Invalid Anthropic model '{model}'.")
 
     logger.info(f"Loading character requests from {request_file}")
     character_requests_data = CharacterRequests.load_from_yaml(request_file)
@@ -93,7 +93,7 @@ Storage type: {storage_type.value}""")
     os.makedirs(output_directory, exist_ok=True)
 
     llmops_logger = create_llmops_logger(logger_name="llmops", storage_type=storage_type)
-    results = await batch_request_gemini(
+    results = await batch_request_anthropic(
         character_requests=character_requests,
         model=model,
         llmops_logger=llmops_logger,
@@ -103,13 +103,13 @@ Storage type: {storage_type.value}""")
 
     logger.info(f"Saving {len(results)} character responses to {output_directory}")
     for i, result in enumerate(results):
-        file_name = f"gemini_{i + 1:03d}_{uuid4().hex[:8]}.json"
+        file_name = f"anthropic_{i + 1:03d}_{uuid4().hex[:8]}.json"
         file_path = os.path.join(output_directory, file_name)
         result.save_as_json(file_path)
         logger.info(f"Saved character {i + 1} to {file_path}")
 
     logger.info(f"Batch processing complete. Generated {len(results)} characters.")
-    await google_genai_client.aio.aclose()
+    await anthropic_client.close()
 
 
 if __name__ == "__main__":

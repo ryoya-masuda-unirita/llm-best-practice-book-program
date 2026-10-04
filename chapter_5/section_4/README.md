@@ -135,7 +135,7 @@ cp .envrc.example .envrc
 `.envrc`を編集し、OpenAI APIキーを設定：
 
 ```bash
-OPENAI_API_KEY=<your_openai_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 3. **依存関係のインストール**
@@ -153,7 +153,7 @@ uv sync
 uv run python -m src.main -c data/contract_0.md
 
 # モデルを指定
-uv run python -m src.main -c data/contract_0.md -m GPT_5_2
+uv run python -m src.main -c data/contract_0.md -m GPT_5_4
 
 # 出力ディレクトリを指定
 uv run python -m src.main -c data/contract_0.md -od reports
@@ -164,7 +164,7 @@ uv run python -m src.main -c data/contract_0.md -od reports
 | オプション | 短縮形 | 説明 | デフォルト      |
 |-----------|--------|------|------------|
 | --contract-file | -c | 契約書ファイルパス（必須） | -          |
-| --model | -m | 使用するOpenAIモデル | gpt-5-mini |
+| --model | -m | 使用するOpenAIモデル | openai.gpt-5.4 |
 | --output-directory | -od | レポート出力ディレクトリ | outputs    |
 | --help | - | ヘルプ表示 | -          |
 
@@ -192,13 +192,13 @@ Usage: python -m src.main [OPTIONS]
       python -m src.main -c data/contract_0.md
 
       # With custom model     python -m src.main -c data/contract_0.md -m
-      gpt-5.4
+      openai.gpt-5.4
 
       # With custom output directory     python -m src.main -c
       data/contract_0.md -od reports
 
 Options:
-  -m, --model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO]
+  -m, --model [GPT_5_5|GPT_5_4]
                                   The model to use for the request.
   -od, --output-directory PATH    The directory to save output files.
   -c, --contract-file PATH        Path to the contract document file (markdown
@@ -792,9 +792,9 @@ Options:
 
 **実行ログ例**:
 ```bash
-$ uv run python -m src.main -c data/contract_0.md -m GPT_5_2
+$ uv run python -m src.main -c data/contract_0.md -m GPT_5_4
 [2026-02-07 09:19:06,203] [INFO] [__main__] [main.py:87] [main] Contract Risk Compliance Pipeline
-Model: gpt-5.2
+Model: openai.gpt-5.4
 Contract file: data/contract_0.md
 Output directory: outputs
 [2026-02-07 09:19:06,203] [INFO] [src.service.service] [service.py:115] [run_contract_compliance_pipeline] ================================================================================
@@ -802,7 +802,7 @@ Output directory: outputs
 [2026-02-07 09:19:06,203] [INFO] [src.service.service] [service.py:117] [run_contract_compliance_pipeline] Pipeline: Input -> Extraction -> Risk Scoring -> Report
 [2026-02-07 09:19:06,203] [INFO] [src.service.service] [service.py:118] [run_contract_compliance_pipeline] ================================================================================
 [2026-02-07 09:19:06,203] [INFO] [src.service.service] [service.py:119] [run_contract_compliance_pipeline] Contract file: data/contract_0.md
-[2026-02-07 09:19:06,203] [INFO] [src.service.service] [service.py:120] [run_contract_compliance_pipeline] Model: gpt-5.2
+[2026-02-07 09:19:06,203] [INFO] [src.service.service] [service.py:120] [run_contract_compliance_pipeline] Model: openai.gpt-5.4
 [2026-02-07 09:19:06,203] [INFO] [src.service.service] [service.py:56] [create_contract_pipeline_graph] Creating contract compliance pipeline graph...
 [2026-02-07 09:19:06,204] [INFO] [src.service.service] [service.py:69] [create_contract_pipeline_graph] Contract pipeline graph created successfully
 [2026-02-07 09:19:06,210] [INFO] [src.service.service] [service.py:79] [_read_contract_file] Reading contract file: data/contract_0.md

@@ -81,7 +81,7 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-OPENAI_API_KEY=<your_openai_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. **依存関係のインストール**
@@ -150,7 +150,7 @@ Options:
 $ uv run python example_client.py --prompt "Pythonの非同期プログラミングについて説明してください"
 
 # モデルを明示的に指定
-$ uv run python example_client.py --model gpt-5-mini --prompt "AIの未来について教えて"
+$ uv run python example_client.py --model openai.gpt-5.4 --prompt "AIの未来について教えて"
 ```
 
 ##### 非ストリーミングモード
@@ -160,7 +160,7 @@ $ uv run python example_client.py --model gpt-5-mini --prompt "AIの未来につ
 $ uv run python example_client.py --mode completion --prompt "Pythonについて教えてください"
 
 # カスタムモデルを指定
-$ uv run python example_client.py --mode completion --model gpt-5-mini --prompt "こんにちは"
+$ uv run python example_client.py --mode completion --model openai.gpt-5.4 --prompt "こんにちは"
 ```
 
 #### 3. APIの直接利用
@@ -183,7 +183,7 @@ curl -X POST http://127.0.0.1:8000/stream \
   -d '{
     "prompt": "こんにちは",
     "provider": "openai",
-    "model": "gpt-5-mini"
+    "model": "openai.gpt-5.4"
   }'
 ```
 
@@ -203,7 +203,7 @@ curl -X POST http://127.0.0.1:8000/completions \
   -d '{
     "prompt": "こんにちは",
     "provider": "openai",
-    "model": "gpt-5-mini"
+    "model": "openai.gpt-5.4"
   }'
 ```
 
@@ -266,6 +266,6 @@ Response:
 
 ------------------------------------------------------------
 Completion request successful!
-Model used: gpt-5.4-mini
+Model used: openai.gpt-5.4
 Provider: openai
 ```

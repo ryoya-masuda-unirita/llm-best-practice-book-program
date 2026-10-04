@@ -3,17 +3,17 @@
 import time
 
 from fastapi import FastAPI, HTTPException, status
-from src.client.llm_client import GeminiModel
+from src.client.llm_client import AnthropicModel
 from src.logger import make_logger
 from src.model.model import HealthResponse, LLMRequest, LLMResponse
 from src.prompt.prompt import make_prompt
-from src.service import request_gemini
+from src.service import request_anthropic
 
 logger = make_logger(__name__)
 
 app = FastAPI(
     title="LLM API Server",
-    description="API server for generating character descriptions using Gemini",
+    description="API server for generating character descriptions using Anthropic",
     version="1.0.0",
 )
 
@@ -27,31 +27,31 @@ async def health_check():
 @app.post("/generate", response_model=LLMResponse, tags=["LLM"])
 async def generate_character(request: LLMRequest):
     """
-    Generate a character using Gemini models.
+    Generate a character using Anthropic models.
 
     This endpoint accepts requests to generate character descriptions using
-    Gemini models.
+    Anthropic models.
     """
     start_time = time.time()
 
     try:
-        if request.model not in GeminiModel.list_str():
+        if request.model not in AnthropicModel.list_str():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid model '{request.model}'. Valid models: {GeminiModel.list_str()}",
+                detail=f"Invalid model '{request.model}'. Valid models: {AnthropicModel.list_str()}",
             )
 
         prompt = make_prompt(character_request=request.character_request)
 
-        character = await request_gemini(model=request.model, prompt=prompt)
+        character = await request_anthropic(model=request.model, prompt=prompt)
 
         processing_time = (time.time() - start_time) * 1000
 
-        logger.info(f"Successfully generated character using gemini/{request.model} in {processing_time:.2f}ms")
+        logger.info(f"Successfully generated character using anthropic/{request.model} in {processing_time:.2f}ms")
 
         return LLMResponse(
             character=character,
-            provider="gemini",
+            provider="anthropic",
             model=request.model,
             processing_time_ms=processing_time,
         )

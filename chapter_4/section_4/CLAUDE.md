@@ -123,7 +123,7 @@ cp .envrc.example .envrc     # OPENAI_API_KEY / GEMINI_API_KEY
 uv sync
 
 # Canonical example
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -dp dataset/document_0.md
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 -dp dataset/document_0.md
 ```
 
 ### CLI Options

@@ -3,11 +3,11 @@
 import time
 
 from fastapi import FastAPI, HTTPException, status
-from src.client.llm_client import GeminiModel, LLMProvider, OpenAIModel
+from src.client.llm_client import AnthropicModel, LLMProvider, OpenAIModel
 from src.logger import make_logger
 from src.model.model import HealthResponse, LLMRequest, LLMResponse
 from src.prompt.prompt import make_prompt
-from src.service import request_gemini, request_openai
+from src.service import request_anthropic, request_openai
 
 logger = make_logger(__name__)
 
@@ -35,7 +35,7 @@ async def generate_character(request: LLMRequest):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid model '{request.model}' for provider '{request.provider.value}'",
             )
-        if request.provider == LLMProvider.GEMINI and request.model not in GeminiModel.list_str():
+        if request.provider == LLMProvider.ANTHROPIC and request.model not in AnthropicModel.list_str():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid model '{request.model}' for provider '{request.provider.value}'",
@@ -45,8 +45,8 @@ async def generate_character(request: LLMRequest):
 
         if request.provider == LLMProvider.OPENAI:
             character = await request_openai(model=request.model, prompt=prompt)
-        elif request.provider == LLMProvider.GEMINI:
-            character = await request_gemini(model=request.model, prompt=prompt)
+        elif request.provider == LLMProvider.ANTHROPIC:
+            character = await request_anthropic(model=request.model, prompt=prompt)
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

@@ -116,8 +116,7 @@ cp .envrc.example .envrc
 
 ```bash
 # .env
-OPENAI_API_KEY=<your_openai_api_key_here>
-GEMINI_API_KEY=<your_gemini_api_key_here>
+AWS_REGION=us-east-1
 GATEWAY_URL=http://localhost:8080
 BACKEND_URL=http://localhost:8000
 GATEWAY_TIMEOUT=30.0
@@ -169,7 +168,7 @@ curl -X POST http://localhost:8000/generate \
   -H "Content-Type: application/json" \
   -d '{
     "provider": "gemini",
-    "model": "gemini-2.5-flash",
+    "model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
     "character_request": {
       "gender": "male",
       "age": 28,
@@ -185,7 +184,7 @@ curl -X POST http://localhost:8080/v1/generate \
   -H "Content-Type: application/json" \
   -d '{
     "provider": "openai",
-    "model": "gpt-5.4-mini",
+    "model": "openai.gpt-5.4",
     "prompt": [
       {"role": "system", "content": "You are a helpful assistant."},
       {"role": "user", "content": "Write a haiku about programming."}
@@ -229,7 +228,7 @@ $ curl -X POST http://localhost:8000/generate \
   -H "Content-Type: application/json" \
   -d '{
     "provider": "gemini",
-    "model": "gemini-2.5-flash",
+    "model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
     "character_request": {
       "gender": "male",
       "age": 28,
@@ -261,7 +260,7 @@ $ curl -X POST http://localhost:8000/generate \
     ]
   },
   "provider": "gemini",
-  "model": "gemini-2.5-flash",
+  "model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
   "processing_time_ms": 2624.802589416504
 }
 ```
@@ -269,7 +268,7 @@ $ curl -X POST http://localhost:8000/generate \
 #### 3. ゲートウェイのログ出力例
 
 ```
-[2025-10-26 10:30:45] [INFO] [src.api_gateway.monitoring] [REQUEST] id=a1b2c3d4-e5f6-7890-abcd-ef1234567890 | provider=gemini | model=gemini-2.5-flash | client=llm_server
+[2025-10-26 10:30:45] [INFO] [src.api_gateway.monitoring] [REQUEST] id=a1b2c3d4-e5f6-7890-abcd-ef1234567890 | provider=gemini | model=global.anthropic.claude-haiku-4-5-20251001-v1:0 | client=llm_server
 [2025-10-26 10:30:47] [INFO] [src.api_gateway.gateway_service] Gemini client initialized
-[2025-10-26 10:30:48] [INFO] [src.api_gateway.monitoring] [RESPONSE] id=a1b2c3d4-e5f6-7890-abcd-ef1234567890 | status=SUCCESS | provider=gemini | model=gemini-2.5-flash | time=1234.56ms
+[2025-10-26 10:30:48] [INFO] [src.api_gateway.monitoring] [RESPONSE] id=a1b2c3d4-e5f6-7890-abcd-ef1234567890 | status=SUCCESS | provider=gemini | model=global.anthropic.claude-haiku-4-5-20251001-v1:0 | time=1234.56ms
 ```

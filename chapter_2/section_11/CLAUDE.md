@@ -150,7 +150,7 @@ cp .envrc.example .envrc     # OPENAI_API_KEY / GEMINI_API_KEY / ANTHROPIC_API_K
 uv sync
 
 # Canonical example (Kansas, USA)
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.7456 -lon -97.0892
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 -lat 39.7456 -lon -97.0892
 
 # Manual-pattern providers
 uv run python -m src.main -lp ANTHROPIC -m CLAUDE_SONNET_4_6 -lat 39.7456 -lon -97.0892

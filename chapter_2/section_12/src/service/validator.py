@@ -33,10 +33,9 @@ async def validate_extraction_result(
         script_explanation=extraction_result.script_explanation,
     )
 
-    result = await anthropic_client.beta.messages.parse(
+    result = await anthropic_client.messages.parse(
         model=model,
         max_tokens=2048,
-        betas=["structured-outputs-2025-11-13"],
         messages=prompt,
         output_format=ValidationResult,
     )

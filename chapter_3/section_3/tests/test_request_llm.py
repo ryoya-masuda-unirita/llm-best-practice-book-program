@@ -1,20 +1,28 @@
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import anthropic
+import httpx2
 import pytest
-from google.api_core import exceptions as google_exceptions
-from src.client.llm_client import GeminiModel
+from src.client.llm_client import AnthropicModel
 from src.service.request_llm import (
     BASE_BACKOFF_SECONDS,
     JITTER_MAX,
     JITTER_MIN,
     MAX_BACKOFF_SECONDS,
-    batch_request_gemini,
+    batch_request_anthropic,
     calculate_backoff_with_jitter,
-    request_gemini,
+    request_anthropic,
     retry_with_exponential_backoff,
     should_retry_error,
 )
+
+
+def make_status_error(error_class: type[anthropic.APIStatusError], status_code: int) -> anthropic.APIStatusError:
+    """Build an Anthropic API error with the given HTTP status code."""
+    request = httpx2.Request("POST", "https://bedrock-runtime.us-east-1.amazonaws.com")
+    response = httpx2.Response(status_code, request=request)
+    return error_class("error", response=response, body=None)
 
 
 class TestCalculateBackoffWithJitter:
@@ -54,15 +62,15 @@ class TestCalculateBackoffWithJitter:
 class TestShouldRetryError:
     """Tests for should_retry_error function."""
 
-    def test_gemini_resource_exhausted(self):
-        """Test Google ResourceExhausted error is retryable."""
-        error = google_exceptions.ResourceExhausted("Quota exceeded")
+    def test_anthropic_rate_limit(self):
+        """Test Anthropic RateLimitError (429) is retryable."""
+        error = make_status_error(anthropic.RateLimitError, 429)
         should_retry, retry_after = should_retry_error(error)
         assert should_retry is True
 
-    def test_gemini_service_unavailable(self):
-        """Test Google ServiceUnavailable error is retryable."""
-        error = google_exceptions.ServiceUnavailable("Service temporarily unavailable")
+    def test_anthropic_server_error(self):
+        """Test Anthropic InternalServerError (503) is retryable."""
+        error = make_status_error(anthropic.InternalServerError, 503)
         should_retry, retry_after = should_retry_error(error)
         assert should_retry is True
 
@@ -101,7 +109,7 @@ class TestRetryWithExponentialBackoff:
             nonlocal call_count
             call_count += 1
             if call_count < 3:
-                raise google_exceptions.ServiceUnavailable("Service unavailable")
+                raise make_status_error(anthropic.InternalServerError, 503)
             return "success"
 
         result = await mock_function()
@@ -117,9 +125,9 @@ class TestRetryWithExponentialBackoff:
         async def mock_function():
             nonlocal call_count
             call_count += 1
-            raise google_exceptions.ServiceUnavailable("Service unavailable")
+            raise make_status_error(anthropic.InternalServerError, 503)
 
-        with pytest.raises(google_exceptions.ServiceUnavailable):
+        with pytest.raises(anthropic.InternalServerError):
             await mock_function()
         assert call_count == 3  # initial + 2 retries
 
@@ -139,33 +147,33 @@ class TestRetryWithExponentialBackoff:
         assert call_count == 1  # No retries for non-retryable errors
 
 
-class TestRequestGemini:
-    """Tests for request_gemini function."""
+class TestRequestAnthropic:
+    """Tests for request_anthropic function."""
 
     @pytest.mark.asyncio
     async def test_successful_request(self, sample_character_request, sample_character_response, mock_llmops_logger):
-        """Test successful Gemini request."""
+        """Test successful Anthropic request."""
         mock_result = MagicMock()
-        mock_result.parsed = sample_character_response
+        mock_result.parsed_output = sample_character_response
 
-        with patch("src.service.request_llm.google_genai_client") as mock_client:
-            mock_client.aio.models.generate_content = AsyncMock(return_value=mock_result)
+        with patch("src.service.request_llm.anthropic_client") as mock_client:
+            mock_client.messages.parse = AsyncMock(return_value=mock_result)
 
-            result = await request_gemini(
+            result = await request_anthropic(
                 character_request=sample_character_request,
-                model=GeminiModel.GEMINI_2_5_FLASH,
+                model=AnthropicModel.CLAUDE_HAIKU_4_5,
                 llmops_logger=mock_llmops_logger,
                 user_id="test_user",
             )
 
             assert result == sample_character_response
-            mock_client.aio.models.generate_content.assert_called_once()
+            mock_client.messages.parse.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_request_with_retry(self, sample_character_request, sample_character_response, mock_llmops_logger):
-        """Test Gemini request that succeeds after retry."""
+        """Test Anthropic request that succeeds after retry."""
         mock_result = MagicMock()
-        mock_result.parsed = sample_character_response
+        mock_result.parsed_output = sample_character_response
 
         call_count = 0
 
@@ -173,16 +181,16 @@ class TestRequestGemini:
             nonlocal call_count
             call_count += 1
             if call_count < 2:
-                raise google_exceptions.ServiceUnavailable("Service unavailable")
+                raise make_status_error(anthropic.InternalServerError, 503)
             return mock_result
 
-        with patch("src.service.request_llm.google_genai_client") as mock_client:
-            mock_client.aio.models.generate_content = AsyncMock(side_effect=mock_generate)
+        with patch("src.service.request_llm.anthropic_client") as mock_client:
+            mock_client.messages.parse = AsyncMock(side_effect=mock_generate)
 
             with patch("asyncio.sleep", new_callable=AsyncMock):
-                result = await request_gemini(
+                result = await request_anthropic(
                     character_request=sample_character_request,
-                    model=GeminiModel.GEMINI_2_5_FLASH,
+                    model=AnthropicModel.CLAUDE_HAIKU_4_5,
                     llmops_logger=mock_llmops_logger,
                     user_id="test_user",
                 )
@@ -191,21 +199,21 @@ class TestRequestGemini:
                 assert call_count == 2
 
 
-class TestBatchRequestGemini:
-    """Tests for batch_request_gemini function."""
+class TestBatchRequestAnthropic:
+    """Tests for batch_request_anthropic function."""
 
     @pytest.mark.asyncio
     async def test_successful_batch(self, sample_character_requests, sample_character_response, mock_llmops_logger):
-        """Test successful batch processing with Gemini."""
+        """Test successful batch processing with Anthropic."""
         mock_result = MagicMock()
-        mock_result.parsed = sample_character_response
+        mock_result.parsed_output = sample_character_response
 
-        with patch("src.service.request_llm.google_genai_client") as mock_client:
-            mock_client.aio.models.generate_content = AsyncMock(return_value=mock_result)
+        with patch("src.service.request_llm.anthropic_client") as mock_client:
+            mock_client.messages.parse = AsyncMock(return_value=mock_result)
 
-            results = await batch_request_gemini(
+            results = await batch_request_anthropic(
                 character_requests=sample_character_requests,
-                model=GeminiModel.GEMINI_2_5_FLASH,
+                model=AnthropicModel.CLAUDE_HAIKU_4_5,
                 llmops_logger=mock_llmops_logger,
                 user_id="test_user",
                 parallelism=2,
@@ -220,7 +228,7 @@ class TestBatchRequestGemini:
     ):
         """Test batch processing with some failures."""
         mock_result = MagicMock()
-        mock_result.parsed = sample_character_response
+        mock_result.parsed_output = sample_character_response
 
         call_count = 0
 
@@ -232,12 +240,12 @@ class TestBatchRequestGemini:
                 raise ValueError("Invalid input")
             return mock_result
 
-        with patch("src.service.request_llm.google_genai_client") as mock_client:
-            mock_client.aio.models.generate_content = AsyncMock(side_effect=mock_generate)
+        with patch("src.service.request_llm.anthropic_client") as mock_client:
+            mock_client.messages.parse = AsyncMock(side_effect=mock_generate)
 
-            results = await batch_request_gemini(
+            results = await batch_request_anthropic(
                 character_requests=sample_character_requests,
-                model=GeminiModel.GEMINI_2_5_FLASH,
+                model=AnthropicModel.CLAUDE_HAIKU_4_5,
                 llmops_logger=mock_llmops_logger,
                 user_id="test_user",
                 parallelism=2,
@@ -252,7 +260,7 @@ class TestBatchRequestGemini:
     ):
         """Test that batch processing respects parallelism limit."""
         mock_result = MagicMock()
-        mock_result.parsed = sample_character_response
+        mock_result.parsed_output = sample_character_response
 
         concurrent_calls = 0
         max_concurrent_calls = 0
@@ -265,12 +273,12 @@ class TestBatchRequestGemini:
             concurrent_calls -= 1
             return mock_result
 
-        with patch("src.service.request_llm.google_genai_client") as mock_client:
-            mock_client.aio.models.generate_content = AsyncMock(side_effect=mock_generate)
+        with patch("src.service.request_llm.anthropic_client") as mock_client:
+            mock_client.messages.parse = AsyncMock(side_effect=mock_generate)
 
-            await batch_request_gemini(
+            await batch_request_anthropic(
                 character_requests=sample_character_requests,
-                model=GeminiModel.GEMINI_2_5_FLASH,
+                model=AnthropicModel.CLAUDE_HAIKU_4_5,
                 llmops_logger=mock_llmops_logger,
                 user_id="test_user",
                 parallelism=2,

@@ -142,7 +142,7 @@ class EventDrivenRunner:
     def __init__(
         self,
         watch_directory: str,
-        model: str = OpenAIModel.GPT_5_MINI,
+        model: str = OpenAIModel.GPT_5_4,
         output_directory: str = "outputs",
     ):
         self.watch_directory = Path(watch_directory).resolve()
@@ -232,7 +232,7 @@ def async_cmd(func):
     "-m",
     type=click.Choice(OpenAIModel.list_str()),
     required=False,
-    default=OpenAIModel.GPT_5_MINI,
+    default=OpenAIModel.GPT_5_4,
     help="The model to use for contract review.",
 )
 @click.option(

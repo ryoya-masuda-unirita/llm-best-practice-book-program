@@ -4,13 +4,13 @@ from src.workflow.builder import WorkflowBuilder
 
 # Dependency Injection components (consolidated in di.py)
 from src.workflow.di import (
+    AnthropicLLMClient,
     BaseLLMClient,
     BasePromptBuilder,
     DIContainer,
     DIScope,
     DynamicPromptBuilder,
     EnhancedResponseParser,
-    GeminiLLMClient,
     ILLMClient,
     IPromptBuilder,
     IResponseParser,
@@ -52,7 +52,7 @@ __all__ = [
     "MessageListPromptBuilder",
     "DynamicPromptBuilder",
     "OpenAILLMClient",
-    "GeminiLLMClient",
+    "AnthropicLLMClient",
     "MockLLMClient",
     "TextResponseParser",
     "StructuredResponseParser",

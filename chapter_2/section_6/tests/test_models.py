@@ -29,9 +29,9 @@ class TestStreamRequest:
     @pytest.mark.parametrize(
         "model",
         [
-            "gpt-5.4-mini",
-            "gpt-5.4",
-            OpenAIModel.GPT_5_4_MINI,
+            "openai.gpt-5.4",
+            "openai.gpt-5.4",
+            OpenAIModel.GPT_5_4,
             OpenAIModel.GPT_5_4,
         ],
     )
@@ -103,14 +103,14 @@ class TestStreamRequest:
         request = StreamRequest(
             prompt="Hello",
             provider=LLMProvider.OPENAI,
-            model="gpt-5.4",
+            model="openai.gpt-5.4",
         )
 
         data = request.model_dump()
 
         assert data["prompt"] == "Hello"
         assert data["provider"] == "openai"
-        assert data["model"] == "gpt-5.4"
+        assert data["model"] == "openai.gpt-5.4"
 
     def test_model_json_output(self):
         """Test model_dump_json output."""

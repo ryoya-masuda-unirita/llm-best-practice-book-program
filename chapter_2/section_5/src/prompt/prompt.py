@@ -36,8 +36,8 @@ def make_openai_prompt(character_request: CharacterRequest) -> list[dict]:
     ]
 
 
-def make_gemini_prompt(character_request: CharacterRequest) -> tuple[str, str]:
-    return _build_system_text(character_request), _build_user_text(character_request)
+# def make_gemini_prompt(character_request: CharacterRequest) -> tuple[str, str]:
+#     return _build_system_text(character_request), _build_user_text(character_request)
 
 
 def make_anthropic_prompt(character_request: CharacterRequest) -> tuple[str, list[dict]]:

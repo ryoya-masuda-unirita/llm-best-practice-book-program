@@ -83,7 +83,7 @@ class CharacterResponse(BaseModel):
 class LLMRequest(BaseModel):
     """Request model for LLM API."""
 
-    model: str = Field(..., description="The Gemini model name to use for generation")
+    model: str = Field(..., description="The Anthropic model name to use for generation")
     character_request: CharacterRequest = Field(..., description="Character generation request parameters")
 
 

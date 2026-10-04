@@ -1,6 +1,6 @@
 from src.client.llm_client import (
-    GeminiModel,
+    AnthropicModel,
     LLMProvider,
 )
 
-__all__ = ["LLMProvider", "GeminiModel"]
+__all__ = ["LLMProvider", "AnthropicModel"]

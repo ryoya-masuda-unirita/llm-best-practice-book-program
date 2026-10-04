@@ -133,7 +133,7 @@ Example emitted line:
 
 ```json
 {"timestamp": "2026-07-04T22:16:48+00:00", "request_id": "c027…", "prompt_id": "544c…",
- "user_id": "default_user", "model": "gemini-2.5-flash", "latency_ms": 2522.0,
+ "user_id": "default_user", "model": "global.anthropic.claude-haiku-4-5-20251001-v1:0", "latency_ms": 2522.0,
  "status_code": 200, "level": "INFO", "metadata": {"provider": "gemini", "response_format": "CharacterResponse"}}
 ```
 
@@ -154,7 +154,7 @@ cp .envrc.example .envrc     # OPENAI_API_KEY / GEMINI_API_KEY / ANTHROPIC_API_K
 uv sync
 
 # Canonical example
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_HAIKU_4_5
 
 # With user attribution and explicit storage type
 uv run python -m src.main -lp ANTHROPIC -m CLAUDE_SONNET_4_6 -u user123 -st local -od ./outputs

@@ -1,5 +1,7 @@
 # Chapter 2 Section 5: 非同期バッチ処理
 
+> **Bedrock版について**: このレポジトリはすべてのLLM呼び出しを Amazon Bedrock 経由に変更しています。Bedrock経由では OpenAI Batch API / Anthropic Message Batches を利用できず、Bedrock独自のバッチ推論はS3とIAMロールが必要で1ジョブ100件以上という下限もあるため、この項では `src/service/request_llm.py` が通常のリクエストを並列実行して `submit / status / results` の3関数を提供しています。ジョブの受付・キュー・ワーカー・ポーリングの構成は元のままですが、各社Batch APIの「料金が約半額」という利点はありません。Geminiの処理はコメントアウトしています。
+
 ## 概要
 
 本プロジェクトは、LLMアプリケーションにおける**非同期バッチ処理**の実装例です。Redisをメッセージキューとして使用し、大量のLLMリクエストを効率的に処理するアーキテクチャを示しています。
@@ -12,9 +14,9 @@
 
 | プロバイダー | モデル | Batch API方式 |
 |------------|--------|---------------|
-| OpenAI | gpt-5.5, gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, gpt-5.2, gpt-5.1, gpt-5, gpt-5-mini, gpt-5-nano | JSONLファイルアップロード → バッチ作成 → ポーリング → 結果JSONL取得 |
-| Gemini | gemini-2.5-pro, gemini-2.5-flash, gemini-2.5-flash-lite, gemini-3.5-flash, gemini-3.1-flash-lite | インラインリクエスト → バッチ作成 → ポーリング → インライン結果取得 |
-| Anthropic | claude-opus-4-7, claude-sonnet-4-6, claude-haiku-4-5, claude-sonnet-5, claude-opus-4-8 | リクエストリスト → バッチ作成 → ポーリング → 結果ストリーミング取得 |
+| OpenAI | openai.gpt-5.5, openai.gpt-5.4, openai.gpt-5.4, openai.gpt-5.4, openai.gpt-5.4, openai.gpt-5.4, openai.gpt-5.4, openai.gpt-5.4, openai.gpt-5.4 | JSONLファイルアップロード → バッチ作成 → ポーリング → 結果JSONL取得 |
+| Gemini | global.anthropic.claude-sonnet-4-6, global.anthropic.claude-haiku-4-5-20251001-v1:0, global.anthropic.claude-haiku-4-5-20251001-v1:0, global.anthropic.claude-haiku-4-5-20251001-v1:0, global.anthropic.claude-haiku-4-5-20251001-v1:0 | インラインリクエスト → バッチ作成 → ポーリング → インライン結果取得 |
+| Anthropic | global.anthropic.claude-sonnet-4-6, global.anthropic.claude-sonnet-4-6, global.anthropic.claude-haiku-4-5-20251001-v1:0, global.anthropic.claude-sonnet-4-6, global.anthropic.claude-sonnet-4-6 | リクエストリスト → バッチ作成 → ポーリング → 結果ストリーミング取得 |
 
 ## 機能
 
@@ -92,9 +94,7 @@ cp .envrc.example .envrc
 
 ```bash
 # .env
-OPENAI_API_KEY=<your_openai_api_key_here>
-GEMINI_API_KEY=<your_gemini_api_key_here>
-ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 > **注意**: Docker Composeは`.env`ファイルから環境変数を読み込みます。`.envrc`はdirenv用（ローカル開発の便利ツール）で、中身は`dotenv`コマンドのみです。`.env`ファイルにAPIキーを設定すれば、ローカル実行・Docker実行の両方で動作します。
@@ -158,7 +158,7 @@ curl -X POST http://localhost:8001/batch/submit \
   -H "Content-Type: application/json" \
   -d '{
     "provider": "openai",
-    "model": "gpt-5.4-mini",
+    "model": "openai.gpt-5.4",
     "character_requests": [
       {"gender": "female", "age": 25, "additional_instructions": "cheerful"},
       {"gender": "male", "age": 30, "additional_instructions": "intellectual"}
@@ -173,8 +173,8 @@ curl -X POST http://localhost:8001/batch/submit \
 curl -X POST http://localhost:8001/batch/submit \
   -H "Content-Type: application/json" \
   -d '{
-    "provider": "gemini",
-    "model": "gemini-2.5-flash",
+    "provider": "anthropic",
+    "model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
     "character_requests": [
       {"gender": "female", "age": 25, "additional_instructions": "cheerful"},
       {"gender": "male", "age": 30, "additional_instructions": "intellectual"}
@@ -190,7 +190,7 @@ curl -X POST http://localhost:8001/batch/submit \
   -H "Content-Type: application/json" \
   -d '{
     "provider": "anthropic",
-    "model": "claude-sonnet-4-6",
+    "model": "global.anthropic.claude-sonnet-4-6",
     "character_requests": [
       {"gender": "female", "age": 22, "additional_instructions": "brave warrior"},
       {"gender": "male", "age": 35, "additional_instructions": "wise scholar"}
@@ -224,7 +224,7 @@ $ curl -X POST http://localhost:8001/batch/submit \
   -H "Content-Type: application/json" \
   -d '{
     "provider": "openai",
-    "model": "gpt-5.4-mini",
+    "model": "openai.gpt-5.4",
     "character_requests": [
       {"gender": "male", "age": 30, "additional_instructions": "cheerful"}
     ]
@@ -238,7 +238,7 @@ $ curl http://localhost:8001/batch/7b3f25d3-b05c-4599-9902-627371352c3d/status
 
 $ curl http://localhost:8001/batch/7b3f25d3-b05c-4599-9902-627371352c3d/result
 
-{"job_id":"7b3f25d3-b05c-4599-9902-627371352c3d","status":"completed","provider":"openai","model":"gpt-5.4-mini","tasks":[{"task_index":0,"status":"completed","character":{"first_name":"Ren","last_name":"Mizuhara","gender":"male","age":30,"personalities":[{"short_personality":"cheerful, resilient, perceptive","description":"Ren maintains a bright, uplifting demeanor even in difficult situations..."},{"short_personality":"kind, improvisational, curious","description":"He is naturally kind and tends to assume the best in people..."},{"short_personality":"optimistic, loyal, quietly determined","description":"Ren believes problems can be solved and people can change..."}]},"error":null,"processing_time_ms":80210.7150554657}],"submitted_at":1775269281.5853896,"completed_at":1775269361.8253925}
+{"job_id":"7b3f25d3-b05c-4599-9902-627371352c3d","status":"completed","provider":"openai","model":"openai.gpt-5.4","tasks":[{"task_index":0,"status":"completed","character":{"first_name":"Ren","last_name":"Mizuhara","gender":"male","age":30,"personalities":[{"short_personality":"cheerful, resilient, perceptive","description":"Ren maintains a bright, uplifting demeanor even in difficult situations..."},{"short_personality":"kind, improvisational, curious","description":"He is naturally kind and tends to assume the best in people..."},{"short_personality":"optimistic, loyal, quietly determined","description":"Ren believes problems can be solved and people can change..."}]},"error":null,"processing_time_ms":80210.7150554657}],"submitted_at":1775269281.5853896,"completed_at":1775269361.8253925}
 
 $ curl http://localhost:8001/batch/queue/stats
 

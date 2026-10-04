@@ -9,10 +9,10 @@ This app showcases the concept from CLAUDE.md:
 import asyncio
 
 import streamlit as st
-from src.client.llm_client import GeminiModel, LLMProvider, OpenAIModel
+from src.client.llm_client import AnthropicModel, LLMProvider, OpenAIModel
 from src.model.model import CharacterRequest, CharacterResponse, Gender
-from src.prompt.prompt import make_gemini_prompt, make_openai_prompt
-from src.service.request_llm import request_gemini, request_openai
+from src.prompt.prompt import make_anthropic_prompt, make_openai_prompt
+from src.service.request_llm import request_anthropic, request_openai
 
 
 def configure_page() -> None:
@@ -39,7 +39,7 @@ def render_sidebar() -> tuple[LLMProvider, str]:
         st.header("⚙️ LLM設定")
         provider = st.selectbox(
             "プロバイダーを選択",
-            options=[LLMProvider.OPENAI, LLMProvider.GEMINI],
+            options=[LLMProvider.OPENAI, LLMProvider.ANTHROPIC],
             format_func=lambda x: x.value.upper(),
         )
 
@@ -47,13 +47,13 @@ def render_sidebar() -> tuple[LLMProvider, str]:
             model = st.selectbox(
                 "モデルを選択",
                 options=OpenAIModel.list_str(),
-                index=OpenAIModel.list_str().index(OpenAIModel.GPT_5_MINI),
+                index=OpenAIModel.list_str().index(OpenAIModel.GPT_5_4),
             )
         else:
             model = st.selectbox(
                 "モデルを選択",
-                options=GeminiModel.list_str(),
-                index=GeminiModel.list_str().index(GeminiModel.GEMINI_2_5_FLASH),
+                options=AnthropicModel.list_str(),
+                index=AnthropicModel.list_str().index(AnthropicModel.CLAUDE_HAIKU_4_5),
             )
 
         st.divider()
@@ -82,7 +82,7 @@ def call_llm(provider: LLMProvider, model: str, character_request: CharacterRequ
     if provider == LLMProvider.OPENAI:
         return asyncio.run(request_openai(character_request, model))
     else:
-        return asyncio.run(request_gemini(character_request, model))
+        return asyncio.run(request_anthropic(character_request, model))
 
 
 def display_character_result(result: CharacterResponse) -> None:
@@ -165,7 +165,7 @@ def display_internal_prompt(provider: LLMProvider, character_request: CharacterR
                 st.markdown(f"**{msg['role'].upper()}:**")
                 st.code(msg["content"], language="text")
         else:
-            system_prompt, user_prompt = make_gemini_prompt(character_request)
+            system_prompt, user_prompt = make_anthropic_prompt(character_request)
             st.markdown("**SYSTEM:**")
             st.code(system_prompt, language="text")
             st.markdown("**USER:**")

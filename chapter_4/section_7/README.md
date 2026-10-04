@@ -92,7 +92,7 @@ cd chapter_4/section_7
 # 環境変数設定
 cp .envrc.example .envrc
 # .envrcを編集してAPIキーを設定:
-GEMINI_API_KEY=<your_gemini_api_key_here>
+AWS_REGION=us-east-1
 
 # 依存関係インストール
 uv sync  # または: pip install -e .

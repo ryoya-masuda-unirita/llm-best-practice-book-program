@@ -84,9 +84,7 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-OPENAI_API_KEY=<your_openai_api_key_here>
-GEMINI_API_KEY=<your_gemini_api_key_here>
-ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. **依存関係のインストール**
@@ -111,10 +109,10 @@ uv run python -m src.main -lp OPENAI -m GPT_5_4
 uv run python -m src.main -lp ANTHROPIC -m CLAUDE_SONNET_4_6
 
 # Gemini 2.5 Proを使用
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_PRO
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_SONNET_4_6
 
 # Gemini 2.5 Flash
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_HAIKU_4_5
 ```
 
 #### 出力先の指定
@@ -124,7 +122,7 @@ uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH
 uv run python -m src.main -lp OPENAI -m GPT_5_4 --output-directory ./custom_output
 
 # 短縮オプション
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_PRO -od ./my_characters
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_SONNET_4_6 -od ./my_characters
 ```
 
 #### プロバイダーとモデルの組み合わせ例
@@ -132,17 +130,17 @@ uv run python -m src.main -lp GEMINI -m GEMINI_2_5_PRO -od ./my_characters
 ```bash
 # OpenAI の各モデル
 uv run python -m src.main -lp OPENAI -m GPT_5_4
-uv run python -m src.main -lp OPENAI -m GPT_5
-uv run python -m src.main -lp OPENAI -m GPT_5_MINI
+uv run python -m src.main -lp OPENAI -m GPT_5_4
+uv run python -m src.main -lp OPENAI -m GPT_5_4
 
 # Anthropic の各モデル
 uv run python -m src.main -lp ANTHROPIC -m CLAUDE_SONNET_4_6
-uv run python -m src.main -lp ANTHROPIC -m CLAUDE_OPUS_4_7
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_SONNET_4_6
 
 # Gemini の各モデル
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_PRO
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH_LITE
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_SONNET_4_6
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_HAIKU_4_5
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_HAIKU_4_5
 ```
 
 #### ヘルプの表示
@@ -155,9 +153,7 @@ Options:
   -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use (openai, anthropic,
                                   or gemini).  [required]
-  -m, --model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|
-               GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|
-               GEMINI_2_5_FLASH_LITE|CLAUDE_SONNET_5|CLAUDE_OPUS_4_8|CLAUDE_OPUS_4_7|CLAUDE_HAIKU_4_5|
+  -m, --model [GPT_5_5|GPT_5_4|CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5|
                CLAUDE_SONNET_4_6]
                                   The model to use for the request.
                                   [required]
@@ -196,14 +192,14 @@ Options:
 
 **実行ログ例**:
 ```bash
-$ uv run python -m src.main -lp OPENAI -m GPT_5_4_MINI
+$ uv run python -m src.main -lp OPENAI -m GPT_5_4
 [2026-01-18 15:46:30,144] [INFO] [__main__] [main.py:58] [main] LLM provider: openai
-Model: gpt-5.4-mini
+Model: openai.gpt-5.4
 Output directory: outputs
-[2026-01-18 15:46:30,144] [INFO] [src.client.factory] [factory.py:37] [create_client] Creating client: provider=openai, model=gpt-5.4-mini
-[2026-01-18 15:46:30,272] [INFO] [src.client.adapters] [adapters.py:24] [__init__] Initialized OpenAI adapter with model: gpt-5.4-mini
-[2026-01-18 15:46:30,273] [INFO] [src.service.request_llm] [request_llm.py:17] [request_llm] Making LLM request: provider=openai, model=gpt-5.4-mini
-[2026-01-18 15:46:30,273] [DEBUG] [src.client.adapters] [adapters.py:32] [chat] OpenAI request: model=gpt-5.4-mini
+[2026-01-18 15:46:30,144] [INFO] [src.client.factory] [factory.py:37] [create_client] Creating client: provider=openai, model=openai.gpt-5.4
+[2026-01-18 15:46:30,272] [INFO] [src.client.adapters] [adapters.py:24] [__init__] Initialized OpenAI adapter with model: openai.gpt-5.4
+[2026-01-18 15:46:30,273] [INFO] [src.service.request_llm] [request_llm.py:17] [request_llm] Making LLM request: provider=openai, model=openai.gpt-5.4
+[2026-01-18 15:46:30,273] [DEBUG] [src.client.adapters] [adapters.py:32] [chat] OpenAI request: model=openai.gpt-5.4
 [2026-01-18 15:46:36,320] [INFO] [src.service.request_llm] [request_llm.py:27] [request_llm] Successfully received response from openai
 [2026-01-18 15:46:36,320] [INFO] [__main__] [main.py:77] [main] Character generated successfully!
 [2026-01-18 15:46:36,320] [INFO] [__main__] [main.py:78] [main] File saved to: outputs/openai_gpt-5.4-mini_cb3b09ee.json

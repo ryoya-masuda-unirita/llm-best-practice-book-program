@@ -17,27 +17,27 @@ class TestEstimateCost:
     def test_estimate_cost_openai(self):
         cost = estimate_cost(
             provider="openai",
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             input_tokens=1000,
             output_tokens=500,
         )
         assert cost is not None
         assert cost > 0
 
-    def test_estimate_cost_gemini(self):
-        cost = estimate_cost(
-            provider="gemini",
-            model="gemini-2.5-flash",
-            input_tokens=1000,
-            output_tokens=500,
-        )
-        assert cost is not None
-        assert cost > 0
+    # def test_estimate_cost_gemini(self):
+    #     cost = estimate_cost(
+    #         provider="gemini",
+    #         model="gemini-2.5-flash",
+    #         input_tokens=1000,
+    #         output_tokens=500,
+    #     )
+    #     assert cost is not None
+    #     assert cost > 0
 
     def test_estimate_cost_anthropic(self):
         cost = estimate_cost(
             provider="anthropic",
-            model="claude-sonnet-4-6",
+            model="global.anthropic.claude-sonnet-4-6",
             input_tokens=1000,
             output_tokens=500,
         )
@@ -128,7 +128,7 @@ class TestPromptProfiler:
 
         async with profiler.profile(
             prompt_id="test_prompt",
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             provider="openai",
             prompt_name="Test Prompt",
         ) as ctx:
@@ -152,7 +152,7 @@ class TestPromptProfiler:
         with pytest.raises(ValueError):
             async with profiler.profile(
                 prompt_id="error_prompt",
-                model="gpt-5.4-mini",
+                model="openai.gpt-5.4",
                 provider="openai",
             ):
                 raise ValueError("Test error")
@@ -170,7 +170,7 @@ class TestPromptProfiler:
 
         async with profiler.profile(
             prompt_id="quality_prompt",
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             provider="openai",
         ) as ctx:
             ctx["input_tokens"] = 100
@@ -191,7 +191,7 @@ class TestPromptProfiler:
 
         metrics = await profiler.record_metrics(
             prompt_id="direct_prompt",
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             provider="openai",
             latency_ms=150.0,
             input_tokens=200,
@@ -211,7 +211,7 @@ class TestPromptProfiler:
 
         async with profiler.profile(
             prompt_id="cost_prompt",
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             provider="openai",
         ) as ctx:
             ctx["input_tokens"] = 1000
@@ -230,7 +230,7 @@ class TestPromptProfiler:
 
         async with profiler.profile(
             prompt_id="no_cost_prompt",
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             provider="openai",
         ) as ctx:
             ctx["input_tokens"] = 1000

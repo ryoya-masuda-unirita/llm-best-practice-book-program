@@ -1,34 +1,30 @@
-"""Gemini LLM client and executor factory."""
+"""Anthropic LLM client and executor factory."""
 
 from enum import StrEnum
 from typing import Any
 
-from google import genai
-from google.genai.types import GenerateContentConfig
+from anthropic import AsyncAnthropicBedrock
 from pydantic import BaseModel
 from src.config import config
 
 
-class GeminiModel(StrEnum):
-    """Available Gemini models."""
+class AnthropicModel(StrEnum):
+    """Available Anthropic models."""
 
-    GEMINI_2_5_PRO = "gemini-2.5-pro"
-    GEMINI_2_5_FLASH = "gemini-2.5-flash"
-    GEMINI_2_5_FLASH_LITE = "gemini-2.5-flash-lite"
-    GEMINI_3_5_FLASH = "gemini-3.5-flash"
-    GEMINI_3_1_FLASH_LITE = "gemini-3.1-flash-lite"
+    CLAUDE_SONNET_4_6 = "global.anthropic.claude-sonnet-4-6"
+    CLAUDE_HAIKU_4_5 = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 
 
-google_genai_client = genai.Client(api_key=config.gemini_api_key)
+anthropic_client = AsyncAnthropicBedrock(aws_region=config.aws_region)
 
 
 def create_executor(
-    model: str = GeminiModel.GEMINI_2_5_FLASH,
+    model: str = AnthropicModel.CLAUDE_HAIKU_4_5,
     system_instruction: str | None = None,
     response_schema: type[BaseModel] | None = None,
     **kwargs,
 ):
-    """Create a Gemini LLM executor function for use with PromptNode."""
+    """Create a Anthropic LLM executor function for use with PromptNode."""
 
     async def executor(prompt: str | list[dict], context: Any) -> dict[str, Any]:
         if isinstance(prompt, list):
@@ -44,33 +40,36 @@ def create_executor(
             content = str(prompt)
             sys_inst = system_instruction
 
-        config_params = {**kwargs}
+        request_params = {**kwargs}
+        request_params.setdefault("max_tokens", 4096)
         if sys_inst:
-            config_params["system_instruction"] = sys_inst
+            request_params["system"] = sys_inst
+        messages = [{"role": "user", "content": content}]
+
         if response_schema:
-            config_params["response_mime_type"] = "application/json"
-            config_params["response_schema"] = response_schema
+            result = await anthropic_client.messages.parse(
+                model=model,
+                messages=messages,
+                output_format=response_schema,
+                **request_params,
+            )
+            return result.parsed_output
 
-        gen_config = GenerateContentConfig(**config_params)
-
-        result = await google_genai_client.aio.models.generate_content(
+        result = await anthropic_client.messages.create(
             model=model,
-            contents=content,
-            config=gen_config,
+            messages=messages,
+            **request_params,
         )
 
-        if response_schema:
-            return result.parsed
-
         return {
-            "content": result.text,
+            "content": next((block.text for block in result.content if block.type == "text"), ""),
             "model": model,
             "usage": {
-                "prompt_tokens": result.usage_metadata.prompt_token_count if result.usage_metadata else None,
-                "completion_tokens": result.usage_metadata.candidates_token_count if result.usage_metadata else None,
-                "total_tokens": result.usage_metadata.total_token_count if result.usage_metadata else None,
+                "prompt_tokens": result.usage.input_tokens,
+                "completion_tokens": result.usage.output_tokens,
+                "total_tokens": result.usage.input_tokens + result.usage.output_tokens,
             },
-            "finish_reason": result.candidates[0].finish_reason.name if result.candidates else None,
+            "finish_reason": result.stop_reason,
         }
 
     return executor

@@ -1,7 +1,7 @@
 """Text generation tool using LLM."""
 
 from src.agent.core.base import Tool, ToolParams, ToolResult
-from src.client.llm_client import google_genai_client
+from src.client.llm_client import anthropic_sync_client
 
 
 class TextGeneratorTool(Tool):
@@ -19,13 +19,14 @@ class TextGeneratorTool(Tool):
         prompt = f"Write a short {style} paragraph about {topic}."
 
         try:
-            response = google_genai_client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=prompt,
+            response = anthropic_sync_client.messages.create(
+                model=self.model,
+                max_tokens=4096,
+                messages=[{"role": "user", "content": prompt}],
             )
             return ToolResult(
                 success=True,
-                data={"content": response.text, "style": style, "topic": topic},
+                data={"content": response.content[0].text, "style": style, "topic": topic},
             )
         except Exception as e:
             return ToolResult(success=False, data=None, error=str(e))

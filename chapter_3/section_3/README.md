@@ -83,7 +83,7 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-GEMINI_API_KEY=<your_gemini_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. **依存関係のインストール**
@@ -101,7 +101,7 @@ uv sync
 # Gemini APIを使用してバッチ処理（並行5リクエスト）
 uv run python -m src.main \
   --request-file character_requests.yaml \
-  --model GEMINI_2_5_FLASH \
+  --model CLAUDE_HAIKU_4_5 \
   --parallelism 5
 ```
 
@@ -111,7 +111,7 @@ uv run python -m src.main \
 # 短縮オプションを使用
 uv run python -m src.main \
   -rf character_requests.yaml \
-  -m GEMINI_2_5_FLASH \
+  -m CLAUDE_HAIKU_4_5 \
   -p 5 \
   -od outputs
 ```
@@ -120,13 +120,13 @@ uv run python -m src.main \
 
 ```bash
 # 低速・安全（並行2リクエスト）
-uv run python -m src.main -rf character_requests.yaml -m GEMINI_2_5_FLASH -p 2
+uv run python -m src.main -rf character_requests.yaml -m CLAUDE_HAIKU_4_5 -p 2
 
 # 標準（並行5リクエスト）
-uv run python -m src.main -rf character_requests.yaml -m GEMINI_2_5_FLASH -p 5
+uv run python -m src.main -rf character_requests.yaml -m CLAUDE_HAIKU_4_5 -p 5
 
 # 高速（並行10リクエスト）※レート制限に注意
-uv run python -m src.main -rf character_requests.yaml -m GEMINI_2_5_FLASH -p 10
+uv run python -m src.main -rf character_requests.yaml -m CLAUDE_HAIKU_4_5 -p 10
 ```
 
 #### ヘルプの表示
@@ -138,7 +138,7 @@ Usage: python -m src.main [OPTIONS]
 Options:
   -rf, --request-file PATH        Path to the YAML file containing character
                                   generation requests.  [required]
-  -m, --model [GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
+  -m, --model [CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5]
                                   The Gemini model to use for the request.
                                   [required]
   -od, --output-directory PATH    The directory to save output files.
@@ -154,7 +154,7 @@ Options:
 
 ```
 [2025-11-17 18:30:45] [INFO] Request file: character_requests.yaml
-Model: gemini-2.5-flash
+Model: global.anthropic.claude-haiku-4-5-20251001-v1:0
 Output directory: outputs
 Parallelism: 5
 User ID: default_user
@@ -163,7 +163,7 @@ Storage type: local
 [2025-11-17 18:30:45] [INFO] Loading character requests from character_requests.yaml
 [2025-11-17 18:30:45] [INFO] Loaded 33 character requests
 
-[2025-11-17 18:30:45] [INFO] Starting batch processing of 33 requests using Gemini gemini-2.5-flash (parallelism: 5)
+[2025-11-17 18:30:45] [INFO] Starting batch processing of 33 requests using Gemini global.anthropic.claude-haiku-4-5-20251001-v1:0 (parallelism: 5)
 
 [2025-11-17 18:30:48] [WARNING] Request failed (attempt 1/6). Error: ServiceUnavailable: 503 Service unavailable. Retrying in 1.34s...
 

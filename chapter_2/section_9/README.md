@@ -101,9 +101,7 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-OPENAI_API_KEY=<your_openai_api_key_here>
-GEMINI_API_KEY=<your_gemini_api_key_here>
-ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. **依存関係のインストール**
@@ -124,15 +122,15 @@ uv sync --all-packages
 ```bash
 # Gemini APIを使用
 uv run python -m src.main \
-    --llm-provider GEMINI \
-    --model GEMINI_2_5_FLASH \
+    --llm-provider ANTHROPIC \
+    --model CLAUDE_HAIKU_4_5 \
     --gender FEMALE \
     --age 25
 
 # OpenAI APIを使用
 uv run python -m src.main \
     --llm-provider OPENAI \
-    --model GPT_5_MINI \
+    --model GPT_5_4 \
     --gender MALE \
     --age 30
 
@@ -149,7 +147,7 @@ uv run python -m src.main \
 ```bash
 uv run python -m src.main \
     -lp OPENAI \
-    -m GPT_5_MINI \
+    -m GPT_5_4 \
     -g FEMALE \
     -a 25 \
     --additional-instructions "Generate a wizard from a fantasy world."
@@ -161,7 +159,7 @@ uv run python -m src.main \
 # GPT_5_MINIで生成し、CLAUDE_SONNET_4_6で評価
 uv run python -m src.main \
     -lp OPENAI \
-    -m GPT_5_MINI \
+    -m GPT_5_4 \
     -g FEMALE \
     -a 25 \
     --judge-provider ANTHROPIC \
@@ -172,8 +170,8 @@ uv run python -m src.main \
 
 ```bash
 uv run python -m src.main \
-    -lp GEMINI \
-    -m GEMINI_2_5_FLASH \
+    -lp ANTHROPIC \
+    -m CLAUDE_HAIKU_4_5 \
     -g MALE \
     -a 40 \
     --output-directory ./outputs
@@ -195,14 +193,14 @@ Options:
                                   generation.
   -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use.  [required]
-  -m, --model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_SONNET_4_6|CLAUDE_SONNET_5|CLAUDE_OPUS_4_8|CLAUDE_OPUS_4_7]
+  -m, --model [GPT_5_5|GPT_5_4|CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
                                   The model to use for the request.
                                   [required]
   -od, --output-directory PATH    The directory to save output files.
   -jp, --judge-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use for judgment
                                   (defaults to same as generation provider).
-  -jm, --judge-model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_SONNET_4_6|CLAUDE_SONNET_5|CLAUDE_OPUS_4_8|CLAUDE_OPUS_4_7]
+  -jm, --judge-model [GPT_5_5|GPT_5_4|CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
                                   The model to use for judgment (defaults to
                                   same as generation model).
   --help                          Show this message and exit.
@@ -335,8 +333,8 @@ uv run pytest -ra
 
 ```
 $ uv run python -m src.main \
-    --llm-provider GEMINI \
-    --model GEMINI_2_5_FLASH \
+    --llm-provider ANTHROPIC \
+    --model CLAUDE_HAIKU_4_5 \
     --gender FEMALE \
     --age 25
 [2026-01-18 11:59:20,101] [INFO] [__main__] [main.py:106] [main] Character Generation Request:
@@ -344,8 +342,8 @@ Gender: female
 Age: 25
 Additional Instructions: 
 
-Generation LLM: gemini / gemini-2.5-flash
-Judge LLM: gemini / gemini-2.5-flash
+Generation LLM: gemini / global.anthropic.claude-haiku-4-5-20251001-v1:0
+Judge LLM: gemini / global.anthropic.claude-haiku-4-5-20251001-v1:0
 Output directory: outputs
 [2026-01-18 11:59:20,101] [INFO] [src.service.request_llm] [request_llm.py:80] [request_with_judge] Generating prompt...
 [2026-01-18 11:59:20,101] [INFO] [src.service.request_llm] [request_llm.py:83] [request_with_judge] Generating character...
@@ -381,7 +379,7 @@ Output directory: outputs
   ),
   finish_reason=<FinishReason.STOP: 'STOP'>,
   index=0
-)] create_time=None model_version='gemini-2.5-flash' prompt_feedback=None response_id='ikxsaf_qKJOk0-kP0YyCkAc' usage_metadata=GenerateContentResponseUsageMetadata(
+)] create_time=None model_version='global.anthropic.claude-haiku-4-5-20251001-v1:0' prompt_feedback=None response_id='ikxsaf_qKJOk0-kP0YyCkAc' usage_metadata=GenerateContentResponseUsageMetadata(
   cache_tokens_details=[
     ModalityTokenCount(
       modality=<MediaModality.TEXT: 'TEXT'>,
@@ -402,7 +400,7 @@ Output directory: outputs
 ) automatic_function_calling_history=[] parsed=CharacterResponse(first_name='エリカ', last_name='佐藤', gender=<Gender.FEMALE: 'female'>, age=25, personalities=[CharacterPersonality(short_personality='好奇心旺盛', description='常に新しい知識や経験を求めている。見慣れない場所を探索したり、読んだことのないジャ ンルの本を読んだりすることに喜びを感じる。既成概念にとらわれず、様々な視点から物事を考察しようとする。'), CharacterPersonality(short_personality='直感的', description='論理よりも自身の直感や感情に基づいて意思決定を行うことが多い。他人の微細な感情の動きや場の雰囲気を敏感に察知し、それらを判断の材料にする。時として大胆な行動に出るが、それが良い結果をもたらすこともある。'), CharacterPersonality(short_personality='内省的', description='物事を深く考えるタイプで、自 分の感情や行動、周囲の状況について一人でじっくりと向き合う時間を大切にする。そのため、時には人との交流よりも、内なる世界との対話を優先する傾向がある。思考 の過程で得た洞察は、彼女の芸術的な表現の源となる。')])
 [2026-01-18 11:59:22,785] [INFO] [src.service.request_llm] [request_llm.py:93] [request_with_judge] Character generation completed.
 [2026-01-18 11:59:22,785] [INFO] [src.service.request_llm] [request_llm.py:95] [request_with_judge] Evaluating character with LLM-as-a-Judge...
-[2026-01-18 11:59:22,785] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:51] [judge_with_gemini] Requesting judgment from Gemini model: gemini-2.5-flash
+[2026-01-18 11:59:22,785] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:51] [judge_with_gemini] Requesting judgment from Gemini model: global.anthropic.claude-haiku-4-5-20251001-v1:0
 [2026-01-18 11:59:28,394] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:65] [judge_with_gemini] Judgment completed. Overall score: 5.00/5.0
 [2026-01-18 11:59:28,394] [INFO] [src.service.request_llm] [request_llm.py:128] [request_with_judge] Evaluation completed. Overall score: 5.00/5.0
 [2026-01-18 11:59:28,394] [INFO] [__main__] [main.py:151] [main] Character file saved to outputs/432b62990b884887ae8b6c931f4bc7af_gemini_character.json

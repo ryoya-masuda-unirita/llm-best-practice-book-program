@@ -113,11 +113,11 @@ def make_openai_prompt() -> list:
 
 ```python
 class AnthropicModel(StrEnum):
-    CLAUDE_SONNET_5 = "claude-sonnet-5"
-    CLAUDE_OPUS_4_8 = "claude-opus-4-8"
-    CLAUDE_OPUS_4_7 = "claude-opus-4-7"
-    CLAUDE_SONNET_4_6 = "claude-sonnet-4-6"
-    CLAUDE_HAIKU_4_5 = "claude-haiku-4-5"
+    CLAUDE_SONNET_4_6 = "global.anthropic.claude-sonnet-4-6"
+    CLAUDE_SONNET_4_6 = "global.anthropic.claude-sonnet-4-6"
+    CLAUDE_SONNET_4_6 = "global.anthropic.claude-sonnet-4-6"
+    CLAUDE_SONNET_4_6 = "global.anthropic.claude-sonnet-4-6"
+    CLAUDE_HAIKU_4_5 = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 ```
 
 ```python
@@ -145,10 +145,10 @@ cp .envrc.example .envrc   # set OPENAI_API_KEY / GEMINI_API_KEY / ANTHROPIC_API
 uv sync
 
 # 3. Run (canonical example)
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_HAIKU_4_5
 
 # Other providers
-uv run python -m src.main --llm-provider OPENAI --model GPT_5_4_MINI
+uv run python -m src.main --llm-provider OPENAI --model GPT_5_4
 uv run python -m src.main --llm-provider ANTHROPIC --model CLAUDE_SONNET_4_6
 ```
 
@@ -161,9 +161,9 @@ uv run python -m src.main --llm-provider ANTHROPIC --model CLAUDE_SONNET_4_6
 | `--output-directory` | `-od` | No | `outputs` | Directory for generated JSON files |
 
 Available model choices (enum names from `src/client/llm_client.py`; the enum value is the API model ID):
-- **OpenAI**: `GPT_5_5`, `GPT_5_4`, `GPT_5_4_MINI`, `GPT_5_4_NANO`, `GPT_5_2`, `GPT_5_1`, `GPT_5`, `GPT_5_MINI`, `GPT_5_NANO`
-- **Gemini**: `GEMINI_2_5_PRO`, `GEMINI_2_5_FLASH`, `GEMINI_2_5_FLASH_LITE`, `GEMINI_3_5_FLASH`, `GEMINI_3_1_FLASH_LITE`
-- **Anthropic**: `CLAUDE_SONNET_5`, `CLAUDE_OPUS_4_8`, `CLAUDE_OPUS_4_7`, `CLAUDE_SONNET_4_6`, `CLAUDE_HAIKU_4_5`
+- **OpenAI**: `GPT_5_5`, `GPT_5_4`, `GPT_5_4`, `GPT_5_4`, `GPT_5_4`, `GPT_5_4`, `GPT_5_4`, `GPT_5_4`, `GPT_5_4`
+- **Gemini**: `CLAUDE_SONNET_4_6`, `CLAUDE_HAIKU_4_5`, `CLAUDE_HAIKU_4_5`, `CLAUDE_HAIKU_4_5`, `CLAUDE_HAIKU_4_5`
+- **Anthropic**: `CLAUDE_SONNET_4_6`, `CLAUDE_SONNET_4_6`, `CLAUDE_SONNET_4_6`, `CLAUDE_SONNET_4_6`, `CLAUDE_HAIKU_4_5`
 
 ## Development Commands
 

@@ -63,7 +63,7 @@
 
 - **Python**: 3.13.2以上
 - **依存ライブラリ**:
-  - anthropic>=0.74.1
+  - anthropic[bedrock]>=1.11.0
   - click>=8.3.0
   - fastapi>=0.119.0
   - google-genai>=1.45.0
@@ -85,9 +85,7 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-OPENAI_API_KEY=<your_openai_api_key_here>
-GEMINI_API_KEY=<your_gemini_api_key_here>
-ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. **依存関係のインストール**
@@ -103,13 +101,13 @@ uv sync
 
 ```bash
 # Gemini APIを使用
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.7456 -lon -97.0892 -od ./outputs
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 -lat 39.7456 -lon -97.0892 -od ./outputs
 
 # OpenAI APIを使用
-uv run python -m src.main -lp OPENAI -m GPT_5_MINI -lat 39.7456 -lon -97.0892 -od ./outputs
+uv run python -m src.main -lp OPENAI -m GPT_5_4 -lat 39.7456 -lon -97.0892 -od ./outputs
 
 # 異なる座標で実行（例: カンザス州）
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.0119 -lon -95.6788 -od ./outputs
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 -lat 39.0119 -lon -95.6788 -od ./outputs
 ```
 
 **重要**: このツールは米国国立気象局（NWS）のAPIを使用しているため、**米国内の座標のみ対応**しています。
@@ -118,8 +116,8 @@ uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.0119 -lon -95.6
 
 - `-lp, --llm-provider`: LLMプロバイダー（`OPENAI` または `GEMINI`）【必須】
 - `-m, --model`: 使用するモデル【必須】
-  - OpenAI: `gpt-5.5`, `gpt-5`, `gpt-5-mini`, `gpt-5.4`, `gpt-5.4-mini` など
-  - Gemini: `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-3.5-flash`, `gemini-3.1-flash-lite`
+  - OpenAI: `openai.gpt-5.5`, `openai.gpt-5.4`, `openai.gpt-5.4`, `openai.gpt-5.4`, `openai.gpt-5.4` など
+  - Gemini: `global.anthropic.claude-sonnet-4-6`, `global.anthropic.claude-haiku-4-5-20251001-v1:0`, `global.anthropic.claude-haiku-4-5-20251001-v1:0`, `global.anthropic.claude-haiku-4-5-20251001-v1:0`, `global.anthropic.claude-haiku-4-5-20251001-v1:0`
 - `-lat, --latitude`: 緯度（例: 39.7456）【必須】
 - `-lon, --longitude`: 経度（例: -97.0892）【必須】
 - `-od, --output-directory`: 出力ディレクトリ（デフォルト: `outputs`）
@@ -132,13 +130,13 @@ Usage: python -m src.main [OPTIONS]
 
   天気予報に基づいて服装を提案します
 
-  Example:     python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.7456
+  Example:     python -m src.main -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 -lat 39.7456
   -lon -97.0892
 
 Options:
   -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use.  [required]
-  -m, --model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_SONNET_5|CLAUDE_OPUS_4_8|CLAUDE_OPUS_4_7|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
+  -m, --model [GPT_5_5|GPT_5_4|CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
                                   The model to use for the request.
                                   [required]
   -lat, --latitude FLOAT          緯度 (例: 39.7456 for Kansas, USA)  [required]
@@ -151,16 +149,16 @@ Options:
 
 ```bash
 # ニューヨーク市（マンハッタン）
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 40.7128 -lon -74.0060 -od ./outputs
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 -lat 40.7128 -lon -74.0060 -od ./outputs
 
 # ロサンゼルス
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 34.0522 -lon -118.2437 -od ./outputs
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 -lat 34.0522 -lon -118.2437 -od ./outputs
 
 # シカゴ
-uv run python -m src.main -lp OPENAI -m GPT_5_MINI -lat 41.8781 -lon -87.6298 -od ./outputs
+uv run python -m src.main -lp OPENAI -m GPT_5_4 -lat 41.8781 -lon -87.6298 -od ./outputs
 
 # シアトル
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 47.6062 -lon -122.3321 -od ./outputs
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 -lat 47.6062 -lon -122.3321 -od ./outputs
 ```
 
 ### 出力例
@@ -209,9 +207,9 @@ uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 47.6062 -lon -122.
 
 **実行ログ例**:
 ```
-$ uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH -lat 39.7456 -lon -97.0892
+$ uv run python -m src.main -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 -lat 39.7456 -lon -97.0892
 [2026-01-18 15:22:40,321] [INFO] [__main__] [main.py:73] [main] LLM provider: gemini
-Model: gemini-2.5-flash
+Model: global.anthropic.claude-haiku-4-5-20251001-v1:0
 Latitude: 39.7456
 Longitude: -97.0892
 Output directory: outputs
@@ -270,7 +268,7 @@ Output directory: outputs
   ),
   finish_reason=<FinishReason.STOP: 'STOP'>,
   index=0
-)] create_time=None model_version='gemini-2.5-flash' prompt_feedback=None response_id='O3xsaaXuCoGr0-kPrfzg-QE' usage_metadata=GenerateContentResponseUsageMetadata(
+)] create_time=None model_version='global.anthropic.claude-haiku-4-5-20251001-v1:0' prompt_feedback=None response_id='O3xsaaXuCoGr0-kPrfzg-QE' usage_metadata=GenerateContentResponseUsageMetadata(
   candidates_token_count=589,
   prompt_token_count=1373,
   prompt_tokens_details=[

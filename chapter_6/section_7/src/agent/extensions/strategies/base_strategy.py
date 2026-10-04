@@ -4,10 +4,9 @@ import json
 import re
 from typing import TypeVar, overload
 
-from google.genai.types import GenerateContentConfig
 from pydantic import BaseModel
 from src.agent.core.base import Action, ActionType, Strategy, Tool, ToolResult
-from src.client.llm_client import GeminiModel, google_genai_client
+from src.client.llm_client import AnthropicModel, anthropic_client
 from src.logger import make_logger
 
 T = TypeVar("T", bound=BaseModel)
@@ -22,7 +21,7 @@ class BaseStrategy(Strategy):
     including LLM calls and action parsing.
     """
 
-    def __init__(self, name: str, model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH, max_iterations: int = 10):
+    def __init__(self, name: str, model: AnthropicModel = AnthropicModel.CLAUDE_HAIKU_4_5, max_iterations: int = 10):
         super().__init__(name)
         self.model = model
         self.max_iterations = max_iterations
@@ -48,23 +47,23 @@ class BaseStrategy(Strategy):
             If response_schema is provided, returns a validated instance of that model.
         """
         try:
-            config = None
+            messages = [{"role": "user", "content": prompt}]
+
             if response_schema is not None:
-                config = GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=response_schema,
+                response = anthropic_client.messages.parse(
+                    model=self.model,
+                    max_tokens=4096,
+                    messages=messages,
+                    output_format=response_schema,
                 )
+                return response.parsed_output
 
-            response = google_genai_client.models.generate_content(
+            response = anthropic_client.messages.create(
                 model=self.model,
-                contents=prompt,
-                config=config,
+                max_tokens=4096,
+                messages=messages,
             )
-
-            if response_schema is not None:
-                return response_schema.model_validate_json(response.text)
-
-            return response.text
+            return response.content[0].text
         except Exception as e:
             if response_schema is not None:
                 raise

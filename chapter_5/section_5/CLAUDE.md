@@ -143,7 +143,7 @@ cp somewhere/contract_1.md data/
 | Option | Short | Description |
 |--------|-------|-------------|
 | `--watch-directory` | `-w` | Directory to monitor for new contract files |
-| `--model` | `-m` | Pipeline model (default `GPT_5_MINI`) |
+| `--model` | `-m` | Pipeline model (default `GPT_5_4`) |
 | `--output-directory` | `-od` | Report output directory |
 
 ## Development Commands

@@ -5,13 +5,13 @@ import sys
 from functools import wraps
 
 import click
-from src.client import google_genai_client
+from src.client import anthropic_client
 from src.examples import (
+    example_anthropic_simple,
     example_checkpoint_recovery,
     example_complex_content_pipeline,
     example_complex_research_workflow,
     example_conditional_workflow,
-    example_gemini_simple,
     example_loop_workflow,
 )
 from src.logger import make_logger
@@ -19,7 +19,7 @@ from src.logger import make_logger
 logger = make_logger(__name__)
 
 WORKFLOWS = {
-    "example_gemini_simple": example_gemini_simple,
+    "example_anthropic_simple": example_anthropic_simple,
     "example_checkpoint_recovery": example_checkpoint_recovery,
     "example_loop_workflow": example_loop_workflow,
     "example_conditional_workflow": example_conditional_workflow,
@@ -42,7 +42,7 @@ def async_cmd(func):
     "-w",
     type=click.Choice(list(WORKFLOWS.keys()) + ["all"]),
     required=False,
-    default="example_gemini_simple",
+    default="example_anthropic_simple",
     help="Workflow to run. Use 'all' to run all workflows.",
 )
 @async_cmd
@@ -68,7 +68,7 @@ async def main(workflow: str):
         logger.error(f"Failed: {e}", exc_info=True)
         sys.exit(1)
     finally:
-        await google_genai_client.aio.aclose()
+        await anthropic_client.close()
 
 
 if __name__ == "__main__":

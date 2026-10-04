@@ -104,7 +104,7 @@ Service code is written exactly as against raw SDKs — `await anthropic_client.
 
 | Item | Purpose |
 |------|---------|
-| `LLMProvider` / `OpenAIModel` / `GeminiModel` / `AnthropicModel` | Enums (Anthropic: claude-opus-4-7, claude-sonnet-4-6, claude-haiku-4-5, claude-sonnet-5, claude-opus-4-8) |
+| `LLMProvider` / `OpenAIModel` / `GeminiModel` / `AnthropicModel` | Enums (Anthropic: global.anthropic.claude-sonnet-4-6, global.anthropic.claude-haiku-4-5-20251001-v1:0, global.anthropic.claude-sonnet-4-6) |
 | `CharacterResponse` | Demo task structured output |
 | usage log JSON | timestamp, method, duration_ms, request params, usage tokens per call |
 

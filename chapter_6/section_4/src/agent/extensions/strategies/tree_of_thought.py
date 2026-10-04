@@ -26,7 +26,12 @@ class ThoughtTreeLevel:
 class TreeOfThoughtStrategy(BaseStrategy):
     """Explores multiple reasoning paths using a thought tree structure."""
 
-    def __init__(self, model: str = "gemini-2.5-flash", max_iterations: int = 10, branch_factor: int = 3):
+    def __init__(
+        self,
+        model: str = "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+        max_iterations: int = 10,
+        branch_factor: int = 3,
+    ):
         super().__init__("tree_of_thought", model, max_iterations)
         self.branch_factor = branch_factor
         self.tree_levels: list[ThoughtTreeLevel] = []

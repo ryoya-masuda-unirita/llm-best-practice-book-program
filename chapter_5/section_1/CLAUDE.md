@@ -114,7 +114,7 @@ graph.add_edge("respond", END)
 |-------|---------|
 | `DinnerRecommendation` | Final answer schema (menu, cooking time, difficulty, reasons…) — bound as the response tool |
 | `AgentState` | Graph state: `messages` history + `final_response` |
-| `AnthropicModel` | Model choices: `CLAUDE_SONNET_5`, `CLAUDE_OPUS_4_8`, `CLAUDE_OPUS_4_7`, `CLAUDE_SONNET_4_6`, `CLAUDE_HAIKU_4_5` |
+| `AnthropicModel` | Model choices: `CLAUDE_SONNET_4_6`, `CLAUDE_SONNET_4_6`, `CLAUDE_SONNET_4_6`, `CLAUDE_SONNET_4_6`, `CLAUDE_HAIKU_4_5` |
 
 ## Setup & Run
 

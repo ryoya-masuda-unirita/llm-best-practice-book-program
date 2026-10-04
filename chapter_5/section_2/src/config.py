@@ -1,7 +1,7 @@
 import os
 
 from dotenv import load_dotenv
-from pydantic import BaseModel, ConfigDict, Field, Secret
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Config(BaseModel):
@@ -15,7 +15,7 @@ class Config(BaseModel):
     if os.path.exists(".envrc"):
         load_dotenv(".envrc")
 
-    gemini_api_key: Secret[str] = Field(default=os.environ["GEMINI_API_KEY"], description="API key for Google Gemini")
+    aws_region: str = Field(default=os.environ.get("AWS_REGION", "us-east-1"), description="AWS region for Bedrock")
 
 
 config = Config()

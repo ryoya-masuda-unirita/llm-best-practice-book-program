@@ -11,9 +11,8 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, Callable, Protocol, TypeVar, cast, runtime_checkable
 
-from google.genai.types import GenerateContentConfig
 from pydantic import BaseModel
-from src.client.llm_client import GeminiModel, OpenAIModel, google_genai_client, openai_client
+from src.client.llm_client import AnthropicModel, OpenAIModel, anthropic_client, openai_client
 from src.logger import make_logger
 from src.workflow.base import ExecutionContext
 
@@ -116,7 +115,7 @@ class DynamicPromptBuilder(BasePromptBuilder):
 class OpenAILLMClient(BaseLLMClient):
     """OpenAI LLM client."""
 
-    def __init__(self, model: str = OpenAIModel.GPT_5_4_MINI, response_format: type[BaseModel] | None = None, **params):
+    def __init__(self, model: str = OpenAIModel.GPT_5_4, response_format: type[BaseModel] | None = None, **params):
         super().__init__(model, **params)
         self.response_format = response_format
 
@@ -144,12 +143,12 @@ class OpenAILLMClient(BaseLLMClient):
             }
 
 
-class GeminiLLMClient(BaseLLMClient):
-    """Gemini LLM client."""
+class AnthropicLLMClient(BaseLLMClient):
+    """Anthropic LLM client."""
 
     def __init__(
         self,
-        model: str = GeminiModel.GEMINI_2_5_FLASH,
+        model: str = AnthropicModel.CLAUDE_HAIKU_4_5,
         response_schema: type[BaseModel] | None = None,
         system_instruction: str | None = None,
         **params,
@@ -172,29 +171,31 @@ class GeminiLLMClient(BaseLLMClient):
                     content_parts.append(msg.get("content", ""))
             content = "\n".join(content_parts)
 
-        config_params = {**self.params, **kwargs}
+        request_params = {**self.params, **kwargs}
+        request_params.setdefault("max_tokens", 4096)
         if sys_inst:
-            config_params["system_instruction"] = sys_inst
-        if self.response_schema:
-            config_params["response_mime_type"] = "application/json"
-            config_params["response_schema"] = self.response_schema
+            request_params["system"] = sys_inst
+        messages = [{"role": "user", "content": content}]
 
-        result = await google_genai_client.aio.models.generate_content(
-            model=self.model, contents=content, config=GenerateContentConfig(**config_params)
-        )
+        if self.response_schema:
+            result = await anthropic_client.messages.parse(
+                model=self.model, messages=messages, output_format=self.response_schema, **request_params
+            )
+        else:
+            result = await anthropic_client.messages.create(model=self.model, messages=messages, **request_params)
 
         usage = {
-            "prompt_tokens": result.usage_metadata.prompt_token_count if result.usage_metadata else None,
-            "completion_tokens": result.usage_metadata.candidates_token_count if result.usage_metadata else None,
-            "total_tokens": result.usage_metadata.total_token_count if result.usage_metadata else None,
+            "prompt_tokens": result.usage.input_tokens,
+            "completion_tokens": result.usage.output_tokens,
+            "total_tokens": result.usage.input_tokens + result.usage.output_tokens,
         }
 
         return {
-            "content": result.text,
-            "parsed": result.parsed if self.response_schema else None,
+            "content": next((block.text for block in result.content if block.type == "text"), ""),
+            "parsed": result.parsed_output if self.response_schema else None,
             "model": self.model,
             "usage": usage,
-            "finish_reason": result.candidates[0].finish_reason.name if result.candidates else None,
+            "finish_reason": result.stop_reason,
         }
 
 

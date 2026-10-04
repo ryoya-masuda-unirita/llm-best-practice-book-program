@@ -1,35 +1,36 @@
-"""Embedding service using Google Gemini API."""
+"""Embedding service using Amazon Titan Text Embeddings on Bedrock."""
 
 import asyncio
+import json
 
-from src.client.llm_client import google_genai_client
+from src.client.llm_client import bedrock_runtime_client
 from src.logger import make_logger
 
 logger = make_logger(__name__)
 
-GEMINI_EMBEDDING_MODEL = "gemini-embedding-001"
-GEMINI_EMBEDDING_DIMENSION = 768
+BEDROCK_EMBEDDING_MODEL = "amazon.titan-embed-text-v2:0"
+BEDROCK_EMBEDDING_DIMENSION = 1024
 
 
-def _get_gemini_embedding_sync(text: str) -> list[float]:
-    logger.debug(f"Generating Gemini embedding for text: {text[:50]}...")
+def _get_bedrock_embedding_sync(text: str) -> list[float]:
+    logger.debug(f"Generating Bedrock embedding for text: {text[:50]}...")
 
-    result = google_genai_client.models.embed_content(
-        model=GEMINI_EMBEDDING_MODEL,
-        contents=text,
+    response = bedrock_runtime_client.invoke_model(
+        modelId=BEDROCK_EMBEDDING_MODEL,
+        body=json.dumps({"inputText": text, "dimensions": BEDROCK_EMBEDDING_DIMENSION}),
     )
-    embedding = result.embeddings[0].values
+    embedding = json.loads(response["body"].read())["embedding"]
 
-    logger.debug(f"Generated Gemini embedding with dimension: {len(embedding)}")
+    logger.debug(f"Generated Bedrock embedding with dimension: {len(embedding)}")
     return embedding
 
 
 async def get_embedding(text: str) -> list[float]:
-    """Get embedding vector using Gemini API."""
+    """Get embedding vector using Bedrock."""
     loop = asyncio.get_event_loop()
-    return await loop.run_in_executor(None, _get_gemini_embedding_sync, text)
+    return await loop.run_in_executor(None, _get_bedrock_embedding_sync, text)
 
 
 def get_embedding_dimension() -> int:
-    """Get the embedding dimension for Gemini."""
-    return GEMINI_EMBEDDING_DIMENSION
+    """Get the embedding dimension for the Bedrock embedding model."""
+    return BEDROCK_EMBEDDING_DIMENSION

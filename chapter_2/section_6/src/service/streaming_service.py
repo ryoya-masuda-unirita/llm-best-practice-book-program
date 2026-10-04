@@ -9,7 +9,7 @@ logger = make_logger(__name__)
 
 async def get_openai_response(
     prompt: str,
-    model: str = OpenAIModel.GPT_5_4_MINI,
+    model: str = OpenAIModel.GPT_5_4,
 ) -> str:
     """OpenAI APIから非ストリーミングで応答を取得する"""
     try:
@@ -28,7 +28,7 @@ async def get_openai_response(
 
 async def stream_openai_response(
     prompt: str,
-    model: str = OpenAIModel.GPT_5_4_MINI,
+    model: str = OpenAIModel.GPT_5_4,
 ) -> AsyncIterator[str]:
     """OpenAI APIからストリーミングで応答を取得する非同期ジェネレータ"""
     try:

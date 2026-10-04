@@ -1,5 +1,7 @@
 # Chapter 2 Section 5: Asynchronous Batch Processing for LLM Applications
 
+> **Bedrock版について**: このレポジトリはすべてのLLM呼び出しを Amazon Bedrock 経由に変更しています。Bedrock経由では OpenAI Batch API / Anthropic Message Batches を利用できず、Bedrock独自のバッチ推論はS3とIAMロールが必要で1ジョブ100件以上という下限もあるため、この項では `src/service/request_llm.py` が通常のリクエストを並列実行して `submit / status / results` の3関数を提供しています。ジョブの受付・キュー・ワーカー・ポーリングの構成は元のままですが、各社Batch APIの「料金が約半額」という利点はありません。Geminiの処理はコメントアウトしています。
+
 ## What This Section Demonstrates
 
 This section shows how to run **large, non-latency-sensitive LLM workloads through provider Batch APIs** behind your own asynchronous job service. Instead of firing N synchronous requests, a client submits a job (up to 100 items) and immediately receives a `job_id`; a background worker forwards the job to the provider's batch endpoint (Gemini Batch API / OpenAI Batch API), polls for completion, and stores results in Redis for later retrieval.
@@ -133,7 +135,7 @@ make docker-down
 
 # Submit → poll → fetch
 curl -X POST http://localhost:8001/batch/submit -H "Content-Type: application/json" \
-  -d '{"llm_provider": "gemini", "model": "gemini-2.5-flash",
+  -d '{"llm_provider": "anthropic", "model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
        "character_requests": [{"gender": "female", "age": 25}]}'
 curl http://localhost:8001/batch/<job_id>/status
 curl http://localhost:8001/batch/<job_id>/result

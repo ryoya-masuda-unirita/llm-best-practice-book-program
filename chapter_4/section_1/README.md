@@ -119,7 +119,7 @@ cp .env.example .env
 cp .envrc.example .envrc
 # .envファイルを編集してAPIキーを設定
 # .envrc
-GEMINI_API_KEY=<your_gemini_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. **サービスの起動**
@@ -150,7 +150,7 @@ curl http://localhost:8001/health
 $ curl -X POST "http://localhost:8000/generate" \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gemini-2.5-flash",
+    "model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
     "character_request": {
       "gender": "female",
       "age": 25,
@@ -181,7 +181,7 @@ $ curl -X POST "http://localhost:8000/generate" \
       }
     ]
   },
-  "model": "gemini-2.5-flash",
+  "model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
   "processing_time_ms": 3317.896842956543
 }
 ```
@@ -232,7 +232,7 @@ $ curl -X POST "http://localhost:8001/query/search" \
           }
         ]
       },
-      "model": "gemini-2.5-flash",
+      "model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
       "processing_time_ms": 3317.896842956543,
       "similarity_score": 0.70917124,
       "created_at": 1769323983.9810076
@@ -253,7 +253,7 @@ $ curl http://localhost:8001/query/stats | jq .
 {
   "total_items": 1,
   "models_distribution": {
-    "gemini-2.5-flash": 1
+    "global.anthropic.claude-haiku-4-5-20251001-v1:0": 1
   },
   "timestamp": 1769324039.6702378
 }
@@ -281,7 +281,7 @@ $ curl -X POST "http://localhost:8001/command/register" \
         {"short_personality": "誠実", "description": "約束を必ず守る"}
       ]
     },
-    "model": "gemini-2.5-flash",
+    "model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
     "prompt": [],
     "processing_time_ms": 1000.0
   }' | jq .
@@ -300,7 +300,7 @@ $ curl -X POST "http://localhost:8001/command/register" \
 #### キャラクター生成のログ
 
 ```
-[2025-10-29 10:30:45] [INFO] [llm_server] Generating character with gemini/gemini-2.5-flash
+[2025-10-29 10:30:45] [INFO] [llm_server] Generating character with gemini/global.anthropic.claude-haiku-4-5-20251001-v1:0
 [2025-10-29 10:30:47] [INFO] [llm_server] Successfully generated character in 1250.50ms
 [2025-10-29 10:30:47] [INFO] [llm_server] Queued knowledge registration for background processing
 ```

@@ -67,9 +67,9 @@ class TestLLMOpsLogger:
     @pytest.mark.parametrize(
         "request_id,prompt_id,model,temperature",
         [
-            ("req-001", "p-001", "gpt-5.4-mini", 0.7),
+            ("req-001", "p-001", "openai.gpt-5.4", 0.7),
             ("req-002", "p-002", "gemini-2.5-flash", 1.0),
-            ("req-003", "p-003", "claude-3-sonnet", 0.5),
+            ("req-003", "p-003", "global.anthropic.claude-sonnet-4-6", 0.5),
         ],
     )
     async def test_log_llm_request_basic(self, llmops_logger, mock_logger, request_id, prompt_id, model, temperature):
@@ -113,7 +113,7 @@ class TestLLMOpsLogger:
         await llmops_logger.log_llm_request(
             request_id="req-001",
             prompt_id="p-001",
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             temperature=0.7,
             prompt_content="test",
             level=level,
@@ -132,7 +132,7 @@ class TestLLMOpsLogger:
         await llmops_logger.log_llm_request(
             request_id="req-001",
             prompt_id="p-001",
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             temperature=0.7,
             prompt_content="test prompt",
             response_content="test response",
@@ -159,7 +159,7 @@ class TestLLMOpsLogger:
         await llmops_logger.log_llm_request(
             request_id="req-001",
             prompt_id=prompt_id,
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             temperature=0.7,
             prompt_content="test prompt content",
             response_content="test response content",
@@ -183,7 +183,7 @@ class TestLLMOpsLogger:
         await logger.log_llm_request(
             request_id="req-001",
             prompt_id="p-001",
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             temperature=0.7,
             prompt_content="test",
         )
@@ -195,7 +195,7 @@ class TestLLMOpsLogger:
     async def test_track_llm_request_context_manager_success(self, llmops_logger, mock_logger):
         """Test track_llm_request context manager with successful request."""
         async with llmops_logger.track_llm_request(
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             temperature=0.7,
             prompt_content="test prompt",
             user_id="user-001",
@@ -212,7 +212,7 @@ class TestLLMOpsLogger:
         log_call_args = json_calls[-1][0][0]
         log_data = json.loads(log_call_args)
 
-        assert log_data["model"] == "gpt-5.4-mini"
+        assert log_data["model"] == "openai.gpt-5.4"
         assert log_data["temperature"] == 0.7
         assert log_data["user_id"] == "user-001"
         assert log_data["status_code"] == 200
@@ -222,7 +222,7 @@ class TestLLMOpsLogger:
     async def test_track_llm_request_auto_generates_ids(self, llmops_logger, mock_logger):
         """Test that request_id and prompt_id are auto-generated."""
         async with llmops_logger.track_llm_request(
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             temperature=0.7,
             prompt_content="test",
         ) as tracking:
@@ -240,7 +240,7 @@ class TestLLMOpsLogger:
         custom_prompt_id = "custom-prompt-456"
 
         async with llmops_logger.track_llm_request(
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             temperature=0.7,
             prompt_content="test",
             request_id=custom_request_id,
@@ -252,7 +252,7 @@ class TestLLMOpsLogger:
     async def test_track_llm_request_measures_latency(self, llmops_logger, mock_logger):
         """Test that latency is automatically measured."""
         async with llmops_logger.track_llm_request(
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             temperature=0.7,
             prompt_content="test",
         ):
@@ -270,7 +270,7 @@ class TestLLMOpsLogger:
         """Test context manager error handling."""
         with pytest.raises(ValueError):
             async with llmops_logger.track_llm_request(
-                model="gpt-5.4-mini",
+                model="openai.gpt-5.4",
                 temperature=0.7,
                 prompt_content="test",
             ) as _:
@@ -304,7 +304,7 @@ class TestLLMOpsLogger:
         """Test handling different exception types."""
         with pytest.raises(exception_type):
             async with llmops_logger.track_llm_request(
-                model="gpt-5.4-mini",
+                model="openai.gpt-5.4",
                 temperature=0.7,
                 prompt_content="test",
             ):
@@ -325,7 +325,7 @@ class TestLLMOpsLogger:
         metadata = {"provider": "openai", "version": "1.0", "experiment_id": "exp-123"}
 
         async with llmops_logger.track_llm_request(
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             temperature=0.7,
             prompt_content="test",
             metadata=metadata,
@@ -370,7 +370,7 @@ class TestLLMOpsLogger:
         await logger.log_llm_request(
             request_id="req-001",
             prompt_id=prompt_id,
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             temperature=0.7,
             prompt_content="Email: test@example.com",
         )
@@ -392,7 +392,7 @@ class TestLLMOpsLogger:
         await logger.log_llm_request(
             request_id="req-001",
             prompt_id=prompt_id,
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             temperature=0.7,
             prompt_content="Email: test@example.com",
         )
@@ -520,7 +520,7 @@ class TestLLMOpsLoggerIntegration:
         prompt_id = None
 
         async with logger.track_llm_request(
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             temperature=0.7,
             prompt_content="What is the meaning of life?",
             user_id="integration-user",
@@ -549,7 +549,7 @@ class TestLLMOpsLoggerIntegration:
 
         async def log_request(i):
             async with logger.track_llm_request(
-                model="gpt-5.4-mini",
+                model="openai.gpt-5.4",
                 temperature=0.7,
                 prompt_content=f"Prompt {i}",
                 user_id=f"user-{i}",

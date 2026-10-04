@@ -6,7 +6,7 @@ from functools import wraps
 from uuid import uuid4
 
 import click
-from src.client import AnthropicModel, GeminiModel, LLMProvider, OpenAIModel
+from src.client import AnthropicModel, LLMProvider, OpenAIModel  # , GeminiModel
 from src.client.base import LLMClient
 from src.client.factory import LLMClientFactory
 from src.logger import make_logger
@@ -31,13 +31,13 @@ def async_cmd(func):
     "-lp",
     type=click.Choice(LLMProvider),
     required=True,
-    default=LLMProvider.GEMINI,
-    help="The LLM provider to use (openai, anthropic, or gemini).",
+    default=LLMProvider.ANTHROPIC,
+    help="The LLM provider to use (openai or anthropic).",
 )
 @click.option(
     "--model",
     "-m",
-    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str() + AnthropicModel.list_str()),
+    type=click.Choice(OpenAIModel.list_str() + AnthropicModel.list_str()),  # + GeminiModel.list_str()
     required=True,
     help="The model to use for the request.",
 )

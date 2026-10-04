@@ -22,9 +22,8 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-from google.genai import types
-from google.genai.types import GenerateContentConfig
-from src.client import GeminiModel, google_genai_client
+from anthropic.types import MessageParam
+from src.client import AnthropicModel, anthropic_client
 from src.logger import make_logger
 from src.prompt import (
     get_chain_result_message,
@@ -308,12 +307,12 @@ def execute_planned_tool_chain(
 
 
 async def process_with_tool_chain(
-    model: GeminiModel,
+    model: AnthropicModel,
     user_message: str,
-    conversation_history: list[types.Content] | None = None,
+    conversation_history: list[MessageParam] | None = None,
     session_cache: SessionResultCache | None = None,
     max_iterations: int = 10,
-) -> tuple[str, list[types.Content], SessionResultCache]:
+) -> tuple[str, list[MessageParam], SessionResultCache]:
     """
     Process a user message using the Tool Chain pattern with multiple iterations.
 
@@ -329,7 +328,7 @@ async def process_with_tool_chain(
     6. Once enough data collected, generate final report
 
     Args:
-        model: Gemini model to use
+        model: Anthropic model to use
         user_message: User's input message
         conversation_history: Existing conversation history
         session_cache: Cache for storing detailed results
@@ -370,11 +369,7 @@ async def process_with_tool_chain(
 
     # Create initial user message with tool metadata context
     user_content_text = get_user_message_with_tool_metadata(tool_metadata_json, user_message)
-    user_content = types.Content(
-        role="user",
-        parts=[types.Part.from_text(text=user_content_text)],
-    )
-    conversation_history.append(user_content)
+    conversation_history.append({"role": "user", "content": user_content_text})
 
     # Multi-iteration loop for data collection
     for iteration in range(1, max_iterations + 1):
@@ -382,31 +377,31 @@ async def process_with_tool_chain(
 
         # Build config with iteration context for structured output
         # Pass previous results so LLM can make informed decisions
-        structured_config = GenerateContentConfig(
-            system_instruction=get_system_prompt(
+        structured_params = {
+            "system": get_system_prompt(
                 iteration_context=collected_results if collected_results else None,
                 current_iteration=iteration,
                 max_iterations=max_iterations,
             ),
-            response_mime_type="application/json",
-            response_schema=get_tool_chain_response_schema(),
-        )
+            "output_config": {"format": {"type": "json_schema", "schema": get_tool_chain_response_schema()}},
+        }
 
         # Request tool chain from LLM
-        response = await google_genai_client.aio.models.generate_content(
+        response = await anthropic_client.messages.create(
             model=model,
-            contents=conversation_history,
-            config=structured_config,
+            max_tokens=4096,
+            messages=conversation_history,
+            **structured_params,
         )
 
         logger.info(f"Iteration {iteration} response: {response}")
 
         # Parse structured output
-        if not response.candidates or not response.candidates[0].content.parts:
+        if not response.content:
             logger.warning(f"No response in iteration {iteration}")
             break
 
-        response_text = response.candidates[0].content.parts[0].text
+        response_text = response.content[0].text
         logger.info(f"Structured output (iteration {iteration}): {response_text}")
 
         try:
@@ -416,7 +411,7 @@ async def process_with_tool_chain(
             return f"Error parsing tool chain definition: {e}", conversation_history, session_cache
 
         # Add LLM's response to conversation history
-        conversation_history.append(response.candidates[0].content)
+        conversation_history.append({"role": "assistant", "content": response.content})
 
         # Check if LLM indicates this is the final iteration
         is_final = chain_definition.get("is_final_iteration", False)
@@ -481,29 +476,26 @@ async def process_with_tool_chain(
                     chain_name=chain_definition.get("chain_name", "unnamed"),
                     errors_json=errors_json,
                 )
-                error_content = types.Content(
-                    role="user",
-                    parts=[types.Part.from_text(text=error_message)],
-                )
-                conversation_history.append(error_content)
+                conversation_history.append({"role": "user", "content": error_message})
 
                 # Request corrected chain
-                response = await google_genai_client.aio.models.generate_content(
+                response = await anthropic_client.messages.create(
                     model=model,
-                    contents=conversation_history,
-                    config=structured_config,
+                    max_tokens=4096,
+                    messages=conversation_history,
+                    **structured_params,
                 )
 
-                if not response.candidates or not response.candidates[0].content.parts:
+                if not response.content:
                     break
 
-                response_text = response.candidates[0].content.parts[0].text
+                response_text = response.content[0].text
                 try:
                     chain_definition = json.loads(response_text)
                 except json.JSONDecodeError:
                     break
 
-                conversation_history.append(response.candidates[0].content)
+                conversation_history.append({"role": "assistant", "content": response.content})
 
         # Store the result (success or failure) for this iteration
         if chain_result:
@@ -525,11 +517,7 @@ async def process_with_tool_chain(
                 collected_results_json=collected_results_json,
                 original_user_message=user_message,
             )
-            iteration_content = types.Content(
-                role="user",
-                parts=[types.Part.from_text(text=iteration_prompt)],
-            )
-            conversation_history.append(iteration_content)
+            conversation_history.append({"role": "user", "content": iteration_prompt})
 
     # Generate final report with all collected data
     logger.info("=== Generating Final Report ===")
@@ -540,26 +528,21 @@ async def process_with_tool_chain(
         result_json=collected_results_json,
     )
 
-    result_content = types.Content(
-        role="user",
-        parts=[types.Part.from_text(text=result_message)],
-    )
-    conversation_history.append(result_content)
+    conversation_history.append({"role": "user", "content": result_message})
 
     # Config for final report generation with full context
-    report_config = GenerateContentConfig(
-        system_instruction=get_system_prompt(
-            iteration_context=collected_results if collected_results else None,
-            current_iteration=len(collected_results) + 1,
-            max_iterations=max_iterations,
-        ),
+    report_system_prompt = get_system_prompt(
+        iteration_context=collected_results if collected_results else None,
+        current_iteration=len(collected_results) + 1,
+        max_iterations=max_iterations,
     )
 
     # Generate final report
-    final_response = await google_genai_client.aio.models.generate_content(
+    final_response = await anthropic_client.messages.create(
         model=model,
-        contents=conversation_history,
-        config=report_config,
+        max_tokens=8192,
+        system=report_system_prompt,
+        messages=conversation_history,
     )
 
     logger.info(f"Final response: {final_response}")
@@ -571,11 +554,11 @@ async def process_with_tool_chain(
     if all_messages_to_user:
         all_text_parts.extend(all_messages_to_user)
 
-    if final_response.candidates and final_response.candidates[0].content.parts:
-        conversation_history.append(final_response.candidates[0].content)
+    if final_response.content:
+        conversation_history.append({"role": "assistant", "content": final_response.content})
 
-        for part in final_response.candidates[0].content.parts:
-            if part.text:
+        for part in final_response.content:
+            if part.type == "text" and part.text:
                 all_text_parts.append(part.text)
 
     final_text = "\n".join(all_text_parts) if all_text_parts else "No response generated."
@@ -584,18 +567,18 @@ async def process_with_tool_chain(
 
 
 async def chat_with_data_analyst(
-    model: GeminiModel,
+    model: AnthropicModel,
     user_message: str,
-    conversation_history: list[types.Content] | None = None,
+    conversation_history: list[MessageParam] | None = None,
     session_cache: SessionResultCache | None = None,
-) -> tuple[str, list[types.Content], SessionResultCache]:
+) -> tuple[str, list[MessageParam], SessionResultCache]:
     """
     High-level interface for chatting with the data analysis assistant.
 
     Uses the Tool Chain pattern where LLM must always define a tool chain first.
 
     Args:
-        model: Gemini model to use
+        model: Anthropic model to use
         user_message: User's input message
         conversation_history: Existing conversation history
         session_cache: Cache for storing detailed results

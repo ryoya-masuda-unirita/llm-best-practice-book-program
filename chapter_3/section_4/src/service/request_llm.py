@@ -1,21 +1,17 @@
-from google.genai.types import GenerateContentConfig
-from src.client.llm_client import GeminiModel, google_genai_client
+from src.client.llm_client import AnthropicModel, anthropic_client
 from src.logger import make_logger
 from src.model.model import CharacterResponse
 
 logger = make_logger(__name__)
 
 
-async def request_gemini(model: GeminiModel, prompt: list[dict]) -> CharacterResponse:
-    result = await google_genai_client.aio.models.generate_content(
+async def request_anthropic(model: AnthropicModel, prompt: list[dict]) -> CharacterResponse:
+    result = await anthropic_client.messages.parse(
         model=model,
-        contents=prompt[-1]["content"],
-        config=GenerateContentConfig(
-            system_instruction=prompt[0]["content"],
-            response_mime_type="application/json",
-            response_schema=CharacterResponse,
-            temperature=2.0,
-        ),
+        max_tokens=4096,
+        system=prompt[0]["content"],
+        messages=[{"role": "user", "content": prompt[-1]["content"]}],
+        output_format=CharacterResponse,
     )
     logger.info(result)
-    return result.parsed
+    return result.parsed_output

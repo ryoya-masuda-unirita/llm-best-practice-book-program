@@ -15,25 +15,17 @@ logger = make_logger(__name__)
 
 TOKEN_PRICING = {
     "openai": {
-        "gpt-5.4": {"input": 0.0025, "output": 0.01},
-        "gpt-5.4-mini": {"input": 0.00015, "output": 0.0006},
-        "gpt-5.4-nano": {"input": 0.0001, "output": 0.0004},
-        "gpt-5.2": {"input": 0.002, "output": 0.008},
-        "gpt-5.1": {"input": 0.0004, "output": 0.0016},
-        "gpt-5": {"input": 0.005, "output": 0.02},
-        "gpt-5-mini": {"input": 0.001, "output": 0.004},
-        "gpt-5-nano": {"input": 0.0002, "output": 0.0008},
+        "openai.gpt-5.5": {"input": 0.005, "output": 0.03},
+        "openai.gpt-5.4": {"input": 0.0025, "output": 0.015},
     },
-    "gemini": {
-        "gemini-2.5-pro": {"input": 0.00125, "output": 0.005},
-        "gemini-2.5-flash": {"input": 0.000075, "output": 0.0003},
-        "gemini-2.5-flash-lite": {"input": 0.00005, "output": 0.0002},
-    },
+    # "gemini": {
+    #     "gemini-2.5-pro": {"input": 0.00125, "output": 0.005},
+    #     "gemini-2.5-flash": {"input": 0.000075, "output": 0.0003},
+    #     "gemini-2.5-flash-lite": {"input": 0.00005, "output": 0.0002},
+    # },
     "anthropic": {
-        "claude-sonnet-4-6": {"input": 0.003, "output": 0.015},
-        "claude-opus-4-7": {"input": 0.015, "output": 0.075},
-        "claude-sonnet-5": {"input": 0.003, "output": 0.015},
-        "claude-opus-4-8": {"input": 0.015, "output": 0.075},
+        "global.anthropic.claude-sonnet-4-6": {"input": 0.003, "output": 0.015},
+        "global.anthropic.claude-haiku-4-5-20251001-v1:0": {"input": 0.001, "output": 0.005},
     },
 }
 

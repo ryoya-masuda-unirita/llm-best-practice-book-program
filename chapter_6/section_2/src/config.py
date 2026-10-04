@@ -15,11 +15,11 @@ class Config(BaseModel):
     if os.path.exists(".envrc"):
         load_dotenv(".envrc")
 
-    google_api_key: Secret[str] = Field(
-        default=os.environ.get("GOOGLE_API_KEY", ""), description="API key for Google GenAI"
+    aws_region: str = Field(default=os.environ.get("AWS_REGION", "us-east-1"), description="AWS region for Bedrock")
+    bedrock_api_key: Secret[str] | None = Field(
+        default=os.environ.get("AWS_BEARER_TOKEN_BEDROCK"),
+        description="API key for Bedrock. If not set, a short-term key is generated from AWS credentials",
     )
-    openai_api_key: Secret[str] = Field(default=os.environ.get("OPENAI_API_KEY", ""), description="API key for OpenAI")
-    anthropic_api_key: Secret[str] = Field(default=os.environ["ANTHROPIC_API_KEY"], description="API key for Anthropic")
 
     usage_log_directory: str = Field(
         default=os.environ.get("USAGE_LOG_DIRECTORY", "usage_logs"), description="Directory for logs"

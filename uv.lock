@@ -165,21 +165,26 @@ wheels = [
 
 [[package]]
 name = "anthropic"
-version = "0.74.1"
+version = "1.11.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
-    { name = "distro" },
     { name = "docstring-parser" },
-    { name = "httpx" },
+    { name = "httpx2" },
     { name = "jiter" },
     { name = "pydantic" },
     { name = "sniffio" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d7/7b/609eea5c54ae69b1a4a94169d4b0c86dc5c41b43509989913f6cdc61b81d/anthropic-0.74.1.tar.gz", hash = "sha256:04c087b2751385c524f6d332d066a913870e4de8b3e335fb0a0c595f1f88dc6e", size = 428981, upload-time = "2025-11-19T22:17:31.533Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ad/12/9a6ffa397b172adb040008d934a1dfd85d0e4cefc77489416db294ffc880/anthropic-1.11.0.tar.gz", hash = "sha256:3906fabac7ad7b5b46c6186040398fc7826885c77ce34e4dd7849de16fc8d0f8", size = 1390390, upload-time = "2026-09-30T22:58:21.098Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/dd/45/6b18d0692302b8cbc01a10c35b43953d3c4172fbd4f83337b8ed21a8eaa4/anthropic-0.74.1-py3-none-any.whl", hash = "sha256:b07b998d1cee7f41d9f02530597d7411672b362cc2417760a40c0167b81c6e65", size = 371473, upload-time = "2025-11-19T22:17:29.998Z" },
+    { url = "https://files.pythonhosted.org/packages/ab/6f/20edcd2956cac68042b1bcdd13ab3311447519f86b26929ff268dc74c650/anthropic-1.11.0-py3-none-any.whl", hash = "sha256:52f97b2c485cca7ac66058374f5073a3febb7e6849b16989c145d602a3efee21", size = 1681654, upload-time = "2026-09-30T22:58:22.925Z" },
+]
+
+[package.optional-dependencies]
+bedrock = [
+    { name = "boto3" },
+    { name = "botocore" },
 ]
 
 [[package]]
@@ -202,6 +207,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/6b/5c/685e6633917e101e5dcb62b9dd76946cbb57c26e133bae9e0cd36033c0a9/attrs-25.4.0.tar.gz", hash = "sha256:16d5969b87f0859ef33a48b35d55ac1be6e42ae49d5e853b597db70c35c57e11", size = 934251, upload-time = "2025-10-06T13:54:44.725Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3a/2a/7cc015f5b9f5db42b7d48157e23356022889fc354a2813c15934b7cb5c0e/attrs-25.4.0-py3-none-any.whl", hash = "sha256:adcf7e2a1fb3b36ac48d97835bb6d8ade15b8dcce26aba8bf1d14847b57a3373", size = 67615, upload-time = "2025-10-06T13:54:43.17Z" },
+]
+
+[[package]]
+name = "aws-bedrock-token-generator"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "botocore" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/fb/39/cf1c2e12bc5a84af0f96a546481213f81fa6e7927d2bbabd81758c6558ca/aws_bedrock_token_generator-1.1.0.tar.gz", hash = "sha256:95ccb07f63a91ac486561f6df05cc4e04784c8ff5086dc687ed9c5fd3ab1b5ba", size = 19123, upload-time = "2025-07-29T19:53:19.511Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f9/fd/745ece98870c3824d294bcdce5dc5e15381188a41bc80832c246b205e40e/aws_bedrock_token_generator-1.1.0-py3-none-any.whl", hash = "sha256:bd12854f7c7e52dde5d980d369379f12d0cc5f0855099d87f38688b0f9de5cd4", size = 10291, upload-time = "2025-07-29T19:53:18.704Z" },
 ]
 
 [[package]]
@@ -289,6 +306,34 @@ wheels = [
 ]
 
 [[package]]
+name = "boto3"
+version = "1.43.108"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "botocore" },
+    { name = "jmespath" },
+    { name = "s3transfer" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/48/59/fb93b6ebd9ad43eb9a58c7a6da51a0fe24ab0c04bc4d534a0bfc5eba7f59/boto3-1.43.108.tar.gz", hash = "sha256:03341f089158368acf83e921aca98b706095322ca52bc4c039a616940aa5ad41", size = 112682, upload-time = "2026-10-02T19:32:25.211Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/74/e4/7e88c40e9f61888e12dac0de41a5fddc2bcd1c3992d9b28e17d915cce0df/boto3-1.43.108-py3-none-any.whl", hash = "sha256:19e9da95ef0c494e27052049a42137550e66730509bb613e76eaa30ddf9a7170", size = 140045, upload-time = "2026-10-02T19:32:23.826Z" },
+]
+
+[[package]]
+name = "botocore"
+version = "1.43.108"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jmespath" },
+    { name = "python-dateutil" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/61/16/6b4477f433da2c11193802f538330ce080076c2f38d817ad437ed3cd1465/botocore-1.43.108.tar.gz", hash = "sha256:ee4f75cf3bdbb0da7912e089950e8112f692016539d939312c771499958e6cfd", size = 16312879, upload-time = "2026-10-02T19:32:20.797Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7a/0b/4670b7e23914b5cc357be5ca45fae503b57d98ecff4b3eabea70412809fd/botocore-1.43.108-py3-none-any.whl", hash = "sha256:ab9d16c6b4350aaa54ed28202dfa2998b2d735fdbf3247eb60af469d8d48a5b8", size = 16008194, upload-time = "2026-10-02T19:32:15.086Z" },
+]
+
+[[package]]
 name = "build"
 version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -370,7 +415,8 @@ name = "chapter-2-section-1"
 version = "0.1.0"
 source = { virtual = "chapter_2/section_1" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
+    { name = "aws-bedrock-token-generator" },
     { name = "click" },
     { name = "google-genai" },
     { name = "openai" },
@@ -387,7 +433,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.73.0" },
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
+    { name = "aws-bedrock-token-generator", specifier = ">=1.1.0" },
     { name = "click", specifier = ">=8.3.0" },
     { name = "google-genai", specifier = ">=1.45.0" },
     { name = "openai", specifier = ">=2.4.0" },
@@ -407,7 +454,8 @@ name = "chapter-2-section-10"
 version = "0.1.0"
 source = { virtual = "chapter_2/section_10" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
+    { name = "aws-bedrock-token-generator" },
     { name = "click" },
     { name = "google-genai" },
     { name = "openai" },
@@ -424,7 +472,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.74.1" },
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
+    { name = "aws-bedrock-token-generator", specifier = ">=1.1.0" },
     { name = "click", specifier = ">=8.3.0" },
     { name = "google-genai", specifier = ">=1.45.0" },
     { name = "openai", specifier = ">=2.4.0" },
@@ -444,7 +493,8 @@ name = "chapter-2-section-11"
 version = "0.1.0"
 source = { virtual = "chapter_2/section_11" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
+    { name = "aws-bedrock-token-generator" },
     { name = "click" },
     { name = "fastapi" },
     { name = "google-genai" },
@@ -466,7 +516,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.74.1" },
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
+    { name = "aws-bedrock-token-generator", specifier = ">=1.1.0" },
     { name = "click", specifier = ">=8.3.0" },
     { name = "fastapi", specifier = ">=0.119.0" },
     { name = "google-genai", specifier = ">=1.45.0" },
@@ -491,7 +542,7 @@ name = "chapter-2-section-12"
 version = "0.1.0"
 source = { virtual = "chapter_2/section_12" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
     { name = "click" },
     { name = "pydantic" },
     { name = "python-dotenv" },
@@ -506,7 +557,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.74.1" },
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
     { name = "click", specifier = ">=8.3.0" },
     { name = "pydantic", specifier = ">=2.12.2" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
@@ -524,8 +575,8 @@ name = "chapter-2-section-2"
 version = "0.1.0"
 source = { virtual = "chapter_2/section_2" }
 dependencies = [
+    { name = "aws-bedrock-token-generator" },
     { name = "click" },
-    { name = "google-genai" },
     { name = "openai" },
     { name = "pydantic" },
     { name = "python-dotenv" },
@@ -540,8 +591,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aws-bedrock-token-generator", specifier = ">=1.1.0" },
     { name = "click", specifier = ">=8.3.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "openai", specifier = ">=2.4.0" },
     { name = "pydantic", specifier = ">=2.12.2" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
@@ -559,8 +610,8 @@ name = "chapter-2-section-3"
 version = "0.1.0"
 source = { virtual = "chapter_2/section_3" }
 dependencies = [
+    { name = "anthropic", extra = ["bedrock"] },
     { name = "click" },
-    { name = "google-genai" },
     { name = "pydantic" },
     { name = "python-dotenv" },
 ]
@@ -573,8 +624,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
     { name = "click", specifier = ">=8.3.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "pydantic", specifier = ">=2.12.2" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
 ]
@@ -590,7 +641,8 @@ name = "chapter-2-section-4"
 version = "0.1.0"
 source = { virtual = "chapter_2/section_4" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
+    { name = "aws-bedrock-token-generator" },
     { name = "click" },
     { name = "google-genai" },
     { name = "openai" },
@@ -607,7 +659,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.73.0" },
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
+    { name = "aws-bedrock-token-generator", specifier = ">=1.1.0" },
     { name = "click", specifier = ">=8.3.0" },
     { name = "google-genai", specifier = ">=1.45.0" },
     { name = "openai", specifier = ">=2.4.0" },
@@ -627,7 +680,8 @@ name = "chapter-2-section-5"
 version = "0.1.0"
 source = { virtual = "chapter_2/section_5" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
+    { name = "aws-bedrock-token-generator" },
     { name = "fastapi" },
     { name = "google-genai" },
     { name = "openai" },
@@ -639,7 +693,8 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.74.1" },
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
+    { name = "aws-bedrock-token-generator", specifier = ">=1.1.0" },
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "google-genai", specifier = ">=1.0.0" },
     { name = "openai", specifier = ">=2.4.0" },
@@ -655,6 +710,7 @@ version = "0.1.0"
 source = { virtual = "chapter_2/section_6" }
 dependencies = [
     { name = "aiohttp" },
+    { name = "aws-bedrock-token-generator" },
     { name = "click" },
     { name = "fastapi" },
     { name = "openai" },
@@ -673,6 +729,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.13.0" },
+    { name = "aws-bedrock-token-generator", specifier = ">=1.1.0" },
     { name = "click", specifier = ">=8.3.0" },
     { name = "fastapi", specifier = ">=0.119.0" },
     { name = "openai", specifier = ">=2.4.0" },
@@ -693,7 +750,8 @@ name = "chapter-2-section-7"
 version = "0.1.0"
 source = { virtual = "chapter_2/section_7" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
+    { name = "aws-bedrock-token-generator" },
     { name = "click" },
     { name = "google-genai" },
     { name = "openai" },
@@ -711,7 +769,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.73.0" },
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
+    { name = "aws-bedrock-token-generator", specifier = ">=1.1.0" },
     { name = "click", specifier = ">=8.3.0" },
     { name = "google-genai", specifier = ">=1.45.0" },
     { name = "openai", specifier = ">=2.4.0" },
@@ -732,6 +791,7 @@ name = "chapter-2-section-8"
 version = "0.1.0"
 source = { virtual = "chapter_2/section_8" }
 dependencies = [
+    { name = "aws-bedrock-token-generator" },
     { name = "click" },
     { name = "jinja2" },
     { name = "openai" },
@@ -749,6 +809,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "aws-bedrock-token-generator", specifier = ">=1.1.0" },
     { name = "click", specifier = ">=8.3.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "openai", specifier = ">=2.4.0" },
@@ -769,7 +830,8 @@ name = "chapter-2-section-9"
 version = "0.1.0"
 source = { virtual = "chapter_2/section_9" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
+    { name = "aws-bedrock-token-generator" },
     { name = "click" },
     { name = "google-genai" },
     { name = "openai" },
@@ -786,7 +848,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.73.0" },
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
+    { name = "aws-bedrock-token-generator", specifier = ">=1.1.0" },
     { name = "click", specifier = ">=8.3.0" },
     { name = "google-genai", specifier = ">=1.45.0" },
     { name = "openai", specifier = ">=2.4.0" },
@@ -806,7 +869,8 @@ name = "chapter-3-section-1"
 version = "0.1.0"
 source = { virtual = "chapter_3/section_1" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
+    { name = "aws-bedrock-token-generator" },
     { name = "click" },
     { name = "google-genai" },
     { name = "openai" },
@@ -823,7 +887,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.74.1" },
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
+    { name = "aws-bedrock-token-generator", specifier = ">=1.1.0" },
     { name = "click", specifier = ">=8.3.0" },
     { name = "google-genai", specifier = ">=1.45.0" },
     { name = "openai", specifier = ">=2.4.0" },
@@ -843,8 +908,10 @@ name = "chapter-3-section-2"
 version = "0.1.0"
 source = { virtual = "chapter_3/section_2" }
 dependencies = [
+    { name = "anthropic", extra = ["bedrock"] },
+    { name = "aws-bedrock-token-generator" },
+    { name = "boto3" },
     { name = "click" },
-    { name = "google-genai" },
     { name = "openai" },
     { name = "pydantic" },
     { name = "python-dotenv" },
@@ -859,8 +926,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
+    { name = "aws-bedrock-token-generator", specifier = ">=1.1.0" },
+    { name = "boto3", specifier = ">=1.40.0" },
     { name = "click", specifier = ">=8.3.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "openai", specifier = ">=2.4.0" },
     { name = "pydantic", specifier = ">=2.12.2" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
@@ -878,9 +947,8 @@ name = "chapter-3-section-3"
 version = "0.1.0"
 source = { virtual = "chapter_3/section_3" }
 dependencies = [
+    { name = "anthropic", extra = ["bedrock"] },
     { name = "click" },
-    { name = "google-api-core" },
-    { name = "google-genai" },
     { name = "openai" },
     { name = "pydantic" },
     { name = "python-dotenv" },
@@ -896,9 +964,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
     { name = "click", specifier = ">=8.3.0" },
-    { name = "google-api-core", specifier = ">=2.26.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "openai", specifier = ">=2.4.0" },
     { name = "pydantic", specifier = ">=2.12.2" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
@@ -917,9 +984,9 @@ name = "chapter-3-section-4"
 version = "0.1.0"
 source = { virtual = "chapter_3/section_4" }
 dependencies = [
+    { name = "anthropic", extra = ["bedrock"] },
     { name = "click" },
     { name = "fastapi" },
-    { name = "google-genai" },
     { name = "httpx" },
     { name = "httpx-retries" },
     { name = "openai" },
@@ -938,9 +1005,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
     { name = "click", specifier = ">=8.3.0" },
     { name = "fastapi", specifier = ">=0.119.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "httpx-retries", specifier = ">=0.2.0" },
     { name = "openai", specifier = ">=2.4.0" },
@@ -962,9 +1029,10 @@ name = "chapter-3-section-5"
 version = "0.1.0"
 source = { virtual = "chapter_3/section_5" }
 dependencies = [
+    { name = "anthropic", extra = ["bedrock"] },
+    { name = "aws-bedrock-token-generator" },
     { name = "click" },
     { name = "fastapi" },
-    { name = "google-genai" },
     { name = "httpx" },
     { name = "httpx-retries" },
     { name = "openai" },
@@ -982,9 +1050,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
+    { name = "aws-bedrock-token-generator", specifier = ">=1.1.0" },
     { name = "click", specifier = ">=8.3.0" },
     { name = "fastapi", specifier = ">=0.119.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "httpx-retries", specifier = ">=0.4.5" },
     { name = "openai", specifier = ">=2.4.0" },
@@ -1005,9 +1074,10 @@ name = "chapter-4-section-1"
 version = "0.1.0"
 source = { virtual = "chapter_4/section_1" }
 dependencies = [
+    { name = "anthropic", extra = ["bedrock"] },
+    { name = "boto3" },
     { name = "chromadb" },
     { name = "fastapi" },
-    { name = "google-genai" },
     { name = "openai" },
     { name = "pydantic" },
     { name = "python-dotenv" },
@@ -1016,9 +1086,10 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
+    { name = "boto3", specifier = ">=1.40.0" },
     { name = "chromadb", specifier = ">=1.3.0" },
     { name = "fastapi", specifier = ">=0.119.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "openai", specifier = ">=2.4.0" },
     { name = "pydantic", specifier = ">=2.12.2" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
@@ -1030,10 +1101,9 @@ name = "chapter-4-section-2"
 version = "0.1.0"
 source = { virtual = "chapter_4/section_2" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
     { name = "click" },
     { name = "fastapi" },
-    { name = "google-genai" },
     { name = "httpx" },
     { name = "openai" },
     { name = "pydantic" },
@@ -1050,10 +1120,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.74.1" },
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
     { name = "click", specifier = ">=8.3.0" },
     { name = "fastapi", specifier = ">=0.119.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "openai", specifier = ">=2.4.0" },
     { name = "pydantic", specifier = ">=2.12.2" },
@@ -1073,8 +1142,9 @@ name = "chapter-4-section-3"
 version = "0.1.0"
 source = { virtual = "chapter_4/section_3" }
 dependencies = [
+    { name = "anthropic", extra = ["bedrock"] },
+    { name = "boto3" },
     { name = "click" },
-    { name = "google-genai" },
     { name = "numpy" },
     { name = "openai" },
     { name = "pydantic" },
@@ -1090,8 +1160,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
+    { name = "boto3", specifier = ">=1.40.0" },
     { name = "click", specifier = ">=8.3.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "numpy", specifier = ">=2.2.5" },
     { name = "openai", specifier = ">=2.4.0" },
     { name = "pydantic", specifier = ">=2.12.2" },
@@ -1110,8 +1181,9 @@ name = "chapter-4-section-4"
 version = "0.1.0"
 source = { virtual = "chapter_4/section_4" }
 dependencies = [
+    { name = "anthropic", extra = ["bedrock"] },
+    { name = "aws-bedrock-token-generator" },
     { name = "click" },
-    { name = "google-genai" },
     { name = "langgraph" },
     { name = "openai" },
     { name = "pydantic" },
@@ -1128,8 +1200,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
+    { name = "aws-bedrock-token-generator", specifier = ">=1.1.0" },
     { name = "click", specifier = ">=8.3.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "langgraph", specifier = ">=1.0.0" },
     { name = "openai", specifier = ">=2.4.0" },
     { name = "pydantic", specifier = ">=2.12.2" },
@@ -1149,8 +1222,8 @@ name = "chapter-4-section-5"
 version = "0.1.0"
 source = { virtual = "chapter_4/section_5" }
 dependencies = [
+    { name = "anthropic", extra = ["bedrock"] },
     { name = "click" },
-    { name = "google-genai" },
     { name = "openai" },
     { name = "pydantic" },
     { name = "python-dotenv" },
@@ -1165,8 +1238,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
     { name = "click", specifier = ">=8.3.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "openai", specifier = ">=2.4.0" },
     { name = "pydantic", specifier = ">=2.12.2" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
@@ -1184,8 +1257,9 @@ name = "chapter-4-section-6"
 version = "0.1.0"
 source = { virtual = "chapter_4/section_6" }
 dependencies = [
+    { name = "anthropic", extra = ["bedrock"] },
+    { name = "aws-bedrock-token-generator" },
     { name = "click" },
-    { name = "google-genai" },
     { name = "openai" },
     { name = "pydantic" },
     { name = "python-dotenv" },
@@ -1200,8 +1274,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
+    { name = "aws-bedrock-token-generator", specifier = ">=1.1.0" },
     { name = "click", specifier = ">=8.3.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "openai", specifier = ">=2.4.0" },
     { name = "pydantic", specifier = ">=2.12.2" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
@@ -1219,8 +1294,8 @@ name = "chapter-4-section-7"
 version = "0.1.0"
 source = { virtual = "chapter_4/section_7" }
 dependencies = [
+    { name = "anthropic", extra = ["bedrock"] },
     { name = "click" },
-    { name = "google-genai" },
     { name = "openai" },
     { name = "pydantic" },
     { name = "python-dotenv" },
@@ -1234,8 +1309,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
     { name = "click", specifier = ">=8.3.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "openai", specifier = ">=2.4.0" },
     { name = "pydantic", specifier = ">=2.12.2" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
@@ -1252,9 +1327,8 @@ name = "chapter-4-section-8"
 version = "0.1.0"
 source = { virtual = "chapter_4/section_8" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
     { name = "click" },
-    { name = "google-genai" },
     { name = "openai" },
     { name = "pydantic" },
     { name = "python-dotenv" },
@@ -1269,9 +1343,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.74.1" },
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
     { name = "click", specifier = ">=8.3.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "openai", specifier = ">=2.4.0" },
     { name = "pydantic", specifier = ">=2.12.2" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
@@ -1289,11 +1362,10 @@ name = "chapter-5-section-1"
 version = "0.1.0"
 source = { virtual = "chapter_5/section_1" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
     { name = "click" },
-    { name = "google-genai" },
     { name = "langchain-anthropic" },
-    { name = "langchain-google-genai" },
+    { name = "langchain-aws" },
     { name = "langchain-openai" },
     { name = "langgraph" },
     { name = "openai" },
@@ -1311,11 +1383,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.74.1" },
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
     { name = "click", specifier = ">=8.3.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "langchain-anthropic", specifier = ">=1.2.0" },
-    { name = "langchain-google-genai", specifier = ">=3.2.0" },
+    { name = "langchain-aws", specifier = ">=1.0.0" },
     { name = "langchain-openai", specifier = ">=1.1.0" },
     { name = "langgraph", specifier = ">=1.0.0" },
     { name = "openai", specifier = ">=2.4.0" },
@@ -1336,11 +1407,10 @@ name = "chapter-5-section-2"
 version = "0.1.0"
 source = { virtual = "chapter_5/section_2" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
     { name = "click" },
-    { name = "google-genai" },
     { name = "langchain-anthropic" },
-    { name = "langchain-google-genai" },
+    { name = "langchain-aws" },
     { name = "langchain-openai" },
     { name = "langgraph" },
     { name = "openai" },
@@ -1358,11 +1428,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.74.1" },
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
     { name = "click", specifier = ">=8.3.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "langchain-anthropic", specifier = ">=1.2.0" },
-    { name = "langchain-google-genai", specifier = ">=3.2.0" },
+    { name = "langchain-aws", specifier = ">=1.0.0" },
     { name = "langchain-openai", specifier = ">=1.1.0" },
     { name = "langgraph", specifier = ">=1.0.0" },
     { name = "openai", specifier = ">=2.4.0" },
@@ -1383,11 +1452,10 @@ name = "chapter-5-section-3"
 version = "0.1.0"
 source = { virtual = "chapter_5/section_3" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
+    { name = "aws-bedrock-token-generator" },
     { name = "click" },
-    { name = "google-genai" },
     { name = "langchain-anthropic" },
-    { name = "langchain-google-genai" },
     { name = "langchain-openai" },
     { name = "langgraph" },
     { name = "openai" },
@@ -1405,11 +1473,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.74.1" },
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
+    { name = "aws-bedrock-token-generator", specifier = ">=1.1.0" },
     { name = "click", specifier = ">=8.3.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "langchain-anthropic", specifier = ">=1.2.0" },
-    { name = "langchain-google-genai", specifier = ">=3.2.0" },
     { name = "langchain-openai", specifier = ">=1.1.0" },
     { name = "langgraph", specifier = ">=1.0.0" },
     { name = "openai", specifier = ">=2.4.0" },
@@ -1430,11 +1497,10 @@ name = "chapter-5-section-4"
 version = "0.1.0"
 source = { virtual = "chapter_5/section_4" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
+    { name = "aws-bedrock-token-generator" },
     { name = "click" },
-    { name = "google-genai" },
     { name = "langchain-anthropic" },
-    { name = "langchain-google-genai" },
     { name = "langchain-openai" },
     { name = "langgraph" },
     { name = "openai" },
@@ -1452,11 +1518,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.74.1" },
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
+    { name = "aws-bedrock-token-generator", specifier = ">=1.1.0" },
     { name = "click", specifier = ">=8.3.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "langchain-anthropic", specifier = ">=1.2.0" },
-    { name = "langchain-google-genai", specifier = ">=3.2.0" },
     { name = "langchain-openai", specifier = ">=1.1.0" },
     { name = "langgraph", specifier = ">=1.0.0" },
     { name = "openai", specifier = ">=2.4.0" },
@@ -1477,11 +1542,10 @@ name = "chapter-5-section-5"
 version = "0.1.0"
 source = { virtual = "chapter_5/section_5" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
+    { name = "aws-bedrock-token-generator" },
     { name = "click" },
-    { name = "google-genai" },
     { name = "langchain-anthropic" },
-    { name = "langchain-google-genai" },
     { name = "langchain-openai" },
     { name = "langgraph" },
     { name = "openai" },
@@ -1500,11 +1564,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.74.1" },
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
+    { name = "aws-bedrock-token-generator", specifier = ">=1.1.0" },
     { name = "click", specifier = ">=8.3.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "langchain-anthropic", specifier = ">=1.2.0" },
-    { name = "langchain-google-genai", specifier = ">=3.2.0" },
     { name = "langchain-openai", specifier = ">=1.1.0" },
     { name = "langgraph", specifier = ">=1.0.0" },
     { name = "openai", specifier = ">=2.4.0" },
@@ -1526,11 +1589,10 @@ name = "chapter-5-section-6"
 version = "0.1.0"
 source = { virtual = "chapter_5/section_6" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
+    { name = "aws-bedrock-token-generator" },
     { name = "click" },
-    { name = "google-genai" },
     { name = "langchain-anthropic" },
-    { name = "langchain-google-genai" },
     { name = "langchain-openai" },
     { name = "langgraph" },
     { name = "openai" },
@@ -1548,11 +1610,10 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.74.1" },
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
+    { name = "aws-bedrock-token-generator", specifier = ">=1.1.0" },
     { name = "click", specifier = ">=8.3.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "langchain-anthropic", specifier = ">=1.2.0" },
-    { name = "langchain-google-genai", specifier = ">=3.2.0" },
     { name = "langchain-openai", specifier = ">=1.1.0" },
     { name = "langgraph", specifier = ">=1.0.0" },
     { name = "openai", specifier = ">=2.4.0" },
@@ -1573,8 +1634,9 @@ name = "chapter-6-section-1"
 version = "0.1.0"
 source = { virtual = "chapter_6/section_1" }
 dependencies = [
+    { name = "anthropic", extra = ["bedrock"] },
+    { name = "aws-bedrock-token-generator" },
     { name = "click" },
-    { name = "google-genai" },
     { name = "openai" },
     { name = "pydantic" },
     { name = "python-dotenv" },
@@ -1590,8 +1652,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
+    { name = "aws-bedrock-token-generator", specifier = ">=1.1.0" },
     { name = "click", specifier = ">=8.3.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "openai", specifier = ">=2.4.0" },
     { name = "pydantic", specifier = ">=2.12.2" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
@@ -1610,7 +1673,8 @@ name = "chapter-6-section-2"
 version = "0.1.0"
 source = { virtual = "chapter_6/section_2" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
+    { name = "aws-bedrock-token-generator" },
     { name = "click" },
     { name = "google-genai" },
     { name = "openai" },
@@ -1623,7 +1687,8 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.74.1" },
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
+    { name = "aws-bedrock-token-generator", specifier = ">=1.1.0" },
     { name = "click", specifier = ">=8.3.0" },
     { name = "google-genai", specifier = ">=1.45.0" },
     { name = "openai", specifier = ">=2.4.0" },
@@ -1639,7 +1704,8 @@ name = "chapter-6-section-3"
 version = "0.1.0"
 source = { virtual = "chapter_6/section_3" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
+    { name = "aws-bedrock-token-generator" },
     { name = "click" },
     { name = "google-genai" },
     { name = "openai" },
@@ -1655,7 +1721,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.74.1" },
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
+    { name = "aws-bedrock-token-generator", specifier = ">=1.1.0" },
     { name = "click", specifier = ">=8.3.0" },
     { name = "google-genai", specifier = ">=1.45.0" },
     { name = "openai", specifier = ">=2.4.0" },
@@ -1674,9 +1741,8 @@ name = "chapter-6-section-4"
 version = "0.1.0"
 source = { virtual = "chapter_6/section_4" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
     { name = "click" },
-    { name = "google-genai" },
     { name = "openai" },
     { name = "pydantic" },
     { name = "python-dotenv" },
@@ -1691,9 +1757,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.74.1" },
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
     { name = "click", specifier = ">=8.3.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "openai", specifier = ">=2.4.0" },
     { name = "pydantic", specifier = ">=2.12.2" },
     { name = "python-dotenv", specifier = ">=1.1.1" },
@@ -1711,9 +1776,9 @@ name = "chapter-6-section-5"
 version = "0.1.0"
 source = { virtual = "chapter_6/section_5" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
     { name = "click" },
-    { name = "google-genai" },
+    { name = "numpy" },
     { name = "openai" },
     { name = "polars" },
     { name = "pydantic" },
@@ -1729,9 +1794,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.74.1" },
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
     { name = "click", specifier = ">=8.3.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
+    { name = "numpy", specifier = ">=2.2.5" },
     { name = "openai", specifier = ">=2.4.0" },
     { name = "polars", specifier = ">=1.36.1" },
     { name = "pydantic", specifier = ">=2.12.2" },
@@ -1750,9 +1815,9 @@ name = "chapter-6-section-6"
 version = "0.1.0"
 source = { virtual = "chapter_6/section_6" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
     { name = "click" },
-    { name = "google-genai" },
+    { name = "numpy" },
     { name = "openai" },
     { name = "polars" },
     { name = "pydantic" },
@@ -1768,9 +1833,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.74.1" },
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
     { name = "click", specifier = ">=8.3.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
+    { name = "numpy", specifier = ">=2.2.5" },
     { name = "openai", specifier = ">=2.4.0" },
     { name = "polars", specifier = ">=1.36.1" },
     { name = "pydantic", specifier = ">=2.12.2" },
@@ -1789,9 +1854,8 @@ name = "chapter-6-section-7"
 version = "0.1.0"
 source = { virtual = "chapter_6/section_7" }
 dependencies = [
-    { name = "anthropic" },
+    { name = "anthropic", extra = ["bedrock"] },
     { name = "click" },
-    { name = "google-genai" },
     { name = "openai" },
     { name = "polars" },
     { name = "pydantic" },
@@ -1807,9 +1871,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "anthropic", specifier = ">=0.74.1" },
+    { name = "anthropic", extras = ["bedrock"], specifier = ">=1.11.0" },
     { name = "click", specifier = ">=8.3.0" },
-    { name = "google-genai", specifier = ">=1.45.0" },
     { name = "openai", specifier = ">=2.4.0" },
     { name = "polars", specifier = ">=1.36.1" },
     { name = "pydantic", specifier = ">=2.12.2" },
@@ -2046,15 +2109,6 @@ wheels = [
 ]
 
 [[package]]
-name = "filetype"
-version = "1.2.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/bb/29/745f7d30d47fe0f251d3ad3dc2978a23141917661998763bebb6da007eb1/filetype-1.2.0.tar.gz", hash = "sha256:66b56cd6474bf41d8c54660347d37afcc3f7d1970648de365c102ef77548aadb", size = 998020, upload-time = "2022-11-02T17:34:04.141Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/18/79/1b8fa1bb3568781e84c9200f951c735f3f157429f44be0495da55894d620/filetype-1.2.0-py2.py3-none-any.whl", hash = "sha256:7ce71b6880181241cf7ac8697a2f1eb6a8bd9b429f7ad6d27b8db9ba5f1c2d25", size = 19970, upload-time = "2022-11-02T17:34:01.425Z" },
-]
-
-[[package]]
 name = "flatbuffers"
 version = "25.9.23"
 source = { registry = "https://pypi.org/simple" }
@@ -2170,44 +2224,6 @@ wheels = [
 ]
 
 [[package]]
-name = "google-ai-generativelanguage"
-version = "0.9.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "google-api-core", extra = ["grpc"] },
-    { name = "google-auth" },
-    { name = "grpcio" },
-    { name = "proto-plus" },
-    { name = "protobuf" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/ad/7e/67fdc46187541ead599e77f259d915f129c2f49568ebf5cadb322130712b/google_ai_generativelanguage-0.9.0.tar.gz", hash = "sha256:2524748f413917446febc8e0879dc0d4f026a064f89f17c42b81bea77ab76c84", size = 1481662, upload-time = "2025-10-20T14:56:23.123Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/5d/91/c2d39ad5d77813afadb0f0b8789d882d15c191710b6b6f7cb158376342ff/google_ai_generativelanguage-0.9.0-py3-none-any.whl", hash = "sha256:59f61e54cb341e602073098389876594c4d12e458617727558bb2628a86f3eb2", size = 1401288, upload-time = "2025-10-20T14:52:58.403Z" },
-]
-
-[[package]]
-name = "google-api-core"
-version = "2.26.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "google-auth" },
-    { name = "googleapis-common-protos" },
-    { name = "proto-plus" },
-    { name = "protobuf" },
-    { name = "requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/32/ea/e7b6ac3c7b557b728c2d0181010548cbbdd338e9002513420c5a354fa8df/google_api_core-2.26.0.tar.gz", hash = "sha256:e6e6d78bd6cf757f4aee41dcc85b07f485fbb069d5daa3afb126defba1e91a62", size = 166369, upload-time = "2025-10-08T21:37:38.39Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/77/ad/f73cf9fe9bd95918502b270e3ddb8764e4c900b3bbd7782b90c56fac14bb/google_api_core-2.26.0-py3-none-any.whl", hash = "sha256:2b204bd0da2c81f918e3582c48458e24c11771f987f6258e6e227212af78f3ed", size = 162505, upload-time = "2025-10-08T21:37:36.651Z" },
-]
-
-[package.optional-dependencies]
-grpc = [
-    { name = "grpcio" },
-    { name = "grpcio-status" },
-]
-
-[[package]]
 name = "google-auth"
 version = "2.41.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2284,20 +2300,6 @@ wheels = [
 ]
 
 [[package]]
-name = "grpcio-status"
-version = "1.76.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "googleapis-common-protos" },
-    { name = "grpcio" },
-    { name = "protobuf" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/3f/46/e9f19d5be65e8423f886813a2a9d0056ba94757b0c5007aa59aed1a961fa/grpcio_status-1.76.0.tar.gz", hash = "sha256:25fcbfec74c15d1a1cb5da3fab8ee9672852dc16a5a9eeb5baf7d7a9952943cd", size = 13679, upload-time = "2025-10-21T16:28:52.545Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/8c/cc/27ba60ad5a5f2067963e6a858743500df408eb5855e98be778eaef8c9b02/grpcio_status-1.76.0-py3-none-any.whl", hash = "sha256:380568794055a8efbbd8871162df92012e0228a5f6dffaf57f2a00c534103b18", size = 14425, upload-time = "2025-10-21T16:28:40.853Z" },
-]
-
-[[package]]
 name = "h11"
 version = "0.16.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2346,6 +2348,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/06/94/82699a10bca87a5556c9c59b5963f2d039dbd239f25bc2a63907a05a14cb/httpcore-1.0.9.tar.gz", hash = "sha256:6e34463af53fd2ab5d807f399a9b45ea31c3dfa2276f15a2c3f00afff6e176e8", size = 85484, upload-time = "2025-04-24T22:06:22.219Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7e/f5/f66802a942d491edb555dd61e3a9961140fd64c90bce1eafd741609d334d/httpcore-1.0.9-py3-none-any.whl", hash = "sha256:2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55", size = 78784, upload-time = "2025-04-24T22:06:20.566Z" },
+]
+
+[[package]]
+name = "httpcore2"
+version = "2.13.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "h11" },
+    { name = "truststore" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/cb/f3/1db7aa2bc2524062192bb0e0323969492d1883152a232fe36eea65f4e35c/httpcore2-2.13.1.tar.gz", hash = "sha256:e0aa977abe17e69a3b820a24542a6fa88702676d83880b8d194dcd18408e5103", size = 68071, upload-time = "2026-09-23T07:47:22.372Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/09/ba/a4568248771ce81957bfb7cc600264a40fbcda092391ee1c415c50be4bea/httpcore2-2.13.1-py3-none-any.whl", hash = "sha256:e1e05d4f25f7d7d496bfb96748f6f4b67657b03da069b3a68c36069f3db73d0a", size = 83423, upload-time = "2026-09-23T07:47:19.365Z" },
 ]
 
 [[package]]
@@ -2407,6 +2422,31 @@ wheels = [
 ]
 
 [[package]]
+name = "httpx2"
+version = "2.13.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "anyio", marker = "sys_platform != 'emscripten'" },
+    { name = "httpcore2", marker = "sys_platform != 'emscripten'" },
+    { name = "httpx2-jsfetch", marker = "sys_platform == 'emscripten'" },
+    { name = "idna" },
+    { name = "truststore", marker = "sys_platform != 'emscripten'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d5/44/474bef2a0e9d90f1715d32cb98b0738695ca17ba324095fb2497ed7fbd59/httpx2-2.13.1.tar.gz", hash = "sha256:e48744a19e3af5ee48313d0ce5fe941d5422fae5705ea922a4aabf94d7800dfa", size = 100405, upload-time = "2026-09-23T07:47:23.052Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d8/9c/6fe8931fd9f381042a9e4c7d5a7b4cbf7016b252bec0c99a49fce42c3326/httpx2-2.13.1-py3-none-any.whl", hash = "sha256:6dff50fabc270ee5fd25d845d0b078ed20564579744d6d962850975996d2f9a4", size = 95597, upload-time = "2026-09-23T07:47:20.995Z" },
+]
+
+[[package]]
+name = "httpx2-jsfetch"
+version = "1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/cd/c4/0e5636363151a2a1795e0a77617168b9ca438e1748ec05fc9b5687f93d64/httpx2_jsfetch-1.0.tar.gz", hash = "sha256:70a0e3eabfef7cce5ad9c629f7d01ca05e418f586646f4ddf14782e4c1454c60", size = 6872, upload-time = "2026-08-07T00:13:07.492Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9b/43/832f631d32e4f1211caa2ba368317739fe71f0b8530e4c9d15dc454bac2a/httpx2_jsfetch-1.0-py3-none-any.whl", hash = "sha256:cb916b707601e69a07721aabc8f3f6659be3a6893bc1ff5c6f9e02241df2da32", size = 6382, upload-time = "2026-08-07T00:13:06.567Z" },
+]
+
+[[package]]
 name = "huggingface-hub"
 version = "1.0.1"
 source = { registry = "https://pypi.org/simple" }
@@ -2441,11 +2481,11 @@ wheels = [
 
 [[package]]
 name = "idna"
-version = "3.11"
+version = "3.20"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/6f/6d/0703ccc57f3a7233505399edb88de3cbd678da106337b9fcde432b65ed60/idna-3.11.tar.gz", hash = "sha256:795dafcc9c04ed0c1fb032c2aa73654d8e8c5023a7df64a53f39190ada629902", size = 194582, upload-time = "2025-10-12T14:55:20.501Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f5/08/8eea9d4b8302028f3abb2c0813953f7aec26d33b7a8960ed760e65ff29fa/idna-3.20.tar.gz", hash = "sha256:a7db850025b95ded1eae8a46181a1a6c56c92c96f0e2b005d9ff8dc0210cab44", size = 216463, upload-time = "2026-09-17T14:11:04.752Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0e/61/66938bbb5fc52dbdf84594873d5b51fb1f7c7794e9c0f5bd885f30bc507b/idna-3.11-py3-none-any.whl", hash = "sha256:771a87f49d9defaf64091e6e6fe9c18d4833f140bd19464795bc32d966ca37ea", size = 71008, upload-time = "2025-10-12T14:55:18.883Z" },
+    { url = "https://files.pythonhosted.org/packages/58/a2/bb081bab032533a855d44de1d56f8e8426114ff1ba5d1f07a438a0a654f8/idna-3.20-py3-none-any.whl", hash = "sha256:ab7ae7122974553370f0bdb919e1a960b2cd1bc1ef0276416d896db81c14582c", size = 69583, upload-time = "2026-09-17T14:11:03.168Z" },
 ]
 
 [[package]]
@@ -2536,6 +2576,15 @@ wheels = [
 ]
 
 [[package]]
+name = "jmespath"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d3/59/322338183ecda247fb5d1763a6cbe46eff7222eaeebafd9fa65d4bf5cb11/jmespath-1.1.0.tar.gz", hash = "sha256:472c87d80f36026ae83c6ddd0f1d05d4e510134ed462851fd5f754c8c3cbb88d", size = 27377, upload-time = "2026-01-22T16:35:26.279Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/14/2f/967ba146e6d58cf6a652da73885f52fc68001525b4197effc174321d70b4/jmespath-1.1.0-py3-none-any.whl", hash = "sha256:a5663118de4908c91729bea0acadca56526eb2698e83de10cd116ae0f4e97c64", size = 20419, upload-time = "2026-01-22T16:35:24.919Z" },
+]
+
+[[package]]
 name = "jsonpatch"
 version = "1.33"
 source = { registry = "https://pypi.org/simple" }
@@ -2606,49 +2655,52 @@ wheels = [
 
 [[package]]
 name = "langchain-anthropic"
-version = "1.2.0"
+version = "1.7.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anthropic" },
     { name = "langchain-core" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/66/f2/717dcadf0c96960154594409b68bdd5953ab95439e0b65de13cdd5c08785/langchain_anthropic-1.2.0.tar.gz", hash = "sha256:3f3cfad8c519ead2deb21c30dc538b18f4c094704c7874784320cbed7a199453", size = 688803, upload-time = "2025-11-24T14:17:17.424Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/91/e6/45ead93ef6d9f244b502a6a32bf9a185b3da1cc7fa8003896a102dadac09/langchain_anthropic-1.7.5.tar.gz", hash = "sha256:6016f38e5c4bf12c16ecfa76abf133a978f459f4d2887b8e28435ae1ff00beb3", size = 764625, upload-time = "2026-09-29T15:22:07.106Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ae/f4/f684725bd375208130ff3e9878ff3e671d888eec89a834617f3d7bcc14c9/langchain_anthropic-1.2.0-py3-none-any.whl", hash = "sha256:f489df97833e12ca0360a098eb9d04e410752840416be87ab60b0a3e120a99fe", size = 49512, upload-time = "2025-11-24T14:17:16.048Z" },
+    { url = "https://files.pythonhosted.org/packages/eb/a8/c507f2c1859b584843983e98bc71e0066c16a77e6c181921c928e0fdbcf7/langchain_anthropic-1.7.5-py3-none-any.whl", hash = "sha256:b21ef0e0c2d6175235a5b7eef4f5f89057df92d42dbfab66920a05605ef7173a", size = 65239, upload-time = "2026-09-29T15:22:05.832Z" },
+]
+
+[[package]]
+name = "langchain-aws"
+version = "1.8.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "boto3" },
+    { name = "langchain-core" },
+    { name = "numpy" },
+    { name = "pydantic" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9a/f9/7fc564afa32bb452f383bb5cc0244530ad330ffcecef157a534512138c40/langchain_aws-1.8.0.tar.gz", hash = "sha256:fac880f42a6904c30bbc59971e25fd27b732ec0a114baf24b5dca1a39c6d401a", size = 784117, upload-time = "2026-09-30T17:56:22.113Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/82/d3/28a3cc7acf4ed7a7de840ccfb17eb5ee8400a392494938c34f488cebbdc4/langchain_aws-1.8.0-py3-none-any.whl", hash = "sha256:554e5367684339192b615e3bb597d3f318313cc1c53084d6ea6dfddbe143b16b", size = 244440, upload-time = "2026-09-30T17:56:20.589Z" },
 ]
 
 [[package]]
 name = "langchain-core"
-version = "1.1.0"
+version = "1.6.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "httpx" },
     { name = "jsonpatch" },
+    { name = "langchain-protocol" },
     { name = "langsmith" },
     { name = "packaging" },
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "tenacity" },
     { name = "typing-extensions" },
+    { name = "uuid-utils" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1e/17/67c1cc2ace919e2b02dd9d783154d7fb3f1495a4ef835d9cd163b7855ac2/langchain_core-1.1.0.tar.gz", hash = "sha256:2b76a82d427922c8bc51c08404af4fc2a29e9f161dfe2297cb05091e810201e7", size = 781995, upload-time = "2025-11-21T21:01:26.958Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/18/87/9e5d393bbcec068c51becc255a15aacfd8a14ac5826179751c1c320e5258/langchain_core-1.6.6.tar.gz", hash = "sha256:67616d984c085009be2c381c2efd330d32429a58aebab295b4f51b6573964511", size = 1007227, upload-time = "2026-09-29T14:52:54.598Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/71/1e/e129fc471a2d2a7b3804480a937b5ab9319cab9f4142624fcb115f925501/langchain_core-1.1.0-py3-none-any.whl", hash = "sha256:2c9f27dadc6d21ed4aa46506a37a56e6a7e2d2f9141922dc5c251ba921822ee6", size = 473752, upload-time = "2025-11-21T21:01:25.841Z" },
-]
-
-[[package]]
-name = "langchain-google-genai"
-version = "3.2.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "filetype" },
-    { name = "google-ai-generativelanguage" },
-    { name = "langchain-core" },
-    { name = "pydantic" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/ff/27/f3c8f47b7c194c42a7ea38e5b91b412c4bd45f97e702a96edad659312437/langchain_google_genai-3.2.0.tar.gz", hash = "sha256:1fa620ea9c655a37537e95438857c423e1a3599b5a665b8dd87064c76ee95b72", size = 242146, upload-time = "2025-11-24T14:33:11.205Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/83/9d/c79a367e3379cf6b7d0cc43d558a411a5097d55291f2ce2f573420adb523/langchain_google_genai-3.2.0-py3-none-any.whl", hash = "sha256:689fc159d4623a184678e24771f6d52373e983a8fc8d342e44352aaf28e9445d", size = 57604, upload-time = "2025-11-24T14:33:10.112Z" },
+    { url = "https://files.pythonhosted.org/packages/90/10/8c00b4dc094886314c907ec7ead258dfee28948cf44175976cc4fba9aba8/langchain_core-1.6.6-py3-none-any.whl", hash = "sha256:d9a71e312ab7443701238750e04a57aefc037c4f1ec82837c8a1609d9a14a9b1", size = 572080, upload-time = "2026-09-29T14:52:53.213Z" },
 ]
 
 [[package]]
@@ -2663,6 +2715,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/18/29/cc7a7d1c42d19c903efa3ef9c9f00042942d28a00da1af12be5b7035375d/langchain_openai-1.1.0.tar.gz", hash = "sha256:9a33280c2e8315d013d64e6b15e583be347beb0d0f281755c335ae504ad0c184", size = 1034339, upload-time = "2025-11-24T14:20:48.929Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/da/ff/82699ef76f36818d86571a0b086ce07af5503a63d7430fc49e7d6aeb5dc1/langchain_openai-1.1.0-py3-none-any.whl", hash = "sha256:243bb345d0260ea1326c2b6ac2237ec29f082ab457c59e9306bac349df4577e8", size = 84282, upload-time = "2025-11-24T14:20:47.717Z" },
+]
+
+[[package]]
+name = "langchain-protocol"
+version = "0.0.19"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/14/56/913599f2f9cec8524868929f12d72b2ede377a6056ca8a40a32bdadfa535/langchain_protocol-0.0.19.tar.gz", hash = "sha256:79d90a1425122ac87e8052e2ec054fbd09c3edbf341bdfb6397112a495c7bf8c", size = 6265, upload-time = "2026-08-26T21:12:00.703Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/80/c9/f6cbf357d48ccbd18bb394433b1fd7ad9be004eed9377ad08bb85777e5e6/langchain_protocol-0.0.19-py3-none-any.whl", hash = "sha256:4cdf879a492a35980fd859ae792d3c65458ccaae504e183c9a10d7eac1f0720f", size = 7327, upload-time = "2026-08-26T21:11:59.781Z" },
 ]
 
 [[package]]
@@ -3544,18 +3608,6 @@ wheels = [
 ]
 
 [[package]]
-name = "proto-plus"
-version = "1.26.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "protobuf" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/f4/ac/87285f15f7cce6d4a008f33f1757fb5a13611ea8914eb58c3d0d26243468/proto_plus-1.26.1.tar.gz", hash = "sha256:21a515a4c4c0088a773899e23c7bbade3d18f9c66c73edd4c7ee3816bc96a012", size = 56142, upload-time = "2025-03-10T15:54:38.843Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/4e/6d/280c4c2ce28b1593a19ad5239c8b826871fc6ec275c21afc8e1820108039/proto_plus-1.26.1-py3-none-any.whl", hash = "sha256:13285478c2dcf2abb829db158e1047e2f1e8d63a077d94263c2b88b043c75a66", size = 50163, upload-time = "2025-03-10T15:54:37.335Z" },
-]
-
-[[package]]
 name = "protobuf"
 version = "6.33.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4223,6 +4275,18 @@ wheels = [
 ]
 
 [[package]]
+name = "s3transfer"
+version = "0.19.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "botocore" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/76/43/35e4d8aa320bffe8287fe8f65f578fa2d2db0a64212f0e710dce58267854/s3transfer-0.19.2.tar.gz", hash = "sha256:ba0309fd86be3c27dbf78cdd813c13c5e1df16e5874b99d2535ebbdfb9892993", size = 165592, upload-time = "2026-07-22T19:30:44.432Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bc/e7/5c595c75e9f41a44f30e526eda465ea0b4eec93470e074e4a111b253f13a/s3transfer-0.19.2-py3-none-any.whl", hash = "sha256:d8168eccca828cbb2cd573675333f3bddd254313a9c42494b84c76b539e8ba25", size = 90216, upload-time = "2026-07-22T19:30:43.251Z" },
+]
+
+[[package]]
 name = "shellingham"
 version = "1.5.4"
 source = { registry = "https://pypi.org/simple" }
@@ -4438,6 +4502,15 @@ wheels = [
 ]
 
 [[package]]
+name = "truststore"
+version = "0.10.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/53/a3/1585216310e344e8102c22482f6060c7a6ea0322b63e026372e6dcefcfd6/truststore-0.10.4.tar.gz", hash = "sha256:9d91bd436463ad5e4ee4aba766628dd6cd7010cf3e2461756b3303710eebc301", size = 26169, upload-time = "2025-08-12T18:49:02.73Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/19/97/56608b2249fe206a67cd573bc93cd9896e1efb9e98bce9c163bcdc704b88/truststore-0.10.4-py3-none-any.whl", hash = "sha256:adaeaecf1cbb5f4de3b1959b42d41f6fab57b2b1666adb59e89cb0b53361d981", size = 18660, upload-time = "2025-08-12T18:49:01.46Z" },
+]
+
+[[package]]
 name = "typer"
 version = "0.20.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4502,6 +4575,58 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/aa/63/e53da845320b757bf29ef6a9062f5c669fe997973f966045cb019c3f4b66/urllib3-2.3.0.tar.gz", hash = "sha256:f8c5449b3cf0861679ce7e0503c7b44b5ec981bec0d1d3795a07f1ba96f0204d", size = 307268, upload-time = "2024-12-22T07:47:30.032Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c8/19/4ec628951a74043532ca2cf5d97b7b14863931476d117c471e8e2b1eb39f/urllib3-2.3.0-py3-none-any.whl", hash = "sha256:1cee9ad369867bfdbbb48b7dd50374c0967a0bb7710050facf0dd6911440e3df", size = 128369, upload-time = "2024-12-22T07:47:28.074Z" },
+]
+
+[[package]]
+name = "uuid-utils"
+version = "0.17.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4c/80/cf6934a2030a5f6763f604314c1105f851d90aa1fe344c2692c3b88a9d95/uuid_utils-0.17.1.tar.gz", hash = "sha256:10c51d54ecdf0617640e505eae6d2e6443d8e414d4f9d6e8d43949a450c56e6b", size = 43323, upload-time = "2026-09-08T11:29:35.42Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/03/0d/4c2263a05e95dc11a5c9fad78ab9ac5f76a1f5aaabb545a39c6d34d2a07b/uuid_utils-0.17.1-cp313-cp313-macosx_10_12_x86_64.macosx_11_0_arm64.macosx_10_12_universal2.whl", hash = "sha256:cd8043ac6d81b3f3f0dff22247866292c819e0d5e54a5a3ad2223f86f88dbd97", size = 556923, upload-time = "2026-09-08T11:28:26.974Z" },
+    { url = "https://files.pythonhosted.org/packages/9e/70/9f619e86af674b8055adb29e6ad95f1d2bdec02b9d7b654d01fb479ea9ac/uuid_utils-0.17.1-cp313-cp313-macosx_10_12_x86_64.whl", hash = "sha256:586a93993769873c389d38bd9a70c51e228e734e8f78742d959610509635b86b", size = 286572, upload-time = "2026-09-08T11:28:28.265Z" },
+    { url = "https://files.pythonhosted.org/packages/1e/d2/bf4c39c283a75a8893d060344b690d5ff13ddd7e65849a74a264bec9a4ee/uuid_utils-0.17.1-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:55e2cec52e2c78d94277d4c990badd3ce97f5746d05029e63d81fb2433bc9684", size = 321366, upload-time = "2026-09-08T11:28:29.464Z" },
+    { url = "https://files.pythonhosted.org/packages/d3/a3/4790fd4d6322aeb935e2222d193407902b2651dbb5eae7817f2f8eb2043e/uuid_utils-0.17.1-cp313-cp313-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:0721f05b4f10cc7d49d91be65524a3bc6e6a5d88be054cdca05dff487a022091", size = 329210, upload-time = "2026-09-08T11:28:30.738Z" },
+    { url = "https://files.pythonhosted.org/packages/66/f9/442d13050fb55c2e4cc81369df349d60f2da8dde84ffb7e330385c576bc3/uuid_utils-0.17.1-cp313-cp313-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:de996e58b77d3e6eeee1a209ce93f424a5f021aa8b2879df6d35eda601acc831", size = 441731, upload-time = "2026-09-08T11:28:31.966Z" },
+    { url = "https://files.pythonhosted.org/packages/63/96/deded55ce54c5e6a2b7dbb790ab9bf7b5be8c7e8cb22e2355108bd8723cd/uuid_utils-0.17.1-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:01d9209d6fed20226af0d29b95c5e253a1907b61f1a00153187ac5412f1df9b6", size = 323874, upload-time = "2026-09-08T11:28:33.249Z" },
+    { url = "https://files.pythonhosted.org/packages/0f/f8/4b9d64b57bf35e3e99a8e578ed1cbdcdf926816f36bf5e5b53d7ea4c65bb/uuid_utils-0.17.1-cp313-cp313-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:a4f6b05598d0d29e8851b7668786b7cf105c98887c7ca36dac94c61321d16cb1", size = 346026, upload-time = "2026-09-08T11:28:34.516Z" },
+    { url = "https://files.pythonhosted.org/packages/e8/da/8912e887f5eeeb8f44f50f1aac4c16852644b558b1b29846b14463f9b739/uuid_utils-0.17.1-cp313-cp313-musllinux_1_2_aarch64.whl", hash = "sha256:f9f9f6835ab3163818156022c627eda60c38c874b369642b249b483384021743", size = 500023, upload-time = "2026-09-08T11:28:35.906Z" },
+    { url = "https://files.pythonhosted.org/packages/73/0b/c15c3f5006c3f89818cbe796e73f9a1927867ec6b0c32e80cf30becefa67/uuid_utils-0.17.1-cp313-cp313-musllinux_1_2_armv7l.whl", hash = "sha256:33fa18507488c4dbde9a3969b6483183d934dbf7a7d46aba90bd5d664d4c81ea", size = 605833, upload-time = "2026-09-08T11:28:37.11Z" },
+    { url = "https://files.pythonhosted.org/packages/e3/db/1c64eedcc55f1ac01067c208bfe7fa17957521a73ab1701c04a866c33795/uuid_utils-0.17.1-cp313-cp313-musllinux_1_2_i686.whl", hash = "sha256:fa1a1c9a72ef9757176c069f7bd8014b7f4abf5f9930ec62b883dc864ba28092", size = 563310, upload-time = "2026-09-08T11:28:38.705Z" },
+    { url = "https://files.pythonhosted.org/packages/e3/ee/314fc4f908258714e92b0fc50bbf02cb49454db4857e9da42d40b8f3539b/uuid_utils-0.17.1-cp313-cp313-musllinux_1_2_x86_64.whl", hash = "sha256:cd347022f67f7fbbd6939181ab076cd17a1d856e09a160eb87e245e692cc5742", size = 528539, upload-time = "2026-09-08T11:28:40.271Z" },
+    { url = "https://files.pythonhosted.org/packages/2a/83/0e9e0bdd77bbf1fe5380267c14f197f8ac442ad5172000422f46f05953fa/uuid_utils-0.17.1-cp313-cp313-pyemscripten_2025_0_wasm32.whl", hash = "sha256:7e32ff7bd0fe4fdefce1d95f8f673a9b012286a7f40918ed1c08936d565aac4a", size = 98270, upload-time = "2026-09-08T11:28:41.575Z" },
+    { url = "https://files.pythonhosted.org/packages/14/af/d2546a514432bb970da5a6550c4587ec8096ea90a2d2ea29aa55a1c35521/uuid_utils-0.17.1-cp313-cp313-win32.whl", hash = "sha256:a0a276738fafcfd63e6a0af944ffb8fb86448fe4cedcf574dd7df1ca13259e22", size = 168846, upload-time = "2026-09-08T11:28:42.669Z" },
+    { url = "https://files.pythonhosted.org/packages/e4/84/46d45f14ebdf1ff4d9e6096dea5f31a706d7f71e99e48cde933b47a2e4db/uuid_utils-0.17.1-cp313-cp313-win_amd64.whl", hash = "sha256:1cf7a837c3467f69ba3ef32caa43b1c5f5a462b7d960bcc59083459aed2b4202", size = 175479, upload-time = "2026-09-08T11:28:43.876Z" },
+    { url = "https://files.pythonhosted.org/packages/58/42/558d83542ce270fdefe19a18e707e4fce58e64ed9d98658a2da78b9ac2b5/uuid_utils-0.17.1-cp313-cp313-win_arm64.whl", hash = "sha256:7a9537e7afe2cd8851e636789124bcc26ff1d671906c5e56f6e8f293fa477ec2", size = 173287, upload-time = "2026-09-08T11:28:45.133Z" },
+    { url = "https://files.pythonhosted.org/packages/3a/ea/c735de118ef5c4a6ada1846699e65b3adcac92044e79b83345f90c792fe5/uuid_utils-0.17.1-cp314-cp314-macosx_10_12_x86_64.macosx_11_0_arm64.macosx_10_12_universal2.whl", hash = "sha256:f974aa1097b0b8245d8f29550eaac3b431c891ba7c76cc4beaa6ec7bf8cd27b6", size = 561135, upload-time = "2026-09-08T11:28:46.387Z" },
+    { url = "https://files.pythonhosted.org/packages/38/eb/c16f89b3c48eecef422448b9bde07994762cf21daa3351f4c49eab705d54/uuid_utils-0.17.1-cp314-cp314-macosx_10_12_x86_64.whl", hash = "sha256:9700430eb701f18bd995787228c2202a15d9db335e8bf9c583df7eca5487d5ce", size = 289170, upload-time = "2026-09-08T11:28:47.735Z" },
+    { url = "https://files.pythonhosted.org/packages/9e/05/5aec1389045f9e16afc1b8cce6414faeed40d44b3095f74d641c33ea1434/uuid_utils-0.17.1-cp314-cp314-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:d030ce5d3cca0f2f55509035bcd33d39494c50dabb9d53dc0419ad212eb0fd7f", size = 323150, upload-time = "2026-09-08T11:28:49.064Z" },
+    { url = "https://files.pythonhosted.org/packages/d8/56/8ad1da1ac6781f792e6e92cdb65bd242c5f5269e7c77de67edd704db61de/uuid_utils-0.17.1-cp314-cp314-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:d365e0c916bd9a4b0b7f67f3305c6704c4ff44ff9da836faf455b8b5dce0399f", size = 331190, upload-time = "2026-09-08T11:28:50.478Z" },
+    { url = "https://files.pythonhosted.org/packages/cb/d7/49300453d84440d6b8f45c95d9fd249f7106f8283296c948842f6fa00fd3/uuid_utils-0.17.1-cp314-cp314-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:e9f5e23998625f6dc005a3a30238b4006424e366cb2966ec465e0287ae2534f0", size = 447676, upload-time = "2026-09-08T11:28:51.646Z" },
+    { url = "https://files.pythonhosted.org/packages/9f/8f/db9fe5180418846bbc3273831468cead13e1de4956c73071fd1a4bde6ac0/uuid_utils-0.17.1-cp314-cp314-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:71eabda671e055415ecfa8859364438a575eda84e6f43a513436977d9377b532", size = 325838, upload-time = "2026-09-08T11:28:53.008Z" },
+    { url = "https://files.pythonhosted.org/packages/f9/00/efcac8905b87ffd76323d8e46594a68a0bde2c24c8e71f44ab7d5622dde6/uuid_utils-0.17.1-cp314-cp314-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:ed6821646e37f49683b3e977f856421c08eb9d03418423ac1477e09d2fb5cf62", size = 349881, upload-time = "2026-09-08T11:28:54.479Z" },
+    { url = "https://files.pythonhosted.org/packages/7f/3e/37352e939a3995775a6034023bda646aeacf73f238a82e46f012d6a7eee6/uuid_utils-0.17.1-cp314-cp314-musllinux_1_2_aarch64.whl", hash = "sha256:d8abfd2ed04af7df7b586621b11449a061b4b899f8b073e972b7282c89ae8335", size = 502043, upload-time = "2026-09-08T11:28:55.705Z" },
+    { url = "https://files.pythonhosted.org/packages/f6/c2/9f7883a730cb0e0fce25487021590a1fd28d2840bf25022b33a81c800da9/uuid_utils-0.17.1-cp314-cp314-musllinux_1_2_armv7l.whl", hash = "sha256:8d31f5725c874a656fa1b7c8feb20b54b01ea70b200a9ff0568672ad3fc80b85", size = 607688, upload-time = "2026-09-08T11:28:57.026Z" },
+    { url = "https://files.pythonhosted.org/packages/0b/7f/6b121cfe00742f5884fb313321fddd23a17a2326a01a0e669810eaa36b2d/uuid_utils-0.17.1-cp314-cp314-musllinux_1_2_i686.whl", hash = "sha256:2ff6a84cf6a0a28e4a75c7b11f0d52464ddce4b7a0bfcf14c8de2e740299903d", size = 566366, upload-time = "2026-09-08T11:28:58.438Z" },
+    { url = "https://files.pythonhosted.org/packages/36/64/e706ba987142e212f5af6a034ed98f9a0ec2543e1fdbb3b29b034271578e/uuid_utils-0.17.1-cp314-cp314-musllinux_1_2_x86_64.whl", hash = "sha256:7970905d66e55f9a52d0e694d306501e8a9468aa99da73867cc1f8eba2817261", size = 531140, upload-time = "2026-09-08T11:28:59.937Z" },
+    { url = "https://files.pythonhosted.org/packages/5a/b2/7dfecd82aff24e02a6764ea88dbb7266a061bc7691d0180f01c6b1ea1efe/uuid_utils-0.17.1-cp314-cp314-pyemscripten_2026_0_wasm32.whl", hash = "sha256:b2735d128a3732e528229fc24295530caa75e79d5ea7fb0f8690ef3114d9b262", size = 100062, upload-time = "2026-09-08T11:29:01.323Z" },
+    { url = "https://files.pythonhosted.org/packages/2a/8d/4840ac42764185be3fb7f7ae990c3f4bcf0b941a54ad6807e65cc312e9f7/uuid_utils-0.17.1-cp314-cp314-win32.whl", hash = "sha256:cc9da3c0d8208b53c28658340827505af437bff7a52a55fdaa262ccd4c5a5d87", size = 171234, upload-time = "2026-09-08T11:29:02.688Z" },
+    { url = "https://files.pythonhosted.org/packages/90/c0/772c08a73cfc8810ff3144ed2e3701242568f83c7031b781d61bdcd74c29/uuid_utils-0.17.1-cp314-cp314-win_amd64.whl", hash = "sha256:eee4a1df744434e10a0d0a679c074e3128b58328b83c99144e363db320e801f4", size = 177462, upload-time = "2026-09-08T11:29:03.81Z" },
+    { url = "https://files.pythonhosted.org/packages/f8/e3/9e3eb231cffab2df2029c4b6d015dabb077366d1194a8a0f2d4522d581ee/uuid_utils-0.17.1-cp314-cp314-win_arm64.whl", hash = "sha256:c3955fc653dc78a93ecbd880bc97a0ef8010a9a748e6307f11ad005d45390ce5", size = 174745, upload-time = "2026-09-08T11:29:04.919Z" },
+    { url = "https://files.pythonhosted.org/packages/cd/3f/095e8eed10949c6ca1adde77d405268e88eeaf6e23a3968b29e549d0765e/uuid_utils-0.17.1-cp314-cp314t-macosx_10_12_x86_64.macosx_11_0_arm64.macosx_10_12_universal2.whl", hash = "sha256:0956a9422e132c8d4a3d808cc3d754fc8e81d34295a3a202b332c9dce064eda9", size = 562178, upload-time = "2026-09-08T11:29:06.231Z" },
+    { url = "https://files.pythonhosted.org/packages/bf/ad/5afb5a6fbedbce0bbd358855771c63ff233e7bad898eaaea9f9802fedef9/uuid_utils-0.17.1-cp314-cp314t-macosx_10_12_x86_64.whl", hash = "sha256:691a9c16db041a8d5c55d6414398b0fc97e33aad41ad3aef67a6f3c0661dcde1", size = 289997, upload-time = "2026-09-08T11:29:07.478Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/04/78edc758c4dbc84bd5ed8c40b6d7ee0dd879c6ff07320f347e371d84cffc/uuid_utils-0.17.1-cp314-cp314t-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:cf419a23bbeafed0fc8efb4ca5b3e0a8ea4ef4866de41c3393f888bfd5f60e15", size = 323144, upload-time = "2026-09-08T11:29:08.856Z" },
+    { url = "https://files.pythonhosted.org/packages/d8/c7/8f27ea2c1e244c0edbaac5dc2a5cbbf51e298e54674faef03132f4468a1a/uuid_utils-0.17.1-cp314-cp314t-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:617acaeb2586e87c9bd0c2e192e4f1d33caacaeb7f3e0cc75972bc38e703e099", size = 330592, upload-time = "2026-09-08T11:29:10.107Z" },
+    { url = "https://files.pythonhosted.org/packages/39/af/e7d7b372781627a6ea6ec2a2ee82f98e3fe7de7b6e4b050ae29a66fd64f8/uuid_utils-0.17.1-cp314-cp314t-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:b1fc79cd8a24bc6c553cd6f708f5ca08c4182914bdcc87192e1e468e9858add3", size = 446735, upload-time = "2026-09-08T11:29:11.334Z" },
+    { url = "https://files.pythonhosted.org/packages/33/11/a2ef25dc4a3dcae5ddf8a7c2debc0d10719a991e327e43913605fd3b9c90/uuid_utils-0.17.1-cp314-cp314t-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ce2f65e81429fcb145105a10c71bf2c71ac5cc9c8fc6c79ac3c13b9de091b2ef", size = 327402, upload-time = "2026-09-08T11:29:12.745Z" },
+    { url = "https://files.pythonhosted.org/packages/4e/4b/61153f07eb7282d71a6ee10e3c05636a7d43cec6784bc6ea79979084e727/uuid_utils-0.17.1-cp314-cp314t-manylinux_2_5_i686.manylinux1_i686.whl", hash = "sha256:e9ff97bf48606e5d817a01fdd4a4a8855b91382e384f524a960149da00adab5a", size = 348998, upload-time = "2026-09-08T11:29:13.976Z" },
+    { url = "https://files.pythonhosted.org/packages/e0/d2/b40991f80805d2cb3ace8c961752429e2e50d4ce0a3ed941c26a6250e3bd/uuid_utils-0.17.1-cp314-cp314t-musllinux_1_2_aarch64.whl", hash = "sha256:87d818e1fffc39476c7934544f54455ea04c6297fcd983598802e81c746338a0", size = 501745, upload-time = "2026-09-08T11:29:15.261Z" },
+    { url = "https://files.pythonhosted.org/packages/38/84/f65e1963964b2b6fb7aa687dc819e5a39207dd9ecc7961cef82124fd3cbd/uuid_utils-0.17.1-cp314-cp314t-musllinux_1_2_armv7l.whl", hash = "sha256:764e4505821c20f1a45a54e9da076e6a97e4e46947159490aea893dc6b8d77be", size = 607104, upload-time = "2026-09-08T11:29:16.586Z" },
+    { url = "https://files.pythonhosted.org/packages/84/3f/07c5ada40f360981ee069dbe6463a13dfa1de7eee73a6cb91f94d610821a/uuid_utils-0.17.1-cp314-cp314t-musllinux_1_2_i686.whl", hash = "sha256:cddf08ed611c2ad1c791d4133dba2c63db4d294b2111e1db687537943cac25ae", size = 566012, upload-time = "2026-09-08T11:29:18Z" },
+    { url = "https://files.pythonhosted.org/packages/52/6d/ede35c5e3e3787d2e9d5d3baddbc00f3f64e3f4522d53508757fbcfd6f47/uuid_utils-0.17.1-cp314-cp314t-musllinux_1_2_x86_64.whl", hash = "sha256:bcf40ae13cf31727b84f00b1a505f1d4d10199bfea946c3554ef327702d2acca", size = 532218, upload-time = "2026-09-08T11:29:19.477Z" },
+    { url = "https://files.pythonhosted.org/packages/97/a1/318e4bc7f04a505189233ec2409cce9e18cd5f52d06738a9e96f0eac3816/uuid_utils-0.17.1-cp314-cp314t-win32.whl", hash = "sha256:ce2fd8f8bc0026c0fc137cf5cce9de546ff9e0b4008be3eb21b5a06249eafec1", size = 171217, upload-time = "2026-09-08T11:29:20.984Z" },
+    { url = "https://files.pythonhosted.org/packages/06/79/11811f97922be44ca900fc89e26b4dae173bd03ffd03672da7b28b023b29/uuid_utils-0.17.1-cp314-cp314t-win_amd64.whl", hash = "sha256:3dd5706a9874799013e82ac567425c535a0a4a7779c8551154915a4ba2fcb1c4", size = 177754, upload-time = "2026-09-08T11:29:22.227Z" },
+    { url = "https://files.pythonhosted.org/packages/60/66/f56b2b497286f01ac2f6a1be8f825e871906d6aaf83dd4ad0cd7c8d54013/uuid_utils-0.17.1-cp314-cp314t-win_arm64.whl", hash = "sha256:a3cd9443d0a3b6f631e6352cb9d9c0a9b68d808d71250eb44e7b00265ec382f7", size = 174267, upload-time = "2026-09-08T11:29:23.447Z" },
 ]
 
 [[package]]

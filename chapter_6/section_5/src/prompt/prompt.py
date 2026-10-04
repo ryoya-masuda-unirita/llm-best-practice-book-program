@@ -1,10 +1,10 @@
 """
 Prompt definitions for the data analysis LLM application.
 
-This module defines the system prompt and tool declarations for Gemini function calling.
+This module defines the system prompt and tool declarations for Anthropic function calling.
 """
 
-from google.genai import types
+from anthropic.types import ToolParam
 
 SYSTEM_PROMPT = """You are an intelligent data analysis assistant for a school management system.
 You have access to student records, test scores, grade reports, and curriculum data.
@@ -70,7 +70,7 @@ For English requests, use these headings:
 - Always cite data sources with result_ids
 """
 
-# Tool declarations for Gemini function calling
+# Tool declarations for Anthropic function calling
 TOOL_DECLARATIONS = [
     {
         "name": "list_available_data",
@@ -266,9 +266,16 @@ TOOL_DECLARATIONS = [
 ]
 
 
-def get_tools() -> types.Tool:
-    """Get the Tool object for Gemini function calling."""
-    return types.Tool(function_declarations=TOOL_DECLARATIONS)
+def get_tools() -> list[ToolParam]:
+    """Get the tool definitions for Anthropic tool use."""
+    return [
+        {
+            "name": declaration["name"],
+            "description": declaration["description"],
+            "input_schema": declaration["parameters"],
+        }
+        for declaration in TOOL_DECLARATIONS
+    ]
 
 
 def get_system_prompt() -> str:

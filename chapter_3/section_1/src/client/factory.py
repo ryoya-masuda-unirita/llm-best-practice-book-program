@@ -1,8 +1,8 @@
 """Factory for creating LLM client adapters."""
 
-from src.client.adapters import AnthropicAdapter, GeminiAdapter, OpenAIAdapter
+from src.client.adapters import AnthropicAdapter, OpenAIAdapter  # , GeminiAdapter
 from src.client.base import LLMClient
-from src.client.model import AnthropicModel, GeminiModel, LLMProvider, OpenAIModel
+from src.client.model import AnthropicModel, LLMProvider, OpenAIModel  # , GeminiModel
 from src.logger import make_logger
 
 logger = make_logger(__name__)
@@ -13,14 +13,14 @@ class LLMClientFactory:
 
     PROVIDER_MODELS = {
         LLMProvider.OPENAI: OpenAIModel.list_str(),
-        LLMProvider.GEMINI: GeminiModel.list_str(),
+        # LLMProvider.GEMINI: GeminiModel.list_str(),
         LLMProvider.ANTHROPIC: AnthropicModel.list_str(),
     }
 
     @staticmethod
     def create_client(
         provider: LLMProvider,
-        model: OpenAIModel | GeminiModel | AnthropicModel,
+        model: OpenAIModel | AnthropicModel,
     ) -> LLMClient:
         provider_lower = provider.lower()
 
@@ -38,8 +38,8 @@ class LLMClientFactory:
 
         if provider_lower == LLMProvider.OPENAI:
             return OpenAIAdapter(model=model)
-        elif provider_lower == LLMProvider.GEMINI:
-            return GeminiAdapter(model=model)
+        # elif provider_lower == LLMProvider.GEMINI:
+        #     return GeminiAdapter(model=model)
         elif provider_lower == LLMProvider.ANTHROPIC:
             return AnthropicAdapter(model=model)
         else:

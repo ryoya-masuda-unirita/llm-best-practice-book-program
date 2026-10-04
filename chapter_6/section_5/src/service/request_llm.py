@@ -1,7 +1,7 @@
 """
 Service layer for LLM requests with function calling support.
 
-This module handles the interaction with Gemini API, including
+This module handles the interaction with Anthropic API, including
 function call execution and response processing.
 
 Implements the ID reference pattern from CLAUDE.md:
@@ -10,11 +10,11 @@ Implements the ID reference pattern from CLAUDE.md:
 - LLM can retrieve detailed data when needed via get_result_details
 """
 
+import json
 from dataclasses import dataclass, field
 
-from google.genai import types
-from google.genai.types import GenerateContentConfig
-from src.client import GeminiModel, google_genai_client
+from anthropic.types import MessageParam, ToolUseBlock
+from src.client import AnthropicModel, anthropic_client
 from src.logger import make_logger
 from src.prompt import get_system_prompt, get_tools
 from src.service.tools import TOOL_FUNCTIONS
@@ -82,7 +82,7 @@ def extract_context_safe_result(result: dict, session_cache: SessionResultCache)
 
 
 def execute_function_call(
-    function_call: types.FunctionCall,
+    function_call: ToolUseBlock,
     session_cache: SessionResultCache,
 ) -> dict:
     """
@@ -90,7 +90,7 @@ def execute_function_call(
     For other tools, caches detailed_data and returns summary only.
     """
     func_name = function_call.name
-    func_args = dict(function_call.args) if function_call.args else {}
+    func_args = dict(function_call.input) if function_call.input else {}
 
     logger.info(f"Executing function: {func_name} with args: {func_args}")
 
@@ -115,11 +115,11 @@ def execute_function_call(
 
 
 async def process_with_function_calling(
-    model: GeminiModel,
+    model: AnthropicModel,
     user_message: str,
-    conversation_history: list[types.Content] | None = None,
+    conversation_history: list[MessageParam] | None = None,
     session_cache: SessionResultCache | None = None,
-) -> tuple[str, list[types.Content], SessionResultCache]:
+) -> tuple[str, list[MessageParam], SessionResultCache]:
     """
     Process a user message with function calling support using the ID reference pattern.
     Full tool results are stored in session_cache; only summaries are passed to LLM context.
@@ -130,22 +130,16 @@ async def process_with_function_calling(
     if session_cache is None:
         session_cache = SessionResultCache()
 
-    user_content = types.Content(
-        role="user",
-        parts=[types.Part.from_text(text=user_message)],
-    )
-    conversation_history.append(user_content)
+    conversation_history.append({"role": "user", "content": user_message})
 
-    config = GenerateContentConfig(
-        system_instruction=get_system_prompt(),
-        tools=[get_tools()],
-    )
+    request_params = {
+        "model": model,
+        "max_tokens": 4096,
+        "system": get_system_prompt(),
+        "tools": get_tools(),
+    }
 
-    response = await google_genai_client.aio.models.generate_content(
-        model=model,
-        contents=conversation_history,
-        config=config,
-    )
+    response = await anthropic_client.messages.create(**request_params, messages=conversation_history)
 
     logger.info(f"Initial response: {response}")
 
@@ -157,51 +151,43 @@ async def process_with_function_calling(
     while iteration < max_iterations:
         iteration += 1
 
-        if not response.candidates or not response.candidates[0].content.parts:
+        if not response.content:
             break
 
-        parts = response.candidates[0].content.parts
-        function_calls = [p.function_call for p in parts if p.function_call]
+        function_calls = [block for block in response.content if block.type == "tool_use"]
 
-        for part in parts:
-            if part.text:
-                all_text_parts.append(part.text)
+        for block in response.content:
+            if block.type == "text" and block.text:
+                all_text_parts.append(block.text)
 
         if not function_calls:
             break
 
-        conversation_history.append(response.candidates[0].content)
+        conversation_history.append({"role": "assistant", "content": response.content})
 
         function_response_parts = []
         for fc in function_calls:
             result = execute_function_call(fc, session_cache)
             function_response_parts.append(
-                types.Part.from_function_response(
-                    name=fc.name,
-                    response={"result": result},
-                )
+                {
+                    "type": "tool_result",
+                    "tool_use_id": fc.id,
+                    "content": json.dumps({"result": result}, ensure_ascii=False, default=str),
+                }
             )
 
-        function_response_content = types.Content(
-            role="user",
-            parts=function_response_parts,
-        )
-        conversation_history.append(function_response_content)
+        conversation_history.append({"role": "user", "content": function_response_parts})
 
-        response = await google_genai_client.aio.models.generate_content(
-            model=model,
-            contents=conversation_history,
-            config=config,
-        )
+        response = await anthropic_client.messages.create(**request_params, messages=conversation_history)
 
         logger.info(f"Response after function execution: {response}")
 
-    if response.candidates and response.candidates[0].content.parts:
-        conversation_history.append(response.candidates[0].content)
+    if response.content:
+        conversation_history.append({"role": "assistant", "content": response.content})
 
-        for part in response.candidates[0].content.parts:
-            if part.text and part.text not in all_text_parts:
-                all_text_parts.append(part.text)
+        for block in response.content:
+            if block.type == "text" and block.text and block.text not in all_text_parts:
+                all_text_parts.append(block.text)
 
     final_text = "\n".join(all_text_parts) if all_text_parts else "No response generated."
 
@@ -209,11 +195,11 @@ async def process_with_function_calling(
 
 
 async def chat_with_data_analyst(
-    model: GeminiModel,
+    model: AnthropicModel,
     user_message: str,
-    conversation_history: list[types.Content] | None = None,
+    conversation_history: list[MessageParam] | None = None,
     session_cache: SessionResultCache | None = None,
-) -> tuple[str, list[types.Content]]:
+) -> tuple[str, list[MessageParam]]:
     """High-level interface for chatting with the data analysis assistant."""
     response, history, _ = await process_with_function_calling(model, user_message, conversation_history, session_cache)
     return response, history

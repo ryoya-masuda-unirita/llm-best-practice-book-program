@@ -3,7 +3,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from anthropic import Anthropic, AsyncAnthropic
+from anthropic import AnthropicBedrock, AsyncAnthropicBedrock
 from src.config import config
 
 
@@ -20,6 +20,18 @@ class MessagesWrapper:
         response = self._messages.create(*args, **kwargs)
         self._log_usage(
             method="messages.create",
+            args=args,
+            kwargs=kwargs,
+            response=response,
+            start_time=start_time,
+        )
+        return response
+
+    def parse(self, *args, **kwargs):
+        start_time = datetime.now()
+        response = self._messages.parse(*args, **kwargs)
+        self._log_usage(
+            method="messages.parse",
             args=args,
             kwargs=kwargs,
             response=response,
@@ -82,6 +94,7 @@ class MessagesWrapper:
                 "stream": kwargs.get("stream"),
                 "tools": kwargs.get("tools"),
                 "tool_choice": kwargs.get("tool_choice"),
+                "output_format": str(kwargs.get("output_format")) if kwargs.get("output_format") else None,
                 "parameters": {
                     k: v
                     for k, v in kwargs.items()
@@ -98,6 +111,7 @@ class MessagesWrapper:
                         "stream",
                         "tools",
                         "tool_choice",
+                        "output_format",
                     ]
                 },
             },
@@ -164,6 +178,18 @@ class AsyncMessagesWrapper:
         )
         return response
 
+    async def parse(self, *args, **kwargs):
+        start_time = datetime.now()
+        response = await self._messages.parse(*args, **kwargs)
+        self._log_usage(
+            method="messages.parse",
+            args=args,
+            kwargs=kwargs,
+            response=response,
+            start_time=start_time,
+        )
+        return response
+
     async def count_tokens(self, *args, **kwargs):
         start_time = datetime.now()
         response = await self._messages.count_tokens(*args, **kwargs)
@@ -219,6 +245,7 @@ class AsyncMessagesWrapper:
                 "stream": kwargs.get("stream"),
                 "tools": kwargs.get("tools"),
                 "tool_choice": kwargs.get("tool_choice"),
+                "output_format": str(kwargs.get("output_format")) if kwargs.get("output_format") else None,
                 "parameters": {
                     k: v
                     for k, v in kwargs.items()
@@ -235,6 +262,7 @@ class AsyncMessagesWrapper:
                         "stream",
                         "tools",
                         "tool_choice",
+                        "output_format",
                     ]
                 },
             },
@@ -511,51 +539,75 @@ class BetaWrapper:
         return getattr(self._beta, name)
 
 
-class AnthropicWrapperClient(Anthropic):
-    """Thin wrapper for Anthropic client with usage logging."""
+class AnthropicWrapperClient(AnthropicBedrock):
+    """Thin wrapper for Anthropic (Bedrock) client with usage logging."""
 
     def __init__(self, *args, log_dir: str = config.usage_log_directory, **kwargs):
-        super().__init__(*args, **kwargs)
         self._log_dir = log_dir
         self._messages_wrapper = None
         self._beta_wrapper = None
+        super().__init__(*args, **kwargs)
 
+    # The Bedrock client assigns `messages` / `beta` in its constructor,
+    # so the raw resources are kept by the setters and wrapped lazily by the getters.
     @property
     def messages(self):
         if self._messages_wrapper is None:
-            self._messages_wrapper = MessagesWrapper(super().messages, self._log_dir)
+            self._messages_wrapper = MessagesWrapper(self._raw_messages, self._log_dir)
         return self._messages_wrapper
+
+    @messages.setter
+    def messages(self, value):
+        self._raw_messages = value
+        self._messages_wrapper = None
 
     @property
     def beta(self):
         if self._beta_wrapper is None:
-            self._beta_wrapper = BetaWrapper(super().beta, self._log_dir, is_async=False)
+            self._beta_wrapper = BetaWrapper(self._raw_beta, self._log_dir, is_async=False)
         return self._beta_wrapper
+
+    @beta.setter
+    def beta(self, value):
+        self._raw_beta = value
+        self._beta_wrapper = None
 
     def __getattr__(self, name):
         return super().__getattribute__(name)
 
 
-class AsyncAnthropicWrapperClient(AsyncAnthropic):
-    """Thin wrapper for AsyncAnthropic client with usage logging."""
+class AsyncAnthropicWrapperClient(AsyncAnthropicBedrock):
+    """Thin wrapper for AsyncAnthropic (Bedrock) client with usage logging."""
 
     def __init__(self, *args, log_dir: str = config.usage_log_directory, **kwargs):
-        super().__init__(*args, **kwargs)
         self._log_dir = log_dir
         self._messages_wrapper = None
         self._beta_wrapper = None
+        super().__init__(*args, **kwargs)
 
+    # The Bedrock client assigns `messages` / `beta` in its constructor,
+    # so the raw resources are kept by the setters and wrapped lazily by the getters.
     @property
     def messages(self):
         if self._messages_wrapper is None:
-            self._messages_wrapper = AsyncMessagesWrapper(super().messages, self._log_dir)
+            self._messages_wrapper = AsyncMessagesWrapper(self._raw_messages, self._log_dir)
         return self._messages_wrapper
+
+    @messages.setter
+    def messages(self, value):
+        self._raw_messages = value
+        self._messages_wrapper = None
 
     @property
     def beta(self):
         if self._beta_wrapper is None:
-            self._beta_wrapper = BetaWrapper(super().beta, self._log_dir, is_async=True)
+            self._beta_wrapper = BetaWrapper(self._raw_beta, self._log_dir, is_async=True)
         return self._beta_wrapper
+
+    @beta.setter
+    def beta(self, value):
+        self._raw_beta = value
+        self._beta_wrapper = None
 
     def __getattr__(self, name):
         return super().__getattribute__(name)

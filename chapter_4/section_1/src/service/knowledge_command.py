@@ -32,12 +32,12 @@ def _generate_embedding_text(command: KnowledgeRegisterCommand) -> str:
 
 
 async def _store_in_chromadb_async(command: KnowledgeRegisterCommand, job_id: str) -> None:
-    """Store knowledge in ChromaDB with Gemini embeddings."""
+    """Store knowledge in ChromaDB with Anthropic embeddings."""
     try:
         collection = get_knowledge_collection()
         document_text = _generate_embedding_text(command)
 
-        logger.info(f"Generating Gemini embedding for job_id: {job_id}")
+        logger.info(f"Generating Anthropic embedding for job_id: {job_id}")
         embedding_vector = await get_embedding(document_text)
 
         metadata = {

@@ -22,7 +22,7 @@ from src.agent.toolbox import (
     WebSearchTool,
     WriteDraftTool,
 )
-from src.client.llm_client import GeminiModel
+from src.client.llm_client import AnthropicModel
 
 StrategyConfig = dict[str, str | int]
 ToolConfig = dict[str, str]
@@ -104,7 +104,7 @@ class AgentBuilder:
     def _create_strategy(self, config: StrategyConfig) -> Strategy:
         """Create strategy from config."""
         stype = config.get("type", "chain_of_thought")
-        model = str(config.get("model", GeminiModel.GEMINI_2_5_FLASH))
+        model = str(config.get("model", AnthropicModel.CLAUDE_HAIKU_4_5))
 
         if stype == "react":
             max_iter = config.get("max_iterations", 10)

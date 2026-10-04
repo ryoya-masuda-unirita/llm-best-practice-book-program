@@ -77,7 +77,7 @@ No API call; catches "someone reworded the prompt and dropped a field" instantly
 mock_parse = mocker.patch("src.service.llm_as_a_judge.openai_client.beta.chat.completions.parse")
 mock_parse.return_value = mock_result   # returns sample_judge_response fixture
 
-judge_response = await judge_with_openai(judge_request=judge_request, model=OpenAIModel.GPT_5_4_MINI)
+judge_response = await judge_with_openai(judge_request=judge_request, model=OpenAIModel.GPT_5_4)
 assert judge_response.is_passing(threshold=3.0)
 assert judge_response.overall_score >= 4.0
 ```
@@ -126,7 +126,7 @@ cp .envrc.example .envrc     # OPENAI_API_KEY / GEMINI_API_KEY / ANTHROPIC_API_K
 uv sync
 
 # Run the app (generation + judgment)
-uv run python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH
+uv run python -m src.main -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_HAIKU_4_5
 
 # Run the prompt unit tests (no API key needed except the skipped E2E class)
 uv run pytest tests/ -v
