@@ -76,8 +76,7 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-OPENAI_API_KEY=<your_openai_api_key_here>
-GEMINI_API_KEY=<your_gemini_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. **依存関係のインストール**

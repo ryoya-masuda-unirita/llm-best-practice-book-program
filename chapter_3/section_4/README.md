@@ -65,9 +65,9 @@
 ┌───────────────────▼───────────────────────────────┐
 │         External LLM APIs                         │
 │  - Google Gemini API                              │
-│    (gemini-2.5-pro, gemini-2.5-flash,            │
-│     gemini-2.5-flash-lite, gemini-3.5-flash,     │
-│     gemini-3.1-flash-lite)                        │
+│    (global.anthropic.claude-sonnet-4-6, global.anthropic.claude-haiku-4-5-20251001-v1:0,            │
+│     global.anthropic.claude-haiku-4-5-20251001-v1:0,     │
+│     global.anthropic.claude-haiku-4-5-20251001-v1:0)                        │
 └───────────────────────────────────────────────────┘
 ```
 
@@ -115,7 +115,7 @@ cp .env.example .env
 cp .envrc.example .envrc
 
 # .envファイルを編集してAPIキーを設定
-GEMINI_API_KEY=<your_gemini_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 > **注意**: Docker Composeは`.env`ファイルから環境変数を読み込みます。`.envrc`はdirenv用（ローカル開発の便利ツール）で、中身は`dotenv`コマンドのみです。`.env`ファイルにAPIキーを設定すれば、ローカル実行・Docker実行の両方で動作します。
@@ -200,7 +200,7 @@ curl http://localhost:8080/health
 curl -X POST http://localhost:8080/generate \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gemini-2.5-flash",
+    "model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
     "character_request": {
       "gender": "male",
       "age": 25,
@@ -209,7 +209,7 @@ curl -X POST http://localhost:8080/generate \
   }'
 ```
 
-利用可能なモデル: `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-3.5-flash`, `gemini-3.1-flash-lite`
+利用可能なモデル: `global.anthropic.claude-sonnet-4-6`, `global.anthropic.claude-haiku-4-5-20251001-v1:0`, `global.anthropic.claude-haiku-4-5-20251001-v1:0`, `global.anthropic.claude-haiku-4-5-20251001-v1:0`, `global.anthropic.claude-haiku-4-5-20251001-v1:0`
 
 **3. メトリクス確認**
 
@@ -240,7 +240,7 @@ FastAPIの自動生成ドキュメントを利用できます：
 $ curl -X POST http://localhost:8080/generate \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "gemini-2.5-flash",
+    "model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
     "character_request": {
       "gender": "male",
       "age": 25,
@@ -272,7 +272,7 @@ $ curl -X POST http://localhost:8080/generate \
     ]
   },
   "provider": "gemini",
-  "model": "gemini-2.5-flash",
+  "model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
   "processing_time_ms": 4471.30274772644,
   "_proxy_metadata": {
     "processing_time_ms": 4484.21311378479,

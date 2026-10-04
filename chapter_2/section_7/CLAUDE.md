@@ -131,11 +131,11 @@ cp .envrc.example .envrc     # OPENAI_API_KEY / GEMINI_API_KEY / ANTHROPIC_API_K
 uv sync
 
 # Canonical example (generate + judge with Gemini)
-uv run python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH
+uv run python -m src.main -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_HAIKU_4_5
 
 # Cross-provider evaluation (recommended): generate with Gemini, judge with Anthropic
-uv run python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
-  -jp ANTHROPIC -jm CLAUDE_OPUS_4_7
+uv run python -m src.main -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 \
+  -jp ANTHROPIC -jm CLAUDE_SONNET_4_6
 ```
 
 ### CLI Options

@@ -53,7 +53,7 @@ chapter_2/section_6/
 ### 1. Async generator over the provider stream (`src/service/streaming_service.py`)
 
 ```python
-async def stream_openai_response(prompt: str, model: str = OpenAIModel.GPT_5_4_MINI) -> AsyncIterator[str]:
+async def stream_openai_response(prompt: str, model: str = OpenAIModel.GPT_5_4) -> AsyncIterator[str]:
     try:
         stream = await openai_client.chat.completions.create(
             model=model,
@@ -74,7 +74,7 @@ async def stream_openai_response(prompt: str, model: str = OpenAIModel.GPT_5_4_M
 @app.post("/stream")
 async def stream_response(request: StreamRequest):
     return StreamingResponse(
-        stream_openai_response(request.prompt, model=request.model or OpenAIModel.GPT_5_4_MINI),
+        stream_openai_response(request.prompt, model=request.model or OpenAIModel.GPT_5_4),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -131,7 +131,7 @@ uv run python example_client.py --prompt 'こんにちは' --mode completion  # 
 |--------|---------|-------------|
 | `--prompt` | — | User prompt (required) |
 | `--mode` | `stream` | `stream` (SSE) or `completion` (blocking) |
-| `--model` | server default (`GPT_5_4_MINI`) | Model override |
+| `--model` | server default (`GPT_5_4`) | Model override |
 
 ## Development Commands
 

@@ -8,11 +8,11 @@ to build flexible, testable, and maintainable LLM pipelines.
 from typing import Optional
 
 from pydantic import BaseModel
-from src.client.llm_client import GeminiModel, LLMProvider, OpenAIModel
+from src.client.llm_client import AnthropicModel, LLMProvider, OpenAIModel
 from src.logger import make_logger
 from src.workflow import (
+    AnthropicLLMClient,
     DIContainer,
-    GeminiLLMClient,
     ILLMClient,
     IPromptBuilder,
     IResponseParser,
@@ -33,9 +33,9 @@ logger = make_logger(__name__)
 def create_llm_client(llm_provider: LLMProvider) -> ILLMClient:
     """Create an LLM client based on the provider."""
     if llm_provider == LLMProvider.OPENAI:
-        return OpenAILLMClient(model=OpenAIModel.GPT_5_4_MINI)
-    elif llm_provider == LLMProvider.GEMINI:
-        return GeminiLLMClient(model=GeminiModel.GEMINI_2_5_FLASH)
+        return OpenAILLMClient(model=OpenAIModel.GPT_5_4)
+    elif llm_provider == LLMProvider.ANTHROPIC:
+        return AnthropicLLMClient(model=AnthropicModel.CLAUDE_HAIKU_4_5)
     else:
         raise ValueError(f"Unknown LLM provider: {llm_provider}")
 
@@ -276,9 +276,9 @@ async def example_5_structured_output(llm_provider: Optional[LLMProvider] = None
 
         llm_client: ILLMClient = MockStructuredClient()
     elif llm_provider == LLMProvider.OPENAI:
-        llm_client = OpenAILLMClient(model=OpenAIModel.GPT_5_4_MINI, response_format=Character)
-    elif llm_provider == LLMProvider.GEMINI:
-        llm_client = GeminiLLMClient(model=GeminiModel.GEMINI_2_5_FLASH, response_schema=Character)
+        llm_client = OpenAILLMClient(model=OpenAIModel.GPT_5_4, response_format=Character)
+    elif llm_provider == LLMProvider.ANTHROPIC:
+        llm_client = AnthropicLLMClient(model=AnthropicModel.CLAUDE_HAIKU_4_5, response_schema=Character)
     else:
         raise ValueError(f"Unknown LLM provider: {llm_provider}")
 

@@ -1,11 +1,11 @@
 from src.client.llm_client import (
-    GeminiModel,
+    AnthropicModel,
     LLMProvider,
-    google_genai_client,
+    anthropic_client,
 )
 
 __all__ = [
     "LLMProvider",
-    "google_genai_client",
-    "GeminiModel",
+    "anthropic_client",
+    "AnthropicModel",
 ]

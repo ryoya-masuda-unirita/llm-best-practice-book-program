@@ -5,10 +5,9 @@ from functools import wraps
 from uuid import uuid4
 
 import click
-from google.genai.types import File
-from src.client.llm_client import GeminiModel, LLMProvider, google_genai_client
+from src.client.llm_client import AnthropicModel, LLMProvider, anthropic_client
 from src.logger import make_logger
-from src.service import request_gemini
+from src.service import load_image, request_anthropic
 
 logger = make_logger(__name__)
 
@@ -25,7 +24,7 @@ def async_cmd(func):
 @click.option(
     "--model",
     "-m",
-    type=click.Choice(GeminiModel.list_str()),
+    type=click.Choice(AnthropicModel.list_str()),
     required=True,
     help="The model to use for the request.",
 )
@@ -55,15 +54,15 @@ Model: {model}
 Input image path: {image_path}
 Output directory: {output_directory}""")
 
-    if model not in GeminiModel.list_str():
+    if model not in AnthropicModel.list_str():
         raise ValueError(f"Invalid model '{model}'.")
 
     os.makedirs(output_directory, exist_ok=True)
 
-    gemini_path: File = await google_genai_client.aio.files.upload(file=image_path)
-    result = await request_gemini(model=model, gemini_path=gemini_path)
+    image = load_image(image_path)
+    result = await request_anthropic(model=model, image=image)
 
-    file_name = f"{LLMProvider.GEMINI.value}_{uuid4().hex}.json"
+    file_name = f"{LLMProvider.ANTHROPIC.value}_{uuid4().hex}.json"
     file_path = os.path.join(output_directory, file_name)
 
     with open(file_path, "w", encoding="utf-8") as f:
@@ -71,7 +70,7 @@ Output directory: {output_directory}""")
 
     logger.info(f"""File saved to {file_path}""")
 
-    await google_genai_client.aio.aclose()
+    await anthropic_client.close()
 
 
 if __name__ == "__main__":

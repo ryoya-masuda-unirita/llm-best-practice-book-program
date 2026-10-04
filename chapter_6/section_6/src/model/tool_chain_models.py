@@ -113,7 +113,7 @@ class ToolChainResult(BaseModel):
 
 
 class KeyValuePair(BaseModel):
-    """A key-value pair for structured output (Gemini doesn't support additionalProperties)."""
+    """A key-value pair for structured output (Anthropic doesn't support additionalProperties)."""
 
     key: str = Field(..., description="The key/parameter name")
     value: str = Field(..., description="The value (as string, will be parsed appropriately)")
@@ -166,13 +166,14 @@ class ToolChainResponseSchema(BaseModel):
 
 def get_tool_chain_response_schema() -> dict[str, Any]:
     """
-    Get the JSON schema for ToolChainResponseSchema in Gemini-compatible format.
+    Get the JSON schema for ToolChainResponseSchema in Anthropic-compatible format.
 
-    Gemini API doesn't support 'additionalProperties' field, so we manually
-    construct the schema without it.
+    Anthropic structured outputs require 'additionalProperties: false' on every
+    object, so we manually construct the schema with it.
     """
     return {
         "type": "object",
+        "additionalProperties": False,
         "properties": {
             "chain_name": {
                 "type": "string",
@@ -187,6 +188,7 @@ def get_tool_chain_response_schema() -> dict[str, Any]:
                 "description": "Ordered list of tools to execute. Data flows between compatible tools. Can be empty if is_final_iteration is true.",
                 "items": {
                     "type": "object",
+                    "additionalProperties": False,
                     "properties": {
                         "tool_name": {
                             "type": "string",
@@ -197,6 +199,7 @@ def get_tool_chain_response_schema() -> dict[str, Any]:
                             "description": "Static arguments for this step as key-value pairs",
                             "items": {
                                 "type": "object",
+                                "additionalProperties": False,
                                 "properties": {
                                     "key": {"type": "string", "description": "The parameter name"},
                                     "value": {"type": "string", "description": "The value as string"},
@@ -209,6 +212,7 @@ def get_tool_chain_response_schema() -> dict[str, Any]:
                             "description": "Map output keys from previous step to input keys",
                             "items": {
                                 "type": "object",
+                                "additionalProperties": False,
                                 "properties": {
                                     "key": {"type": "string", "description": "The input key name"},
                                     "value": {"type": "string", "description": "The output key to map from"},
@@ -225,6 +229,7 @@ def get_tool_chain_response_schema() -> dict[str, Any]:
                 "description": "Initial input arguments for the first tool as key-value pairs",
                 "items": {
                     "type": "object",
+                    "additionalProperties": False,
                     "properties": {
                         "key": {"type": "string", "description": "The parameter name"},
                         "value": {"type": "string", "description": "The value as string"},

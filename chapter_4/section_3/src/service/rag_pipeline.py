@@ -1,6 +1,6 @@
 """RAG pipeline orchestrator that chains all components."""
 
-from src.client.llm_client import GeminiEmbeddingModel, GeminiModel
+from src.client.llm_client import AnthropicModel, BedrockEmbeddingModel
 from src.logger import make_logger
 from src.model.rag_model import RAGAnswer
 from src.strategy.chunker import SemanticChunker
@@ -18,9 +18,9 @@ class RAGPipeline:
     def __init__(
         self,
         data_directory: str,
-        chunker_model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH,
-        embedding_model: GeminiEmbeddingModel = GeminiEmbeddingModel.GEMINI_EMBEDDING_001,
-        generator_model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH,
+        chunker_model: AnthropicModel = AnthropicModel.CLAUDE_HAIKU_4_5,
+        embedding_model: BedrockEmbeddingModel = BedrockEmbeddingModel.TITAN_EMBED_TEXT_V2,
+        generator_model: AnthropicModel = AnthropicModel.CLAUDE_HAIKU_4_5,
         top_k: int = 5,
     ):
         self.data_directory = data_directory

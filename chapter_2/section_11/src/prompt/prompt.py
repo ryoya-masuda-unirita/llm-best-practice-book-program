@@ -83,39 +83,39 @@ def make_anthropic_outfit_prompt(weather_data: str) -> list:
     ]
 
 
-def make_gemini_outfit_prompt(latitude: float, longitude: float) -> tuple[str, str]:
-    """天気予報に基づいた服装提案用のプロンプトを作成（Gemini用、ネイティブMCPツール呼び出し）"""
-    system_instruction = f"""あなたは気象データを分析して、適切な服装を提案する親切なファッションアドバイザーです。
-利用可能な天気予報ツールを使用して、指定された場所の天気を取得し、それに基づいて服装を提案してください。
-
-{TEMPERATURE_GUIDELINES}"""
-
-    user_prompt = f"""緯度{latitude}、経度{longitude}の地点の天気予報を取得して、
-今日外出する際の最適な服装を提案してください。
-
-以下の構造のJSONで回答してください：
-{{
-  "location": "場所の説明",
-  "weather_summary": "今日の天気の概要",
-  "current_weather": {{
-    "period_name": "予報期間の名前",
-    "temperature": 気温（数値）,
-    "temperature_unit": "F",
-    "wind_speed": "風速",
-    "wind_direction": "風向き",
-    "forecast_summary": "天気予報の要約"
-  }},
-  "outfit_recommendations": [
-    {{
-      "clothing_type": "服装の種類",
-      "item_suggestion": "具体的なアイテムの提案",
-      "reason": "その服装を提案する理由"
-    }}
-  ],
-  "additional_advice": "その他のアドバイス"
-}}
-
-気温、風速、天気の状況を総合的に考慮して、日本の気候と文化に適した提案をしてください。
-outfit_recommendationsには最低3つのアイテムを含めてください。"""
-
-    return system_instruction, user_prompt
+# def make_gemini_outfit_prompt(latitude: float, longitude: float) -> tuple[str, str]:
+#     """天気予報に基づいた服装提案用のプロンプトを作成（Gemini用、ネイティブMCPツール呼び出し）"""
+#     system_instruction = f"""あなたは気象データを分析して、適切な服装を提案する親切なファッションアドバイザーです。
+# 利用可能な天気予報ツールを使用して、指定された場所の天気を取得し、それに基づいて服装を提案してください。
+#
+# {TEMPERATURE_GUIDELINES}"""
+#
+#     user_prompt = f"""緯度{latitude}、経度{longitude}の地点の天気予報を取得して、
+# 今日外出する際の最適な服装を提案してください。
+#
+# 以下の構造のJSONで回答してください：
+# {{
+#   "location": "場所の説明",
+#   "weather_summary": "今日の天気の概要",
+#   "current_weather": {{
+#     "period_name": "予報期間の名前",
+#     "temperature": 気温（数値）,
+#     "temperature_unit": "F",
+#     "wind_speed": "風速",
+#     "wind_direction": "風向き",
+#     "forecast_summary": "天気予報の要約"
+#   }},
+#   "outfit_recommendations": [
+#     {{
+#       "clothing_type": "服装の種類",
+#       "item_suggestion": "具体的なアイテムの提案",
+#       "reason": "その服装を提案する理由"
+#     }}
+#   ],
+#   "additional_advice": "その他のアドバイス"
+# }}
+#
+# 気温、風速、天気の状況を総合的に考慮して、日本の気候と文化に適した提案をしてください。
+# outfit_recommendationsには最低3つのアイテムを含めてください。"""
+#
+#     return system_instruction, user_prompt

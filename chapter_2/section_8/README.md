@@ -77,7 +77,7 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-OPENAI_API_KEY=<your_openai_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. **依存関係のインストール**
@@ -103,7 +103,7 @@ uv run python -m src.main --model GPT_5_4 -od ./outputs
 uv run python -m src.main -m GPT_5_4 -t templates/character_generation.yaml -v variables/character_artist.yaml -od ./outputs
 
 # メールテンプレートを使用
-uv run python -m src.main -m GPT_5_4_MINI -t templates/email_formal.yaml -v variables/email_campaign_summer.yaml -od ./outputs
+uv run python -m src.main -m GPT_5_4 -t templates/email_formal.yaml -v variables/email_campaign_summer.yaml -od ./outputs
 ```
 
 #### ヘルプの表示
@@ -113,7 +113,7 @@ $ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
 Options:
-  -m, --model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO]
+  -m, --model [GPT_5_5|GPT_5_4]
                                   The OpenAI model to use for the request.
                                   [required]
   -od, --output-directory PATH    The directory to save output files.
@@ -159,7 +159,7 @@ Options:
 ```bash
 $ uv run python -m src.main -m GPT_5_4 -t templates/character_generation.yaml -v variables/character_artist.yaml -od ./outputs
 
-[2026-01-17 17:10:08,129] [INFO] [__main__] [main.py:85] [main] Model: gpt-5.4, Template: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_8/templates/character_generation.yaml, Variables: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_8/variables/character_artist.yaml
+[2026-01-17 17:10:08,129] [INFO] [__main__] [main.py:85] [main] Model: openai.gpt-5.4, Template: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_8/templates/character_generation.yaml, Variables: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_8/variables/character_artist.yaml
 [2026-01-17 17:10:08,131] [INFO] [src.service.request_llm] [request_llm.py:101] [render_prompt_from_template] Using template: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_2/section_8/templates/character_generation.yaml
 [2026-01-17 17:10:08,131] [INFO] [src.service.request_llm] [request_llm.py:102] [render_prompt_from_template] Variables: gender=female, age=28
 [2026-01-17 17:10:12,431] [INFO] [__main__] [main.py:104] [main] File saved to ./outputs/openai_26bb704587604494be1bdd3b2983c246.json

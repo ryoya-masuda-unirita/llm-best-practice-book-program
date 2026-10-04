@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from anthropic import AsyncAnthropic
+from anthropic import AsyncAnthropicBedrock
 from src.client.llm_client import AnthropicModel
 from src.model.model import CharacterResponse, ClassificationResult, UserPlan
 
@@ -14,7 +14,7 @@ def get_available_models(user_plan: UserPlan) -> list[str]:
 class ITextGenerationService(ABC):
     """Interface for text generation services."""
 
-    def __init__(self, client: AsyncAnthropic):
+    def __init__(self, client: AsyncAnthropicBedrock):
         self.client = client
 
     @abstractmethod
@@ -33,7 +33,7 @@ class ITextGenerationService(ABC):
 class ITextClassificationService(ABC):
     """Interface for text classification services."""
 
-    def __init__(self, client: AsyncAnthropic):
+    def __init__(self, client: AsyncAnthropicBedrock):
         self.client = client
 
     @abstractmethod

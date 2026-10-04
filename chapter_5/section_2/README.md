@@ -131,7 +131,7 @@ class AmendmentProposal(BaseModel):
 - **主要依存ライブラリ**:
   - `langchain-google-genai>=3.2.0` - LangChain Google Gemini統合
   - `langgraph>=1.0.0` - マルチエージェントグラフオーケストレーション
-  - `anthropic>=0.74.1` - Anthropic APIクライアント
+  - `anthropic[bedrock]>=1.11.0` - Anthropic APIクライアント
   - `pydantic>=2.12.2` - データバリデーション・モデル
   - `click>=8.3.0` - CLIフレームワーク
   - `python-dotenv>=1.1.1` - 環境変数管理
@@ -143,7 +143,7 @@ class AmendmentProposal(BaseModel):
 cp .envrc.example .envrc
 
 # .envrcを編集してAPIキーを設定
-GEMINI_API_KEY=<your_gemini_api_key_here>
+AWS_REGION=us-east-1
 
 # 依存関係をインストール
 uv sync
@@ -162,7 +162,7 @@ uv run python -m src.main \
 
 # モデル選択とカスタム出力ディレクトリ
 uv run python -m src.main \
-  -m GEMINI_2_5_FLASH \
+  -m CLAUDE_HAIKU_4_5 \
   -c example/sample_consulting_02.md \
   -t example/standard_consulting_template.md \
   -od reports
@@ -189,11 +189,11 @@ Usage: python -m src.main [OPTIONS]
       python -m src.main -c example/sample_nda.md -t
       example/standard_nda_template.md
 
-      python -m src.main -m claude-sonnet-4-6 -c contract.md -t template.md
+      python -m src.main -m global.anthropic.claude-sonnet-4-6 -c contract.md -t template.md
       -od reports
 
 Options:
-  -m, --model [GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
+  -m, --model [CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5]
                                   The Google Gemini model to use for the
                                   review.
   -od, --output-directory PATH    The directory to save output files.
@@ -208,25 +208,25 @@ Options:
 |-----------|-------|------|-----------|------|
 | `--contract-file` | `-c` | Yes | - | 契約書ファイルパス（Markdown形式） |
 | `--template-file` | `-t` | Yes | - | 標準テンプレートファイルパス |
-| `--model` | `-m` | No | `GEMINI_2_5_FLASH` | 使用モデル（GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE） |
+| `--model` | `-m` | No | `CLAUDE_HAIKU_4_5` | 使用モデル（CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5） |
 | `--output-directory` | `-od` | No | `outputs` | 出力ディレクトリ |
 
 ### 出力例
 
 ```bash
 $ uv run python -m src.main \
-  -m GEMINI_2_5_FLASH \
+  -m CLAUDE_HAIKU_4_5 \
   -c example/sample_consulting_02.md \
   -t example/standard_consulting_template.md \
   -od reports
 [2026-02-07 09:06:46,741] [INFO] [__main__] [main.py:78] [main] Contract Review Multi-Agent System
-Model: gemini-2.5-flash
+Model: global.anthropic.claude-haiku-4-5-20251001-v1:0
 Contract file: example/sample_consulting_02.md
 Template file: example/standard_consulting_template.md
 Output directory: reports
 
 [2026-02-07 09:06:46,745] [INFO] [src.service.multi_agent_service] [multi_agent_service.py:632] [run_contract_review] Starting contract review multi-agent system
-[2026-02-07 09:06:46,745] [INFO] [src.service.multi_agent_service] [multi_agent_service.py:633] [run_contract_review] Using model: gemini-2.5-flash
+[2026-02-07 09:06:46,745] [INFO] [src.service.multi_agent_service] [multi_agent_service.py:633] [run_contract_review] Using model: global.anthropic.claude-haiku-4-5-20251001-v1:0
 [2026-02-07 09:06:46,745] [INFO] [src.service.multi_agent_service] [multi_agent_service.py:586] [create_contract_review_graph] Creating orchestrator-worker contract review graph...
 [2026-02-07 09:06:46,746] [INFO] [src.service.multi_agent_service] [multi_agent_service.py:617] [create_contract_review_graph] Orchestrator-worker graph created successfully
 [2026-02-07 09:06:46,753] [INFO] [src.service.multi_agent_service] [multi_agent_service.py:288] [orchestrator_node] Orchestrator Agent: Planning contract review workflow...

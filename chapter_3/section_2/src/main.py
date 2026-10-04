@@ -6,12 +6,12 @@ from uuid import uuid4
 
 import click
 from src.client.llm_client import (
-    GeminiModel,
+    AnthropicModel,
     LLMProvider,
     OpenAIModel,
-    get_gemini_embedding,
+    anthropic_client,
+    get_anthropic_embedding,
     get_openai_embedding,
-    google_genai_client,
 )
 from src.client.llm_request_wrapper import LLMRequestWrapper
 from src.config import config
@@ -61,14 +61,14 @@ def async_cmd(func):
     "--llm-provider",
     "-lp",
     type=click.Choice(LLMProvider),
-    default=LLMProvider.GEMINI,
+    default=LLMProvider.ANTHROPIC,
     help="The LLM provider to use.",
     required=True,
 )
 @click.option(
     "--model",
     "-m",
-    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str()),
+    type=click.Choice(OpenAIModel.list_str() + AnthropicModel.list_str()),
     required=True,
     help="The model to use for the request.",
 )
@@ -83,7 +83,7 @@ def async_cmd(func):
 @click.option(
     "--alternative-model",
     "-am",
-    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str()),
+    type=click.Choice(OpenAIModel.list_str() + AnthropicModel.list_str()),
     required=True,
     help="The alternative model to use for fallback requests.",
 )
@@ -150,8 +150,8 @@ Fallback enabled: {not disable_fallback}""")
     if fallback_strategy == FallbackStrategy.SEMANTIC_CACHE:
         if llm_provider == LLMProvider.OPENAI:
             embedding_func = get_openai_embedding
-        else:  # GEMINI
-            embedding_func = get_gemini_embedding
+        else:  # ANTHROPIC
+            embedding_func = get_anthropic_embedding
 
         semantic_cache_manager = SemanticCacheManager(
             cache_dir=".semantic_cache",
@@ -179,24 +179,24 @@ Fallback enabled: {not disable_fallback}""")
     if llm_provider == LLMProvider.OPENAI:
         if model not in OpenAIModel.list_str():
             raise ValueError(f"Model {model} is not a valid OpenAI model.")
-        if alternative_model not in GeminiModel.list_str():
-            raise ValueError(f"Alternative model {alternative_model} is not a valid Gemini model.")
+        if alternative_model not in AnthropicModel.list_str():
+            raise ValueError(f"Alternative model {alternative_model} is not a valid Anthropic model.")
 
         result, strategy, error_reason = await wrapper.request_openai(
             prompt=prompt,
             model=OpenAIModel(model),
-            alternative_model=GeminiModel(alternative_model),
+            alternative_model=AnthropicModel(alternative_model),
             with_fallback=not disable_fallback,
         )
-    elif llm_provider == LLMProvider.GEMINI:
-        if model not in GeminiModel.list_str():
-            raise ValueError(f"Model {model} is not a valid Gemini model.")
+    elif llm_provider == LLMProvider.ANTHROPIC:
+        if model not in AnthropicModel.list_str():
+            raise ValueError(f"Model {model} is not a valid Anthropic model.")
         if alternative_model not in OpenAIModel.list_str():
             raise ValueError(f"Alternative model {alternative_model} is not a valid OpenAI model.")
 
-        result, strategy, error_reason = await wrapper.request_gemini(
+        result, strategy, error_reason = await wrapper.request_anthropic(
             prompt=prompt,
-            model=GeminiModel(model),
+            model=AnthropicModel(model),
             alternative_model=OpenAIModel(alternative_model),
             with_fallback=not disable_fallback,
         )
@@ -215,7 +215,7 @@ Fallback enabled: {not disable_fallback}""")
 
     fallback_coordinator.log_stats()
 
-    await google_genai_client.aio.aclose()
+    await anthropic_client.close()
 
 
 if __name__ == "__main__":

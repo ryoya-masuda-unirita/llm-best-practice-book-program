@@ -1,3 +1,7 @@
-OPENAI_API_KEY=<your_openai_api_key_here>
-BASIC_PREDICTION_MODEL=gpt-5.4
-HIGH_PREDICTION_MODEL=gpt-5.4
+# Bedrockを使うリージョン（OpenAIのGPTモデルは us-east-1 などに限られる）
+AWS_REGION=us-east-1
+# AWSの認証情報は ~/.aws/credentials か環境変数（AWS_ACCESS_KEY_ID など）から読み込まれる
+# BedrockのAPIキーを使う場合のみ設定する（未設定ならAWSの認証情報から短期キーを自動生成する）
+# AWS_BEARER_TOKEN_BEDROCK=<your_bedrock_api_key_here>
+BASIC_PREDICTION_MODEL=openai.gpt-5.4
+HIGH_PREDICTION_MODEL=openai.gpt-5.4

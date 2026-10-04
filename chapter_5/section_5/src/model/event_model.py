@@ -76,7 +76,7 @@ class ContractReviewRequestedEvent(BaseEvent):
     """Event published to trigger contract review pipeline."""
 
     contract_file_path: str = ""
-    model: str = "gpt-5.4-mini"
+    model: str = "openai.gpt-5.4"
     output_directory: str = "outputs"
     event_type: EventType = field(default=EventType.CONTRACT_REVIEW_REQUESTED)
 

@@ -144,7 +144,7 @@ cp .envrc.example .envrc     # set OPENAI_API_KEY (optionally BASIC_PREDICTION_M
 uv sync
 
 # Canonical example
-uv run python -m src.main -m GPT_5_4_MINI -e example_1_simple_user_model
+uv run python -m src.main -m GPT_5_4 -e example_1_simple_user_model
 
 # Ambiguous-prompt examples that escalate to high reasoning
 uv run python -m src.main -m GPT_5_4 -e example_6_high_reasoning
@@ -154,7 +154,7 @@ uv run python -m src.main -m GPT_5_4 -e example_6_high_reasoning
 
 | Option | Short | Required | Default | Description |
 |--------|-------|----------|---------|-------------|
-| `--model` | `-m` | Yes | — | OpenAI model enum name (e.g. `GPT_5_4_MINI`) |
+| `--model` | `-m` | Yes | — | OpenAI model enum name (e.g. `GPT_5_4`) |
 | `--example` | `-e` | No | — | Example to run (17 available: 5 basic / 6 advanced / 6 high-reasoning) |
 | `--output-directory` | `-od` | No | `outputs` | Directory for extracted JSON files |
 

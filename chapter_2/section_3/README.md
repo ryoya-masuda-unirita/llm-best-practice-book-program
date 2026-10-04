@@ -84,7 +84,7 @@
 cp .envrc.example .envrc
 
 # .envrc を編集してAPIキーを設定
-GEMINI_API_KEY=<your_gemini_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. 依存関係のインストール:
@@ -101,7 +101,7 @@ $ uv run python -m src.main --help
 Usage: python -m src.main [OPTIONS]
 
 Options:
-  -m, --model [GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
+  -m, --model [CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5]
                                   The model to use for the request.
                                   [required]
   -i, --image-path PATH           The path to the input image file.
@@ -114,19 +114,19 @@ Options:
 
 | オプション | 短縮形 | 必須 | 説明 |
 |-----------|-------|------|------|
-| `--model` | `-m` | Yes | 使用するGeminiモデル（GEMINI_2_5_PRO, GEMINI_2_5_FLASH, GEMINI_2_5_FLASH_LITE） |
+| `--model` | `-m` | Yes | 使用するGeminiモデル（CLAUDE_SONNET_4_6, CLAUDE_HAIKU_4_5） |
 | `--image-path` | `-i` | Yes | 入力画像ファイルのパス |
 | `--output-directory` | `-od` | No | 出力ディレクトリ（デフォルト: `outputs`） |
 
 ```bash
 # 請求書画像の処理
-uv run python -m src.main -m GEMINI_2_5_FLASH -i data/002_請求書_47491048.png
+uv run python -m src.main -m CLAUDE_HAIKU_4_5 -i data/002_請求書_47491048.png
 
 # スライド画像の処理
-uv run python -m src.main -m GEMINI_2_5_FLASH -i data/slide_0.png
+uv run python -m src.main -m CLAUDE_HAIKU_4_5 -i data/slide_0.png
 
 # 出力ディレクトリを指定
-uv run python -m src.main -m GEMINI_2_5_FLASH -i data/003_請求書_49016461.png -od outputs/
+uv run python -m src.main -m CLAUDE_HAIKU_4_5 -i data/003_請求書_49016461.png -od outputs/
 ```
 
 ### 出力例
@@ -314,13 +314,13 @@ uv run python -m src.main -m GEMINI_2_5_FLASH -i data/003_請求書_49016461.png
 ### 実行ログ
 
 ```bash
-$ uv run python -m src.main -m GEMINI_2_5_FLASH -i data/002_請求書_47491048.png
+$ uv run python -m src.main -m CLAUDE_HAIKU_4_5 -i data/002_請求書_47491048.png
 
 [2026-01-17 16:18:53,619] [INFO] [__main__] [main.py:53] [main] 
-Model: gemini-2.5-flash
+Model: global.anthropic.claude-haiku-4-5-20251001-v1:0
 Input image path: data/002_請求書_47491048.png
 Output directory: outputs
-[2026-01-17 16:18:57,044] [INFO] [src.service.request_llm] [request_llm.py:47] [request_gemini] Processing image with model: gemini-2.5-flash
+[2026-01-17 16:18:57,044] [INFO] [src.service.request_llm] [request_llm.py:47] [request_gemini] Processing image with model: global.anthropic.claude-haiku-4-5-20251001-v1:0
 [2026-01-17 16:19:04,033] [INFO] [src.service.request_llm] [request_llm.py:25] [request_identify_diagram_type] sdk_http_response=HttpResponse(
   headers=<dict len=11>
 ) candidates=[Candidate(
@@ -334,7 +334,7 @@ Output directory: outputs
   ),
   finish_reason=<FinishReason.STOP: 'STOP'>,
   index=0
-)] create_time=None model_version='gemini-2.5-flash' prompt_feedback=None response_id='5zdraa6dOPSVosUP5IKAiAY' usage_metadata=GenerateContentResponseUsageMetadata(
+)] create_time=None model_version='global.anthropic.claude-haiku-4-5-20251001-v1:0' prompt_feedback=None response_id='5zdraa6dOPSVosUP5IKAiAY' usage_metadata=GenerateContentResponseUsageMetadata(
   candidates_token_count=8,
   prompt_token_count=515,
   prompt_tokens_details=[
@@ -364,7 +364,7 @@ Output directory: outputs
   ),
   finish_reason=<FinishReason.STOP: 'STOP'>,
   index=0
-)] create_time=None model_version='gemini-2.5-flash' prompt_feedback=None response_id='7zdrac6zL-Wnvr0P_I7d8As' usage_metadata=GenerateContentResponseUsageMetadata(
+)] create_time=None model_version='global.anthropic.claude-haiku-4-5-20251001-v1:0' prompt_feedback=None response_id='7zdrac6zL-Wnvr0P_I7d8As' usage_metadata=GenerateContentResponseUsageMetadata(
   candidates_token_count=430,
   prompt_token_count=2391,
   prompt_tokens_details=[

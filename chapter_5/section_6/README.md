@@ -79,7 +79,7 @@
 cp .envrc.example .envrc
 
 # .envrcを編集してAPIキーを設定
-OPENAI_API_KEY=<your_openai_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. 依存関係のインストール:
@@ -230,7 +230,7 @@ Usage: python -m src.main generate [OPTIONS]
     -u user_abc123
 
 Options:
-  -m, --model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO]
+  -m, --model [GPT_5_5|GPT_5_4]
                                   OpenAI model to use.
   -o, --output-dir PATH           Directory to save output files.
   -p, --profile-file PATH         Path to a JSON file containing user profile.
@@ -251,7 +251,7 @@ Options:
 
 | オプション | 短縮形 | 説明 |
 |-----------|-------|------|
-| `--model` | `-m` | 使用するOpenAIモデル（デフォルト: gpt-5.4） |
+| `--model` | `-m` | 使用するOpenAIモデル（デフォルト: openai.gpt-5.4） |
 | `--output-dir` | `-o` | 出力ディレクトリ（デフォルト: outputs） |
 | `--profile-file` | `-p` | ユーザープロフィールJSONファイルへのパス |
 | `--user-id` | `-u` | 既存ユーザーのID（メモリを自動読み込み） |
@@ -310,7 +310,7 @@ $ uv run python -m src.main generate \
   -g "機械学習エンジニアになる"
 [2026-02-07 09:28:37,632] [INFO] [__main__] [main.py:71] [_load_profile_from_file] Loading profile from: example/profile_data_analysis.json
 [2026-02-07 09:28:37,636] [INFO] [__main__] [main.py:284] [generate] Generating training plan for user: user_analysis
-[2026-02-07 09:28:37,636] [INFO] [__main__] [main.py:285] [generate] Model: gpt-5-mini
+[2026-02-07 09:28:37,636] [INFO] [__main__] [main.py:285] [generate] Model: openai.gpt-5.4
 [2026-02-07 09:28:37,636] [INFO] [src.service.service] [service.py:320] [run_training_plan_generation] ================================================================================
 [2026-02-07 09:28:37,636] [INFO] [src.service.service] [service.py:321] [run_training_plan_generation] LEARNING AI AGENT - TRAINING PLAN GENERATION
 [2026-02-07 09:28:37,636] [INFO] [src.service.service] [service.py:322] [run_training_plan_generation] ================================================================================

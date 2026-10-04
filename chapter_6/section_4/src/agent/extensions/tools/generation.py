@@ -3,9 +3,8 @@
 from typing import Any, Literal
 from uuid import uuid4
 
-from google.genai.types import GenerateContentConfig
 from src.agent.core.base import Tool, ToolParams, ToolResult
-from src.client.llm_client import LLMProvider, google_genai_client
+from src.client.llm_client import LLMProvider, anthropic_client
 from src.logger import make_logger
 from src.model.model import (
     ArticleHalf,
@@ -25,22 +24,20 @@ from src.prompt.prompt import (
 logger = make_logger(__name__)
 
 
-async def _generate_with_gemini(
+async def _generate_with_anthropic(
     system_instruction: str,
     user_content: str,
     response_schema: type,
     model: str,
 ) -> Any:
-    result = await google_genai_client.aio.models.generate_content(
+    result = await anthropic_client.messages.parse(
         model=model,
-        contents=user_content,
-        config=GenerateContentConfig(
-            system_instruction=system_instruction,
-            response_mime_type="application/json",
-            response_schema=response_schema,
-        ),
+        max_tokens=8192,
+        system=system_instruction,
+        messages=[{"role": "user", "content": user_content}],
+        output_format=response_schema,
     )
-    return result.parsed
+    return result.parsed_output
 
 
 class OutlineGeneratorTool(Tool):
@@ -66,7 +63,7 @@ class OutlineGeneratorTool(Tool):
     ) -> ArticleOutline | None:
         system_instruction, user_content = make_outline_generation_system_instruction(theme, language)
         try:
-            return await _generate_with_gemini(system_instruction, user_content, ArticleOutline, model)
+            return await _generate_with_anthropic(system_instruction, user_content, ArticleOutline, model)
         except Exception as e:
             logger.error(f"Failed to generate outline with {provider.value}: {e}")
             return None
@@ -98,7 +95,7 @@ class FirstHalfGeneratorTool(Tool):
             outline, language, user_requirements
         )
         try:
-            return await _generate_with_gemini(system_instruction, user_content, ArticleHalf, model)
+            return await _generate_with_anthropic(system_instruction, user_content, ArticleHalf, model)
         except Exception as e:
             logger.error(f"Failed to generate first half with {provider.value}: {e}")
             return None
@@ -131,7 +128,7 @@ class BestFirstHalfSelectorTool(Tool):
             outline, first_halves, language
         )
         try:
-            result = await _generate_with_gemini(system_instruction, user_content, BestArticleSelection, model)
+            result = await _generate_with_anthropic(system_instruction, user_content, BestArticleSelection, model)
             return first_halves[result.selected_id]
         except Exception as e:
             logger.error(f"Failed to choose best first half with {provider.value}: {e}")
@@ -165,7 +162,7 @@ class SecondHalfGeneratorTool(Tool):
             outline, first_half, language, user_requirements
         )
         try:
-            result = await _generate_with_gemini(system_instruction, user_content, ArticleHalf, model)
+            result = await _generate_with_anthropic(system_instruction, user_content, ArticleHalf, model)
             return result.content
         except Exception as e:
             logger.error(f"Failed to generate second half with {provider.value}: {e}")
@@ -196,7 +193,7 @@ class ArticleReviewerTool(Tool):
     ) -> ArticleReview | None:
         system_instruction, user_content = make_article_review_system_instruction(theme, outline, full_article)
         try:
-            return await _generate_with_gemini(system_instruction, user_content, ArticleReview, model)
+            return await _generate_with_anthropic(system_instruction, user_content, ArticleReview, model)
         except Exception as e:
             logger.error(f"Failed to review article with {provider.value}: {e}")
             return None
@@ -229,7 +226,7 @@ class SecondHalfRegeneratorTool(Tool):
             outline, first_half, language, previous_attempts
         )
         try:
-            result = await _generate_with_gemini(system_instruction, user_content, ArticleHalf, model)
+            result = await _generate_with_anthropic(system_instruction, user_content, ArticleHalf, model)
             return result.content
         except Exception as e:
             logger.error(f"Failed to regenerate second half with {provider.value}: {e}")

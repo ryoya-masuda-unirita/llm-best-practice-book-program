@@ -44,7 +44,7 @@ class LLMOpsLogger:
         """Context manager to track LLM request timing and logging.
 
         Usage:
-            async with llmops_logger.track_llm_request(model="gemini-2.5-flash", prompt_content=prompt) as tracking:
+            async with llmops_logger.track_llm_request(model="global.anthropic.claude-haiku-4-5-20251001-v1:0", prompt_content=prompt) as tracking:
                 response = await llm_client.generate(...)
                 tracking["response"] = response
         """

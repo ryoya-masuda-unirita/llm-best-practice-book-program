@@ -4,7 +4,7 @@ from functools import wraps
 from uuid import uuid4
 
 import click
-from src.client.llm_client import AnthropicModel, GeminiModel, LLMProvider, OpenAIModel, google_genai_client
+from src.client.llm_client import AnthropicModel, LLMProvider, OpenAIModel  # , GeminiModel, google_genai_client
 from src.logger import make_logger
 from src.model.model import CharacterRequest, Gender
 from src.service import request_with_judge
@@ -50,13 +50,13 @@ def async_cmd(func):
     "-lp",
     type=click.Choice(LLMProvider),
     required=True,
-    default=LLMProvider.GEMINI,
+    default=LLMProvider.ANTHROPIC,
     help="The LLM provider to use.",
 )
 @click.option(
     "--model",
     "-m",
-    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str() + AnthropicModel.list_str()),
+    type=click.Choice(OpenAIModel.list_str() + AnthropicModel.list_str()),  # + GeminiModel.list_str()
     required=True,
     help="The model to use for the request.",
 )
@@ -78,7 +78,7 @@ def async_cmd(func):
 @click.option(
     "--judge-model",
     "-jm",
-    type=click.Choice(OpenAIModel.list_str() + GeminiModel.list_str() + AnthropicModel.list_str()),
+    type=click.Choice(OpenAIModel.list_str() + AnthropicModel.list_str()),  # + GeminiModel.list_str()
     required=False,
     help="The model to use for judgment (defaults to same as generation model).",
 )
@@ -107,16 +107,16 @@ Output directory: {output_directory}""")
 
     if llm_provider == LLMProvider.OPENAI and model not in OpenAIModel.list_str():
         raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
-    if llm_provider == LLMProvider.GEMINI and model not in GeminiModel.list_str():
-        raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
+    # if llm_provider == LLMProvider.GEMINI and model not in GeminiModel.list_str():
+    #     raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
     if llm_provider == LLMProvider.ANTHROPIC and model not in AnthropicModel.list_str():
         raise ValueError(f"Invalid model '{model}' for provider '{llm_provider.value}'.")
 
     if judge_provider and judge_model:
         if judge_provider == LLMProvider.OPENAI and judge_model not in OpenAIModel.list_str():
             raise ValueError(f"Invalid judge model '{judge_model}' for provider '{judge_provider.value}'.")
-        if judge_provider == LLMProvider.GEMINI and judge_model not in GeminiModel.list_str():
-            raise ValueError(f"Invalid judge model '{judge_model}' for provider '{judge_provider.value}'.")
+        # if judge_provider == LLMProvider.GEMINI and judge_model not in GeminiModel.list_str():
+        #     raise ValueError(f"Invalid judge model '{judge_model}' for provider '{judge_provider.value}'.")
         if judge_provider == LLMProvider.ANTHROPIC and judge_model not in AnthropicModel.list_str():
             raise ValueError(f"Invalid judge model '{judge_model}' for provider '{judge_provider.value}'.")
 
@@ -148,8 +148,8 @@ Output directory: {output_directory}""")
     if not judge_result.is_passing():
         logger.warning("The generated character did not meet the quality threshold (3.0/5.0)")
 
-    if llm_provider == LLMProvider.GEMINI:
-        await google_genai_client.aio.aclose()
+    # if llm_provider == LLMProvider.GEMINI:
+    #     await google_genai_client.aio.aclose()
 
 
 if __name__ == "__main__":

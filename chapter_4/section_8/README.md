@@ -98,7 +98,7 @@ cp .envrc.example .envrc
 ```bash
 # Google Gemini API Key
 # Get your key from: https://aistudio.google.com/app/apikey
-GEMINI_API_KEY=<your_gemini_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. 依存関係のインストール

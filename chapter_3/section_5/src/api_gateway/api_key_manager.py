@@ -6,7 +6,7 @@ and are never exposed to client applications.
 
 from typing import Dict
 
-from pydantic import Secret
+from aws_bedrock_token_generator import provide_token
 from src.config import config
 from src.logger import make_logger
 
@@ -21,9 +21,15 @@ class APIKeyManager:
     """
 
     def __init__(self):
-        self._provider_keys: Dict[str, Secret[str]] = {
-            "openai": config.openai_api_key,
-            "gemini": config.gemini_api_key,
+        # Bedrock経由ではOpenAI・AnthropicのどちらもBedrockのAPIキーで認証する
+        bedrock_api_key = (
+            config.bedrock_api_key.get_secret_value()
+            if config.bedrock_api_key
+            else provide_token(region=config.aws_region)
+        )
+        self._provider_keys: Dict[str, str] = {
+            "openai": bedrock_api_key,
+            "anthropic": bedrock_api_key,
         }
         logger.info(f"API Key Manager initialized with {len(self._provider_keys)} providers")
 

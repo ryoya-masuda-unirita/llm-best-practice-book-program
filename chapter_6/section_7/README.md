@@ -68,7 +68,7 @@ LLMを用いたAIエージェントは推論に数秒から数十秒を要する
 
 - **Python**: 3.13.2以上
 - **依存ライブラリ**:
-  - anthropic>=0.74.1
+  - anthropic[bedrock]>=1.11.0
   - click>=8.3.0
   - google-genai>=1.45.0
   - openai>=2.4.0
@@ -83,7 +83,7 @@ LLMを用いたAIエージェントは推論に数秒から数十秒を要する
 ```bash
 cp .envrc.example .envrc
 # .envrcを編集してAPIキーを設定
-GEMINI_API_KEY=<your_gemini_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. **依存関係のインストール**

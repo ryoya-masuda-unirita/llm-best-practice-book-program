@@ -96,7 +96,7 @@ cp .envrc.example .envrc
 `.envrc` を編集して API キーを設定:
 
 ```
-GEMINI_API_KEY=<your_gemini_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. 依存関係のインストール:
@@ -112,7 +112,7 @@ uv sync
 uv run python -m src.main -q "数学の成績を分析してください"
 
 # モデルを指定して実行
-uv run python -m src.main -m GEMINI_2_5_PRO -q "全生徒の成績傾向を分析してください"
+uv run python -m src.main -m CLAUDE_SONNET_4_6 -q "全生徒の成績傾向を分析してください"
 
 # 結果をファイルに保存
 uv run python -m src.main -q "1年間の成績推移を分析" -od ./output
@@ -130,7 +130,7 @@ Usage: python -m src.main [OPTIONS]
   and curriculum information.
 
 Options:
-  -m, --model [GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
+  -m, --model [CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5]
                                   The Gemini model to use for analysis.
   -q, --query TEXT                The query to analyze.  [required]
   -od, --output-directory PATH    Directory to save session log (JSON) and
@@ -142,7 +142,7 @@ Options:
 
 | オプション | 短縮形 | 説明 | デフォルト |
 |-----------|--------|------|-----------|
-| `--model` | `-m` | 使用するGeminiモデル | `GEMINI_2_5_FLASH` |
+| `--model` | `-m` | 使用するGeminiモデル | `CLAUDE_HAIKU_4_5` |
 | `--query` | `-q` | 分析クエリ（必須） | - |
 | `--output-directory` | `-od` | セッションログと結果の保存先 | - |
 
@@ -150,7 +150,7 @@ Options:
 ### 出力例
 
 ```bash
-$ uv run python -m src.main -m GEMINI_2_5_PRO -q "全生徒の成績傾向を分析してください"
+$ uv run python -m src.main -m CLAUDE_SONNET_4_6 -q "全生徒の成績傾向を分析してください"
 ```
 
 **出力例:**
@@ -206,9 +206,9 @@ $ uv run python -m src.main -m GEMINI_2_5_PRO -q "全生徒の成績傾向を分
 **実行ログ例:**
 
 ```bash
-$ uv run python -m src.main -m GEMINI_2_5_PRO -q "全生徒の成績傾向を分析してください"
+$ uv run python -m src.main -m CLAUDE_SONNET_4_6 -q "全生徒の成績傾向を分析してください"
 [2026-02-08 09:54:32,845] [INFO] [__main__] [main.py:140] [main] Session ID: bccf4511-b3dc-425a-9249-1c9ab21c9551
-[2026-02-08 09:54:32,845] [INFO] [__main__] [main.py:141] [main] Starting data analysis with model: gemini-2.5-pro
+[2026-02-08 09:54:32,845] [INFO] [__main__] [main.py:141] [main] Starting data analysis with model: global.anthropic.claude-sonnet-4-6
 [2026-02-08 09:54:32,845] [INFO] [__main__] [main.py:142] [main] Query: 全生徒の成績傾向を分析してください
 [2026-02-08 09:54:32,845] [INFO] [src.service.request_llm] [request_llm.py:382] [process_with_tool_chain] === Tool Chain Iteration 1/10 ===
 [2026-02-08 09:54:46,983] [INFO] [src.service.request_llm] [request_llm.py:403] [process_with_tool_chain] Iteration 1 response: sdk_http_response=HttpResponse(
@@ -240,7 +240,7 @@ $ uv run python -m src.main -m GEMINI_2_5_PRO -q "全生徒の成績傾向を分
   ),
   finish_reason=<FinishReason.STOP: 'STOP'>,
   index=0
-)] create_time=None model_version='gemini-2.5-pro' prompt_feedback=None response_id='1t6HaYHzNL2m1e8PoteduQs' usage_metadata=GenerateContentResponseUsageMetadata(
+)] create_time=None model_version='global.anthropic.claude-sonnet-4-6' prompt_feedback=None response_id='1t6HaYHzNL2m1e8PoteduQs' usage_metadata=GenerateContentResponseUsageMetadata(
   candidates_token_count=143,
   prompt_token_count=4386,
   prompt_tokens_details=[
@@ -320,7 +320,7 @@ $ uv run python -m src.main -m GEMINI_2_5_PRO -q "全生徒の成績傾向を分
   ),
   finish_reason=<FinishReason.STOP: 'STOP'>,
   index=0
-)] create_time=None model_version='gemini-2.5-pro' prompt_feedback=None response_id='3t6HaZG9JcS_vr0P_N2bmAg' usage_metadata=GenerateContentResponseUsageMetadata(
+)] create_time=None model_version='global.anthropic.claude-sonnet-4-6' prompt_feedback=None response_id='3t6HaZG9JcS_vr0P_N2bmAg' usage_metadata=GenerateContentResponseUsageMetadata(
   candidates_token_count=142,
   prompt_token_count=5271,
   prompt_tokens_details=[
@@ -400,7 +400,7 @@ $ uv run python -m src.main -m GEMINI_2_5_PRO -q "全生徒の成績傾向を分
   ),
   finish_reason=<FinishReason.STOP: 'STOP'>,
   index=0
-)] create_time=None model_version='gemini-2.5-pro' prompt_feedback=None response_id='4d6HaerwN9Tr1e8P3-DW-Qc' usage_metadata=GenerateContentResponseUsageMetadata(
+)] create_time=None model_version='global.anthropic.claude-sonnet-4-6' prompt_feedback=None response_id='4d6HaerwN9Tr1e8P3-DW-Qc' usage_metadata=GenerateContentResponseUsageMetadata(
   candidates_token_count=142,
   prompt_token_count=6355,
   prompt_tokens_details=[
@@ -480,7 +480,7 @@ $ uv run python -m src.main -m GEMINI_2_5_PRO -q "全生徒の成績傾向を分
   ),
   finish_reason=<FinishReason.STOP: 'STOP'>,
   index=0
-)] create_time=None model_version='gemini-2.5-pro' prompt_feedback=None response_id='596HabPTI9OJ1e8PmJzKwAc' usage_metadata=GenerateContentResponseUsageMetadata(
+)] create_time=None model_version='global.anthropic.claude-sonnet-4-6' prompt_feedback=None response_id='596HabPTI9OJ1e8PmJzKwAc' usage_metadata=GenerateContentResponseUsageMetadata(
   candidates_token_count=146,
   prompt_token_count=7757,
   prompt_tokens_details=[
@@ -550,7 +550,7 @@ $ uv run python -m src.main -m GEMINI_2_5_PRO -q "全生徒の成績傾向を分
   ),
   finish_reason=<FinishReason.STOP: 'STOP'>,
   index=0
-)] create_time=None model_version='gemini-2.5-pro' prompt_feedback=None response_id='7t6HaaOmBa7y2roP_bjtuQw' usage_metadata=GenerateContentResponseUsageMetadata(
+)] create_time=None model_version='global.anthropic.claude-sonnet-4-6' prompt_feedback=None response_id='7t6HaaOmBa7y2roP_bjtuQw' usage_metadata=GenerateContentResponseUsageMetadata(
   candidates_token_count=91,
   prompt_token_count=9494,
   prompt_tokens_details=[
@@ -633,7 +633,7 @@ $ uv run python -m src.main -m GEMINI_2_5_PRO -q "全生徒の成績傾向を分
   ),
   finish_reason=<FinishReason.STOP: 'STOP'>,
   index=0
-)] create_time=None model_version='gemini-2.5-pro' prompt_feedback=None response_id='BN-HaarFN9Xh0-kP34rb4Qc' usage_metadata=GenerateContentResponseUsageMetadata(
+)] create_time=None model_version='global.anthropic.claude-sonnet-4-6' prompt_feedback=None response_id='BN-HaarFN9Xh0-kP34rb4Qc' usage_metadata=GenerateContentResponseUsageMetadata(
   candidates_token_count=996,
   prompt_token_count=10924,
   prompt_tokens_details=[

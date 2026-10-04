@@ -1,7 +1,7 @@
 import os
 
 from dotenv import load_dotenv
-from pydantic import BaseModel, ConfigDict, Field, Secret
+from pydantic import BaseModel, ConfigDict, Field
 
 if os.path.exists(".envrc"):
     load_dotenv(".envrc")
@@ -15,7 +15,7 @@ class Config(BaseModel):
         arbitrary_types_allowed=True,
     )
 
-    anthropic_api_key: Secret[str] = Field(default=os.environ["ANTHROPIC_API_KEY"], description="API key for Anthropic")
+    aws_region: str = Field(default=os.environ.get("AWS_REGION", "us-east-1"), description="AWS region for Bedrock")
 
 
 config = Config()

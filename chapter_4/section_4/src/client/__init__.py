@@ -1,9 +1,9 @@
 from src.client.llm_client import (
-    GeminiModel,
+    AnthropicModel,
     LLMProvider,
     OpenAIModel,
-    google_genai_client,
+    anthropic_client,
     openai_client,
 )
 
-__all__ = ["LLMProvider", "google_genai_client", "openai_client", "OpenAIModel", "GeminiModel"]
+__all__ = ["LLMProvider", "anthropic_client", "openai_client", "OpenAIModel", "AnthropicModel"]

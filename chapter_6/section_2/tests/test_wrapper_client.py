@@ -21,7 +21,7 @@ def log_dir(tmp_path):
 def mock_openai_response():
     response = Mock()
     response.id = "chatcmpl-123"
-    response.model = "gpt-5.4"
+    response.model = "openai.gpt-5.4"
     response.choices = [
         Mock(
             message=Mock(role="assistant", content="Hello! How can I help you?"),
@@ -62,7 +62,7 @@ def mock_genai_response():
 def mock_openai_responses_response():
     response = Mock()
     response.id = "resp-123"
-    response.model = "gpt-5-mini"
+    response.model = "openai.gpt-5.4"
     response.output_text = "Here is the response to your input."
     response.usage = Mock(
         prompt_tokens=15,
@@ -78,13 +78,13 @@ def test_chat_completions_wrapper_create(log_dir, mock_openai_response):
 
     wrapper = ChatCompletionsWrapper(mock_completions, log_dir)
     response = wrapper.create(
-        model="gpt-5.4",
+        model="openai.gpt-5.4",
         messages=[{"role": "user", "content": "Hello"}],
         temperature=0.7,
     )
 
     assert response.id == "chatcmpl-123"
-    assert response.model == "gpt-5.4"
+    assert response.model == "openai.gpt-5.4"
     assert response.usage.total_tokens == 18
 
     log_files = list(Path(log_dir).glob("openai_*.json"))
@@ -94,7 +94,7 @@ def test_chat_completions_wrapper_create(log_dir, mock_openai_response):
         log_data = json.load(f)
 
     assert log_data["method"] == "chat.completions.create"
-    assert log_data["request"]["model"] == "gpt-5.4"
+    assert log_data["request"]["model"] == "openai.gpt-5.4"
     assert log_data["request"]["messages"] == [{"role": "user", "content": "Hello"}]
     assert log_data["request"]["temperature"] == 0.7
     assert log_data["response"]["id"] == "chatcmpl-123"
@@ -108,13 +108,13 @@ async def test_async_chat_completions_wrapper_create(log_dir, mock_openai_respon
 
     wrapper = AsyncChatCompletionsWrapper(mock_completions, log_dir)
     response = await wrapper.create(
-        model="gpt-5.4",
+        model="openai.gpt-5.4",
         messages=[{"role": "user", "content": "Hello"}],
         temperature=0.7,
     )
 
     assert response.id == "chatcmpl-123"
-    assert response.model == "gpt-5.4"
+    assert response.model == "openai.gpt-5.4"
     assert response.usage.total_tokens == 18
 
     log_files = list(Path(log_dir).glob("async_openai_*.json"))
@@ -124,7 +124,7 @@ async def test_async_chat_completions_wrapper_create(log_dir, mock_openai_respon
         log_data = json.load(f)
 
     assert log_data["method"] == "chat.completions.create"
-    assert log_data["request"]["model"] == "gpt-5.4"
+    assert log_data["request"]["model"] == "openai.gpt-5.4"
     assert log_data["response"]["usage"]["total_tokens"] == 18
 
 
@@ -177,7 +177,7 @@ def test_multiple_requests_create_separate_logs(log_dir, mock_openai_response):
     wrapper = ChatCompletionsWrapper(mock_completions, log_dir)
     for i in range(3):
         wrapper.create(
-            model="gpt-5.4",
+            model="openai.gpt-5.4",
             messages=[{"role": "user", "content": f"Hello {i}"}],
         )
 
@@ -191,7 +191,7 @@ def test_log_captures_all_parameters(log_dir, mock_openai_response):
 
     wrapper = ChatCompletionsWrapper(mock_completions, log_dir)
     wrapper.create(
-        model="gpt-5.4",
+        model="openai.gpt-5.4",
         messages=[{"role": "user", "content": "Hello"}],
         temperature=0.8,
         max_tokens=100,
@@ -219,13 +219,13 @@ def test_responses_wrapper_create(log_dir, mock_openai_responses_response):
 
     wrapper = ResponsesWrapper(mock_responses, log_dir)
     response = wrapper.create(
-        model="gpt-5-mini",
+        model="openai.gpt-5.4",
         input="Write a story",
         tools=[{"type": "web_search_preview"}],
     )
 
     assert response.id == "resp-123"
-    assert response.model == "gpt-5-mini"
+    assert response.model == "openai.gpt-5.4"
     assert response.output_text == "Here is the response to your input."
     assert response.usage.total_tokens == 25
 
@@ -236,7 +236,7 @@ def test_responses_wrapper_create(log_dir, mock_openai_responses_response):
         log_data = json.load(f)
 
     assert log_data["method"] == "responses.create"
-    assert log_data["request"]["model"] == "gpt-5-mini"
+    assert log_data["request"]["model"] == "openai.gpt-5.4"
     assert log_data["request"]["input"] == "Write a story"
     assert log_data["request"]["tools"] == [{"type": "web_search_preview"}]
     assert log_data["response"]["id"] == "resp-123"
@@ -251,13 +251,13 @@ async def test_async_responses_wrapper_create(log_dir, mock_openai_responses_res
 
     wrapper = AsyncResponsesWrapper(mock_responses, log_dir)
     response = await wrapper.create(
-        model="gpt-5-mini",
+        model="openai.gpt-5.4",
         input="Write a story",
         tools=[{"type": "web_search_preview"}],
     )
 
     assert response.id == "resp-123"
-    assert response.model == "gpt-5-mini"
+    assert response.model == "openai.gpt-5.4"
     assert response.output_text == "Here is the response to your input."
     assert response.usage.total_tokens == 25
 
@@ -268,7 +268,7 @@ async def test_async_responses_wrapper_create(log_dir, mock_openai_responses_res
         log_data = json.load(f)
 
     assert log_data["method"] == "responses.create"
-    assert log_data["request"]["model"] == "gpt-5-mini"
+    assert log_data["request"]["model"] == "openai.gpt-5.4"
     assert log_data["response"]["usage"]["total_tokens"] == 25
 
 

@@ -95,7 +95,7 @@ Each `*_node` binds its own schema: `DocumentParserResponse` (clauses), `ClauseC
 ### 4. Model selection flows through config
 
 ```python
-model_name = config.get("configurable", {}).get("model", GeminiModel.GEMINI_2_5_PRO)
+model_name = config.get("configurable", {}).get("model", GeminiModel.CLAUDE_SONNET_4_6)
 ```
 
 One CLI flag configures every agent — no globals, no per-node hardcoding.
@@ -126,7 +126,7 @@ uv run python -m src.main -c example/sample_nda.md -t example/standard_nda_templ
 |--------|-------|----------|-------------|
 | `--contract-file` | `-c` | Yes | Contract document (Markdown) |
 | `--template-file` | `-t` | Yes | Standard template to compare against |
-| `--model` | `-m` | No | Gemini model (default `GEMINI_2_5_PRO`) |
+| `--model` | `-m` | No | Gemini model (default `CLAUDE_SONNET_4_6`) |
 | `--output-directory` | `-od` | No | Report output directory |
 
 Output: `outputs/contract_review_<id>.md`.

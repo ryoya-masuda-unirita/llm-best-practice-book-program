@@ -84,7 +84,7 @@ def _parse_search_results(results: dict) -> list[KnowledgeItem]:
 
 
 async def search_knowledge(query: KnowledgeSearchQuery) -> KnowledgeSearchResponse:
-    """Search knowledge base using Gemini embeddings."""
+    """Search knowledge base using Anthropic embeddings."""
     start_time = time.time()
 
     logger.info(f"Searching knowledge base with query: {query.query_text[:50]}...")

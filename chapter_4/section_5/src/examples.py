@@ -1,6 +1,6 @@
-"""Example workflows demonstrating the orchestration engine with Gemini API."""
+"""Example workflows demonstrating the orchestration engine with Anthropic API."""
 
-from src.client import GeminiModel, create_executor
+from src.client import AnthropicModel, create_executor
 from src.logger import make_logger
 from src.workflow import ExecutionContext, WorkflowBuilder, WorkflowEngine
 
@@ -89,16 +89,16 @@ def merge_report(ctx: ExecutionContext) -> dict:
     return {"report": report, "is_complete": ctx.get_variable("completeness_score", 0) >= 8}
 
 
-async def example_gemini_simple():
+async def example_anthropic_simple():
     """Simple text completion workflow."""
     logger.info("=" * 60)
-    logger.info("Example: Gemini Simple")
+    logger.info("Example: Anthropic Simple")
     logger.info("=" * 60)
 
-    executor = create_executor(model=GeminiModel.GEMINI_2_5_FLASH, system_instruction="You are a helpful assistant.")
+    executor = create_executor(model=AnthropicModel.CLAUDE_HAIKU_4_5, system_instruction="You are a helpful assistant.")
 
     workflow = (
-        WorkflowBuilder("gemini_simple", "Simple Completion")
+        WorkflowBuilder("anthropic_simple", "Simple Completion")
         .add_start_node("start", initial_data={"topic": "artificial intelligence"})
         .add_prompt_node(
             "generate", "Generate", prompt_template="Explain {topic} in 2-3 sentences.", llm_executor=executor
@@ -208,7 +208,7 @@ async def example_complex_content_pipeline():
     logger.info("=" * 60)
 
     executor = create_executor(
-        model=GeminiModel.GEMINI_2_5_FLASH, system_instruction="You are a creative content generator."
+        model=AnthropicModel.CLAUDE_HAIKU_4_5, system_instruction="You are a creative content generator."
     )
 
     workflow = (
@@ -295,7 +295,7 @@ async def example_complex_research_workflow():
     logger.info("=" * 60)
 
     executor = create_executor(
-        model=GeminiModel.GEMINI_2_5_FLASH, system_instruction="You are a thorough research assistant."
+        model=AnthropicModel.CLAUDE_HAIKU_4_5, system_instruction="You are a thorough research assistant."
     )
 
     workflow = (

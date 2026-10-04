@@ -128,7 +128,7 @@ uv run python -m src.main -g "データ分析を学びたい" -k "Excel基礎,�
 | `--duration-weeks` | `-d` | 12 | Target duration — the main runtime/cost knob |
 | `--current-knowledge` | `-k` | "" | Comma-separated existing skills |
 | `--profile-file` | `-p` | — | Learner profile JSON (alternative to flags) |
-| `--model` | `-m` | `gpt-5.4` | OpenAI model |
+| `--model` | `-m` | `openai.gpt-5.4` | OpenAI model |
 | `--output-directory` | `-od` | `outputs` | Output directory |
 
 ## Development Commands

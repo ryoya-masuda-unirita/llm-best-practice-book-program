@@ -73,7 +73,7 @@
 
 - Python: 3.13.2以上
 - 依存ライブラリ:
-  - `anthropic>=0.74.1`
+  - `anthropic[bedrock]>=1.11.0`
   - `click>=8.3.0`
   - `google-genai>=1.45.0`
   - `openai>=2.4.0`
@@ -91,9 +91,7 @@ cp .envrc.example .envrc
 `.envrc` を編集し、各LLMプロバイダーのAPIキーを設定:
 
 ```bash
-OPENAI_API_KEY=<your_openai_api_key_here>
-GEMINI_API_KEY=<your_gemini_api_key_here>
-ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. 依存関係のインストール:
@@ -112,23 +110,23 @@ uv sync
 uv run python -m src.main \
   --gender FEMALE \
   --age 25 \
-  --llm-provider GEMINI \
-  --model GEMINI_2_5_FLASH
+  --llm-provider ANTHROPIC \
+  --model CLAUDE_HAIKU_4_5
 
 # OpenAI でキャラクター生成（プロファイリング有効）
 uv run python -m src.main \
   --gender MALE \
   --age 30 \
   --llm-provider OPENAI \
-  --model GPT_5_4_MINI \
+  --model GPT_5_4 \
   --enable-profiling
 
 # 異なるプロバイダーで生成と評価を分離
 uv run python -m src.main \
   --gender FEMALE \
   --age 22 \
-  --llm-provider GEMINI \
-  --model GEMINI_2_5_FLASH \
+  --llm-provider ANTHROPIC \
+  --model CLAUDE_HAIKU_4_5 \
   --judge-provider ANTHROPIC \
   --judge-model CLAUDE_SONNET_4_6 \
   --enable-profiling \
@@ -151,14 +149,14 @@ Options:
                                   generation.
   -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use.  [required]
-  -m, --model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_SONNET_5|CLAUDE_OPUS_4_8|CLAUDE_OPUS_4_7|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
+  -m, --model [GPT_5_5|GPT_5_4|CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
                                   The model to use for the request.
                                   [required]
   -od, --output-directory PATH    The directory to save output files.
   -jp, --judge-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use for judgment
                                   (defaults to same as generation provider).
-  -jm, --judge-model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_SONNET_5|CLAUDE_OPUS_4_8|CLAUDE_OPUS_4_7|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
+  -jm, --judge-model [GPT_5_5|GPT_5_4|CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
                                   The model to use for judgment (defaults to
                                   same as generation model).
   -p, --enable-profiling          Enable performance profiling for the
@@ -176,8 +174,8 @@ Options:
 $ uv run python -m src.main \
   --gender FEMALE \
   --age 22 \
-  --llm-provider GEMINI \
-  --model GEMINI_2_5_FLASH \
+  --llm-provider ANTHROPIC \
+  --model CLAUDE_HAIKU_4_5 \
   --judge-provider ANTHROPIC \
   --judge-model CLAUDE_SONNET_4_6 \
   --enable-profiling \
@@ -187,8 +185,8 @@ Gender: female
 Age: 22
 Additional Instructions: 
 
-Generation LLM: gemini / gemini-2.5-flash
-Judge LLM: anthropic / claude-sonnet-4-6
+Generation LLM: gemini / global.anthropic.claude-haiku-4-5-20251001-v1:0
+Judge LLM: anthropic / global.anthropic.claude-sonnet-4-6
 Output directory: outputs
 [2026-01-18 14:22:21,221] [INFO] [__main__] [main.py:155] [main] Performance profiling is enabled.
 [2026-01-18 14:22:21,221] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:146] [profiled_request_with_judge] Generating prompt...
@@ -225,7 +223,7 @@ Output directory: outputs
   ),
   finish_reason=<FinishReason.STOP: 'STOP'>,
   index=0
-)] create_time=None model_version='gemini-2.5-flash' prompt_feedback=None response_id='D25saZXnLc6k0-kPj-LVuAg' usage_metadata=GenerateContentResponseUsageMetadata(
+)] create_time=None model_version='global.anthropic.claude-haiku-4-5-20251001-v1:0' prompt_feedback=None response_id='D25saZXnLc6k0-kPj-LVuAg' usage_metadata=GenerateContentResponseUsageMetadata(
   candidates_token_count=285,
   prompt_token_count=388,
   prompt_tokens_details=[
@@ -237,12 +235,12 @@ Output directory: outputs
   thoughts_token_count=47,
   total_token_count=720
 ) automatic_function_calling_history=[] parsed=CharacterResponse(first_name='Akari', last_name='Sato', gender=<Gender.FEMALE: 'female'>, age=22, personalities=[CharacterPersonality(short_personality='Curious', description="Akari possesses an insatiable curiosity, always questioning the 'how' and 'why' of the world around her. This drives her to constantly seek out new information, learn diverse skills, and explore unfamiliar places, often getting lost in research or fascinating documentaries."), CharacterPersonality(short_personality='Resourceful', description="When faced with a challenge, Akari rarely gives up. She's incredibly resourceful, capable of improvising solutions with whatever tools are at hand and thinking outside the box. This trait makes her an excellent problem-solver in both mundane and extraordinary situations."), CharacterPersonality(short_personality='Reserved', description="Despite her adventurous spirit, Akari tends to be reserved and somewhat introspective, especially in new social settings. She prefers to observe and listen before contributing, and while she values deep connections, she's not one to easily open up to just anyone. Her emotional world often runs deeper than she lets on.")])
-[2026-01-18 14:22:23,881] [INFO] [src.service.prompt_profiler] [prompt_profiler.py:222] [profile] Profiled request 6291bdc3-fe8f-4b2e-9a78-6f3e72fa56a0: prompt=character_generation_gemini, model=gemini-2.5-flash, latency=2660.23ms, tokens=673 (in=388, out=285), status=success
+[2026-01-18 14:22:23,881] [INFO] [src.service.prompt_profiler] [prompt_profiler.py:222] [profile] Profiled request 6291bdc3-fe8f-4b2e-9a78-6f3e72fa56a0: prompt=character_generation_gemini, model=global.anthropic.claude-haiku-4-5-20251001-v1:0, latency=2660.23ms, tokens=673 (in=388, out=285), status=success
 [2026-01-18 14:22:23,881] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:176] [profiled_request_with_judge] Character generation completed.
 [2026-01-18 14:22:23,881] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:178] [profiled_request_with_judge] Evaluating character with LLM-as-a-Judge...
-[2026-01-18 14:22:23,882] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:77] [judge_with_anthropic] Requesting judgment from Anthropic model: claude-sonnet-4-6
+[2026-01-18 14:22:23,882] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:77] [judge_with_anthropic] Requesting judgment from Anthropic model: global.anthropic.claude-sonnet-4-6
 [2026-01-18 14:22:38,478] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:88] [judge_with_anthropic] Judgment completed. Overall score: 5.00/5.0
-[2026-01-18 14:22:38,479] [INFO] [src.service.prompt_profiler] [prompt_profiler.py:222] [profile] Profiled request b952c227-24ac-4a4b-b65d-64277f1c3833: prompt=llm_as_a_judge_anthropic, model=claude-sonnet-4-6, latency=14597.65ms, tokens=517 (in=311, out=206), status=success
+[2026-01-18 14:22:38,479] [INFO] [src.service.prompt_profiler] [prompt_profiler.py:222] [profile] Profiled request b952c227-24ac-4a4b-b65d-64277f1c3833: prompt=llm_as_a_judge_anthropic, model=global.anthropic.claude-sonnet-4-6, latency=14597.65ms, tokens=517 (in=311, out=206), status=success
 [2026-01-18 14:22:38,480] [INFO] [src.service.profiled_request_llm] [profiled_request_llm.py:230] [profiled_request_with_judge] Evaluation completed. Overall score: 5.00/5.0
 [2026-01-18 14:22:38,480] [INFO] [__main__] [main.py:180] [main] Character file saved to outputs/8779952a32fb430486c8263df4f2baec_gemini_character.json
 [2026-01-18 14:22:38,480] [INFO] [__main__] [main.py:185] [main] Judge evaluation saved to outputs/8779952a32fb430486c8263df4f2baec_anthropic_judge.json

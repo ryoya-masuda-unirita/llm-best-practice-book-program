@@ -1,19 +1,16 @@
 from enum import StrEnum
 
-from anthropic import AsyncAnthropic
+from anthropic import AsyncAnthropicBedrock
 from src.config import config
 
 
 class AnthropicModel(StrEnum):
-    CLAUDE_SONNET_5 = "claude-sonnet-5"
-    CLAUDE_OPUS_4_8 = "claude-opus-4-8"
-    CLAUDE_OPUS_4_7 = "claude-opus-4-7"
-    CLAUDE_SONNET_4_6 = "claude-sonnet-4-6"
-    CLAUDE_HAIKU_4_5 = "claude-haiku-4-5"
+    CLAUDE_SONNET_4_6 = "global.anthropic.claude-sonnet-4-6"
+    CLAUDE_HAIKU_4_5 = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 
     @staticmethod
     def list_str() -> list[str]:
         return [model.value for model in AnthropicModel]
 
 
-anthropic_client = AsyncAnthropic(api_key=config.anthropic_api_key)
+anthropic_client = AsyncAnthropicBedrock(aws_region=config.aws_region)

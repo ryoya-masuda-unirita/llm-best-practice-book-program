@@ -37,7 +37,7 @@
 │  │  Step 1: スキーマ生成                                     │   │
 │  │  ┌─────────────┐    ┌─────────────┐    ┌────────────┐   │   │
 │  │  │   Prompt    │───▶│  OpenAI API │───▶│JSON Schema │   │   │
-│  │  │  Templates  │    │  (gpt-5.4)   │    │  生成      │   │   │
+│  │  │  Templates  │    │  (openai.gpt-5.4)   │    │  生成      │   │   │
 │  │  └─────────────┘    └─────────────┘    └────────────┘   │   │
 │  │                                              │           │   │
 │  │                                              ▼           │   │
@@ -93,9 +93,9 @@ cp .envrc.example .envrc
 `.envrc`を編集してAPIキーを設定:
 
 ```bash
-OPENAI_API_KEY=<your_openai_api_key_here>
-BASIC_PREDICTION_MODEL=gpt-5.4
-HIGH_PREDICTION_MODEL=gpt-5.4
+AWS_REGION=us-east-1
+BASIC_PREDICTION_MODEL=openai.gpt-5.4
+HIGH_PREDICTION_MODEL=openai.gpt-5.4
 ```
 
 2. 依存関係をインストール
@@ -119,7 +119,7 @@ Usage: python -m src.main [OPTIONS]
   demonstrates the two-step auto-structured output approach.
 
 Options:
-  -m, --model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO]
+  -m, --model [GPT_5_5|GPT_5_4]
                                   The model to use for the request.
                                   [required]
   -e, --example [example_1_simple_user_model|example_2_product_with_enum|example_3_optional_fields|example_4_array_fields|example_5_datetime_fields|example_1_nested_objects|example_2_complex_article|example_3_array_of_objects|example_4_deep_nesting|example_5_anyof_union_types|example_6_validation_constraints|example_1_customer_feedback_analysis|example_2_meeting_summary|example_3_research_paper_metadata|example_4_job_application_evaluation|example_5_financial_transaction_analysis|example_6_high_reasoning]

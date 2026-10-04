@@ -185,7 +185,7 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-OPENAI_API_KEY=<your_openai_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. **依存関係のインストール**
@@ -210,14 +210,14 @@ uv run python -m src.main -p example/learner_profile_data_analysis.json
 uv run python -m src.main -g "データ分析を学びたい" -k "Excel基礎,統計基礎"
 
 # 特定のモデルを指定
-uv run python -m src.main -g "SQLを学びたい" -m GPT_5_2
+uv run python -m src.main -g "SQLを学びたい" -m GPT_5_4
 ```
 
 #### CLIオプション
 
 | オプション | 短縮形 | 説明 | デフォルト |
 |---|---|---|---|
-| --model | -m | 使用するOpenAIモデル | gpt-5-mini |
+| --model | -m | 使用するOpenAIモデル | openai.gpt-5.4 |
 | --output-directory | -od | 出力ファイルのディレクトリ | outputs |
 | --profile-file | -p | 学習者プロファイルJSONファイル | None |
 | --goal | -g | 学習ゴールの説明 | None |
@@ -254,7 +254,7 @@ Usage: python -m src.main [OPTIONS]
       "Excel基礎,統計基礎"
 
 Options:
-  -m, --model [GPT_5_2|GPT_5|GPT_5_MINI|GPT_5_NANO]
+  -m, --model [GPT_5_4]
                                   The model to use for the request.
   -od, --output-directory PATH    The directory to save output files.
   -p, --profile-file PATH         Path to a JSON file containing the learner
@@ -424,11 +424,11 @@ Options:
 **実行ログ例**:
 
 ```bash
-$ uv run python -m src.main -g "SQLを学びたい" -m GPT_5_2
+$ uv run python -m src.main -g "SQLを学びたい" -m GPT_5_4
 
 [2026-02-07 09:13:59,348] [INFO] [__main__] [main.py:64] [_create_profile_from_options] Creating learner profile from command-line options
 [2026-02-07 09:13:59,348] [INFO] [__main__] [main.py:83] [_log_startup_info] Personalized Learning Platform
-Model: gpt-5.2
+Model: openai.gpt-5.4
 Learning Goal: SQLを学びたい
 Hours/Week: 10
 Duration: 12 weeks
@@ -440,7 +440,7 @@ Output directory: outputs
 [2026-02-07 09:13:59,348] [INFO] [src.service.service] [service.py:123] [run_personalized_learning] Learner goal: SQLを学びたい
 [2026-02-07 09:13:59,348] [INFO] [src.service.service] [service.py:124] [run_personalized_learning] Available hours/week: 10
 [2026-02-07 09:13:59,348] [INFO] [src.service.service] [service.py:125] [run_personalized_learning] Target duration: 12 weeks
-[2026-02-07 09:13:59,348] [INFO] [src.service.service] [service.py:126] [run_personalized_learning] Model: gpt-5.2
+[2026-02-07 09:13:59,348] [INFO] [src.service.service] [service.py:126] [run_personalized_learning] Model: openai.gpt-5.4
 [2026-02-07 09:13:59,348] [INFO] [src.service.service] [service.py:52] [create_learning_platform_graph] Creating hierarchical learning platform graph...
 [2026-02-07 09:13:59,349] [INFO] [src.service.service] [service.py:71] [create_learning_platform_graph] Learning platform graph created successfully
 [2026-02-07 09:13:59,372] [INFO] [STRATEGY.StrategyAgent] [base.py:51] [_log_layer_start] ============================================================

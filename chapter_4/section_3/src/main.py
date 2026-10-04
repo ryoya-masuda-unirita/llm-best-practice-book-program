@@ -4,7 +4,7 @@ import os
 from functools import wraps
 
 import click
-from src.client.llm_client import GeminiEmbeddingModel, GeminiModel
+from src.client.llm_client import AnthropicModel, BedrockEmbeddingModel
 from src.logger import make_logger
 from src.service.rag_pipeline import RAGPipeline
 
@@ -37,15 +37,15 @@ def cli():
 @click.option(
     "--chunker-model",
     "-cm",
-    type=click.Choice(GeminiModel.list_str()),
-    default=GeminiModel.GEMINI_2_5_FLASH,
+    type=click.Choice(AnthropicModel.list_str()),
+    default=AnthropicModel.CLAUDE_HAIKU_4_5,
     help="Model for semantic chunking.",
 )
 @click.option(
     "--embedding-model",
     "-em",
-    type=click.Choice(GeminiEmbeddingModel.list_str()),
-    default=GeminiEmbeddingModel.GEMINI_EMBEDDING_001,
+    type=click.Choice(BedrockEmbeddingModel.list_str()),
+    default=BedrockEmbeddingModel.TITAN_EMBED_TEXT_V2,
     help="Model for creating embeddings.",
 )
 @async_cmd
@@ -83,22 +83,22 @@ async def index(
 @click.option(
     "--chunker-model",
     "-cm",
-    type=click.Choice(GeminiModel.list_str()),
-    default=GeminiModel.GEMINI_2_5_FLASH,
+    type=click.Choice(AnthropicModel.list_str()),
+    default=AnthropicModel.CLAUDE_HAIKU_4_5,
     help="Model for semantic chunking.",
 )
 @click.option(
     "--embedding-model",
     "-em",
-    type=click.Choice(GeminiEmbeddingModel.list_str()),
-    default=GeminiEmbeddingModel.GEMINI_EMBEDDING_001,
+    type=click.Choice(BedrockEmbeddingModel.list_str()),
+    default=BedrockEmbeddingModel.TITAN_EMBED_TEXT_V2,
     help="Model for creating embeddings.",
 )
 @click.option(
     "--generator-model",
     "-gm",
-    type=click.Choice(GeminiModel.list_str()),
-    default=GeminiModel.GEMINI_2_5_FLASH,
+    type=click.Choice(AnthropicModel.list_str()),
+    default=AnthropicModel.CLAUDE_HAIKU_4_5,
     help="Model for answer generation.",
 )
 @click.option(

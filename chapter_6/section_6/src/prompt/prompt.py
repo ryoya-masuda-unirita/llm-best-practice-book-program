@@ -1,11 +1,11 @@
 """
 Prompt definitions for the data analysis LLM application.
 
-This module defines the system prompt and tool declarations for Gemini function calling.
+This module defines the system prompt and tool declarations for Anthropic function calling.
 Uses the Tool Chain pattern where LLM MUST always define a tool chain first.
 """
 
-from google.genai import types
+from anthropic.types import ToolParam
 from src.service.tools.tool_metadata import TOOL_METADATA
 
 
@@ -214,9 +214,16 @@ Even for single operations, wrap them in a chain.""",
 ]
 
 
-def get_tools() -> types.Tool:
-    """Get the Tool object for Gemini function calling."""
-    return types.Tool(function_declarations=TOOL_DECLARATIONS)
+def get_tools() -> list[ToolParam]:
+    """Get the tool definitions for Anthropic tool use."""
+    return [
+        {
+            "name": declaration["name"],
+            "description": declaration["description"],
+            "input_schema": declaration["parameters"],
+        }
+        for declaration in TOOL_DECLARATIONS
+    ]
 
 
 def get_system_prompt(

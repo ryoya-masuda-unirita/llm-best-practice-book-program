@@ -112,7 +112,7 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-GEMINI_API_KEY=<your_gemini_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. **依存関係のインストール**
@@ -154,7 +154,7 @@ uv run python -m src.main index -d data/
 | オプション | 短縮形 | 説明 | デフォルト |
 |------------|--------|------|------------|
 | `--data-directory` | `-d` | ドキュメントディレクトリ | `data` |
-| `--chunker-model` | `-cm` | チャンキング用モデル | `gemini-2.5-flash` |
+| `--chunker-model` | `-cm` | チャンキング用モデル | `global.anthropic.claude-haiku-4-5-20251001-v1:0` |
 | `--embedding-model` | `-em` | 埋め込み用モデル | `gemini-embedding-001` |
 
 #### 質問応答（クエリ）
@@ -169,20 +169,20 @@ uv run python -m src.main query -d data/ -q "LLMのリクエストでタイム�
 |------------|--------|------|------------|
 | `--data-directory` | `-d` | ドキュメントディレクトリ | `data` |
 | `--question` | `-q` | 質問文 | (必須) |
-| `--chunker-model` | `-cm` | チャンキング用モデル | `gemini-2.5-flash` |
+| `--chunker-model` | `-cm` | チャンキング用モデル | `global.anthropic.claude-haiku-4-5-20251001-v1:0` |
 | `--embedding-model` | `-em` | 埋め込み用モデル | `gemini-embedding-001` |
-| `--generator-model` | `-gm` | 回答生成用モデル | `gemini-2.5-flash` |
+| `--generator-model` | `-gm` | 回答生成用モデル | `global.anthropic.claude-haiku-4-5-20251001-v1:0` |
 | `--top-k` | `-k` | 検索するチャンク数 | `5` |
 | `--output-file` | `-o` | 結果のJSON出力先 | (なし) |
 
 #### 利用可能なモデル
 
 **Gemini モデル（チャンキング/回答生成用）:**
-- `gemini-2.5-pro`
-- `gemini-2.5-flash`
-- `gemini-2.5-flash-lite`
-- `gemini-3.5-flash`
-- `gemini-3.1-flash-lite`
+- `global.anthropic.claude-sonnet-4-6`
+- `global.anthropic.claude-haiku-4-5-20251001-v1:0`
+- `global.anthropic.claude-haiku-4-5-20251001-v1:0`
+- `global.anthropic.claude-haiku-4-5-20251001-v1:0`
+- `global.anthropic.claude-haiku-4-5-20251001-v1:0`
 
 **Gemini 埋め込みモデル:**
 - `gemini-embedding-001`

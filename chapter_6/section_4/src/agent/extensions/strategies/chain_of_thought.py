@@ -7,7 +7,7 @@ from src.agent.extensions.strategies.base_strategy import BaseStrategy
 class ChainOfThoughtStrategy(BaseStrategy):
     """Sequential reasoning with step-by-step history building."""
 
-    def __init__(self, model: str = "gemini-2.5-flash", max_iterations: int = 10):
+    def __init__(self, model: str = "global.anthropic.claude-haiku-4-5-20251001-v1:0", max_iterations: int = 10):
         super().__init__("chain_of_thought", model, max_iterations)
 
     def think(self, goal: str, context: dict[str, object], available_tools: list[Tool]) -> Action:

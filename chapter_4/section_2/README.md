@@ -63,7 +63,7 @@
 
 - **Python**: 3.13.2以上
 - **依存ライブラリ**:
-  - anthropic>=0.74.1
+  - anthropic[bedrock]>=1.11.0
   - fastapi>=0.119.0
   - uvicorn>=0.37.0
   - pydantic>=2.12.2
@@ -77,7 +77,7 @@
 cp .env.example .env
 cp .envrc.example .envrc
 # .envファイルを編集してAPIキーを設定
-ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. **依存関係のインストール**
@@ -124,7 +124,7 @@ $ curl http://localhost:8000/health | jq .
 $ curl -X POST http://localhost:8000/generate \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-sonnet-4-6",
+    "model": "global.anthropic.claude-sonnet-4-6",
     "user_plan": "free",
     "character_request": {
       "gender": "female",
@@ -156,7 +156,7 @@ $ curl -X POST http://localhost:8000/generate \
       }
     ]
   },
-  "model": "claude-sonnet-4-6",
+  "model": "global.anthropic.claude-sonnet-4-6",
   "processing_time_ms": 10019.26589012146
 }
 ```
@@ -167,7 +167,7 @@ $ curl -X POST http://localhost:8000/generate \
 $ curl -X POST http://localhost:8000/classify \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-sonnet-4-6",
+    "model": "global.anthropic.claude-sonnet-4-6",
     "user_plan": "free",
     "text": "この製品は素晴らしい！期待以上の品質でした。",
     "categories": ["ポジティブ", "ネガティブ", "中立"]
@@ -177,7 +177,7 @@ $ curl -X POST http://localhost:8000/classify \
 100   568  100   355  100   213     72     43  0:00:04  0:00:04 --:--:--   115
 {
   "category": "ポジティブ",
-  "model": "claude-sonnet-4-6",
+  "model": "global.anthropic.claude-sonnet-4-6",
   "processing_time_ms": 4895.140171051025,
   "classification_result": {
     "reasoning": "「素晴らしい」「期待以上の品質」という明確な肯定的表現が使用されており、製品に対する高い満足度が示されています。",
@@ -207,7 +207,7 @@ $ curl -X POST http://localhost:8000/generate \
                                  Dload  Upload   Total   Spent    Left  Speed
 100   274  100   102  100   172  17273  29127 --:--:-- --:--:-- --:--:-- 54800
 {
-  "detail": "Model 'claude-opus-4' is not available for free plan. Available models: claude-sonnet-4-6"
+  "detail": "Model 'claude-opus-4' is not available for free plan. Available models: global.anthropic.claude-sonnet-4-6"
 }
 ```
 
@@ -216,16 +216,16 @@ $ curl -X POST http://localhost:8000/generate \
 #### コンソールログ出力
 
 ```
-[2025-10-25 10:30:45] [INFO] [src.service.text_generation_service] Generating character using Anthropic model: claude-sonnet-4-6
-[2025-10-25 10:30:47] [INFO] [src.api.llm_server] Successfully generated character using claude-sonnet-4-6 for free plan in 1234.56ms
+[2025-10-25 10:30:45] [INFO] [src.service.text_generation_service] Generating character using Anthropic model: global.anthropic.claude-sonnet-4-6
+[2025-10-25 10:30:47] [INFO] [src.api.llm_server] Successfully generated character using global.anthropic.claude-sonnet-4-6 for free plan in 1234.56ms
 
-[2025-10-25 10:31:12] [INFO] [src.service.text_classification_service] Classifying text using Anthropic model: claude-sonnet-4-6
+[2025-10-25 10:31:12] [INFO] [src.service.text_classification_service] Classifying text using Anthropic model: global.anthropic.claude-sonnet-4-6
 [2025-10-25 10:31:13] [INFO] [src.service.text_classification_service] Classification result: ポジティブ (confidence: high) - 「素晴らしい」などの肯定的表現が含まれているため
-[2025-10-25 10:31:13] [INFO] [src.api.llm_server] Successfully classified text using claude-sonnet-4-6 for free plan in 789.12ms. Result: ポジティブ
+[2025-10-25 10:31:13] [INFO] [src.api.llm_server] Successfully classified text using global.anthropic.claude-sonnet-4-6 for free plan in 789.12ms. Result: ポジティブ
 ```
 
 #### プラン制限の警告ログ
 
 ```
-[2025-10-25 10:32:00] [WARNING] [src.api.llm_server] Validation error: Model 'claude-opus-4' is not available for free plan. Available models: claude-sonnet-4-6
+[2025-10-25 10:32:00] [WARNING] [src.api.llm_server] Validation error: Model 'claude-opus-4' is not available for free plan. Available models: global.anthropic.claude-sonnet-4-6
 ```

@@ -1,25 +1,22 @@
 from enum import StrEnum
 
-from google import genai
+from anthropic import AsyncAnthropicBedrock
 from src.config import config
 
 
 class LLMProvider(StrEnum):
     """Enum for LLM providers."""
 
-    GEMINI = "gemini"
+    ANTHROPIC = "anthropic"
 
 
-class GeminiModel(StrEnum):
-    GEMINI_2_5_PRO = "gemini-2.5-pro"
-    GEMINI_2_5_FLASH = "gemini-2.5-flash"
-    GEMINI_2_5_FLASH_LITE = "gemini-2.5-flash-lite"
-    GEMINI_3_5_FLASH = "gemini-3.5-flash"
-    GEMINI_3_1_FLASH_LITE = "gemini-3.1-flash-lite"
+class AnthropicModel(StrEnum):
+    CLAUDE_SONNET_4_6 = "global.anthropic.claude-sonnet-4-6"
+    CLAUDE_HAIKU_4_5 = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 
     @staticmethod
     def list_str() -> list[str]:
-        return [model for model in GeminiModel]
+        return [model for model in AnthropicModel]
 
 
-google_genai_client = genai.Client(api_key=config.gemini_api_key.get_secret_value())
+anthropic_client = AsyncAnthropicBedrock(aws_region=config.aws_region)

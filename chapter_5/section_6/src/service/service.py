@@ -22,8 +22,7 @@ from uuid import uuid4
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
-from src.client.llm_client import OpenAIModel
-from src.config import config as global_config
+from src.client.llm_client import OpenAIModel, bedrock_api_key, bedrock_openai_base_url
 from src.logger import make_logger
 from src.model.model import (
     ContentType,
@@ -72,9 +71,9 @@ MIN_FEEDBACK_FOR_LEARNING = 2
 # =============================================================================
 
 
-def _create_chat_model(model: str = OpenAIModel.GPT_5_MINI) -> ChatOpenAI:
+def _create_chat_model(model: str = OpenAIModel.GPT_5_4) -> ChatOpenAI:
     """Create a ChatOpenAI model instance."""
-    return ChatOpenAI(model=model, openai_api_key=global_config.openai_api_key)
+    return ChatOpenAI(model=model, api_key=bedrock_api_key, base_url=bedrock_openai_base_url)
 
 
 def _build_messages(system_prompt: str, user_prompt: str) -> list:
@@ -187,7 +186,7 @@ def _convert_response_to_training_plan(
 
 def generate_training_plan(
     memory: UserMemory,
-    model: str = OpenAIModel.GPT_5_MINI,
+    model: str = OpenAIModel.GPT_5_4,
 ) -> TrainingPlan:
     """Generate a personalized 1-week training plan."""
     logger.info("=" * 60)
@@ -264,7 +263,7 @@ def _convert_response_to_learned_pattern(
 
 def analyze_feedback_patterns(
     memory: UserMemory,
-    model: str = OpenAIModel.GPT_5_MINI,
+    model: str = OpenAIModel.GPT_5_4,
 ) -> list[LearnedPattern]:
     """Analyze user feedback and extract patterns for improving future plan generation."""
     feedback_list = memory.get_recent_feedback(limit=10)
@@ -313,7 +312,7 @@ def analyze_feedback_patterns(
 async def run_training_plan_generation(
     user_id: str,
     profile: UserProfile | None = None,
-    model: str = OpenAIModel.GPT_5_MINI,
+    model: str = OpenAIModel.GPT_5_4,
     analyze_patterns: bool = True,
 ) -> tuple[TrainingPlan, UserMemory, Path]:
     """Run the complete training plan generation workflow."""

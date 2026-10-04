@@ -8,11 +8,8 @@ class LLMProvider(StrEnum):
 
 
 class AnthropicModel(StrEnum):
-    CLAUDE_SONNET_5 = "claude-sonnet-5"
-    CLAUDE_OPUS_4_8 = "claude-opus-4-8"
-    CLAUDE_OPUS_4_7 = "claude-opus-4-7"
-    CLAUDE_SONNET_4_6 = "claude-sonnet-4-6"
-    CLAUDE_HAIKU_4_5 = "claude-haiku-4-5"
+    CLAUDE_SONNET_4_6 = "global.anthropic.claude-sonnet-4-6"
+    CLAUDE_HAIKU_4_5 = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 
     @staticmethod
     def list_str() -> list[str]:

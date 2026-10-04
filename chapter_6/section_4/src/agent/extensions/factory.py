@@ -99,7 +99,7 @@ def create_agent_from_config(config: dict[str, object]) -> BaseAgent:
 
     # Strategy
     strategy_name = str(config.get("strategy", "chain_of_thought"))
-    model = str(config.get("model", "gemini-2.5-flash"))
+    model = str(config.get("model", "global.anthropic.claude-haiku-4-5-20251001-v1:0"))
     strategy = _create_strategy(strategy_name, model)
     builder.with_strategy(strategy)
 

@@ -134,7 +134,7 @@ No `if provider == ...` branches anywhere above the adapter layer.
 |-------|---------|
 | `LLMClient` | Abstract adapter interface |
 | `LLMProvider` | `openai` / `gemini` / `anthropic` |
-| `OpenAIModel` / `GeminiModel` / `AnthropicModel` | Valid model IDs per provider (Anthropic includes claude-opus-4-7, claude-sonnet-4-6, claude-haiku-4-5, claude-sonnet-5, claude-opus-4-8) |
+| `OpenAIModel` / `GeminiModel` / `AnthropicModel` | Valid model IDs per provider (Anthropic includes global.anthropic.claude-sonnet-4-6, global.anthropic.claude-haiku-4-5-20251001-v1:0, global.anthropic.claude-sonnet-4-6) |
 | `CharacterResponse` | Demo task structured-output schema |
 
 ## Setup & Run
@@ -144,10 +144,10 @@ cp .envrc.example .envrc     # OPENAI_API_KEY / GEMINI_API_KEY / ANTHROPIC_API_K
 uv sync
 
 # Canonical example
-uv run python -m src.main -lp GEMINI -m GEMINI_2_5_FLASH
+uv run python -m src.main -lp ANTHROPIC -m CLAUDE_HAIKU_4_5
 
 # Same code path, different providers
-uv run python -m src.main -lp OPENAI -m GPT_5_4_MINI
+uv run python -m src.main -lp OPENAI -m GPT_5_4
 uv run python -m src.main -lp ANTHROPIC -m CLAUDE_SONNET_4_6
 ```
 

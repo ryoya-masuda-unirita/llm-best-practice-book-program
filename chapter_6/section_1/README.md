@@ -97,8 +97,7 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-OPENAI_API_KEY=<your_openai_api_key_here>
-GEMINI_API_KEY=<your_gemini_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. **依存関係のインストール**
@@ -143,18 +142,18 @@ uv run streamlit run app.py
 #### 利用可能なモデル
 
 **OpenAI**:
-- `gpt-5.5`
-- `gpt-5.2`
-- `gpt-5`
-- `gpt-5-mini`
-- `gpt-5-nano`
+- `openai.gpt-5.5`
+- `openai.gpt-5.4`
+- `openai.gpt-5.4`
+- `openai.gpt-5.4`
+- `openai.gpt-5.4`
 
 **Gemini**:
-- `gemini-2.5-pro`
-- `gemini-2.5-flash`
-- `gemini-2.5-flash-lite`
-- `gemini-3.5-flash`
-- `gemini-3.1-flash-lite`
+- `global.anthropic.claude-sonnet-4-6`
+- `global.anthropic.claude-haiku-4-5-20251001-v1:0`
+- `global.anthropic.claude-haiku-4-5-20251001-v1:0`
+- `global.anthropic.claude-haiku-4-5-20251001-v1:0`
+- `global.anthropic.claude-haiku-4-5-20251001-v1:0`
 
 ### 出力例
 

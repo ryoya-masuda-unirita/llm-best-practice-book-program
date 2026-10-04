@@ -1,5 +1,5 @@
 from src.client.gateway_client import gateway_client
-from src.client.llm_client import GeminiModel, LLMProvider, OpenAIModel
+from src.client.llm_client import AnthropicModel, LLMProvider, OpenAIModel
 from src.logger import make_logger
 from src.model.model import CharacterResponse
 
@@ -26,6 +26,6 @@ async def request_openai(model: OpenAIModel, prompt: list[dict]) -> CharacterRes
     return await _request_llm(LLMProvider.OPENAI, model, prompt)
 
 
-async def request_gemini(model: GeminiModel, prompt: list[dict]) -> CharacterResponse:
-    """Request character generation from Gemini via the gateway."""
-    return await _request_llm(LLMProvider.GEMINI, model, prompt)
+async def request_anthropic(model: AnthropicModel, prompt: list[dict]) -> CharacterResponse:
+    """Request character generation from Anthropic via the gateway."""
+    return await _request_llm(LLMProvider.ANTHROPIC, model, prompt)

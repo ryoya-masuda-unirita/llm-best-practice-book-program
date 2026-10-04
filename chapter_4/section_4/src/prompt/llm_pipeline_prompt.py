@@ -47,7 +47,7 @@ Requirements:
 
 
 def make_document_analysis_system_instruction(document_content: str) -> tuple[str, str]:
-    """Create system instruction and user prompt for document analysis (for Gemini)."""
+    """Create system instruction and user prompt for document analysis (for Anthropic)."""
     schema_fields = {}
     for field_name, field_info in DocumentAnalysis.model_fields.items():
         field_type = field_info.annotation
@@ -148,7 +148,7 @@ Provide your evaluation following the specified JSON structure.
 
 
 def make_judge_system_instruction(document_content: str, analysis_result: DocumentAnalysis) -> tuple[str, str]:
-    """Create system instruction and user prompt for evaluating the analysis (for Gemini)."""
+    """Create system instruction and user prompt for evaluating the analysis (for Anthropic)."""
     schema_fields = {}
     for field_name, field_info in AnalysisEvaluation.model_fields.items():
         field_type = field_info.annotation

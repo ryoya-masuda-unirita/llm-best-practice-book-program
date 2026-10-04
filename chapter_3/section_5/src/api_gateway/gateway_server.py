@@ -119,7 +119,7 @@ async def health_check():
     """Health check endpoint returning gateway status and provider availability."""
     providers_available = {
         "openai": True,
-        "gemini": True,
+        "anthropic": True,
     }
 
     return GatewayHealthResponse(providers_available=providers_available)

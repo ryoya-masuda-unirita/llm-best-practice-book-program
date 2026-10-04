@@ -27,13 +27,13 @@ class TestStreamOpenAIResponse:
             chunks = []
             async for chunk in stream_openai_response(
                 prompt="Test",
-                model="gpt-5.4",
+                model="openai.gpt-5.4",
             ):
                 chunks.append(chunk)
 
             mock_openai_client.chat.completions.create.assert_called_once()
             call_args = mock_openai_client.chat.completions.create.call_args
-            assert call_args.kwargs["model"] == "gpt-5.4"
+            assert call_args.kwargs["model"] == "openai.gpt-5.4"
             assert call_args.kwargs["stream"] is True
 
     @pytest.mark.asyncio
@@ -44,7 +44,7 @@ class TestStreamOpenAIResponse:
                 pass
 
             call_args = mock_openai_client.chat.completions.create.call_args
-            assert call_args.kwargs["model"] == "gpt-5.4-mini"
+            assert call_args.kwargs["model"] == "openai.gpt-5.4"
 
     @pytest.mark.asyncio
     async def test_empty_chunks_are_skipped(self):
@@ -125,9 +125,9 @@ class TestStreamOpenAIResponse:
     @pytest.mark.parametrize(
         "model",
         [
-            "gpt-5.4",
-            "gpt-5.4-mini",
-            "gpt-5",
+            "openai.gpt-5.4",
+            "openai.gpt-5.4",
+            "openai.gpt-5.4",
         ],
     )
     async def test_various_models(self, mock_openai_client, model):

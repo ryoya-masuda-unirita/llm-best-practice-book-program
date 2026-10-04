@@ -34,7 +34,7 @@ def async_cmd(func):
     "-m",
     type=click.Choice(OpenAIModel.list_str()),
     required=False,
-    default=OpenAIModel.GPT_5_MINI,
+    default=OpenAIModel.GPT_5_4,
     help="The model to use for the request.",
 )
 @click.option(

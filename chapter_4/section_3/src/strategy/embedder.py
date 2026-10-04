@@ -1,6 +1,9 @@
 """Embedder component for creating embeddings."""
 
-from src.client.llm_client import GeminiEmbeddingModel, google_genai_client
+import asyncio
+import json
+
+from src.client.llm_client import BedrockEmbeddingModel, bedrock_runtime_client
 from src.logger import make_logger
 from src.model.rag_model import Chunk, ChunkWithEmbedding
 from src.strategy.base import Component
@@ -11,7 +14,7 @@ logger = make_logger(__name__)
 class Embedder(Component[list[Chunk], list[ChunkWithEmbedding]]):
     """Component for creating embeddings from text chunks."""
 
-    def __init__(self, model: GeminiEmbeddingModel = GeminiEmbeddingModel.GEMINI_EMBEDDING_001):
+    def __init__(self, model: BedrockEmbeddingModel = BedrockEmbeddingModel.TITAN_EMBED_TEXT_V2):
         self.model = model
 
     async def process(self, input_data: list[Chunk]) -> list[ChunkWithEmbedding]:
@@ -31,5 +34,9 @@ class Embedder(Component[list[Chunk], list[ChunkWithEmbedding]]):
         return chunks_with_embeddings
 
     async def _create_embedding(self, text: str) -> list[float]:
-        result = await google_genai_client.aio.models.embed_content(model=self.model, contents=text)
-        return result.embeddings[0].values
+        response = await asyncio.to_thread(
+            bedrock_runtime_client.invoke_model,
+            modelId=self.model,
+            body=json.dumps({"inputText": text}),
+        )
+        return json.loads(response["body"].read())["embedding"]

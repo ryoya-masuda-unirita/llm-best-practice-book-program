@@ -145,8 +145,7 @@ cp .envrc.example .envrc
 
 # エディタで.envrcを開き、APIキーを設定
 # .envrc
-OPENAI_API_KEY=<your_openai_api_key_here>
-GEMINI_API_KEY=<your_gemini_api_key_here>
+AWS_REGION=us-east-1
 
 # オプション設定（デフォルト値で問題なければ省略可）
 LLM_REQUEST_TIMEOUT=10.0    # リクエストタイムアウト（秒）
@@ -176,12 +175,12 @@ Options:
                                   generation.
   -lp, --llm-provider [OPENAI|GEMINI]
                                   The LLM provider to use.  [required]
-  -m, --model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
+  -m, --model [GPT_5_5|GPT_5_4|CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5]
                                   The model to use for the request.
                                   [required]
   -fs, --fallback-strategy [PRIMARY|PARAMETER_CACHE|SEMANTIC_CACHE|ALTERNATIVE_PROVIDER]
                                   The fallback strategy to use.  [required]
-  -am, --alternative-model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
+  -am, --alternative-model [GPT_5_5|GPT_5_4|CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5]
                                   The alternative model to use for fallback
                                   requests.  [required]
   -od, --output-directory PATH    The directory to save output files.
@@ -199,10 +198,10 @@ Options:
 uv run python -m src.main \
   --gender FEMALE \
   --age 25 \
-  --llm-provider GEMINI \
-  --model GEMINI_2_5_FLASH \
+  --llm-provider ANTHROPIC \
+  --model CLAUDE_HAIKU_4_5 \
   --fallback-strategy PRIMARY \
-  --alternative-model GPT_5_4_MINI \
+  --alternative-model GPT_5_4 \
   --timeout 10
 
 # OpenAI APIを使用（プライマリリクエストのみ）
@@ -210,13 +209,13 @@ uv run python -m src.main \
   --gender MALE \
   --age 30 \
   --llm-provider OPENAI \
-  --model GPT_5_4_MINI \
+  --model GPT_5_4 \
   --fallback-strategy PRIMARY \
-  --alternative-model GEMINI_2_5_FLASH \
+  --alternative-model CLAUDE_HAIKU_4_5 \
   --timeout 10
 
 # 短縮オプション
-uv run python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH -fs PRIMARY -am GPT_5_4_MINI -t 10
+uv run python -m src.main -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 -fs PRIMARY -am GPT_5_4 -t 10
 ```
 
 #### フォールバック戦略の設定
@@ -224,23 +223,23 @@ uv run python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH -fs PRI
 ```bash
 # パラメーターキャッシュをフォールバックに使用
 uv run python -m src.main \
-  -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
+  -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 \
   --fallback-strategy PARAMETER_CACHE \
-  --alternative-model GPT_5_4_MINI \
+  --alternative-model GPT_5_4 \
   --timeout 10
 
 # セマンティックキャッシュをフォールバックに使用
 uv run python -m src.main \
-  -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
+  -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 \
   --fallback-strategy SEMANTIC_CACHE \
-  --alternative-model GPT_5_4_MINI \
+  --alternative-model GPT_5_4 \
   --timeout 10
 
 # 代替プロバイダーをフォールバックに使用（OpenAI → Gemini）
 uv run python -m src.main \
-  -g MALE -a 28 -lp OPENAI -m GPT_5_4_MINI \
+  -g MALE -a 28 -lp OPENAI -m GPT_5_4 \
   --fallback-strategy ALTERNATIVE_PROVIDER \
-  --alternative-model GEMINI_2_5_FLASH \
+  --alternative-model CLAUDE_HAIKU_4_5 \
   --timeout 5
 ```
 
@@ -249,14 +248,14 @@ uv run python -m src.main \
 ```bash
 # カスタムタイムアウトを指定（5秒）
 uv run python -m src.main \
-  -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
-  -fs PRIMARY -am GPT_5_4_MINI \
+  -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 \
+  -fs PRIMARY -am GPT_5_4 \
   --timeout 5
 
 # 非常に短いタイムアウト（3秒）でフォールバック動作をテスト
 uv run python -m src.main \
-  -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
-  -fs PARAMETER_CACHE -am GPT_5_4_MINI \
+  -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 \
+  -fs PARAMETER_CACHE -am GPT_5_4 \
   -t 3
 ```
 
@@ -265,14 +264,14 @@ uv run python -m src.main \
 ```bash
 # フォールバックを無効化（プライマリプロバイダーのみ使用）
 uv run python -m src.main \
-  -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
-  -fs PRIMARY -am GPT_5_4_MINI -t 10 \
+  -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 \
+  -fs PRIMARY -am GPT_5_4 -t 10 \
   --disable-fallback
 
 # デバッグ用: OpenAIのみ、フォールバックなし、短いタイムアウト
 uv run python -m src.main \
-  -g MALE -a 30 -lp OPENAI -m GPT_5_4_MINI \
-  -fs PRIMARY -am GEMINI_2_5_FLASH -t 5 -df
+  -g MALE -a 30 -lp OPENAI -m GPT_5_4 \
+  -fs PRIMARY -am CLAUDE_HAIKU_4_5 -t 5 -df
 ```
 
 #### 出力先の指定
@@ -280,14 +279,14 @@ uv run python -m src.main \
 ```bash
 # カスタム出力ディレクトリを指定
 uv run python -m src.main \
-  -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
-  -fs PRIMARY -am GPT_5_4_MINI -t 10 \
+  -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 \
+  -fs PRIMARY -am GPT_5_4 -t 10 \
   --output-directory ./custom_output
 
 # 短縮オプション
 uv run python -m src.main \
-  -g MALE -a 28 -lp OPENAI -m GPT_5_4_MINI \
-  -fs PRIMARY -am GEMINI_2_5_FLASH -t 10 \
+  -g MALE -a 28 -lp OPENAI -m GPT_5_4 \
+  -fs PRIMARY -am CLAUDE_HAIKU_4_5 -t 10 \
   -od ./my_characters
 ```
 
@@ -296,8 +295,8 @@ uv run python -m src.main \
 ```bash
 # キャラクターに追加指示を与える
 uv run python -m src.main \
-  -g FEMALE -a 22 -lp GEMINI -m GEMINI_2_5_FLASH \
-  -fs PRIMARY -am GPT_5_4_MINI -t 10 \
+  -g FEMALE -a 22 -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 \
+  -fs PRIMARY -am GPT_5_4 -t 10 \
   --additional-instructions "魔法使いの見習いという設定で"
 ```
 
@@ -306,17 +305,17 @@ uv run python -m src.main \
 ```bash
 # 本番環境向け設定例（長めのタイムアウト、代替プロバイダーフォールバック）
 uv run python -m src.main \
-  -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
+  -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 \
   -fs ALTERNATIVE_PROVIDER \
-  -am GPT_5_4_MINI \
+  -am GPT_5_4 \
   -t 30 \
   -od ./outputs
 
 # 開発/テスト環境向け設定例（短いタイムアウトでキャッシュフォールバックをテスト）
 uv run python -m src.main \
-  -g MALE -a 28 -lp OPENAI -m GPT_5_4_MINI \
+  -g MALE -a 28 -lp OPENAI -m GPT_5_4 \
   -fs SEMANTIC_CACHE \
-  -am GEMINI_2_5_FLASH \
+  -am CLAUDE_HAIKU_4_5 \
   -t 2
 ```
 
@@ -354,10 +353,10 @@ uv run python -m src.main \
 $ uv run python -m src.main \
   --gender FEMALE \
   --age 25 \
-  --llm-provider GEMINI \
-  --model GEMINI_2_5_FLASH \
+  --llm-provider ANTHROPIC \
+  --model CLAUDE_HAIKU_4_5 \
   --fallback-strategy PRIMARY \
-  --alternative-model GPT_5_4_MINI \
+  --alternative-model GPT_5_4 \
   --timeout 10
 [2026-01-18 15:57:03,753] [INFO] [__main__] [main.py:126] [main] Starting character generation with the following parameters:
 Gender: female
@@ -366,9 +365,9 @@ Additional instruction:
 
 LLM Parameters:
 LLM provider: gemini
-Model: gemini-2.5-flash
+Model: global.anthropic.claude-haiku-4-5-20251001-v1:0
 Fallback strategy: primary
-Alternative model: gpt-5.4-mini
+Alternative model: openai.gpt-5.4
 Output directory: outputs
 Timeout: 10.0s
 Fallback enabled: True

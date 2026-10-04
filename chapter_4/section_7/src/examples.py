@@ -22,7 +22,7 @@ from src.agent import (
     create_default_controller,
 )
 from src.agent.memory import MemoryCaretaker
-from src.client.llm_client import GeminiModel
+from src.client.llm_client import AnthropicModel
 from src.logger import make_logger
 
 logger = make_logger(__name__)
@@ -33,7 +33,7 @@ def example_1_basic_agent():
     logger.info("\n=== Example 1: Basic Agent with Chain-of-Thought ===\n")
 
     # Create components
-    strategy = ChainOfThoughtStrategy(model=GeminiModel.GEMINI_2_5_FLASH, max_steps=5)
+    strategy = ChainOfThoughtStrategy(model=AnthropicModel.CLAUDE_HAIKU_4_5, max_steps=5)
 
     toolbox = CategorizableToolBox()
     toolbox.add_to_category("writing", WriteDraftTool())
@@ -71,7 +71,7 @@ def example_2_react_agent():
         .with_strategy(
             {
                 "type": "react",
-                "model": GeminiModel.GEMINI_2_5_FLASH,
+                "model": AnthropicModel.CLAUDE_HAIKU_4_5,
                 "max_iterations": 8,
             }
         )
@@ -116,10 +116,10 @@ def example_3_multi_strategy_agent():
 
     # Create multiple strategies
     strategies = {
-        "cot": ChainOfThoughtStrategy(model=GeminiModel.GEMINI_2_5_FLASH, max_steps=5),
-        "react": ReActStrategy(model=GeminiModel.GEMINI_2_5_FLASH, max_iterations=8),
+        "cot": ChainOfThoughtStrategy(model=AnthropicModel.CLAUDE_HAIKU_4_5, max_steps=5),
+        "react": ReActStrategy(model=AnthropicModel.CLAUDE_HAIKU_4_5, max_iterations=8),
         "tot": TreeOfThoughtStrategy(
-            model=GeminiModel.GEMINI_2_5_FLASH,
+            model=AnthropicModel.CLAUDE_HAIKU_4_5,
             max_depth=2,
             branch_factor=2,
         ),
@@ -159,7 +159,7 @@ def example_4_config_based_agent():
         "type": "configurable",
         "strategy": {
             "type": "react",
-            "model": GeminiModel.GEMINI_2_5_FLASH,
+            "model": AnthropicModel.CLAUDE_HAIKU_4_5,
             "max_iterations": 10,
         },
         "toolbox": {

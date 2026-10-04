@@ -20,15 +20,18 @@
 
 ### LLMの利用について
 
-各コード例ではLLM（大規模言語モデル）を利用したプログラムを提供しています。 ただし、LLMのAPIキーやエンドポイントは含まれていません。各自で適切なAPIキーを取得し、環境変数などで設定してください。
+各コード例ではLLM（大規模言語モデル）を利用したプログラムを提供しています。このレポジトリでは、すべてのLLM呼び出しを [Amazon Bedrock](https://aws.amazon.com/jp/bedrock/) 経由で行うように変更しています。
 
-- OpenAI API Key: https://openai.com/ja-JP/index/openai-api/
-- Google Gemini API Key: https://ai.google.dev/gemini-api/docs/api-key
-- Anthropic: https://platform.claude.com/docs/ja/get-started
+- Anthropic Claude: `anthropic` SDK のBedrock用クライアント（`AnthropicBedrock`）で呼び出します。モデルは Claude Sonnet 4.6 / Claude Haiku 4.5 です。
+- OpenAI GPT: `openai` SDK の接続先をBedrockのOpenAI互換エンドポイントに向けて呼び出します。モデルは GPT-5.5 / GPT-5.4 です。
+- 埋め込み: Amazon Titan Text Embeddings V2 を使います。
+- Google Gemini: Bedrockでは提供されていないため、Geminiを使っていたコードはClaudeに書き換えるか、コメントアウトしています。
 
-なお、各LLM APIは一部を無料で使うことができますが、本プロジェクトの利用は無料枠を超える可能性があります。有償でのAPIの利用料金については各サービスの公式サイトを確認してください。
+APIキーは不要で、AWSの認証情報（`~/.aws/credentials` または `AWS_ACCESS_KEY_ID` などの環境変数）を使います。リージョンは環境変数 `AWS_REGION` で指定し、未指定の場合は `us-east-1` を使います（OpenAIのGPTモデルは `us-east-1` など一部のリージョンでのみ提供されています）。事前にBedrockのコンソールで利用するモデルへのアクセスを有効にしてください。
 
-また、APIキーの管理には十分注意し、誤って公開リポジトリなどに含めないようにしてください。
+なお、[第2章 第5項 非同期バッチ処理](./chapter_2/section_5) は、各社のバッチAPIに相当するものがBedrockのSDK経由では提供されていないため、通常のリクエストを並列実行する実装に置き換えています（ジョブの受付・キュー・ワーカーの構成は元のままです）。
+
+Bedrockの利用には料金がかかります。料金については [Amazon Bedrock の料金](https://aws.amazon.com/jp/bedrock/pricing/) を確認してください。
 
 本プロジェクトおよびLLM APIの利用は自己責任で行ってください。
 

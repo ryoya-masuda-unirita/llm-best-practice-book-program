@@ -135,7 +135,7 @@ def cli():
     "--model",
     "-m",
     type=click.Choice(OpenAIModel.list_str()),
-    default=OpenAIModel.GPT_5_MINI,
+    default=OpenAIModel.GPT_5_4,
     help="OpenAI model to use.",
 )
 @click.option(

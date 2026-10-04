@@ -2,21 +2,21 @@
 
 from typing import Optional
 
-from google.genai.types import GenerateContentConfig
+# from google.genai.types import GenerateContentConfig
 from src.client.llm_client import (
     AnthropicModel,
-    GeminiModel,
+    # GeminiModel,
     LLMProvider,
     OpenAIModel,
     anthropic_client,
-    google_genai_client,
+    # google_genai_client,
     openai_client,
 )
 from src.logger import make_logger
 from src.model.llm_as_a_judge_model import JudgeRequest, JudgeResponse
 from src.model.model import CharacterRequest, CharacterResponse
 from src.prompt.prompt import make_prompt
-from src.service.llm_as_a_judge import judge_with_anthropic, judge_with_gemini, judge_with_openai
+from src.service.llm_as_a_judge import judge_with_anthropic, judge_with_openai  # , judge_with_gemini
 from src.service.prompt_profiler import PromptProfiler, get_default_profiler
 
 logger = make_logger(__name__)
@@ -56,44 +56,44 @@ async def profiled_request_openai(
     return result.output_parsed
 
 
-async def profiled_request_gemini(
-    prompt: tuple[str, str],
-    model: GeminiModel,
-    prompt_id: str = "character_generation",
-    profiler: Optional[PromptProfiler] = None,
-) -> CharacterResponse:
-    """Request character generation from Gemini with profiling."""
-    profiler = profiler or get_default_profiler()
-    system_prompt, user_prompt = prompt
-
-    async with profiler.profile(
-        prompt_id=prompt_id,
-        model=model,
-        provider="gemini",
-        prompt_name="Character Generation (Gemini)",
-    ) as ctx:
-        result = await google_genai_client.aio.models.generate_content(
-            model=model,
-            contents=user_prompt,
-            config=GenerateContentConfig(
-                system_instruction=system_prompt,
-                response_mime_type="application/json",
-                response_schema=CharacterResponse,
-                temperature=2.0,
-            ),
-        )
-
-        if hasattr(result, "usage_metadata"):
-            ctx["input_tokens"] = result.usage_metadata.prompt_token_count or 0
-            ctx["output_tokens"] = result.usage_metadata.candidates_token_count or 0
-        else:
-            ctx["input_tokens"] = (len(system_prompt) + len(user_prompt)) // 4
-            ctx["output_tokens"] = len(result.text) // 4 if result.text else 0
-
-        ctx["response"] = result.parsed
-        logger.info(result)
-
-    return result.parsed
+# async def profiled_request_gemini(
+#     prompt: tuple[str, str],
+#     model: GeminiModel,
+#     prompt_id: str = "character_generation",
+#     profiler: Optional[PromptProfiler] = None,
+# ) -> CharacterResponse:
+#     """Request character generation from Gemini with profiling."""
+#     profiler = profiler or get_default_profiler()
+#     system_prompt, user_prompt = prompt
+#
+#     async with profiler.profile(
+#         prompt_id=prompt_id,
+#         model=model,
+#         provider="gemini",
+#         prompt_name="Character Generation (Gemini)",
+#     ) as ctx:
+#         result = await google_genai_client.aio.models.generate_content(
+#             model=model,
+#             contents=user_prompt,
+#             config=GenerateContentConfig(
+#                 system_instruction=system_prompt,
+#                 response_mime_type="application/json",
+#                 response_schema=CharacterResponse,
+#                 temperature=2.0,
+#             ),
+#         )
+#
+#         if hasattr(result, "usage_metadata"):
+#             ctx["input_tokens"] = result.usage_metadata.prompt_token_count or 0
+#             ctx["output_tokens"] = result.usage_metadata.candidates_token_count or 0
+#         else:
+#             ctx["input_tokens"] = (len(system_prompt) + len(user_prompt)) // 4
+#             ctx["output_tokens"] = len(result.text) // 4 if result.text else 0
+#
+#         ctx["response"] = result.parsed
+#         logger.info(result)
+#
+#     return result.parsed
 
 
 async def profiled_request_anthropic(
@@ -111,10 +111,9 @@ async def profiled_request_anthropic(
         provider="anthropic",
         prompt_name="Character Generation (Anthropic)",
     ) as ctx:
-        result = await anthropic_client.beta.messages.parse(
+        result = await anthropic_client.messages.parse(
             model=model,
             max_tokens=1024,
-            betas=["structured-outputs-2025-11-13"],
             messages=prompt,
             output_format=CharacterResponse,
         )
@@ -134,9 +133,9 @@ async def profiled_request_anthropic(
 
 async def profiled_request_with_judge(
     character_request: CharacterRequest,
-    model: OpenAIModel | GeminiModel | AnthropicModel,
+    model: OpenAIModel | AnthropicModel,
     provider: str,
-    judge_model: OpenAIModel | GeminiModel | AnthropicModel | None = None,
+    judge_model: OpenAIModel | AnthropicModel | None = None,
     judge_provider: str | None = None,
     profiler: Optional[PromptProfiler] = None,
 ) -> tuple[CharacterResponse, JudgeResponse]:
@@ -156,13 +155,13 @@ async def profiled_request_with_judge(
             prompt_id=prompt_id,
             profiler=profiler,
         )
-    elif provider == LLMProvider.GEMINI:
-        character_response = await profiled_request_gemini(
-            prompt=prompt,
-            model=model,
-            prompt_id=prompt_id,
-            profiler=profiler,
-        )
+    # elif provider == LLMProvider.GEMINI:
+    #     character_response = await profiled_request_gemini(
+    #         prompt=prompt,
+    #         model=model,
+    #         prompt_id=prompt_id,
+    #         profiler=profiler,
+    #     )
     elif provider == LLMProvider.ANTHROPIC:
         character_response = await profiled_request_anthropic(
             prompt=prompt,
@@ -211,8 +210,8 @@ Additional Instructions: {character_request.additional_instructions or "None"}""
     ) as ctx:
         if judge_provider == LLMProvider.OPENAI:
             judge_response = await judge_with_openai(judge_request=judge_request, model=judge_model)
-        elif judge_provider == LLMProvider.GEMINI:
-            judge_response = await judge_with_gemini(judge_request=judge_request, model=judge_model)
+        # elif judge_provider == LLMProvider.GEMINI:
+        #     judge_response = await judge_with_gemini(judge_request=judge_request, model=judge_model)
         elif judge_provider == LLMProvider.ANTHROPIC:
             judge_response = await judge_with_anthropic(judge_request=judge_request, model=judge_model)
         else:

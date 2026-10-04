@@ -82,7 +82,7 @@ cp .envrc.example .envrc
 
 # Gemini APIキーを設定
 # https://aistudio.google.com/app/apikey から取得
-GEMINI_API_KEY=<your_gemini_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. 依存関係のインストール

@@ -89,10 +89,9 @@ def mock_openai_client():
 
 
 @pytest.fixture
-def mock_gemini_client():
-    """Fixture for a mock Gemini client."""
+def mock_anthropic_client():
+    """Fixture for a mock Anthropic client."""
     client = MagicMock()
-    client.aio = MagicMock()
-    client.aio.models = MagicMock()
-    client.aio.models.generate_content = AsyncMock()
+    client.messages = MagicMock()
+    client.messages.parse = AsyncMock()
     return client

@@ -100,9 +100,7 @@ cp .envrc.example .envrc
 2. **`.envrc` にAPIキーを設定**
 
 ```bash
-OPENAI_API_KEY=<your_openai_api_key_here>
-GEMINI_API_KEY=<your_gemini_api_key_here>
-ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 3. **依存ライブラリをインストール**
@@ -117,16 +115,16 @@ uv sync
 
 ```bash
 uv run python -m src.main \
-  --llm-provider GEMINI \
-  --model GEMINI_2_5_FLASH
+  --llm-provider ANTHROPIC \
+  --model CLAUDE_HAIKU_4_5
 ```
 
 #### Best-of-N パラメータを指定
 
 ```bash
 uv run python -m src.main \
-  --llm-provider GEMINI \
-  --model GEMINI_2_5_FLASH \
+  --llm-provider ANTHROPIC \
+  --model CLAUDE_HAIKU_4_5 \
   --num-candidates 5 \
   --quality-threshold 4.0 \
   --max-retries 3
@@ -136,10 +134,10 @@ uv run python -m src.main \
 
 ```bash
 uv run python -m src.main \
-  --llm-provider GEMINI \
-  --model GEMINI_2_5_FLASH \
+  --llm-provider ANTHROPIC \
+  --model CLAUDE_HAIKU_4_5 \
   --judge-provider OPENAI \
-  --judge-model GPT_5_2
+  --judge-model GPT_5_4
 ```
 
 ### CLIオプション一覧
@@ -159,14 +157,14 @@ Options:
                                   generation.
   -lp, --llm-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use.  [required]
-  -m, --model [GPT_5_2|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_SONNET_5|CLAUDE_OPUS_4_8|CLAUDE_OPUS_4_7|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
+  -m, --model [GPT_5_4|CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
                                   The model to use for the request.
                                   [required]
   -od, --output-directory PATH    The directory to save output files.
   -jp, --judge-provider [OPENAI|GEMINI|ANTHROPIC]
                                   The LLM provider to use for judgment
                                   (defaults to same as generation provider).
-  -jm, --judge-model [GPT_5_2|GPT_5|GPT_5_MINI|GPT_5_NANO|GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE|CLAUDE_SONNET_5|CLAUDE_OPUS_4_8|CLAUDE_OPUS_4_7|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
+  -jm, --judge-model [GPT_5_4|CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5|CLAUDE_SONNET_4_6]
                                   The model to use for judgment (defaults to
                                   same as generation model).
   -n, --num-candidates INTEGER RANGE
@@ -252,23 +250,23 @@ Options:
 
 ```bash
 $ uv run python -m src.main \
-  --llm-provider GEMINI \
-  --model GEMINI_2_5_FLASH \
+  --llm-provider ANTHROPIC \
+  --model CLAUDE_HAIKU_4_5 \
   --judge-provider OPENAI \
-  --judge-model GPT_5_2
+  --judge-model GPT_5_4
 
 [2026-02-08 09:37:40,067] [INFO] [__main__] [main.py:124] [main] Character Generation Request (Best-of-3):
 Gender: female
 Age: 25
 Additional Instructions: 
 
-Generation LLM: gemini / gemini-2.5-flash
-Judge LLM: openai / gpt-5.2
+Generation LLM: gemini / global.anthropic.claude-haiku-4-5-20251001-v1:0
+Judge LLM: openai / openai.gpt-5.4
 Quality Threshold: 3.0/5.0
 Max Retries: 3
 Output directory: outputs
 [2026-02-08 09:37:40,068] [INFO] [src.service.request_llm] [request_llm.py:175] [request_with_best_of_n] Starting Best-of-3 generation with threshold 3.0
-[2026-02-08 09:37:40,068] [INFO] [src.service.request_llm] [request_llm.py:176] [request_with_best_of_n] Generation: gemini/gemini-2.5-flash, Judge: openai/gpt-5.2
+[2026-02-08 09:37:40,068] [INFO] [src.service.request_llm] [request_llm.py:176] [request_with_best_of_n] Generation: gemini/global.anthropic.claude-haiku-4-5-20251001-v1:0, Judge: openai/openai.gpt-5.4
 [2026-02-08 09:37:40,068] [INFO] [src.service.request_llm] [request_llm.py:80] [generate_single_candidate] Generating candidate 1...
 [2026-02-08 09:37:40,103] [INFO] [src.service.request_llm] [request_llm.py:80] [generate_single_candidate] Generating candidate 2...
 [2026-02-08 09:37:40,104] [INFO] [src.service.request_llm] [request_llm.py:80] [generate_single_candidate] Generating candidate 3...
@@ -285,7 +283,7 @@ Output directory: outputs
   ),
   finish_reason=<FinishReason.STOP: 'STOP'>,
   index=0
-)] create_time=None model_version='gemini-2.5-flash' prompt_feedback=None response_id='1tqHaduZPNmwvr0PlK7viQ8' usage_metadata=GenerateContentResponseUsageMetadata(
+)] create_time=None model_version='global.anthropic.claude-haiku-4-5-20251001-v1:0' prompt_feedback=None response_id='1tqHaduZPNmwvr0PlK7viQ8' usage_metadata=GenerateContentResponseUsageMetadata(
   cache_tokens_details=[
     ModalityTokenCount(
       modality=<MediaModality.TEXT: 'TEXT'>,
@@ -305,7 +303,7 @@ Output directory: outputs
   total_token_count=770
 ) automatic_function_calling_history=[] parsed=CharacterResponse(first_name='Akari', last_name='Miyazaki', gender=<Gender.FEMALE: 'female'>, age=25, personalities=[CharacterPersonality(short_personality='Insightful', description='Akari possesses a deep sense of perception, often noticing details and underlying emotions that others miss. She can quickly grasp complex situations and offer well-reasoned perspectives, making her a trusted advisor among her friends.'), CharacterPersonality(short_personality='Determined', description="Once Akari sets her mind on a goal, she exhibits remarkable perseverance. She's not easily swayed by setbacks or difficulties and will put in the necessary effort and time to achieve her objectives, often inspiring others with her tenacity."), CharacterPersonality(short_personality='Gentle', description="Despite her determination, Akari has a very gentle and compassionate nature. She approaches interactions with kindness and empathy, always mindful of others' feelings, and often seeks to create harmonious environments for those around her.")])
 [2026-02-08 09:37:43,132] [INFO] [src.service.request_llm] [request_llm.py:100] [evaluate_candidate] Evaluating candidate 2 with LLM-as-a-Judge...
-[2026-02-08 09:37:43,132] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:27] [judge_with_openai] Requesting judgment from OpenAI model: gpt-5.2
+[2026-02-08 09:37:43,132] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:27] [judge_with_openai] Requesting judgment from OpenAI model: openai.gpt-5.4
 [2026-02-08 09:37:45,321] [INFO] [src.service.request_llm] [request_llm.py:57] [request_gemini] sdk_http_response=HttpResponse(
   headers=<dict len=11>
 ) candidates=[Candidate(
@@ -338,7 +336,7 @@ Output directory: outputs
   ),
   finish_reason=<FinishReason.STOP: 'STOP'>,
   index=0
-)] create_time=None model_version='gemini-2.5-flash' prompt_feedback=None response_id='2dqHaYXeCL-l0-kPlu2EqQI' usage_metadata=GenerateContentResponseUsageMetadata(
+)] create_time=None model_version='global.anthropic.claude-haiku-4-5-20251001-v1:0' prompt_feedback=None response_id='2dqHaYXeCL-l0-kPlu2EqQI' usage_metadata=GenerateContentResponseUsageMetadata(
   cache_tokens_details=[
     ModalityTokenCount(
       modality=<MediaModality.TEXT: 'TEXT'>,
@@ -358,7 +356,7 @@ Output directory: outputs
   total_token_count=1213
 ) automatic_function_calling_history=[] parsed=CharacterResponse(first_name='アヤカ', last_name='サクラバ', gender=<Gender.FEMALE: 'female'>, age=25, personalities=[CharacterPersonality(short_personality='好奇心旺盛', description='常に新しい知識や経験を求めており、特に忘れ去られた歴史や珍し い文化に強い関心を持つ。どんな小さな手がかりも見逃さず、疑問に感じたことは徹底的に調べ上げようとする。この特性が彼女を様々な冒険へと駆り立てる原動力となっている。'), CharacterPersonality(short_personality='鋭い観察力', description='周囲の環境や人々の行動を注意深く観察する習慣がある。細かい変化や隠された意味に気づくことができ、多くの場合、誰もが見過ごしてしまうような手がかりから真実を見抜く。この能力は、彼女が未解明な謎を解き明かす上で非常に役立っている。'), CharacterPersonality(short_personality='独立心が強く、自律的', description='自分の意見や信念に基づいて行動し、他人に頼ることをあまりしない。困難な状況に直面しても、まずは自分の力で解決策を見つけようと努める。ただし、それが頑固さとして受け取られることもあるが、彼女の自律的な姿勢は周りに良い影響を与えることもある。')])
 [2026-02-08 09:37:45,321] [INFO] [src.service.request_llm] [request_llm.py:100] [evaluate_candidate] Evaluating candidate 1 with LLM-as-a-Judge...
-[2026-02-08 09:37:45,322] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:27] [judge_with_openai] Requesting judgment from OpenAI model: gpt-5.2
+[2026-02-08 09:37:45,322] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:27] [judge_with_openai] Requesting judgment from OpenAI model: openai.gpt-5.4
 [2026-02-08 09:37:45,323] [INFO] [src.service.request_llm] [request_llm.py:57] [request_gemini] sdk_http_response=HttpResponse(
   headers=<dict len=11>
 ) candidates=[Candidate(
@@ -391,7 +389,7 @@ Output directory: outputs
   ),
   finish_reason=<FinishReason.STOP: 'STOP'>,
   index=0
-)] create_time=None model_version='gemini-2.5-flash' prompt_feedback=None response_id='2dqHabr2B9OJ1e8PmJzKwAc' usage_metadata=GenerateContentResponseUsageMetadata(
+)] create_time=None model_version='global.anthropic.claude-haiku-4-5-20251001-v1:0' prompt_feedback=None response_id='2dqHabr2B9OJ1e8PmJzKwAc' usage_metadata=GenerateContentResponseUsageMetadata(
   cache_tokens_details=[
     ModalityTokenCount(
       modality=<MediaModality.TEXT: 'TEXT'>,
@@ -411,7 +409,7 @@ Output directory: outputs
   total_token_count=1284
 ) automatic_function_calling_history=[] parsed=CharacterResponse(first_name='アキラ', last_name='ミズキ', gender=<Gender.FEMALE: 'female'>, age=25, personalities=[CharacterPersonality(short_personality='止まらない好奇心', description='アキラは常に新しい知識や経験を追い求め、疑問に思ったこと は徹底的に調べないと気が済まない。周りの世界や人々に深く興味を持ち、表面的な事柄だけでなく、その裏に隠された真実や動機を探ろうとする。この飽くなき探求心は、時に大胆な行動へと繋がることもある。'), CharacterPersonality(short_personality='不屈の楽観主義', description='どんな困難な状況に直面しても、アキラは常に明るい面を見つけ出し、前向きに物事を捉えることができる。失敗を恐れず、むしろそれを成長の機会と捉える傾向があるため、周囲の人々にも希望と活力を与える存在である。しかし、時に現実を少し甘く見過ぎる傾向がある。'), CharacterPersonality(short_personality='自立した精神', description='アキラは自分の意見や価値観を強く持ち、他者の影響を受けにくい。物事を一人で解決しようとする傾向があり、チームワークよりも単独行動を好むこともある。自身の判断力と能力を信頼しており、困難な状況でも他者に頼ることなく、自身の力で切り開いていく強さを持っている。')])
 [2026-02-08 09:37:45,324] [INFO] [src.service.request_llm] [request_llm.py:100] [evaluate_candidate] Evaluating candidate 3 with LLM-as-a-Judge...
-[2026-02-08 09:37:45,324] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:27] [judge_with_openai] Requesting judgment from OpenAI model: gpt-5.2
+[2026-02-08 09:37:45,324] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:27] [judge_with_openai] Requesting judgment from OpenAI model: openai.gpt-5.4
 [2026-02-08 09:37:52,381] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:36] [judge_with_openai] Judgment completed. Overall score: 3.70/5.0
 [2026-02-08 09:37:52,381] [INFO] [src.service.request_llm] [request_llm.py:129] [evaluate_candidate] Candidate 2 score: 3.70/5.0
 [2026-02-08 09:37:52,716] [INFO] [src.service.llm_as_a_judge] [llm_as_a_judge.py:36] [judge_with_openai] Judgment completed. Overall score: 4.30/5.0

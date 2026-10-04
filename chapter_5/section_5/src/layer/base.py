@@ -14,8 +14,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
-from src.client.llm_client import OpenAIModel
-from src.config import config as global_config
+from src.client.llm_client import OpenAIModel, bedrock_api_key, bedrock_openai_base_url
 from src.logger import make_logger
 
 logger = make_logger(__name__)
@@ -42,13 +41,14 @@ class BaseAgent(ABC):
 
     def _get_model_from_config(self, config: RunnableConfig) -> str:
         """Extract model name from config with default fallback."""
-        return config.get("configurable", {}).get("model", OpenAIModel.GPT_5_MINI)
+        return config.get("configurable", {}).get("model", OpenAIModel.GPT_5_4)
 
     def _create_chat_model(self, config: RunnableConfig) -> ChatOpenAI:
         """Create a ChatOpenAI model instance from config."""
         return ChatOpenAI(
             model=self._get_model_from_config(config),
-            openai_api_key=global_config.openai_api_key,
+            api_key=bedrock_api_key,
+            base_url=bedrock_openai_base_url,
         )
 
     def _build_messages(self, system_prompt: str, user_prompt: str) -> list:

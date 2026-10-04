@@ -3,19 +3,19 @@
 import time
 
 from fastapi import FastAPI, HTTPException, status
-from src.client.llm_client import AnthropicModel, GeminiModel, LLMProvider, OpenAIModel
+from src.client.llm_client import AnthropicModel, LLMProvider, OpenAIModel  # , GeminiModel
 from src.logger import make_logger
 from src.model.model import HealthResponse, LLMRequest, LLMResponse
-from src.prompt.prompt import make_anthropic_prompt, make_gemini_prompt, make_openai_prompt
+from src.prompt.prompt import make_anthropic_prompt, make_openai_prompt  # , make_gemini_prompt
 from src.service import (
     get_anthropic_batch_results,
     get_anthropic_batch_status,
-    get_gemini_batch_results,
-    get_gemini_batch_status,
+    # get_gemini_batch_results,
+    # get_gemini_batch_status,
     get_openai_batch_results,
     get_openai_batch_status,
     submit_anthropic_batch,
-    submit_gemini_batch,
+    # submit_gemini_batch,
     submit_openai_batch,
 )
 
@@ -43,11 +43,11 @@ async def generate_character(request: LLMRequest):
     start_time = time.time()
 
     try:
-        if request.provider == LLMProvider.GEMINI and request.model not in GeminiModel.list_str():
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid model '{request.model}' for provider '{request.provider.value}'",
-            )
+        # if request.provider == LLMProvider.GEMINI and request.model not in GeminiModel.list_str():
+        #     raise HTTPException(
+        #         status_code=status.HTTP_400_BAD_REQUEST,
+        #         detail=f"Invalid model '{request.model}' for provider '{request.provider.value}'",
+        #     )
         if request.provider == LLMProvider.OPENAI and request.model not in OpenAIModel.list_str():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -59,24 +59,24 @@ async def generate_character(request: LLMRequest):
                 detail=f"Invalid model '{request.model}' for provider '{request.provider.value}'",
             )
 
-        if request.provider == LLMProvider.GEMINI:
-            prompt = make_gemini_prompt(character_request=request.character_request)
-            batch_id = submit_gemini_batch(model=request.model, prompts=[prompt])
+        # if request.provider == LLMProvider.GEMINI:
+        #     prompt = make_gemini_prompt(character_request=request.character_request)
+        #     batch_id = submit_gemini_batch(model=request.model, prompts=[prompt])
+        #
+        #     while True:
+        #         batch_status = get_gemini_batch_status(batch_id)
+        #         if batch_status == "JOB_STATE_SUCCEEDED":
+        #             break
+        #         if batch_status in ("JOB_STATE_FAILED", "JOB_STATE_CANCELLED", "JOB_STATE_EXPIRED"):
+        #             raise HTTPException(
+        #                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        #                 detail=f"Gemini batch job failed with state: {batch_status}",
+        #             )
+        #         time.sleep(5)
+        #
+        #     results = get_gemini_batch_results(batch_id)
 
-            while True:
-                batch_status = get_gemini_batch_status(batch_id)
-                if batch_status == "JOB_STATE_SUCCEEDED":
-                    break
-                if batch_status in ("JOB_STATE_FAILED", "JOB_STATE_CANCELLED", "JOB_STATE_EXPIRED"):
-                    raise HTTPException(
-                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        detail=f"Gemini batch job failed with state: {batch_status}",
-                    )
-                time.sleep(5)
-
-            results = get_gemini_batch_results(batch_id)
-
-        elif request.provider == LLMProvider.OPENAI:
+        if request.provider == LLMProvider.OPENAI:
             prompt = make_openai_prompt(character_request=request.character_request)
             batch_id = submit_openai_batch(model=request.model, prompts=[prompt])
 

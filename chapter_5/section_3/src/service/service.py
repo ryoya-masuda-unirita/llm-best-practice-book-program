@@ -113,7 +113,7 @@ def _create_plan_from_state(
 
 async def run_personalized_learning(
     learner_profile: LearnerProfile,
-    model: str = OpenAIModel.GPT_5_MINI,
+    model: str = OpenAIModel.GPT_5_4,
 ) -> PersonalizedLearningPlan | None:
     """Run the hierarchical personalized learning agent system."""
     logger.info("=" * 80)

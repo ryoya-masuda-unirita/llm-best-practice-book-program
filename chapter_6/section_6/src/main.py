@@ -1,7 +1,7 @@
 """
 Data Analysis LLM Application
 
-A CLI for analyzing school data using Gemini with function calling.
+A CLI for analyzing school data using Anthropic with function calling.
 Demonstrates the ID reference pattern and composite functions for efficient LLM tool usage.
 """
 
@@ -13,8 +13,8 @@ from functools import wraps
 from pathlib import Path
 
 import click
-from google.genai import types
-from src.client import GeminiModel, google_genai_client
+from anthropic.types import MessageParam
+from src.client import AnthropicModel, anthropic_client
 from src.logger import make_logger
 from src.service.request_llm import SessionResultCache, process_with_tool_chain
 
@@ -29,27 +29,32 @@ def async_cmd(func):
     return wrapper
 
 
-def content_to_dict(content: types.Content) -> dict:
-    """Convert a Content object to a JSON-serializable dict."""
+def content_to_dict(content: MessageParam) -> dict:
+    """Convert a conversation message to a JSON-serializable dict."""
+    blocks = content["content"]
+    if isinstance(blocks, str):
+        return {"role": content["role"], "parts": [{"text": blocks}]}
+
     parts_data = []
-    for part in content.parts:
+    for block in blocks:
         part_dict = {}
-        if part.text:
-            part_dict["text"] = part.text
-        if part.function_call:
+        if isinstance(block, dict):
+            if block.get("type") == "tool_result":
+                part_dict["function_response"] = {
+                    "tool_use_id": block["tool_use_id"],
+                    "response": json.loads(block["content"]),
+                }
+        elif block.type == "text":
+            part_dict["text"] = block.text
+        elif block.type == "tool_use":
             part_dict["function_call"] = {
-                "name": part.function_call.name,
-                "args": dict(part.function_call.args) if part.function_call.args else {},
-            }
-        if part.function_response:
-            part_dict["function_response"] = {
-                "name": part.function_response.name,
-                "response": part.function_response.response,
+                "name": block.name,
+                "args": dict(block.input) if block.input else {},
             }
         parts_data.append(part_dict)
 
     return {
-        "role": content.role,
+        "role": content["role"],
         "parts": parts_data,
     }
 
@@ -58,7 +63,7 @@ def serialize_session_context(
     session_id: str,
     model: str,
     query: str,
-    conversation_history: list[types.Content],
+    conversation_history: list[MessageParam],
     session_cache: SessionResultCache,
     response_text: str,
     start_time: datetime,
@@ -105,10 +110,10 @@ def save_session_outputs(
 @click.option(
     "--model",
     "-m",
-    type=click.Choice(GeminiModel.list_str()),
+    type=click.Choice(AnthropicModel.list_str()),
     required=False,
-    default=GeminiModel.GEMINI_2_5_FLASH,
-    help="The Gemini model to use for analysis.",
+    default=AnthropicModel.CLAUDE_HAIKU_4_5,
+    help="The Anthropic model to use for analysis.",
 )
 @click.option(
     "--query",
@@ -128,7 +133,7 @@ def save_session_outputs(
 @async_cmd
 async def main(model: str, query: str, output_directory: Path | None):
     """
-    Data analysis assistant powered by Gemini.
+    Data analysis assistant powered by Anthropic.
 
     Analyzes school data including student records, test scores,
     grade reports, and curriculum information.
@@ -140,7 +145,7 @@ async def main(model: str, query: str, output_directory: Path | None):
     logger.info(f"Starting data analysis with model: {model}")
     logger.info(f"Query: {query}")
 
-    conversation_history: list[types.Content] = []
+    conversation_history: list[MessageParam] = []
     session_cache = SessionResultCache()
 
     response, conversation_history, session_cache = await process_with_tool_chain(
@@ -176,7 +181,7 @@ async def main(model: str, query: str, output_directory: Path | None):
         click.echo(f"\nSession log saved: {log_path}")
         click.echo(f"Result saved: {result_path}")
 
-    await google_genai_client.aio.aclose()
+    await anthropic_client.close()
 
 
 if __name__ == "__main__":

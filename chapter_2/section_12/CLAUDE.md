@@ -140,17 +140,17 @@ cp .envrc.example .envrc     # set ANTHROPIC_API_KEY
 uv sync
 
 # Canonical example
-uv run python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md
+uv run python -m src.main -m global.anthropic.claude-sonnet-4-6 -i data/contract_0.md
 
 # Custom output directory
-uv run python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md -od outputs
+uv run python -m src.main -m global.anthropic.claude-sonnet-4-6 -i data/contract_0.md -od outputs
 ```
 
 ### CLI Options
 
 | Option | Short | Required | Default | Description |
 |--------|-------|----------|---------|-------------|
-| `--model` | `-m` | Yes | — | `claude-opus-4-7` / `claude-sonnet-4-6` / `claude-haiku-4-5` / `claude-sonnet-5` / `claude-opus-4-8` |
+| `--model` | `-m` | Yes | — | `global.anthropic.claude-sonnet-4-6` / `global.anthropic.claude-sonnet-4-6` / `global.anthropic.claude-haiku-4-5-20251001-v1:0` / `global.anthropic.claude-sonnet-4-6` / `global.anthropic.claude-sonnet-4-6` |
 | `--input` | `-i` | Yes | — | Input document path |
 | `--output-directory` | `-od` | No | `outputs` | Output directory |
 

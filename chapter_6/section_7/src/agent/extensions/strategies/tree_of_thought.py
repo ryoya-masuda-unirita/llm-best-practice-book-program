@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 from src.agent.core.base import Action, ActionType, Tool
 from src.agent.extensions.strategies.base_strategy import BaseStrategy
-from src.client.llm_client import GeminiModel
+from src.client.llm_client import AnthropicModel
 from src.logger import make_logger
 
 logger = make_logger(__name__)
@@ -29,7 +29,9 @@ class ThoughtTreeLevel:
 class TreeOfThoughtStrategy(BaseStrategy):
     """Tree-of-Thought strategy: Explores multiple reasoning paths."""
 
-    def __init__(self, model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH, max_depth: int = 3, branch_factor: int = 3):
+    def __init__(
+        self, model: AnthropicModel = AnthropicModel.CLAUDE_HAIKU_4_5, max_depth: int = 3, branch_factor: int = 3
+    ):
         super().__init__("Tree-of-Thought", model, max_depth)
         self.branch_factor = branch_factor
         self.thought_tree: list[ThoughtTreeLevel] = []

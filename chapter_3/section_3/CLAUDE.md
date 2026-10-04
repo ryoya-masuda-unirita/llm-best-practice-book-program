@@ -145,7 +145,7 @@ cp .envrc.example .envrc     # set GEMINI_API_KEY
 uv sync
 
 # Canonical example: 33-request batch, 2 concurrent
-uv run python -m src.main -rf character_requests.yaml -m GEMINI_2_5_FLASH -p 2
+uv run python -m src.main -rf character_requests.yaml -m CLAUDE_HAIKU_4_5 -p 2
 ```
 
 ### CLI Options

@@ -7,12 +7,12 @@ providing unified access to multiple LLM providers with centralized API key mana
 import time
 from typing import Any, Optional
 
-from google import genai
-from google.genai.types import GenerateContentConfig
+from anthropic import AsyncAnthropicBedrock
 from openai import AsyncOpenAI
 from pydantic import BaseModel
 from src.api_gateway.api_key_manager import api_key_manager
 from src.api_gateway.monitoring import gateway_monitor
+from src.config import config
 from src.logger import make_logger
 
 logger = make_logger(__name__)
@@ -23,24 +23,27 @@ class GatewayService:
 
     def __init__(self):
         self._openai_client: Optional[AsyncOpenAI] = None
-        self._gemini_client: Optional[genai.Client] = None
+        self._anthropic_client: Optional[AsyncAnthropicBedrock] = None
         logger.info("Gateway service initialized")
 
     def _get_openai_client(self) -> AsyncOpenAI:
         """Get or create OpenAI client with managed API key."""
         if self._openai_client is None:
             api_key = api_key_manager.get_api_key("openai")
-            self._openai_client = AsyncOpenAI(api_key=api_key)
+            self._openai_client = AsyncOpenAI(
+                api_key=api_key,
+                base_url=f"https://bedrock-mantle.{config.aws_region}.api.aws/openai/v1",
+            )
             logger.info("OpenAI client initialized")
         return self._openai_client
 
-    def _get_gemini_client(self) -> genai.Client:
-        """Get or create Gemini client with managed API key."""
-        if self._gemini_client is None:
-            api_key = api_key_manager.get_api_key("gemini")
-            self._gemini_client = genai.Client(api_key=api_key)
-            logger.info("Gemini client initialized")
-        return self._gemini_client
+    def _get_anthropic_client(self) -> AsyncAnthropicBedrock:
+        """Get or create Anthropic client with managed API key."""
+        if self._anthropic_client is None:
+            api_key = api_key_manager.get_api_key("anthropic")
+            self._anthropic_client = AsyncAnthropicBedrock(api_key=api_key, aws_region=config.aws_region)
+            logger.info("Anthropic client initialized")
+        return self._anthropic_client
 
     async def _call_openai(
         self,
@@ -57,33 +60,32 @@ class GatewayService:
         )
         return result.output_parsed
 
-    async def _call_gemini(
+    async def _call_anthropic(
         self,
         model: str,
         prompt: list[dict],
         response_format: BaseModel,
     ) -> Any:
-        """Call Gemini API with structured output."""
-        client = self._get_gemini_client()
+        """Call Anthropic API with structured output."""
+        client = self._get_anthropic_client()
         system_instruction = prompt[0]["content"] if prompt[0]["role"] == "system" else None
         user_content = prompt[-1]["content"]
 
-        config_params = {}
+        request_params: dict[str, Any] = {
+            "model": model,
+            "max_tokens": 4096,
+            "messages": [{"role": "user", "content": user_content}],
+        }
 
         if system_instruction:
-            config_params["system_instruction"] = system_instruction
+            request_params["system"] = system_instruction
 
         if response_format:
-            config_params["response_mime_type"] = "application/json"
-            config_params["response_schema"] = response_format
+            result = await client.messages.parse(**request_params, output_format=response_format)
+            return result.parsed_output
 
-        result = await client.aio.models.generate_content(
-            model=model,
-            contents=user_content,
-            config=GenerateContentConfig(**config_params),
-        )
-
-        return result.parsed
+        result = await client.messages.create(**request_params)
+        return result.content[0].text
 
     async def process_request(
         self,
@@ -114,8 +116,8 @@ class GatewayService:
                     prompt=prompt,
                     response_format=response_format,
                 )
-            elif provider.lower() == "gemini":
-                content = await self._call_gemini(
+            elif provider.lower() == "anthropic":
+                content = await self._call_anthropic(
                     model=model,
                     prompt=prompt,
                     response_format=response_format,

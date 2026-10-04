@@ -72,5 +72,5 @@ def sample_openai_request():
     return {
         "prompt": "What is AI?",
         "provider": "openai",
-        "model": "gpt-5.4-mini",
+        "model": "openai.gpt-5.4",
     }

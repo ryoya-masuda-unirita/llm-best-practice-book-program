@@ -1,7 +1,10 @@
 """Vector store and retriever component."""
 
+import asyncio
+import json
+
 import numpy as np
-from src.client.llm_client import GeminiEmbeddingModel, google_genai_client
+from src.client.llm_client import BedrockEmbeddingModel, bedrock_runtime_client
 from src.logger import make_logger
 from src.model.rag_model import Chunk, ChunkWithEmbedding
 from src.strategy.base import Component
@@ -51,7 +54,7 @@ class Retriever(Component[str, list[Chunk]]):
         self,
         vector_store: VectorStore,
         top_k: int = 5,
-        embedding_model: GeminiEmbeddingModel = GeminiEmbeddingModel.GEMINI_EMBEDDING_001,
+        embedding_model: BedrockEmbeddingModel = BedrockEmbeddingModel.TITAN_EMBED_TEXT_V2,
     ):
         self.vector_store = vector_store
         self.top_k = top_k
@@ -64,5 +67,9 @@ class Retriever(Component[str, list[Chunk]]):
         return chunks
 
     async def _create_query_embedding(self, query: str) -> list[float]:
-        result = await google_genai_client.aio.models.embed_content(model=self.embedding_model, contents=query)
-        return result.embeddings[0].values
+        response = await asyncio.to_thread(
+            bedrock_runtime_client.invoke_model,
+            modelId=self.embedding_model,
+            body=json.dumps({"inputText": query}),
+        )
+        return json.loads(response["body"].read())["embedding"]

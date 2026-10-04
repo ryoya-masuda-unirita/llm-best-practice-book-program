@@ -32,10 +32,10 @@ class TestLLMOpsLogEntry:
     @pytest.mark.parametrize(
         "request_id,prompt_id,model,temperature",
         [
-            ("req-001", "prompt-001", "gpt-5.4-mini", 0.7),
+            ("req-001", "prompt-001", "openai.gpt-5.4", 0.7),
             ("req-002", "prompt-002", "gemini-2.5-flash", 1.0),
-            ("req-003", "prompt-003", "claude-3-sonnet", 0.5),
-            ("req-004", "prompt-004", "gpt-5.4", 2.0),
+            ("req-003", "prompt-003", "global.anthropic.claude-sonnet-4-6", 0.5),
+            ("req-004", "prompt-004", "openai.gpt-5.4", 2.0),
         ],
     )
     def test_create_log_entry_with_required_fields(self, request_id, prompt_id, model, temperature):
@@ -72,7 +72,7 @@ class TestLLMOpsLogEntry:
         log_entry = LLMOpsLogEntry(
             request_id="req-001",
             prompt_id="prompt-001",
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             temperature=0.7,
             user_id=user_id,
             latency_ms=latency_ms,
@@ -91,7 +91,7 @@ class TestLLMOpsLogEntry:
         log_entry = LLMOpsLogEntry(
             request_id="req-001",
             prompt_id="prompt-001",
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             temperature=0.7,
         )
 
@@ -118,14 +118,14 @@ class TestLLMOpsLogEntry:
                 LLMOpsLogEntry(
                     request_id="req-001",
                     prompt_id="prompt-001",
-                    model="gpt-5.4-mini",
+                    model="openai.gpt-5.4",
                     temperature=temperature,
                 )
         else:
             log_entry = LLMOpsLogEntry(
                 request_id="req-001",
                 prompt_id="prompt-001",
-                model="gpt-5.4-mini",
+                model="openai.gpt-5.4",
                 temperature=temperature,
             )
             assert log_entry.temperature == temperature
@@ -147,7 +147,7 @@ class TestLLMOpsLogEntry:
                 LLMOpsLogEntry(
                     request_id="req-001",
                     prompt_id="prompt-001",
-                    model="gpt-5.4-mini",
+                    model="openai.gpt-5.4",
                     temperature=0.7,
                     latency_ms=latency_ms,
                 )
@@ -155,7 +155,7 @@ class TestLLMOpsLogEntry:
             log_entry = LLMOpsLogEntry(
                 request_id="req-001",
                 prompt_id="prompt-001",
-                model="gpt-5.4-mini",
+                model="openai.gpt-5.4",
                 temperature=0.7,
                 latency_ms=latency_ms,
             )
@@ -166,7 +166,7 @@ class TestLLMOpsLogEntry:
         log_entry = LLMOpsLogEntry(
             request_id="req-001",
             prompt_id="prompt-001",
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             temperature=0.7,
             user_id="user-001",
             latency_ms=123.45,
@@ -180,7 +180,7 @@ class TestLLMOpsLogEntry:
         parsed = json.loads(json_str)
         assert parsed["request_id"] == "req-001"
         assert parsed["prompt_id"] == "prompt-001"
-        assert parsed["model"] == "gpt-5.4-mini"
+        assert parsed["model"] == "openai.gpt-5.4"
         assert parsed["temperature"] == 0.7
         assert parsed["user_id"] == "user-001"
         assert parsed["latency_ms"] == 123.45
@@ -192,7 +192,7 @@ class TestLLMOpsLogEntry:
         log_entry = LLMOpsLogEntry(
             request_id="req-001",
             prompt_id="prompt-001",
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             temperature=0.7,
         )
 
@@ -209,7 +209,7 @@ class TestLLMOpsLogEntry:
         log_entry = LLMOpsLogEntry(
             request_id="req-001",
             prompt_id="prompt-001",
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             temperature=0.7,
             user_id="user-001",
             latency_ms=123.45,
@@ -226,7 +226,7 @@ class TestLLMOpsLogEntry:
 
         assert loaded_data["request_id"] == "req-001"
         assert loaded_data["prompt_id"] == "prompt-001"
-        assert loaded_data["model"] == "gpt-5.4-mini"
+        assert loaded_data["model"] == "openai.gpt-5.4"
 
     @pytest.mark.parametrize(
         "metadata",
@@ -242,7 +242,7 @@ class TestLLMOpsLogEntry:
         log_entry = LLMOpsLogEntry(
             request_id="req-001",
             prompt_id="prompt-001",
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             temperature=0.7,
             metadata=metadata,
         )
@@ -263,7 +263,7 @@ class TestLLMOpsLogEntry:
         log_entry = LLMOpsLogEntry(
             request_id="req-001",
             prompt_id="prompt-001",
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             temperature=0.7,
             level=level,
         )
@@ -275,7 +275,7 @@ class TestLLMOpsLogEntry:
         log_entry = LLMOpsLogEntry(
             request_id="req-001",
             prompt_id="prompt-001",
-            model="gpt-5.4-mini",
+            model="openai.gpt-5.4",
             temperature=0.7,
             metadata={"message": "日本語テスト", "emoji": "🤖"},
         )

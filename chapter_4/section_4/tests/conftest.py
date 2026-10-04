@@ -71,8 +71,8 @@ def base_pipeline_state(sample_document_content: str) -> PipelineState:
         "evaluation_result": None,
         "retry_count": 0,
         "error": None,
-        "llm_provider": LLMProvider.GEMINI,  # type: ignore
-        "model": "gemini-2.5-flash",  # type: ignore
+        "llm_provider": LLMProvider.ANTHROPIC,  # type: ignore
+        "model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",  # type: ignore
     }
 
 

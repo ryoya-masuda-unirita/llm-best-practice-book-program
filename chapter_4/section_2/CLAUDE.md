@@ -73,11 +73,11 @@ Each ABC declares only its own operation; no service knows about the other's met
 
 ```python
 class AnthropicModel(StrEnum):
-    CLAUDE_SONNET_5 = "claude-sonnet-5"
-    CLAUDE_OPUS_4_8 = "claude-opus-4-8"
-    CLAUDE_OPUS_4_7 = "claude-opus-4-7"
-    CLAUDE_SONNET_4_6 = "claude-sonnet-4-6"
-    CLAUDE_HAIKU_4_5 = "claude-haiku-4-5"
+    CLAUDE_SONNET_4_6 = "global.anthropic.claude-sonnet-4-6"
+    CLAUDE_SONNET_4_6 = "global.anthropic.claude-sonnet-4-6"
+    CLAUDE_SONNET_4_6 = "global.anthropic.claude-sonnet-4-6"
+    CLAUDE_SONNET_4_6 = "global.anthropic.claude-sonnet-4-6"
+    CLAUDE_HAIKU_4_5 = "global.anthropic.claude-haiku-4-5-20251001-v1:0"
 
     @classmethod
     def free_plan_models(cls) -> list[str]:
@@ -88,7 +88,7 @@ class AnthropicModel(StrEnum):
         return cls.all_models()
 ```
 
-FREE gets `claude-sonnet-4-6`; STANDARD gets every model in the enum — new models automatically join the standard plan.
+FREE gets `global.anthropic.claude-sonnet-4-6`; STANDARD gets every model in the enum — new models automatically join the standard plan.
 
 ### 3. Validate before you spend (`src/service/text_generation_service.py`)
 
@@ -139,14 +139,14 @@ uv run uvicorn src.api.llm_server:app --host 0.0.0.0 --port 8000 --reload
 ### API Examples
 
 ```bash
-# Generation (free plan → claude-sonnet-4-6 only)
+# Generation (free plan → global.anthropic.claude-sonnet-4-6 only)
 curl -X POST http://localhost:8000/generate -H "Content-Type: application/json" \
-  -d '{"model": "claude-sonnet-4-6", "user_plan": "free",
+  -d '{"model": "global.anthropic.claude-sonnet-4-6", "user_plan": "free",
        "character_request": {"gender": "female", "age": 25}}'
 
 # Classification
 curl -X POST http://localhost:8000/classify -H "Content-Type: application/json" \
-  -d '{"model": "claude-sonnet-4-6", "user_plan": "free",
+  -d '{"model": "global.anthropic.claude-sonnet-4-6", "user_plan": "free",
        "text": "This product is excellent!", "categories": ["Positive", "Negative", "Neutral"]}'
 
 # Plan violation → HTTP 400 listing available models

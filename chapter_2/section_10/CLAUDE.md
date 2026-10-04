@@ -65,7 +65,7 @@ chapter_2/section_10/
 ### 1. Transparent collection wrapper (`src/service/prompt_profiler.py`)
 
 ```python
-async with profiler.profile(prompt_id="gen", model="gpt-5.4", provider="openai") as ctx:
+async with profiler.profile(prompt_id="gen", model="openai.gpt-5.4", provider="openai") as ctx:
     result = await client.generate(...)
     ctx["input_tokens"] = result.usage.input_tokens
     ctx["output_tokens"] = result.usage.output_tokens
@@ -88,13 +88,13 @@ finally:
 
 ```python
 TOKEN_PRICING = {
-    "openai":    {"gpt-5.4": {...}, ...},
-    "gemini":    {"gemini-2.5-flash": {...}, ...},
+    "openai":    {"openai.gpt-5.4": {...}, ...},
+    "gemini":    {"global.anthropic.claude-haiku-4-5-20251001-v1:0": {...}, ...},
     "anthropic": {
-        "claude-sonnet-4-6": {"input": 0.003, "output": 0.015},
-        "claude-opus-4-7":   {"input": 0.015, "output": 0.075},
-        "claude-sonnet-5":   {"input": 0.003, "output": 0.015},
-        "claude-opus-4-8":   {"input": 0.015, "output": 0.075},
+        "global.anthropic.claude-sonnet-4-6": {"input": 0.003, "output": 0.015},
+        "global.anthropic.claude-sonnet-4-6":   {"input": 0.015, "output": 0.075},
+        "global.anthropic.claude-sonnet-4-6":   {"input": 0.003, "output": 0.015},
+        "global.anthropic.claude-sonnet-4-6":   {"input": 0.015, "output": 0.075},
     },
 }
 
@@ -139,10 +139,10 @@ cp .envrc.example .envrc     # OPENAI_API_KEY / GEMINI_API_KEY / ANTHROPIC_API_K
 uv sync
 
 # Canonical example: generation with profiling enabled
-uv run python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH -p
+uv run python -m src.main -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 -p
 
 # With separate judge provider and HTML report
-uv run python -m src.main -g FEMALE -a 22 -lp GEMINI -m GEMINI_2_5_FLASH \
+uv run python -m src.main -g FEMALE -a 22 -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 \
   -jp ANTHROPIC -jm CLAUDE_SONNET_4_6 -p -prf html
 ```
 

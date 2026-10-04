@@ -150,7 +150,7 @@ make docker-down
 
 # Call the gateway directly
 curl -X POST http://localhost:8080/v1/generate -H "Content-Type: application/json" \
-  -d '{"provider": "gemini", "model": "gemini-2.5-flash",
+  -d '{"provider": "gemini", "model": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
        "prompt": [{"role": "user", "content": "..."}],
        "response_format": {...}, "client_id": "team-a"}'
 ```

@@ -1,14 +1,14 @@
 import asyncio
 from dataclasses import dataclass
 
-from google.genai.types import GenerateContentConfig
+# from google.genai.types import GenerateContentConfig
 from src.client.llm_client import (
     AnthropicModel,
-    GeminiModel,
+    # GeminiModel,
     LLMProvider,
     OpenAIModel,
     anthropic_client,
-    google_genai_client,
+    # google_genai_client,
     openai_client,
 )
 from src.config import config
@@ -16,7 +16,7 @@ from src.logger import make_logger
 from src.model.llm_as_a_judge_model import JudgeRequest, JudgeResponse
 from src.model.model import CharacterRequest, CharacterResponse
 from src.prompt.prompt import make_prompt
-from src.service.llm_as_a_judge import judge_with_anthropic, judge_with_gemini, judge_with_openai
+from src.service.llm_as_a_judge import judge_with_anthropic, judge_with_openai  # , judge_with_gemini
 
 logger = make_logger(__name__)
 
@@ -42,27 +42,26 @@ async def request_openai(prompt: list, model: OpenAIModel) -> CharacterResponse:
     return result.output_parsed
 
 
-async def request_gemini(prompt: tuple[str, str], model: GeminiModel) -> CharacterResponse:
-    system_prompt, user_prompt = prompt
-    result = await google_genai_client.aio.models.generate_content(
-        model=model,
-        contents=user_prompt,
-        config=GenerateContentConfig(
-            system_instruction=system_prompt,
-            response_mime_type="application/json",
-            response_schema=CharacterResponse,
-            temperature=2.0,
-        ),
-    )
-    logger.info(result)
-    return result.parsed
+# async def request_gemini(prompt: tuple[str, str], model: GeminiModel) -> CharacterResponse:
+#     system_prompt, user_prompt = prompt
+#     result = await google_genai_client.aio.models.generate_content(
+#         model=model,
+#         contents=user_prompt,
+#         config=GenerateContentConfig(
+#             system_instruction=system_prompt,
+#             response_mime_type="application/json",
+#             response_schema=CharacterResponse,
+#             temperature=2.0,
+#         ),
+#     )
+#     logger.info(result)
+#     return result.parsed
 
 
 async def request_anthropic(prompt: list, model: AnthropicModel) -> CharacterResponse:
-    result = await anthropic_client.beta.messages.parse(
+    result = await anthropic_client.messages.parse(
         model=model,
         max_tokens=1024,
-        betas=["structured-outputs-2025-11-13"],
         messages=prompt,
         output_format=CharacterResponse,
     )
@@ -73,7 +72,7 @@ async def request_anthropic(prompt: list, model: AnthropicModel) -> CharacterRes
 
 async def generate_single_candidate(
     prompt: list | tuple[str, str],
-    model: OpenAIModel | GeminiModel | AnthropicModel,
+    model: OpenAIModel | AnthropicModel,
     provider: str,
     index: int,
 ) -> CharacterResponse:
@@ -81,8 +80,8 @@ async def generate_single_candidate(
 
     if provider == LLMProvider.OPENAI:
         return await request_openai(prompt=prompt, model=model)
-    elif provider == LLMProvider.GEMINI:
-        return await request_gemini(prompt=prompt, model=model)
+    # elif provider == LLMProvider.GEMINI:
+    #     return await request_gemini(prompt=prompt, model=model)
     elif provider == LLMProvider.ANTHROPIC:
         return await request_anthropic(prompt=prompt, model=model)
     else:
@@ -93,7 +92,7 @@ async def evaluate_candidate(
     candidate: CharacterResponse,
     character_request: CharacterRequest,
     prompt: list | tuple[str, str],
-    judge_model: OpenAIModel | GeminiModel | AnthropicModel,
+    judge_model: OpenAIModel | AnthropicModel,
     judge_provider: str,
     index: int,
 ) -> CandidateResult:
@@ -119,8 +118,8 @@ Additional Instructions: {character_request.additional_instructions or "None"}""
 
     if judge_provider == LLMProvider.OPENAI:
         judge_response = await judge_with_openai(judge_request=judge_request, model=judge_model)
-    elif judge_provider == LLMProvider.GEMINI:
-        judge_response = await judge_with_gemini(judge_request=judge_request, model=judge_model)
+    # elif judge_provider == LLMProvider.GEMINI:
+    #     judge_response = await judge_with_gemini(judge_request=judge_request, model=judge_model)
     elif judge_provider == LLMProvider.ANTHROPIC:
         judge_response = await judge_with_anthropic(judge_request=judge_request, model=judge_model)
     else:
@@ -133,10 +132,10 @@ Additional Instructions: {character_request.additional_instructions or "None"}""
 
 async def generate_and_evaluate_candidate(
     prompt: list | tuple[str, str],
-    model: OpenAIModel | GeminiModel | AnthropicModel,
+    model: OpenAIModel | AnthropicModel,
     provider: str,
     character_request: CharacterRequest,
-    judge_model: OpenAIModel | GeminiModel | AnthropicModel,
+    judge_model: OpenAIModel | AnthropicModel,
     judge_provider: str,
     index: int,
 ) -> CandidateResult:
@@ -153,9 +152,9 @@ async def generate_and_evaluate_candidate(
 
 async def request_with_best_of_n(
     character_request: CharacterRequest,
-    model: OpenAIModel | GeminiModel | AnthropicModel,
+    model: OpenAIModel | AnthropicModel,
     provider: str,
-    judge_model: OpenAIModel | GeminiModel | AnthropicModel | None = None,
+    judge_model: OpenAIModel | AnthropicModel | None = None,
     judge_provider: str | None = None,
     num_candidates: int | None = None,
     quality_threshold: float | None = None,
@@ -218,9 +217,9 @@ async def request_with_best_of_n(
 
 async def request_with_judge(
     character_request: CharacterRequest,
-    model: OpenAIModel | GeminiModel | AnthropicModel,
+    model: OpenAIModel | AnthropicModel,
     provider: str,
-    judge_model: OpenAIModel | GeminiModel | AnthropicModel | None = None,
+    judge_model: OpenAIModel | AnthropicModel | None = None,
     judge_provider: str | None = None,
 ) -> tuple[CharacterResponse, JudgeResponse]:
     logger.info("Generating prompt...")
@@ -229,8 +228,8 @@ async def request_with_judge(
     logger.info("Generating character...")
     if provider == LLMProvider.OPENAI:
         character_response = await request_openai(prompt=prompt, model=model)
-    elif provider == LLMProvider.GEMINI:
-        character_response = await request_gemini(prompt=prompt, model=model)
+    # elif provider == LLMProvider.GEMINI:
+    #     character_response = await request_gemini(prompt=prompt, model=model)
     elif provider == LLMProvider.ANTHROPIC:
         character_response = await request_anthropic(prompt=prompt, model=model)
     else:
@@ -265,8 +264,8 @@ Additional Instructions: {character_request.additional_instructions or "None"}""
 
     if judge_provider == LLMProvider.OPENAI:
         judge_response = await judge_with_openai(judge_request=judge_request, model=judge_model)
-    elif judge_provider == LLMProvider.GEMINI:
-        judge_response = await judge_with_gemini(judge_request=judge_request, model=judge_model)
+    # elif judge_provider == LLMProvider.GEMINI:
+    #     judge_response = await judge_with_gemini(judge_request=judge_request, model=judge_model)
     elif judge_provider == LLMProvider.ANTHROPIC:
         judge_response = await judge_with_anthropic(judge_request=judge_request, model=judge_model)
     else:

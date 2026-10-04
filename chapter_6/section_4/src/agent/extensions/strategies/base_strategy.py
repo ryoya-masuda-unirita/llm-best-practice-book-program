@@ -1,17 +1,18 @@
 """Base strategy with LLM integration and action parsing."""
 
-from google.genai.types import GenerateContentConfig
 from src.agent.core.base import Action, ActionType, StepInfo, Strategy, Tool, ToolResult
-from src.client.llm_client import google_genai_client
+from src.client.llm_client import anthropic_sync_client
 from src.logger import make_logger
 
 logger = make_logger(__name__)
 
 
 class BaseStrategy(Strategy):
-    """Base strategy implementation with Gemini integration."""
+    """Base strategy implementation with Anthropic integration."""
 
-    def __init__(self, name: str, model: str = "gemini-2.5-flash", max_iterations: int = 10):
+    def __init__(
+        self, name: str, model: str = "global.anthropic.claude-haiku-4-5-20251001-v1:0", max_iterations: int = 10
+    ):
         super().__init__(name)
         self.model = model
         self.max_iterations = max_iterations
@@ -20,17 +21,21 @@ class BaseStrategy(Strategy):
 
     def _call_llm(self, prompt: str, response_schema: type | None = None) -> str:
         try:
-            config = (
-                GenerateContentConfig(response_mime_type="application/json", response_schema=response_schema)
-                if response_schema
-                else None
-            )
-            response = google_genai_client.models.generate_content(
-                model=self.model,
-                contents=prompt,
-                config=config,
-            )
-            return response.text or ""
+            messages = [{"role": "user", "content": prompt}]
+            if response_schema:
+                response = anthropic_sync_client.messages.parse(
+                    model=self.model,
+                    max_tokens=4096,
+                    messages=messages,
+                    output_format=response_schema,
+                )
+            else:
+                response = anthropic_sync_client.messages.create(
+                    model=self.model,
+                    max_tokens=4096,
+                    messages=messages,
+                )
+            return next((block.text for block in response.content if block.type == "text"), "")
         except Exception as e:
             logger.error(f"LLM call failed: {e}")
             return ""

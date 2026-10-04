@@ -3,10 +3,10 @@
 import json
 
 import pytest
-from src.client.llm_client import GeminiModel, OpenAIModel
+from src.client.llm_client import OpenAIModel  # , GeminiModel
 from src.model.llm_as_a_judge_model import JudgeRequest, JudgeResponse
 from src.prompt.llm_as_a_judge_prompt import make_custom_judge_prompt, make_judge_prompt
-from src.service.llm_as_a_judge import judge_with_gemini, judge_with_openai
+from src.service.llm_as_a_judge import judge_with_openai  # , judge_with_gemini
 
 
 class TestJudgeModels:
@@ -125,32 +125,32 @@ class TestJudgeService:
 
         result = await judge_with_openai(
             judge_request=sample_judge_request,
-            model=OpenAIModel.GPT_5_4_MINI,
+            model=OpenAIModel.GPT_5_4,
         )
 
         assert result == sample_judge_response
         assert result.overall_score == sample_judge_response.overall_score
         mock_parse.assert_called_once()
 
-    @pytest.mark.asyncio
-    async def test_judge_with_gemini(
-        self, mocker, sample_judge_request: JudgeRequest, sample_judge_response: JudgeResponse
-    ):
-        """Test judging with Gemini."""
-        mock_result = mocker.AsyncMock()
-        mock_result.parsed = sample_judge_response
-
-        mock_generate = mocker.patch("src.service.llm_as_a_judge.google_genai_client.aio.models.generate_content")
-        mock_generate.return_value = mock_result
-
-        result = await judge_with_gemini(
-            judge_request=sample_judge_request,
-            model=GeminiModel.GEMINI_2_5_FLASH,
-        )
-
-        assert result == sample_judge_response
-        assert result.overall_score == sample_judge_response.overall_score
-        mock_generate.assert_called_once()
+    # @pytest.mark.asyncio
+    # async def test_judge_with_gemini(
+    #     self, mocker, sample_judge_request: JudgeRequest, sample_judge_response: JudgeResponse
+    # ):
+    #     """Test judging with Gemini."""
+    #     mock_result = mocker.AsyncMock()
+    #     mock_result.parsed = sample_judge_response
+    #
+    #     mock_generate = mocker.patch("src.service.llm_as_a_judge.google_genai_client.aio.models.generate_content")
+    #     mock_generate.return_value = mock_result
+    #
+    #     result = await judge_with_gemini(
+    #         judge_request=sample_judge_request,
+    #         model=GeminiModel.GEMINI_2_5_FLASH,
+    #     )
+    #
+    #     assert result == sample_judge_response
+    #     assert result.overall_score == sample_judge_response.overall_score
+    #     mock_generate.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_judge_evaluation_criteria_count(

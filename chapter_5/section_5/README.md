@@ -101,7 +101,7 @@ cp .envrc.example .envrc
 
 必要な環境変数:
 ```
-OPENAI_API_KEY=<your_openai_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. 依存関係をインストール:
@@ -125,7 +125,7 @@ cp data/contract_0.md data/contract_0_1.md
 uv run python -m src.event_runner -w contracts/
 
 # カスタムモデルを使用
-uv run python -m src.event_runner -w contract/ -m GPT_5_2 -od outputs
+uv run python -m src.event_runner -w contract/ -m GPT_5_4 -od outputs
 
 # カスタム出力ディレクトリを指定
 uv run python -m src.event_runner -w contract/ -od reports/
@@ -136,7 +136,7 @@ CLIオプション:
 | オプション | 短縮形 | デフォルト        | 説明 |
 |-----------|--------|--------------|------|
 | `--watch-directory` | `-w` | `data`       | 監視するディレクトリ |
-| `--model` | `-m` | `GPT_5_MINI` | 使用するLLMモデル |
+| `--model` | `-m` | `GPT_5_4` | 使用するLLMモデル |
 | `--output-directory` | `-od` | `outputs`    | レポート出力先 |
 
 ```bash
@@ -163,14 +163,14 @@ Usage: python -m src.event_runner [OPTIONS]
 
       # Watch custom directory     python -m src.event_runner -w contracts/
 
-      # With custom model     python -m src.event_runner -w data/ -m gpt-5.4
+      # With custom model     python -m src.event_runner -w data/ -m openai.gpt-5.4
 
       # With custom output directory     python -m src.event_runner -w data/
       -od reports/
 
 Options:
   -w, --watch-directory PATH      Directory to watch for new contract files.
-  -m, --model [GPT_5_5|GPT_5_4|GPT_5_4_MINI|GPT_5_4_NANO|GPT_5_2|GPT_5_1|GPT_5|GPT_5_MINI|GPT_5_NANO]
+  -m, --model [GPT_5_5|GPT_5_4]
                                   The model to use for contract review.
   -od, --output-directory PATH    Directory to save compliance reports.
   --help                          Show this message and exit.
@@ -181,13 +181,13 @@ Options:
 #### 実行ログ
 
 ```bash
-$ uv run python -m src.event_runner -w contract/ -m GPT_5_2 -od outputs
+$ uv run python -m src.event_runner -w contract/ -m GPT_5_4 -od outputs
 
 [2026-02-07 09:24:16,937] [INFO] [__main__] [event_runner.py:156] [start] ======================================================================
 [2026-02-07 09:24:16,937] [INFO] [__main__] [event_runner.py:157] [start] EVENT-DRIVEN AI AGENT STARTING
 [2026-02-07 09:24:16,937] [INFO] [__main__] [event_runner.py:158] [start] ======================================================================
 [2026-02-07 09:24:16,937] [INFO] [__main__] [event_runner.py:159] [start] Watch directory: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_5/section_5/contract
-[2026-02-07 09:24:16,937] [INFO] [__main__] [event_runner.py:160] [start] Model: gpt-5.2
+[2026-02-07 09:24:16,937] [INFO] [__main__] [event_runner.py:160] [start] Model: openai.gpt-5.4
 [2026-02-07 09:24:16,937] [INFO] [__main__] [event_runner.py:161] [start] Output directory: outputs
 [2026-02-07 09:24:16,937] [INFO] [__main__] [event_runner.py:162] [start] ======================================================================
 [2026-02-07 09:24:16,937] [INFO] [src.service.event_handler] [event_handler.py:190] [register_handler] Registered handler: FileCreatedHandler
@@ -201,16 +201,16 @@ $ uv run python -m src.event_runner -w contract/ -m GPT_5_2 -od outputs
 [2026-02-07 09:29:02,655] [INFO] [src.service.event_handler] [event_handler.py:89] [handle] FileCreatedHandler processing: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_5/section_5/contract/contract_1.md
 [2026-02-07 09:29:02,656] [INFO] [src.service.event_handler] [event_handler.py:99] [handle] Creating ContractReviewRequestedEvent for: contract_1.md
 [2026-02-07 09:29:02,656] [INFO] [src.service.event_handler] [event_handler.py:203] [publish] Event published: contract_review_requested [correlation_id=3400b26b...]
-[2026-02-07 09:29:02,656] [INFO] [__main__] [event_runner.py:112] [event_logger_callback] EVENT LOG: {'event_id': 'db4617848b044dcdac92627f65d3a584', 'correlation_id': '3400b26b546c411291e889294d627afd', 'timestamp': '2026-02-07T09:29:02.656082', 'event_type': 'contract_review_requested', 'contract_file_path': '/Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_5/section_5/contract/contract_1.md', 'model': <OpenAIModel.GPT_5_2: 'gpt-5.2'>, 'output_directory': 'outputs'}
+[2026-02-07 09:29:02,656] [INFO] [__main__] [event_runner.py:112] [event_logger_callback] EVENT LOG: {'event_id': 'db4617848b044dcdac92627f65d3a584', 'correlation_id': '3400b26b546c411291e889294d627afd', 'timestamp': '2026-02-07T09:29:02.656082', 'event_type': 'contract_review_requested', 'contract_file_path': '/Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_5/section_5/contract/contract_1.md', 'model': <OpenAIModel.GPT_5_4: 'openai.gpt-5.4'>, 'output_directory': 'outputs'}
 [2026-02-07 09:29:02,656] [INFO] [src.service.event_handler] [event_handler.py:213] [publish] Handler ContractReviewHandler processing event
 [2026-02-07 09:29:02,656] [INFO] [src.service.event_handler] [event_handler.py:128] [handle] ContractReviewHandler processing: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_5/section_5/contract/contract_1.md
-[2026-02-07 09:29:02,656] [INFO] [src.service.event_handler] [event_handler.py:129] [handle] Using model: gpt-5.2
+[2026-02-07 09:29:02,656] [INFO] [src.service.event_handler] [event_handler.py:129] [handle] Using model: openai.gpt-5.4
 [2026-02-07 09:29:02,656] [INFO] [src.service.service] [service.py:119] [run_contract_compliance_pipeline] ================================================================================
 [2026-02-07 09:29:02,656] [INFO] [src.service.service] [service.py:120] [run_contract_compliance_pipeline] CONTRACT RISK COMPLIANCE PIPELINE
 [2026-02-07 09:29:02,656] [INFO] [src.service.service] [service.py:121] [run_contract_compliance_pipeline] Pipeline: Input -> Extraction -> Risk Scoring -> Report
 [2026-02-07 09:29:02,656] [INFO] [src.service.service] [service.py:122] [run_contract_compliance_pipeline] ================================================================================
 [2026-02-07 09:29:02,656] [INFO] [src.service.service] [service.py:123] [run_contract_compliance_pipeline] Contract file: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_5/section_5/contract/contract_1.md
-[2026-02-07 09:29:02,656] [INFO] [src.service.service] [service.py:124] [run_contract_compliance_pipeline] Model: gpt-5.2
+[2026-02-07 09:29:02,656] [INFO] [src.service.service] [service.py:124] [run_contract_compliance_pipeline] Model: openai.gpt-5.4
 [2026-02-07 09:29:02,656] [INFO] [src.service.service] [service.py:60] [create_contract_pipeline_graph] Creating contract compliance pipeline graph...
 [2026-02-07 09:29:02,656] [INFO] [src.service.service] [service.py:73] [create_contract_pipeline_graph] Contract pipeline graph created successfully
 [2026-02-07 09:29:02,664] [INFO] [src.service.service] [service.py:83] [_read_contract_file] Reading contract file: /Users/shibuiyusuke/llm-best-practice-book/llm-best-practice-book-program/chapter_5/section_5/contract/contract_1.md

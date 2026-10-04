@@ -16,7 +16,7 @@ from src.agent.extensions.handlers import (
 from src.agent.extensions.memory import ContextMemory, ConversationalMemory
 from src.agent.extensions.strategies import ChainOfThoughtStrategy, ReActStrategy, TreeOfThoughtStrategy
 from src.agent.extensions.tools import CalculatorTool, CategorizableToolBox, TextGeneratorTool, WebSearchTool
-from src.client.llm_client import GeminiModel
+from src.client.llm_client import AnthropicModel
 
 StrategyConfig = dict[str, str | int]
 ToolConfig = dict[str, str]
@@ -90,7 +90,7 @@ class AgentBuilder:
 
     def _create_strategy(self, config: StrategyConfig) -> Strategy:
         stype = config.get("type", "chain_of_thought")
-        model = str(config.get("model", GeminiModel.GEMINI_2_5_FLASH))
+        model = str(config.get("model", AnthropicModel.CLAUDE_HAIKU_4_5))
 
         if stype == "react":
             max_iter = config.get("max_iterations", 10)

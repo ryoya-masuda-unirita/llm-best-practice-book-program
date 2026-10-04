@@ -1,13 +1,13 @@
 """Text generation tool for creative writing tasks."""
 
 from src.agent.core.base import Tool, ToolParams, ToolResult
-from src.client.llm_client import GeminiModel, google_genai_client
+from src.client.llm_client import AnthropicModel, anthropic_client
 
 
 class TextGeneratorTool(Tool):
     """Tool for generating creative text content."""
 
-    def __init__(self, model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH):
+    def __init__(self, model: AnthropicModel = AnthropicModel.CLAUDE_HAIKU_4_5):
         super().__init__(
             "text_generator",
             "Generates creative text content. "
@@ -26,13 +26,14 @@ class TextGeneratorTool(Tool):
         prompt = f"You are a creative writer. Style: {style}. Task: {task}\n\nProvide only the creative content, no explanations."
 
         try:
-            response = google_genai_client.models.generate_content(
+            response = anthropic_client.messages.create(
                 model=self.model,
-                contents=prompt,
+                max_tokens=4096,
+                messages=[{"role": "user", "content": prompt}],
             )
             return ToolResult(
                 success=True,
-                data={"content": response.text, "style": style},
+                data={"content": response.content[0].text, "style": style},
                 metadata={"task": task},
             )
         except Exception as e:

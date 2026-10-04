@@ -75,7 +75,7 @@ LLMは確率的な出力を行うため、単純な算数であっても桁数�
 
 - Python: 3.13.2以上
 - 依存ライブラリ:
-  - `anthropic>=0.74.1` - Anthropic API クライアント
+  - `anthropic[bedrock]>=1.11.0` - Anthropic API クライアント
   - `click>=8.3.0` - CLIフレームワーク
   - `pydantic>=2.12.2` - データバリデーション
   - `python-dotenv>=1.1.1` - 環境変数管理
@@ -97,7 +97,7 @@ cp .envrc.example .envrc
 ```
 
 ```
-ANTHROPIC_API_KEY=<your_anthropic_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 ### 使用方法、実行方法
@@ -111,7 +111,7 @@ Usage: python -m src.main [OPTIONS]
   Analyze and extract document structure using LLM-generated scripts.
 
 Options:
-  -m, --model [claude-sonnet-5|claude-opus-4-8|claude-opus-4-7|claude-sonnet-4-6|claude-haiku-4-5]
+  -m, --model [global.anthropic.claude-sonnet-4-6|global.anthropic.claude-haiku-4-5-20251001-v1:0]
                                   The Anthropic model to use for analysis.
                                   [required]
   -i, --input PATH                Path to the input document (text or
@@ -122,17 +122,17 @@ Options:
 
 ```bash
 # 基本的な使用方法
-uv run python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md
+uv run python -m src.main -m global.anthropic.claude-sonnet-4-6 -i data/contract_0.md
 
 # 出力ディレクトリを指定
-uv run python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md -od outputs
+uv run python -m src.main -m global.anthropic.claude-sonnet-4-6 -i data/contract_0.md -od outputs
 ```
 
 #### CLIオプション
 
 | オプション | 短縮形 | 必須 | デフォルト | 説明 |
 |-----------|-------|------|-----------|------|
-| `--model` | `-m` | Yes | - | 使用するモデル（`claude-sonnet-4-6`、`claude-opus-4-7`、`claude-sonnet-5`、または `claude-opus-4-8`） |
+| `--model` | `-m` | Yes | - | 使用するモデル（`global.anthropic.claude-sonnet-4-6`、`global.anthropic.claude-sonnet-4-6`、`global.anthropic.claude-sonnet-4-6`、または `global.anthropic.claude-sonnet-4-6`） |
 | `--input` | `-i` | Yes | - | 入力文書ファイルのパス |
 | `--output-directory` | `-od` | No | `outputs` | 出力ファイルの保存先ディレクトリ |
 
@@ -141,9 +141,9 @@ uv run python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md -od outputs
 契約書（`data/contract_0.md`）を処理した場合の実行ログ:
 
 ```bash
-$ uv run python -m src.main -m claude-sonnet-4-6 -i data/contract_0.md
+$ uv run python -m src.main -m global.anthropic.claude-sonnet-4-6 -i data/contract_0.md
 
-[2026-01-18 15:26:24,431] [INFO] [__main__] [main.py:52] [main] Model: claude-sonnet-4-6
+[2026-01-18 15:26:24,431] [INFO] [__main__] [main.py:52] [main] Model: global.anthropic.claude-sonnet-4-6
 Input file: data/contract_0.md
 Output directory: outputs
 [2026-01-18 15:26:24,438] [INFO] [__main__] [main.py:60] [main] Document loaded: 1822 characters

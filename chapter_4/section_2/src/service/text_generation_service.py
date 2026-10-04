@@ -1,4 +1,4 @@
-from anthropic import AsyncAnthropic
+from anthropic import AsyncAnthropicBedrock
 from src.logger import make_logger
 from src.model.model import CharacterRequest, CharacterResponse, UserPlan
 from src.prompt.prompt import make_generation_prompt
@@ -6,13 +6,11 @@ from src.service.interfaces import ITextGenerationService, get_available_models
 
 logger = make_logger(__name__)
 
-STRUCTURED_OUTPUT_BETA = "structured-outputs-2025-11-13"
-
 
 class TextGenerationService(ITextGenerationService):
     """Service for generating text content like character descriptions."""
 
-    def __init__(self, client: AsyncAnthropic):
+    def __init__(self, client: AsyncAnthropicBedrock):
         super().__init__(client=client)
 
     async def generate_character(
@@ -39,10 +37,9 @@ class TextGenerationService(ITextGenerationService):
         prompt = make_generation_prompt(character_request=character_request)
 
         logger.info(f"Generating character using Anthropic model: {model}")
-        result = await self.client.beta.messages.parse(
+        result = await self.client.messages.parse(
             model=model,
             max_tokens=1024,
-            betas=[STRUCTURED_OUTPUT_BETA],
             messages=prompt,
             output_format=CharacterResponse,
         )

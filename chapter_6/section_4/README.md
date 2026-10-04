@@ -139,7 +139,7 @@ cp .envrc.example .envrc
 
 ```bash
 # .envrc
-GEMINI_API_KEY=<your_gemini_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 3. 依存関係をインストール:
@@ -158,7 +158,7 @@ uv sync --all-packages
 uv run python -m src.main \
   --theme "AIの未来" \
   --language ja \
-  --model gemini-2.5-flash
+  --model global.anthropic.claude-haiku-4-5-20251001-v1:0
 ```
 
 #### 自動選択モード
@@ -169,7 +169,7 @@ uv run python -m src.main \
 uv run python -m src.main \
   --theme "Quantum Computing" \
   --language en \
-  --model gemini-2.5-flash \
+  --model global.anthropic.claude-haiku-4-5-20251001-v1:0 \
   --auto-select
 ```
 
@@ -181,7 +181,7 @@ uv run python -m src.main \
 uv run python -m src.main \
   --theme "気候変動の解決策" \
   --language ja \
-  --model gemini-2.5-flash \
+  --model global.anthropic.claude-haiku-4-5-20251001-v1:0 \
   --num-outlines 3
 ```
 
@@ -197,8 +197,8 @@ Options:
   -t, --theme TEXT                Article theme/topic.  [required]
   -l, --language [en|ja]          Article language (en: English, ja:
                                   Japanese).  [required]
-  -m, --model [gemini-2.5-pro|gemini-2.5-flash|gemini-2.5-flash-lite|gemini-3.5-flash|gemini-3.1-flash-lite]
-                                  The model to use (e.g., gemini-2.5-flash).
+  -m, --model [global.anthropic.claude-sonnet-4-6|global.anthropic.claude-haiku-4-5-20251001-v1:0]
+                                  The model to use (e.g., global.anthropic.claude-haiku-4-5-20251001-v1:0).
                                   [required]
   -od, --output-directory PATH    The directory to save output files.
   -a, --auto-select               Automatically select best options without
@@ -299,7 +299,7 @@ def forget_phases_after(self, target_phase: int) -> None:
 $ uv run python -m src.main \
   --theme "AIの未来" \
   --language ja \
-  --model gemini-2.5-flash
+  --model global.anthropic.claude-haiku-4-5-20251001-v1:0
 
 +============================================================================+
 |    Article Generation with Forget, Replay, Speculate                       |
@@ -309,7 +309,7 @@ Configuration:
   Theme: AIの未来
   Language: ja
   LLM Provider: gemini
-  Model: gemini-2.5-flash
+  Model: global.anthropic.claude-haiku-4-5-20251001-v1:0
   Mode: Interactive
   Speculation: Disabled (1 outline(s))
 
@@ -382,7 +382,7 @@ Select phase to rollback to (0-2, 0=continue) [0]: 2
 $ uv run python -m src.main \
   --theme "AIの未来" \
   --language ja \
-  --model gemini-2.5-flash \
+  --model global.anthropic.claude-haiku-4-5-20251001-v1:0 \
   --num-outlines 3
 
   PHASE 1 (Speculate): Generating 3 Outline Candidates

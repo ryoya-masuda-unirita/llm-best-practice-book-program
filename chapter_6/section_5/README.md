@@ -133,7 +133,7 @@ cp .envrc.example .envrc
 
 `.envrc` の内容:
 ```bash
-GEMINI_API_KEY=<your_gemini_api_key_here>
+AWS_REGION=us-east-1
 ```
 
 2. **依存関係のインストール**
@@ -150,7 +150,7 @@ uv sync
 uv run python -m src.main --query "全生徒の成績を分析してください"
 
 # モデルを指定
-uv run python -m src.main --model GEMINI_2_5_FLASH --query "数学の成績を分析してください"
+uv run python -m src.main --model CLAUDE_HAIKU_4_5 --query "数学の成績を分析してください"
 
 # 結果をファイルに保存
 uv run python -m src.main --query "生徒a1b2c3d4の成績分析" --output-directory ./output
@@ -167,7 +167,7 @@ Usage: python -m src.main [OPTIONS]
   and curriculum information.
 
 Options:
-  -m, --model [GEMINI_2_5_PRO|GEMINI_2_5_FLASH|GEMINI_2_5_FLASH_LITE]
+  -m, --model [CLAUDE_SONNET_4_6|CLAUDE_HAIKU_4_5]
                                   The Gemini model to use for analysis.
   -q, --query TEXT                The query to analyze.  [required]
   -od, --output-directory PATH    Directory to save session log (JSON) and
@@ -215,7 +215,7 @@ $ uv run python -m src.main -q "数学の成績を分析してください"
 ```bash
 $ uv run python -m src.main -q "数学の成績を分析してください"
 [2026-02-08 09:49:43,389] [INFO] [__main__] [main.py:140] [main] Session ID: 1a3985a3-6939-4047-bdda-091f39664f9a
-[2026-02-08 09:49:43,389] [INFO] [__main__] [main.py:141] [main] Starting data analysis with model: gemini-2.5-flash
+[2026-02-08 09:49:43,389] [INFO] [__main__] [main.py:141] [main] Starting data analysis with model: global.anthropic.claude-haiku-4-5-20251001-v1:0
 [2026-02-08 09:49:43,389] [INFO] [__main__] [main.py:142] [main] Query: 数学の成績を分析してください
 [2026-02-08 09:49:44,625] [INFO] [src.service.request_llm] [request_llm.py:151] [process_with_function_calling] Initial response: sdk_http_response=HttpResponse(
   headers=<dict len=11>
@@ -236,7 +236,7 @@ $ uv run python -m src.main -q "数学の成績を分析してください"
   ),
   finish_reason=<FinishReason.STOP: 'STOP'>,
   index=0
-)] create_time=None model_version='gemini-2.5-flash' prompt_feedback=None response_id='qN2HaYPSGpOM0-kP6J_esAE' usage_metadata=GenerateContentResponseUsageMetadata(
+)] create_time=None model_version='global.anthropic.claude-haiku-4-5-20251001-v1:0' prompt_feedback=None response_id='qN2HaYPSGpOM0-kP6J_esAE' usage_metadata=GenerateContentResponseUsageMetadata(
   candidates_token_count=19,
   prompt_token_count=1838,
   prompt_tokens_details=[
@@ -290,7 +290,7 @@ $ uv run python -m src.main -q "数学の成績を分析してください"
   ),
   finish_reason=<FinishReason.STOP: 'STOP'>,
   index=0
-)] create_time=None model_version='gemini-2.5-flash' prompt_feedback=None response_id='rN2HaYXJIOmZ0-kPx5OZgQg' usage_metadata=GenerateContentResponseUsageMetadata(
+)] create_time=None model_version='global.anthropic.claude-haiku-4-5-20251001-v1:0' prompt_feedback=None response_id='rN2HaYXJIOmZ0-kPx5OZgQg' usage_metadata=GenerateContentResponseUsageMetadata(
   cache_tokens_details=[
     ModalityTokenCount(
       modality=<MediaModality.TEXT: 'TEXT'>,

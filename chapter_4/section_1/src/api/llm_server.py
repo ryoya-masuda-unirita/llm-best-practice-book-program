@@ -3,19 +3,19 @@
 import time
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, status
-from src.client.llm_client import GeminiModel
+from src.client.llm_client import AnthropicModel
 from src.logger import make_logger
 from src.model.knowledge import KnowledgeRegisterCommand
 from src.model.model import HealthResponse, LLMRequest, LLMResponse
 from src.prompt.prompt import make_prompt
-from src.service import request_gemini
+from src.service import request_anthropic
 from src.service.knowledge_command import register_knowledge_async
 
 logger = make_logger(__name__)
 
 app = FastAPI(
     title="LLM API Server",
-    description="API server for generating character descriptions using Gemini LLM",
+    description="API server for generating character descriptions using Anthropic LLM",
     version="1.0.0",
 )
 
@@ -28,22 +28,22 @@ async def health_check():
 
 @app.post("/generate", response_model=LLMResponse, tags=["LLM"])
 async def generate_character(request: LLMRequest, background_tasks: BackgroundTasks, store_knowledge: bool = True):
-    """Generate a character using Gemini LLM."""
+    """Generate a character using Anthropic LLM."""
     start_time = time.time()
 
     try:
-        if request.model not in GeminiModel.list_str():
+        if request.model not in AnthropicModel.list_str():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid model '{request.model}'. Valid models: {GeminiModel.list_str()}",
+                detail=f"Invalid model '{request.model}'. Valid models: {AnthropicModel.list_str()}",
             )
 
         prompt = make_prompt(character_request=request.character_request)
-        character = await request_gemini(model=request.model, prompt=prompt)
+        character = await request_anthropic(model=request.model, prompt=prompt)
 
         processing_time = (time.time() - start_time) * 1000
 
-        logger.info(f"Successfully generated character using gemini/{request.model} in {processing_time:.2f}ms")
+        logger.info(f"Successfully generated character using anthropic/{request.model} in {processing_time:.2f}ms")
 
         if store_knowledge:
             knowledge_command = KnowledgeRegisterCommand(

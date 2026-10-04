@@ -105,11 +105,11 @@ cp .envrc.example .envrc     # OPENAI_API_KEY / GEMINI_API_KEY / ANTHROPIC_API_K
 uv sync
 
 # Canonical example: 3 candidates, threshold 3.0
-uv run python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH -n 3 -qt 3.0
+uv run python -m src.main -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 -n 3 -qt 3.0
 
 # Cross-provider judge
-uv run python -m src.main -g FEMALE -a 25 -lp GEMINI -m GEMINI_2_5_FLASH \
-  -n 5 -qt 4.0 -jp OPENAI -jm GPT_5_4_MINI
+uv run python -m src.main -g FEMALE -a 25 -lp ANTHROPIC -m CLAUDE_HAIKU_4_5 \
+  -n 5 -qt 4.0 -jp OPENAI -jm GPT_5_4
 ```
 
 ### CLI Options

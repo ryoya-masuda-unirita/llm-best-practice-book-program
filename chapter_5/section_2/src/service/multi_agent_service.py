@@ -1,17 +1,17 @@
-"""Multi-agent contract review service using LangGraph and Google Gemini.
+"""Multi-agent contract review service using LangGraph and Google Anthropic.
 
 This module implements a multi-agent system using the orchestrator-worker pattern
 with LangGraph subgraphs. An orchestrator agent plans the workflow and dispatches
 tasks to specialized worker subgraphs using the Send API.
 """
 
+from langchain_aws import ChatBedrockConverse
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import Send
-from src.client.llm_client import GeminiModel
+from src.client.llm_client import AnthropicModel
 from src.config import config as global_config
 from src.logger import make_logger
 from src.model.multi_agent_model import (
@@ -61,11 +61,11 @@ def document_parser_node(state: AgentState, config: RunnableConfig) -> dict:
     """Parse the contract document into structured clauses."""
     logger.info("Document Parser Agent: Starting document parsing...")
 
-    model_name = config.get("configurable", {}).get("model", GeminiModel.GEMINI_2_5_PRO)
-    base_model = ChatGoogleGenerativeAI(
+    model_name = config.get("configurable", {}).get("model", AnthropicModel.CLAUDE_SONNET_4_6)
+    base_model = ChatBedrockConverse(
         model=model_name,
         temperature=0,
-        api_key=global_config.gemini_api_key,
+        region_name=global_config.aws_region,
     )
     model = base_model.with_structured_output(DocumentParserResponse)
 
@@ -93,11 +93,11 @@ def clause_classifier_node(state: AgentState, config: RunnableConfig) -> dict:
         logger.warning("Clause Classifier Agent: No clauses to classify")
         return {"clause_categories": []}
 
-    model_name = config.get("configurable", {}).get("model", GeminiModel.GEMINI_2_5_PRO)
-    base_model = ChatGoogleGenerativeAI(
+    model_name = config.get("configurable", {}).get("model", AnthropicModel.CLAUDE_SONNET_4_6)
+    base_model = ChatBedrockConverse(
         model=model_name,
         temperature=0,
-        api_key=global_config.gemini_api_key,
+        region_name=global_config.aws_region,
     )
     model = base_model.with_structured_output(ClauseClassifierResponse)
 
@@ -125,11 +125,11 @@ def risk_assessment_node(state: AgentState, config: RunnableConfig) -> dict:
         logger.warning("Risk Assessment Agent: No clauses to assess")
         return {"risk_assessments": []}
 
-    model_name = config.get("configurable", {}).get("model", GeminiModel.GEMINI_2_5_PRO)
-    base_model = ChatGoogleGenerativeAI(
+    model_name = config.get("configurable", {}).get("model", AnthropicModel.CLAUDE_SONNET_4_6)
+    base_model = ChatBedrockConverse(
         model=model_name,
         temperature=0,
-        api_key=global_config.gemini_api_key,
+        region_name=global_config.aws_region,
     )
     model = base_model.with_structured_output(RiskAssessmentResponse)
 
@@ -161,11 +161,11 @@ def diff_checker_node(state: AgentState, config: RunnableConfig) -> dict:
         logger.warning("Diff Checker Agent: No standard template provided")
         return {"diffs": []}
 
-    model_name = config.get("configurable", {}).get("model", GeminiModel.GEMINI_2_5_PRO)
-    base_model = ChatGoogleGenerativeAI(
+    model_name = config.get("configurable", {}).get("model", AnthropicModel.CLAUDE_SONNET_4_6)
+    base_model = ChatBedrockConverse(
         model=model_name,
         temperature=0,
-        api_key=global_config.gemini_api_key,
+        region_name=global_config.aws_region,
     )
     model = base_model.with_structured_output(DiffCheckerResponse)
 
@@ -198,11 +198,11 @@ def amendment_proposer_node(state: AgentState, config: RunnableConfig) -> dict:
         logger.info("Amendment Proposer Agent: No high-risk clauses found")
         return {"amendments": []}
 
-    model_name = config.get("configurable", {}).get("model", GeminiModel.GEMINI_2_5_PRO)
-    base_model = ChatGoogleGenerativeAI(
+    model_name = config.get("configurable", {}).get("model", AnthropicModel.CLAUDE_SONNET_4_6)
+    base_model = ChatBedrockConverse(
         model=model_name,
         temperature=0.3,
-        api_key=global_config.gemini_api_key,
+        region_name=global_config.aws_region,
     )
     model = base_model.with_structured_output(AmendmentProposerResponse)
 
@@ -226,11 +226,11 @@ def report_generator_node(state: AgentState, config: RunnableConfig) -> dict:
     """Generate the final review report."""
     logger.info("Report Generator Agent: Starting report generation...")
 
-    model_name = config.get("configurable", {}).get("model", GeminiModel.GEMINI_2_5_PRO)
-    base_model = ChatGoogleGenerativeAI(
+    model_name = config.get("configurable", {}).get("model", AnthropicModel.CLAUDE_SONNET_4_6)
+    base_model = ChatBedrockConverse(
         model=model_name,
         temperature=0.3,
-        api_key=global_config.gemini_api_key,
+        region_name=global_config.aws_region,
     )
     model = base_model.with_structured_output(ReportGeneratorResponse)
 
@@ -287,11 +287,11 @@ def orchestrator_node(state: AgentState, config: RunnableConfig) -> dict:
     """Orchestrator agent that plans the contract review workflow."""
     logger.info("Orchestrator Agent: Planning contract review workflow...")
 
-    model_name = config.get("configurable", {}).get("model", GeminiModel.GEMINI_2_5_PRO)
-    base_model = ChatGoogleGenerativeAI(
+    model_name = config.get("configurable", {}).get("model", AnthropicModel.CLAUDE_SONNET_4_6)
+    base_model = ChatBedrockConverse(
         model=model_name,
         temperature=0,
-        api_key=global_config.gemini_api_key,
+        region_name=global_config.aws_region,
     )
     model = base_model.with_structured_output(OrchestratorResponse)
 
@@ -626,7 +626,7 @@ def create_contract_review_graph() -> CompiledStateGraph:
 async def run_contract_review(
     contract_text: str,
     standard_template: str,
-    model: str = GeminiModel.GEMINI_2_5_PRO,
+    model: str = AnthropicModel.CLAUDE_SONNET_4_6,
 ) -> str | None:
     """Run the contract review multi-agent system."""
     logger.info("Starting contract review multi-agent system")

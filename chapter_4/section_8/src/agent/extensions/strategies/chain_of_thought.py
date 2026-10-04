@@ -2,13 +2,13 @@
 
 from src.agent.core.base import Action, ActionType, Tool, ToolResult
 from src.agent.extensions.strategies.base_strategy import BaseStrategy
-from src.client.llm_client import GeminiModel
+from src.client.llm_client import AnthropicModel
 
 
 class ChainOfThoughtStrategy(BaseStrategy):
     """Chain-of-Thought strategy: Sequential reasoning steps."""
 
-    def __init__(self, model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH, max_steps: int = 10):
+    def __init__(self, model: AnthropicModel = AnthropicModel.CLAUDE_HAIKU_4_5, max_steps: int = 10):
         super().__init__("Chain-of-Thought", model, max_steps)
 
     def _build_history(self, context: dict[str, object]) -> str:

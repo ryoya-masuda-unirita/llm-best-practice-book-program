@@ -5,7 +5,7 @@ import os
 from functools import wraps
 
 import click
-from src.client.llm_client import GeminiModel, LLMProvider, google_genai_client
+from src.client.llm_client import AnthropicModel, LLMProvider, anthropic_client
 from src.logger import make_logger
 from src.service.runner_service import run_forget_replay_speculate_article_generation
 
@@ -38,9 +38,9 @@ def async_cmd(func):  # type: ignore
 @click.option(
     "--model",
     "-m",
-    type=click.Choice(GeminiModel.list_str(), case_sensitive=False),
+    type=click.Choice(AnthropicModel.list_str(), case_sensitive=False),
     required=True,
-    help="The model to use (e.g., gemini-2.5-flash).",
+    help="The model to use (e.g., global.anthropic.claude-haiku-4-5-20251001-v1:0).",
 )
 @click.option(
     "--output-directory",
@@ -84,29 +84,29 @@ async def main(
 Configuration:
   Theme: {theme}
   Language: {language}
-  LLM Provider: {LLMProvider.GEMINI.value}
+  LLM Provider: {LLMProvider.ANTHROPIC.value}
   Model: {model}
   Mode: {"Automatic" if auto_select else "Interactive"}
   Speculation: {speculation_mode} ({num_outlines} outline(s))
 """
     )
 
-    if model.lower() not in GeminiModel.list_str():
-        raise ValueError(f"Invalid model '{model}' for provider '{LLMProvider.GEMINI.value}'.")
+    if model.lower() not in AnthropicModel.list_str():
+        raise ValueError(f"Invalid model '{model}' for provider '{LLMProvider.ANTHROPIC.value}'.")
 
     os.makedirs(output_directory, exist_ok=True)
 
     await run_forget_replay_speculate_article_generation(
         theme=theme,
         language=language,  # type: ignore
-        llm_provider=LLMProvider.GEMINI,
+        llm_provider=LLMProvider.ANTHROPIC,
         model=model.lower(),
         output_directory=output_directory,
         auto_select=auto_select,
         num_outlines=num_outlines,
     )
 
-    await google_genai_client.aio.aclose()
+    await anthropic_client.close()
 
 
 if __name__ == "__main__":

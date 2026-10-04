@@ -6,10 +6,9 @@ import re
 from dataclasses import dataclass, field
 from typing import TypeVar, overload
 
-from google.genai.types import GenerateContentConfig
 from pydantic import BaseModel
 from src.agent.base import Action, ActionType, Strategy, Tool, ToolResult
-from src.client.llm_client import GeminiModel, google_genai_client
+from src.client.llm_client import AnthropicModel, anthropic_client
 from src.logger import make_logger
 
 T = TypeVar("T", bound=BaseModel)
@@ -36,7 +35,7 @@ class ThoughtTreeLevel:
 class BaseStrategy(Strategy):
     """Base strategy with common LLM interaction logic."""
 
-    def __init__(self, name: str, model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH, max_iterations: int = 10):
+    def __init__(self, name: str, model: AnthropicModel = AnthropicModel.CLAUDE_HAIKU_4_5, max_iterations: int = 10):
         super().__init__(name)
         self.model = model
         self.max_iterations = max_iterations
@@ -62,23 +61,23 @@ class BaseStrategy(Strategy):
             If response_schema is provided, returns a validated instance of that model.
         """
         try:
-            config = None
+            messages = [{"role": "user", "content": prompt}]
+
             if response_schema is not None:
-                config = GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=response_schema,
+                response = anthropic_client.messages.parse(
+                    model=self.model,
+                    max_tokens=4096,
+                    messages=messages,
+                    output_format=response_schema,
                 )
+                return response.parsed_output
 
-            response = google_genai_client.models.generate_content(
+            response = anthropic_client.messages.create(
                 model=self.model,
-                contents=prompt,
-                config=config,
+                max_tokens=4096,
+                messages=messages,
             )
-
-            if response_schema is not None:
-                return response_schema.model_validate_json(response.text)
-
-            return response.text
+            return response.content[0].text
         except Exception as e:
             if response_schema is not None:
                 raise
@@ -264,7 +263,7 @@ class BaseStrategy(Strategy):
 class ChainOfThoughtStrategy(BaseStrategy):
     """Chain-of-Thought strategy: Sequential reasoning steps."""
 
-    def __init__(self, model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH, max_steps: int = 10):
+    def __init__(self, model: AnthropicModel = AnthropicModel.CLAUDE_HAIKU_4_5, max_steps: int = 10):
         super().__init__("Chain-of-Thought", model, max_steps)
 
     def think(self, goal: str, context: dict[str, object], available_tools: list[Tool]) -> Action:
@@ -314,7 +313,7 @@ Your response:"""
 class ReActStrategy(BaseStrategy):
     """ReAct strategy: Reasoning and Acting in sync."""
 
-    def __init__(self, model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH, max_iterations: int = 10):
+    def __init__(self, model: AnthropicModel = AnthropicModel.CLAUDE_HAIKU_4_5, max_iterations: int = 10):
         super().__init__("ReAct", model, max_iterations)
 
     def think(self, goal: str, context: dict[str, object], available_tools: list[Tool]) -> Action:
@@ -376,7 +375,9 @@ Your response:"""
 class TreeOfThoughtStrategy(BaseStrategy):
     """Tree-of-Thought strategy: Explores multiple reasoning paths."""
 
-    def __init__(self, model: GeminiModel = GeminiModel.GEMINI_2_5_FLASH, max_depth: int = 3, branch_factor: int = 3):
+    def __init__(
+        self, model: AnthropicModel = AnthropicModel.CLAUDE_HAIKU_4_5, max_depth: int = 3, branch_factor: int = 3
+    ):
         super().__init__("Tree-of-Thought", model, max_depth)
         self.branch_factor = branch_factor
         self.thought_tree: list[ThoughtTreeLevel] = []
